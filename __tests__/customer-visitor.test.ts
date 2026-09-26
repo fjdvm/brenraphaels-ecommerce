@@ -87,6 +87,7 @@ describe("Visitor classification", () => {
         contactNumber: "09171234567",
         addresses: [
           {
+            id: expect.any(Number),
             label: "Home",
             street: "123 Katipunan Avenue",
             barangay: "Loyola Heights",

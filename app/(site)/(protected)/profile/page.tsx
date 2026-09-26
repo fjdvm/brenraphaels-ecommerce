@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AddressForms } from "@/components/features/customer/address-forms";
 import { ContactNumberForm } from "@/components/features/customer/contact-number-form";
 import { Card } from "@/components/ui/card";
 import { requireCustomer } from "@/lib/customer/current-visitor";
@@ -24,30 +25,7 @@ export default async function ProfilePage() {
         <h2 className="mt-8 border-t border-outline-variant/60 pt-6 font-serif text-2xl text-primary">
           Addresses
         </h2>
-        <ul className="mt-4 space-y-4">
-          {customer.addresses.map((address, index) => (
-            <li
-              key={index}
-              className="rounded-xl border border-outline-variant/60 p-4 text-on-surface"
-            >
-              <p className="font-semibold">
-                {address.label}
-                {address.isDefault ? (
-                  <span className="ml-2 rounded-full bg-secondary/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-secondary">
-                    Default address
-                  </span>
-                ) : null}
-              </p>
-              <p className="mt-1 text-on-surface-variant">
-                {address.street}, {address.barangay}
-                <br />
-                {address.city}, {address.province} {address.postalCode}
-                <br />
-                {address.country}
-              </p>
-            </li>
-          ))}
-        </ul>
+        <AddressForms addresses={customer.addresses} />
       </Card>
     </section>
   );

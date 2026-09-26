@@ -26,6 +26,7 @@ export function createVisitorStore<
 
       const customerAddresses = await db
         .select({
+          id: addresses.id,
           label: addresses.label,
           street: addresses.street,
           barangay: addresses.barangay,

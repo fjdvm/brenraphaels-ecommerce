@@ -1,4 +1,5 @@
 export type CustomerAddress = {
+  id: number;
   label: string;
   street: string;
   barangay: string;

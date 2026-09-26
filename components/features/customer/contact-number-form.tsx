@@ -3,12 +3,14 @@
 import { useActionState } from "react";
 
 import {
-  initialProfileContactNumberState,
+  type ProfileContactNumberState,
   saveContactNumber,
 } from "@/app/(site)/(protected)/profile/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+const initialProfileContactNumberState: ProfileContactNumberState = {};
 
 export function ContactNumberForm({
   email,
