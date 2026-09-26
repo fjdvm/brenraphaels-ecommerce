@@ -6,7 +6,7 @@ import { useActionState } from "react";
 import {
   initialSignUpFormState,
   submitSignUp,
-} from "@/app/(auth)/signup/actions";
+} from "@/app/(auth)/(guest)/signup/actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

@@ -10,7 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function ResendVerificationForm() {
+export function ResendVerificationForm({
+  defaultEmail,
+}: {
+  defaultEmail?: string;
+}) {
   const [state, action, pending] = useActionState(
     resendVerificationEmail,
     initialResendVerificationState,
@@ -24,6 +28,7 @@ export function ResendVerificationForm() {
         name="email"
         type="email"
         autoComplete="email"
+        defaultValue={defaultEmail}
         required
       />
       <Button className="w-full" disabled={pending} type="submit">

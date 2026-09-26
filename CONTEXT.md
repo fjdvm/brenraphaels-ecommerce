@@ -31,3 +31,7 @@ _Avoid_: Location, shipping info
 **Default address**:
 The one Address of a Customer that is pre-selected when they need to choose where to deliver.
 _Avoid_: Primary address, main address
+
+**Visitor**:
+Anyone using the site, classified as signed out, signed in but still needing to finish their details, or a complete Customer.
+_Avoid_: User, guest

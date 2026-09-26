@@ -1,7 +1,10 @@
 import { createNeonAuth } from "@neondatabase/auth/next/server";
+import { connection } from "next/server";
 
 import type { NeonAuth } from "../customer/sign-up";
 import type { VerificationAuth } from "../customer/email-verification";
+import type { SignInAuth } from "../customer/sign-in";
+import type { VisitorSession } from "../customer/visitor";
 
 function getNeonAuth() {
   const baseUrl = process.env.NEON_AUTH_BASE_URL;
@@ -54,3 +57,28 @@ export const neonVerificationAuth: VerificationAuth = {
 
   sendVerificationEmail,
 };
+
+export const neonSignInAuth: SignInAuth = {
+  async signIn({ email, password }) {
+    const result = await getNeonAuth().signIn.email({ email, password });
+    if (!result.error) {
+      return "signed-in";
+    }
+
+    // Neon only reports an unverified email after the password was right, so
+    // this does not reveal whether an email has an account.
+    return result.error.code === "EMAIL_NOT_VERIFIED" ? "unverified" : "invalid";
+  },
+};
+
+export async function getVisitorSession(): Promise<VisitorSession> {
+  // Neon Auth swallows Next.js's "dynamic usage" signal and reports no session,
+  // so opt in to per-request rendering ourselves before it reads cookies.
+  await connection();
+  const { data } = await getNeonAuth().getSession();
+  return data?.user ? { userId: data.user.id, email: data.user.email } : null;
+}
+
+export async function signOutVisitor() {
+  await getNeonAuth().signOut();
+}

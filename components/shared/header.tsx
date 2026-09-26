@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Menu, X } from "lucide-react";
 
 const links = [
@@ -13,7 +13,13 @@ const links = [
   { href: "/contact", label: "Contact" },
 ];
 
-export function Header() {
+export function Header({
+  desktopAccount,
+  mobileAccount,
+}: {
+  desktopAccount: ReactNode;
+  mobileAccount: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <header className="sticky top-0 z-20 border-b border-outline-variant/60 bg-surface/95 backdrop-blur">
@@ -46,6 +52,7 @@ export function Header() {
             </Link>
           ))}
         </nav>
+        {desktopAccount}
         <button
           type="button"
           className="p-2 text-primary md:hidden"
@@ -68,6 +75,7 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          {mobileAccount}
         </nav>
       )}
     </header>
