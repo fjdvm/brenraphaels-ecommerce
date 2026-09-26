@@ -47,9 +47,9 @@ export async function requestCustomerPasswordReset(
   try {
     await dependencies.auth.requestPasswordReset(parsed.data);
   } catch (error) {
-    // A failure that only happens for real accounts (for example, the email
-    // could not be sent) would reveal which emails have one, so the reply stays
-    // the same and the failure is logged for us instead.
+    // A failure that only happens for real Customers (for example, the email
+    // could not be sent) would reveal which emails belong to one, so the reply
+    // stays the same and the failure is logged for us instead.
     console.error("Password reset request failed", error);
   }
 

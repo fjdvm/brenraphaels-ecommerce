@@ -89,8 +89,9 @@ export const neonPasswordResetAuth: PasswordResetAuth = {
     }
 
     // Better Auth spends a reset link when it is used and gives one error for
-    // both an expired and a used link.
-    if (result.error.code === "INVALID_TOKEN") {
+    // both an expired and a used link. Verification also sees TOKEN_EXPIRED,
+    // so accept it here in case Neon's hosted service sends it too.
+    if (result.error.code === "INVALID_TOKEN" || result.error.code === "TOKEN_EXPIRED") {
       return "invalid";
     }
     throw new Error(result.error.message);

@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 describe("Requesting a password reset", () => {
-  test("gives the same reply for an email with an account and one without", async () => {
+  test("gives the same reply for an email of a Customer and one without", async () => {
     const known = await requestCustomerPasswordReset("jane@example.com", {
       auth: authStub(),
     });
@@ -35,7 +35,7 @@ describe("Requesting a password reset", () => {
     expect(known).toEqual({ status: "requested" });
   });
 
-  test("gives the same reply when sending fails, so a failure cannot reveal an account", async () => {
+  test("gives the same reply when sending fails, so a failure cannot reveal a Customer", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const auth = authStub();
     auth.requestPasswordReset.mockRejectedValue(new Error("mail is down"));

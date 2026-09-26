@@ -24,8 +24,8 @@ export function ForgotPasswordForm() {
       <Card className="mx-auto w-full max-w-md rounded-2xl p-6 text-center shadow-sm sm:p-8">
         <h1 className="font-serif text-4xl text-primary">Check your email</h1>
         <p className="mt-4 text-on-surface-variant" role="status">
-          If <strong>{state.requestedEmail}</strong> has an account, we&apos;ve
-          sent a link to reset its password.
+          If <strong>{state.requestedEmail}</strong> belongs to a Customer,
+          we&apos;ve sent a link to reset the password.
         </p>
         <p className="mt-6 text-sm text-on-surface-variant">
           <Link className="text-primary underline" href="/signin">
