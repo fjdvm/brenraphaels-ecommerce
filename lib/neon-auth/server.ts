@@ -1,4 +1,5 @@
 import { createNeonAuth } from "@neondatabase/auth/next/server";
+import { cookies } from "next/headers";
 import { connection } from "next/server";
 
 import type { NeonAuth } from "../customer/sign-up";
@@ -6,6 +7,7 @@ import type { VerificationAuth } from "../customer/email-verification";
 import type { PasswordResetAuth } from "../customer/password-reset";
 import type { SignInAuth } from "../customer/sign-in";
 import type { VisitorSession } from "../customer/visitor";
+import { verifyEmailWithNeon } from "./verify-email";
 
 function getNeonAuth() {
   const baseUrl = process.env.NEON_AUTH_BASE_URL;
@@ -48,12 +50,19 @@ export const neonAuth: NeonAuth = {
 
 export const neonVerificationAuth: VerificationAuth = {
   async verifyEmail(token) {
-    const result = await getNeonAuth().verifyEmail({ query: { token } });
-    if (!result.error) {
-      return "verified";
+    const baseUrl = process.env.NEON_AUTH_BASE_URL;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    if (!baseUrl || !siteUrl) {
+      throw new Error("NEON_AUTH_BASE_URL and NEXT_PUBLIC_SITE_URL are required.");
     }
 
-    return result.error.code === "TOKEN_EXPIRED" ? "expired" : "invalid";
+    const cookieStore = await cookies();
+    return verifyEmailWithNeon({
+      baseUrl,
+      token,
+      origin: new URL(siteUrl).origin,
+      setCookie: ({ name, value, options }) => cookieStore.set(name, value, options),
+    });
   },
 
   sendVerificationEmail,

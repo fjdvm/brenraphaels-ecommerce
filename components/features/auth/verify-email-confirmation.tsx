@@ -20,13 +20,16 @@ export function VerifyEmailConfirmation({ token }: { token?: string }) {
     }
     didConfirm.current = true;
 
-    void confirmVerificationEmail(token).then((verificationResult) => {
-      if (verificationResult === "verified") {
-        router.replace("/profile");
-        return;
-      }
-      setResult(verificationResult);
-    });
+    confirmVerificationEmail(token)
+      // A failed call must not leave the spinner up; the Customer can ask for a new email.
+      .catch(() => "invalid" as const)
+      .then((verificationResult) => {
+        if (verificationResult === "verified") {
+          router.replace("/profile");
+          return;
+        }
+        setResult(verificationResult);
+      });
   }, [router, token]);
 
   if (result === "loading") {
