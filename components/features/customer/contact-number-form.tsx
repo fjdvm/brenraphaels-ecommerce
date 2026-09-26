@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { sanitizePhoneInput } from "@/components/features/customer/input-sanitizers";
 
 const initialProfileContactNumberState: ProfileContactNumberState = {};
 
@@ -43,6 +44,7 @@ export function ContactNumberForm({
           autoComplete="tel"
           inputMode="tel"
           defaultValue={contactNumber}
+          onInput={sanitizePhoneInput}
           aria-describedby={error ? errorId : undefined}
           aria-invalid={Boolean(error)}
           required

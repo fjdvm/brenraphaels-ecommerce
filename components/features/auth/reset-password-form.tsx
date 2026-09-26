@@ -12,7 +12,7 @@ import { passwordMaximumLength } from "@/lib/validators/fields";
 
 function InvalidLink() {
   return (
-    <Card className="mx-auto w-full max-w-md rounded-2xl p-6 text-center shadow-sm sm:p-8">
+    <Card className="mx-auto w-full max-w-md p-6 text-center shadow-sm sm:p-8">
       <h1 className="font-serif text-4xl text-primary">Link not valid</h1>
       <p className="mt-4 text-on-surface-variant" role="alert">
         This reset link has expired or has already been used. Request a new one
@@ -39,7 +39,7 @@ export function ResetPasswordForm({ token }: { token?: string }) {
 
   if (state.status === "reset") {
     return (
-      <Card className="mx-auto w-full max-w-md rounded-2xl p-6 text-center shadow-sm sm:p-8">
+      <Card className="mx-auto w-full max-w-md p-6 text-center shadow-sm sm:p-8">
         <h1 className="font-serif text-4xl text-primary">Password updated</h1>
         <p className="mt-4 text-on-surface-variant" role="status">
           Your password has been changed. You can now sign in with it.
@@ -54,7 +54,7 @@ export function ResetPasswordForm({ token }: { token?: string }) {
   const errors = state.fieldErrors ?? {};
 
   return (
-    <Card className="mx-auto w-full max-w-md rounded-2xl p-6 shadow-sm sm:p-8">
+    <Card className="mx-auto w-full max-w-md p-6 shadow-sm sm:p-8">
       <div className="mb-7 text-center">
         <h1 className="font-serif text-4xl text-primary">Reset password</h1>
         <p className="mt-2 text-on-surface-variant">Choose a new password.</p>

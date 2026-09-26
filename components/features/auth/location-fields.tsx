@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -20,6 +20,7 @@ type LocationSelectProps = {
   disabled?: boolean;
   error?: string;
   onChange: (value: string) => void;
+  idSuffix?: string;
 };
 
 function LocationSelect({
@@ -31,16 +32,18 @@ function LocationSelect({
   disabled,
   error,
   onChange,
+  idSuffix = "",
 }: LocationSelectProps) {
-  const errorId = `${name}-error`;
+  const id = `${name}${idSuffix}`;
+  const errorId = `${id}-error`;
   const problem = error ?? (choices.failed ? "We couldn't load the list. Please try again." : undefined);
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={name} required>
+      <Label htmlFor={id} required>
         {label}
       </Label>
       <Select
-        id={name}
+        id={id}
         name={name}
         value={value}
         required
@@ -81,16 +84,53 @@ async function fetchOptions(query: Record<string, string>, signal: AbortSignal) 
 export function LocationFields({
   provinces,
   errors,
+  defaults,
+  idSuffix,
 }: {
   provinces: string[];
   errors: FieldErrors;
+  defaults?: { province?: string; city?: string; barangay?: string };
+  idSuffix?: string;
 }) {
-  const [province, setProvince] = useState("");
-  const [city, setCity] = useState("");
-  const [barangay, setBarangay] = useState("");
-  const [cities, setCities] = useState<Choices>(noChoices);
-  const [barangays, setBarangays] = useState<Choices>(noChoices);
+  const defaultProvince = defaults?.province;
+  const defaultCity = defaults?.city;
+  const [province, setProvince] = useState(defaults?.province ?? "");
+  const [city, setCity] = useState(defaults?.city ?? "");
+  const [barangay, setBarangay] = useState(defaults?.barangay ?? "");
+  const [cities, setCities] = useState<Choices>(() =>
+    defaults?.province ? { options: [], loading: true, failed: false } : noChoices,
+  );
+  const [barangays, setBarangays] = useState<Choices>(() =>
+    defaults?.city ? { options: [], loading: true, failed: false } : noChoices,
+  );
   const latest = useRef<AbortController>(null);
+
+  // Existing profile Addresses need their dependent choices restored on load.
+  useEffect(() => {
+    if (!defaultProvince || !defaultCity) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    fetchOptions({ province: defaultProvince }, controller.signal)
+      .then(async (cityOptions) => {
+        if (cancelled) return;
+        setCities({ options: cityOptions, loading: false, failed: false });
+        const barangayOptions = await fetchOptions(
+          { province: defaultProvince, city: defaultCity },
+          controller.signal,
+        );
+        if (!cancelled) setBarangays({ options: barangayOptions, loading: false, failed: false });
+      })
+      .catch(() => {
+        if (!cancelled && !controller.signal.aborted) {
+          setCities({ options: [], loading: false, failed: true });
+          setBarangays(noChoices);
+        }
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [defaultProvince, defaultCity]);
 
   /** Loads a list, ignoring it if the Customer has since picked something else. */
   function load(
@@ -146,6 +186,7 @@ export function LocationFields({
           choices={{ options: provinces, loading: false, failed: false }}
           error={errors.province?.[0]}
           onChange={chooseProvince}
+          idSuffix={idSuffix}
         />
         <LocationSelect
           name="city"
@@ -156,6 +197,7 @@ export function LocationFields({
           disabled={!province}
           error={errors.city?.[0]}
           onChange={chooseCity}
+          idSuffix={idSuffix}
         />
       </div>
       <LocationSelect
@@ -167,6 +209,7 @@ export function LocationFields({
         disabled={!city}
         error={errors.barangay?.[0]}
         onChange={setBarangay}
+        idSuffix={idSuffix}
       />
     </>
   );

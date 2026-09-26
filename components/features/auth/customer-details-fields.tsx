@@ -1,9 +1,16 @@
 import Link from "next/link";
+import type { FormEventHandler } from "react";
 
 import { LocationFields } from "@/components/features/auth/location-fields";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
+import {
+  sanitizeNameInput,
+  sanitizePhoneInput,
+  sanitizePostalCodeInput,
+  sanitizeStreetInput,
+} from "@/components/features/customer/input-sanitizers";
 
 export type FieldErrors = Record<string, string[] | undefined>;
 
@@ -16,6 +23,7 @@ type FieldProps = {
   optional?: boolean;
   defaultValue?: string;
   error?: string;
+  onInput?: FormEventHandler<HTMLInputElement>;
 };
 
 export function Field({
@@ -27,6 +35,7 @@ export function Field({
   optional,
   defaultValue,
   error,
+  onInput,
 }: FieldProps) {
   const errorId = `${name}-error`;
   const Control = type === "password" ? PasswordInput : Input;
@@ -48,6 +57,7 @@ export function Field({
         inputMode={type === "tel" ? "tel" : undefined}
         autoCapitalize={type === "email" ? "none" : undefined}
         spellCheck={type === "text" ? undefined : false}
+        onInput={onInput}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
         required={!optional}
@@ -84,6 +94,7 @@ export function NameFields({ errors, defaults }: NameFieldsProps) {
         maxLength={50}
         defaultValue={defaults?.firstName}
         error={errors.firstName?.[0]}
+        onInput={sanitizeNameInput}
       />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
@@ -94,6 +105,7 @@ export function NameFields({ errors, defaults }: NameFieldsProps) {
           optional
           defaultValue={defaults?.middleName}
           error={errors.middleName?.[0]}
+          onInput={sanitizeNameInput}
         />
         <Field
           name="lastName"
@@ -102,6 +114,7 @@ export function NameFields({ errors, defaults }: NameFieldsProps) {
           maxLength={50}
           defaultValue={defaults?.lastName}
           error={errors.lastName?.[0]}
+          onInput={sanitizeNameInput}
         />
       </div>
     </>
@@ -124,6 +137,7 @@ export function DeliveryFields({
         autoComplete="tel"
         maxLength={30}
         error={errors.contactNumber?.[0]}
+        onInput={sanitizePhoneInput}
       />
       <Field
         name="street"
@@ -131,14 +145,16 @@ export function DeliveryFields({
         autoComplete="street-address"
         maxLength={100}
         error={errors.street?.[0]}
+        onInput={sanitizeStreetInput}
       />
       <LocationFields provinces={provinces} errors={errors} />
       <Field
         name="postalCode"
         label="Postal code"
         autoComplete="postal-code"
-        maxLength={100}
+        maxLength={4}
         error={errors.postalCode?.[0]}
+        onInput={sanitizePostalCodeInput}
       />
       <p className="text-sm text-on-surface-variant">
         This becomes your Home Address and your Default address.

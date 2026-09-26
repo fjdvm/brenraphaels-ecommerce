@@ -5,7 +5,7 @@ import {
   signUpFormValues,
   signUpSteps,
 } from "../lib/customer/sign-up-schema";
-import { cleanEmail, cleanPhone, cleanText } from "../lib/validators/sanitize";
+import { cleanEmail, cleanName, cleanPhone, cleanText } from "../lib/validators/sanitize";
 
 const validSignUp = {
   firstName: "Jane",
@@ -35,6 +35,12 @@ describe("Sanitising text", () => {
     expect(cleanEmail("  Jane@Example.COM ")).toBe("jane@example.com");
     expect(cleanPhone("+63 917-123 (4567)")).toBe("+639171234567");
   });
+
+  test("uses consistent title case for names", () => {
+    expect(cleanName("fItZ")).toBe("Fitz");
+    expect(cleanName("dela cruz")).toBe("Dela Cruz");
+    expect(cleanName("anne-marie o'connor")).toBe("Anne-Marie O'Connor");
+  });
 });
 
 describe("Sign-up validation", () => {
@@ -42,7 +48,8 @@ describe("Sign-up validation", () => {
     const parsed = customerSignUpSchema.parse({
       ...validSignUp,
       firstName: "  Jane​  ",
-      middleName: "  Marie \t Anne ",
+      middleName: "  mARIE \t aNNE ",
+      lastName: "dOE",
       email: " JANE@Example.com ",
       contactNumber: "0917 123 4567",
       street: "123   Katipunan\tAvenue",
@@ -51,6 +58,7 @@ describe("Sign-up validation", () => {
     expect(parsed).toMatchObject({
       firstName: "Jane",
       middleName: "Marie Anne",
+      lastName: "Doe",
       email: "jane@example.com",
       contactNumber: "09171234567",
       street: "123 Katipunan Avenue",
@@ -84,6 +92,8 @@ describe("Sign-up validation", () => {
     ["lastName", "Doe123"],
     ["street", "12 <b>Main</b>"],
     ["postalCode", "11<08"],
+    ["postalCode", "11A8"],
+    ["postalCode", "108"],
     ["email", "jane@example.com\nbcc:evil@example.com"],
   ])("rejects markup and stray characters in %s", (field, value) => {
     expect(

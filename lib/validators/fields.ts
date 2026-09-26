@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { cleanEmail, cleanPhone, cleanText } from "./sanitize";
+import { cleanEmail, cleanName, cleanPhone, cleanText } from "./sanitize";
 
 /** Stops absurdly large input before it is sanitised; specific limits follow. */
 const maximumRawLength = 1_000;
@@ -36,6 +36,24 @@ export function textField(
     );
 }
 
+/** A text field whose persisted value follows the site's display-name casing. */
+export function nameTextField(
+  label: string,
+  rules: { min: number; max: number; pattern: RegExp; patternMessage: string },
+) {
+  return z
+    .string({ error: `${label} is required` })
+    .max(maximumRawLength, `Must be ${rules.max} characters or fewer`)
+    .transform(cleanName)
+    .pipe(
+      z
+        .string()
+        .min(rules.min, `${label} is required`)
+        .max(rules.max, `Must be ${rules.max} characters or fewer`)
+        .regex(rules.pattern, rules.patternMessage),
+    );
+}
+
 export function phoneField(
   label: string,
   rules: { pattern: RegExp; patternMessage: string },
@@ -58,6 +76,25 @@ export function optionalTextField(rules: {
     .max(maximumRawLength, `Must be ${rules.max} characters or fewer`)
     .nullish()
     .transform((value) => cleanText(value ?? ""))
+    .pipe(
+      z
+        .string()
+        .max(rules.max, `Must be ${rules.max} characters or fewer`)
+        .refine((value) => value === "" || rules.pattern.test(value), rules.patternMessage),
+    );
+}
+
+/** Optional name input, with the same casing rules as required name fields. */
+export function optionalNameField(rules: {
+  max: number;
+  pattern: RegExp;
+  patternMessage: string;
+}) {
+  return z
+    .string()
+    .max(maximumRawLength, `Must be ${rules.max} characters or fewer`)
+    .nullish()
+    .transform((value) => cleanName(value ?? ""))
     .pipe(
       z
         .string()

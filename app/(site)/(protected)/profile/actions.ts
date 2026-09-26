@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { locationErrors } from "@/lib/address/locations";
+
 import {
   createContactNumberStore,
   customerContactNumberSchema,
@@ -43,7 +45,6 @@ export async function saveContactNumber(
   if (!parsed.success) {
     return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
   }
-
   const customer = await requireCustomer();
   await updateCustomerContactNumber(parsed.data, {
     userId: customer.userId,
@@ -77,6 +78,10 @@ export async function addAddress(
   if (!parsed.success) {
     return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
   }
+  const badLocation = locationErrors(parsed.data);
+  if (Object.keys(badLocation).length > 0) {
+    return { fieldErrors: badLocation };
+  }
 
   const customer = await requireCustomer();
   await addCustomerAddress(parsed.data, {
@@ -98,6 +103,10 @@ export async function updateAddress(
   }
   if (!parsed.success) {
     return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
+  }
+  const badLocation = locationErrors(parsed.data);
+  if (Object.keys(badLocation).length > 0) {
+    return { fieldErrors: badLocation };
   }
 
   const customer = await requireCustomer();

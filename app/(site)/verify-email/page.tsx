@@ -10,9 +10,11 @@ export default async function VerifyEmailPage({
 }: VerifyEmailPageProps) {
   const { token } = await searchParams;
   return (
-    <Card className="mx-auto max-w-xl rounded-2xl p-8 text-center shadow-sm">
-      <h1 className="font-serif text-4xl text-primary">Verify your email</h1>
-      <VerifyEmailConfirmation token={typeof token === "string" ? token : undefined} />
-    </Card>
+    <section className="flex min-h-[calc(100vh-12rem)] items-center px-5 py-12 sm:px-8 sm:py-16">
+      <Card className="mx-auto w-full max-w-xl p-8 text-center shadow-sm">
+        <h1 className="font-serif text-4xl text-primary">Verify your email</h1>
+        <VerifyEmailConfirmation token={typeof token === "string" ? token : undefined} />
+      </Card>
+    </section>
   );
 }

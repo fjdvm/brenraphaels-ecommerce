@@ -3,10 +3,10 @@ import { z } from "zod";
 import {
   confirmPasswordField,
   emailField,
-  optionalTextField,
+  optionalNameField,
   passwordField,
   passwordsMatch,
-  textField,
+  nameTextField,
 } from "../validators/fields";
 import { cleanText } from "../validators/sanitize";
 import { addressFieldMaximumLength, addressFields } from "./address-fields";
@@ -33,7 +33,7 @@ const nameCharactersMessage =
   "Can only contain letters, spaces, hyphens, apostrophes, and periods";
 
 function nameField(label: string) {
-  return textField(label, {
+  return nameTextField(label, {
     min: 1,
     max: nameMaximumLength,
     pattern: nameCharacters,
@@ -43,7 +43,7 @@ function nameField(label: string) {
 
 export const nameFields = {
   firstName: nameField("First name"),
-  middleName: optionalTextField({
+  middleName: optionalNameField({
     max: nameMaximumLength,
     pattern: nameCharacters,
     patternMessage: nameCharactersMessage,

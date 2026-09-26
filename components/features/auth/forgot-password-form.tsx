@@ -20,7 +20,7 @@ export function ForgotPasswordForm() {
 
   if (state.requestedEmail) {
     return (
-      <Card className="mx-auto w-full max-w-md rounded-2xl p-6 text-center shadow-sm sm:p-8">
+      <Card className="mx-auto w-full max-w-md p-6 text-center shadow-sm sm:p-8">
         <h1 className="font-serif text-4xl text-primary">Check your email</h1>
         <p className="mt-4 text-on-surface-variant" role="status">
           If <strong>{state.requestedEmail}</strong> belongs to a Customer,
@@ -36,7 +36,7 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <Card className="mx-auto w-full max-w-md rounded-2xl p-6 shadow-sm sm:p-8">
+    <Card className="mx-auto w-full max-w-md p-6 shadow-sm sm:p-8">
       <div className="mb-7 text-center">
         <h1 className="font-serif text-4xl text-primary">Forgot password</h1>
         <p className="mt-2 text-on-surface-variant">

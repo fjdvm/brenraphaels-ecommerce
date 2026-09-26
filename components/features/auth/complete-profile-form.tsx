@@ -50,7 +50,7 @@ export function CompleteProfileForm({ email, defaults, provinces }: CompleteProf
   }
 
   return (
-    <Card className="mx-auto w-full max-w-lg rounded-2xl p-6 shadow-sm sm:p-8">
+    <Card className="mx-auto w-full max-w-lg p-6 shadow-sm sm:p-8">
       <h1 className="font-serif text-3xl text-primary">Complete your profile</h1>
       <p className="mt-3 text-on-surface-variant">
         Your login for <strong>{email}</strong> is ready. We just need a few more

@@ -12,20 +12,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LocationFields } from "@/components/features/auth/location-fields";
 import { addressLabels } from "@/lib/customer/address-fields";
 import type { CustomerAddress } from "@/lib/customer/visitor";
+import { sanitizePostalCodeInput, sanitizeStreetInput } from "./input-sanitizers";
 
 const initialProfileAddressState: ProfileAddressState = {};
 
-const addressFields = [
-  { name: "street", label: "Street address", autoComplete: "street-address" },
-  { name: "barangay", label: "Barangay", autoComplete: "address-level3" },
-  { name: "city", label: "City or municipality", autoComplete: "address-level2" },
-  { name: "province", label: "Province", autoComplete: "address-level1" },
-  { name: "postalCode", label: "Postal code", autoComplete: "postal-code" },
-] as const;
-
-export function AddressForms({ addresses }: { addresses: CustomerAddress[] }) {
+export function AddressForms({
+  addresses,
+  provinces,
+}: {
+  addresses: CustomerAddress[];
+  provinces: string[];
+}) {
   const [notice, setNotice] = useState<ProfileAddressState>({});
 
   return (
@@ -34,9 +34,9 @@ export function AddressForms({ addresses }: { addresses: CustomerAddress[] }) {
         {notice.message ? <Status state={notice} /> : null}
       </div>
       {addresses.map((address) => (
-        <AddressEditor key={address.id} address={address} onNotice={setNotice} />
+        <AddressEditor key={address.id} address={address} onNotice={setNotice} provinces={provinces} />
       ))}
-      <AddAddressForm />
+      <AddAddressForm provinces={provinces} />
     </div>
   );
 }
@@ -44,9 +44,11 @@ export function AddressForms({ addresses }: { addresses: CustomerAddress[] }) {
 function AddressEditor({
   address,
   onNotice,
+  provinces,
 }: {
   address: CustomerAddress;
   onNotice: (result: ProfileAddressState) => void;
+  provinces: string[];
 }) {
   const [state, action, pending] = useActionState(
     updateAddress,
@@ -72,7 +74,7 @@ function AddressEditor({
   );
 
   return (
-    <article className="rounded-xl border border-outline-variant/60 p-4 text-on-surface">
+    <article className="border border-outline-variant/60 p-4 text-on-surface">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold">
           {address.label}
@@ -96,7 +98,7 @@ function AddressEditor({
       <form action={action} className="mt-4 grid gap-4 sm:grid-cols-2">
         <input name="addressId" type="hidden" value={address.id} />
         <LabelSelect defaultValue={address.label} id={`label-${address.id}`} />
-        <AddressFieldValues address={address} errors={state.fieldErrors} />
+        <AddressFieldValues address={address} errors={state.fieldErrors} provinces={provinces} />
         <p className="text-sm text-on-surface-variant sm:col-span-2">Philippines</p>
         {state.message ? <Status state={state} /> : null}
         <div className="flex flex-wrap gap-2 sm:col-span-2">
@@ -115,15 +117,15 @@ function AddressEditor({
   );
 }
 
-function AddAddressForm() {
+function AddAddressForm({ provinces }: { provinces: string[] }) {
   const [state, action, pending] = useActionState(addAddress, initialProfileAddressState);
 
   return (
-    <form action={action} className="rounded-xl border border-outline-variant/60 p-4">
+    <form action={action} className="border border-outline-variant/60 p-4">
       <h3 className="font-semibold text-on-surface">Add an Address</h3>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <LabelSelect defaultValue="Home" id="new-label" />
-        <AddressFieldValues errors={state.fieldErrors} />
+        <AddressFieldValues errors={state.fieldErrors} provinces={provinces} />
         <p className="text-sm text-on-surface-variant sm:col-span-2">Country: Philippines</p>
         {state.message ? <Status state={state} /> : null}
         <Button disabled={pending} type="submit">
@@ -137,36 +139,63 @@ function AddAddressForm() {
 function AddressFieldValues({
   address,
   errors,
+  provinces,
 }: {
   address?: CustomerAddress;
   errors?: Record<string, string[] | undefined>;
+  provinces: string[];
 }) {
-  return addressFields.map((field) => {
-    const id = address ? `${field.name}-${address.id}` : `new-${field.name}`;
-    const error = errors?.[field.name]?.[0];
-    const errorId = `${id}-error`;
-    return (
-      <div className={field.name === "street" ? "sm:col-span-2" : ""} key={field.name}>
-        <Label htmlFor={id} required>
-          {field.label}
+  const streetError = errors?.street?.[0];
+  const postalError = errors?.postalCode?.[0];
+  const suffix = address ? `-${address.id}` : "-new";
+  return (
+    <>
+      <div className="sm:col-span-2">
+        <Label htmlFor={`street${suffix}`} required>
+          Street address
         </Label>
         <Input
-          aria-describedby={error ? errorId : undefined}
-          aria-invalid={Boolean(error)}
-          autoComplete={field.autoComplete}
-          defaultValue={address?.[field.name]}
-          id={id}
-          name={field.name}
+          aria-describedby={streetError ? `street${suffix}-error` : undefined}
+          aria-invalid={Boolean(streetError)}
+          autoComplete="street-address"
+          defaultValue={address?.street}
+          id={`street${suffix}`}
+          name="street"
+          onInput={sanitizeStreetInput}
           required
         />
-        {error ? (
-          <p className="mt-1 text-sm text-red-700" id={errorId} role="alert">
-            {error}
-          </p>
-        ) : null}
+        {streetError ? <FieldError id={`street${suffix}-error`} error={streetError} /> : null}
       </div>
-    );
-  });
+      <LocationFields
+        defaults={address}
+        errors={errors ?? {}}
+        idSuffix={suffix}
+        provinces={provinces}
+      />
+      <div>
+        <Label htmlFor={`postalCode${suffix}`} required>
+          Postal code
+        </Label>
+        <Input
+          aria-describedby={postalError ? `postalCode${suffix}-error` : undefined}
+          aria-invalid={Boolean(postalError)}
+          autoComplete="postal-code"
+          defaultValue={address?.postalCode}
+          id={`postalCode${suffix}`}
+          inputMode="numeric"
+          maxLength={4}
+          name="postalCode"
+          onInput={sanitizePostalCodeInput}
+          required
+        />
+        {postalError ? <FieldError id={`postalCode${suffix}-error`} error={postalError} /> : null}
+      </div>
+    </>
+  );
+}
+
+function FieldError({ id, error }: { id: string; error: string }) {
+  return <p className="mt-1 text-sm text-red-700" id={id} role="alert">{error}</p>;
 }
 
 function LabelSelect({ defaultValue, id }: { defaultValue: string; id: string }) {

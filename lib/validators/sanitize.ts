@@ -12,6 +12,15 @@ export function cleanText(value: string) {
     .trim();
 }
 
+/** Normalises a person's name without changing punctuation that is part of it. */
+export function cleanName(value: string) {
+  return cleanText(value).replace(/(^|[\s'.-])(\p{L})/gu, (_, prefix: string, letter: string) =>
+    `${prefix}${letter.toLocaleUpperCase()}`,
+  ).replace(/(\p{L})(\p{L}*)/gu, (_, first: string, rest: string) =>
+    `${first}${rest.toLocaleLowerCase()}`,
+  );
+}
+
 export function cleanEmail(value: string) {
   return cleanText(value).toLowerCase();
 }
