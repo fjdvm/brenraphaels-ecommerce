@@ -115,11 +115,11 @@ describe("POST /api/webhooks/neon-auth", () => {
         to: "customer@example.test",
       }),
     );
-    expect(sendMail.mock.calls[0][0].html).toContain("#5B21B6");
+    expect(sendMail.mock.calls[0][0].html).toContain("#452175");
     expect(sendMail.mock.calls[0][0].html).toContain(
       'href="https://shop.example.test/verify-email?token=neon-token"',
     );
-    expect(sendMail.mock.calls[0][0].html.match(/<a /g)).toHaveLength(1);
+    expect(sendMail.mock.calls[0][0].html.match(/<a /g)).toHaveLength(2); // button and pasted-link fallback
   });
 
   it("sends password-reset links to this app's reset-password page", async () => {

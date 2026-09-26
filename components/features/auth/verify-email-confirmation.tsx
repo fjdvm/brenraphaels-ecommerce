@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { welcomePath } from "@/lib/auth/route-access";
 import { confirmVerificationEmail } from "@/app/(site)/verify-email/actions";
 
 import { ResendVerificationForm } from "./resend-verification-form";
@@ -25,7 +26,7 @@ export function VerifyEmailConfirmation({ token }: { token?: string }) {
       .catch(() => "invalid" as const)
       .then((verificationResult) => {
         if (verificationResult === "verified") {
-          router.replace("/profile");
+          router.replace(welcomePath);
           return;
         }
         setResult(verificationResult);

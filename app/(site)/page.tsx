@@ -1,8 +1,37 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+import { WelcomeModal } from "@/components/features/home/welcome-modal";
+import { completeProfilePath } from "@/lib/auth/route-access";
+import { currentVisitor } from "@/lib/customer/current-visitor";
+
+type HomeProps = {
+  searchParams: Promise<{ welcome?: string | string[] }>;
+};
+
+/** Only asks who is signed in when the welcome was requested; a failed lookup just skips it. */
+async function visitorToWelcome(welcome: string | string[] | undefined) {
+  if (welcome !== "1") {
+    return undefined;
+  }
+  try {
+    return await currentVisitor();
+  } catch {
+    return undefined;
+  }
+}
+
+export default async function Home({ searchParams }: HomeProps) {
+  const visitor = await visitorToWelcome((await searchParams).welcome);
+  if (visitor?.state === "needs-details") {
+    redirect(completeProfilePath);
+  }
+
   return (
     <div className="bg-surface">
+      {visitor?.state === "customer" ? (
+        <WelcomeModal firstName={visitor.customer.firstName} />
+      ) : null}
       <section className="relative grid min-h-[620px] place-items-center overflow-hidden border-b border-outline-variant/50 bg-[radial-gradient(circle_at_20%_20%,#dfd1f4,transparent_38%),radial-gradient(circle_at_80%_75%,#d6bde6,transparent_35%)] px-5 text-center">
         <div className="max-w-3xl space-y-7">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">

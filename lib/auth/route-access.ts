@@ -22,6 +22,8 @@ export const signedOutPaths = new Set([
 export const signInPath = "/signin";
 export const completeProfilePath = "/complete-profile";
 export const profilePath = "/profile";
+/** Home with the welcome modal, where a newly Verified Customer lands. */
+export const welcomePath = "/?welcome=1";
 
 /** Request header the proxy sets so server-side checks know the page asked for. */
 export const returnPathHeader = "x-return-path";

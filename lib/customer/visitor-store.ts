@@ -13,6 +13,7 @@ export function createVisitorStore<
       const [customer] = await db
         .select({
           userId: customers.id,
+          firstName: customers.firstName,
           fullName: customers.fullName,
           email: customers.email,
           contactNumber: customers.contactNumber,

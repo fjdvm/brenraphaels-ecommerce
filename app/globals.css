@@ -94,3 +94,25 @@ body {
 @utility font-serif {
   font-family: var(--font-libre-serif), Georgia, serif;
 }
+
+/* The welcome modal shows its message first; the button follows a moment later. */
+@keyframes welcome-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.welcome-reveal {
+  animation: welcome-reveal 600ms ease-out 1100ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-reveal {
+    animation: none;
+  }
+}

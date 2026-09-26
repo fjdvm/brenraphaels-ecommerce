@@ -82,6 +82,7 @@ describe("Visitor classification", () => {
       state: "customer",
       customer: {
         userId: "neon-user-1",
+        firstName: "Jane",
         fullName: "Jane Doe",
         email: "jane@example.com",
         contactNumber: "09171234567",
