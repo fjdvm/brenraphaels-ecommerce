@@ -22,8 +22,18 @@ import {
 } from "@/lib/customer/addresses";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
+import {
+  createCustomerNameStore,
+  customerNameSchema,
+  updateCustomerName,
+} from "@/lib/customer/name";
 
 export type ProfileContactNumberState = {
+  fieldErrors?: Record<string, string[] | undefined>;
+  saved?: boolean;
+};
+
+export type ProfileNameState = {
   fieldErrors?: Record<string, string[] | undefined>;
   saved?: boolean;
 };
@@ -33,6 +43,28 @@ export type ProfileAddressState = {
   message?: string;
   failed?: boolean;
 };
+
+export async function saveCustomerName(
+  _previousState: ProfileNameState,
+  formData: FormData,
+): Promise<ProfileNameState> {
+  const parsed = customerNameSchema.safeParse({
+    firstName: formData.get("firstName"),
+    middleName: formData.get("middleName"),
+    lastName: formData.get("lastName"),
+  });
+  if (!parsed.success) {
+    return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
+  }
+
+  const customer = await requireCustomer();
+  await updateCustomerName(parsed.data, {
+    userId: customer.userId,
+    customerNameStore: createCustomerNameStore(getDatabase()),
+  });
+  revalidatePath("/profile", "layout");
+  return { saved: true };
+}
 
 export async function saveContactNumber(
   _previousState: ProfileContactNumberState,
@@ -50,7 +82,7 @@ export async function saveContactNumber(
     userId: customer.userId,
     contactNumberStore: createContactNumberStore(getDatabase()),
   });
-  revalidatePath("/profile");
+  revalidatePath("/profile", "layout");
 
   return { saved: true };
 }
@@ -67,7 +99,11 @@ function addressFormValues(formData: FormData) {
 }
 
 function addressId(formData: FormData) {
-  return z.coerce.number().int().positive().safeParse(formData.get("addressId"));
+  return z.coerce
+    .number()
+    .int()
+    .positive()
+    .safeParse(formData.get("addressId"));
 }
 
 export async function addAddress(
@@ -88,7 +124,7 @@ export async function addAddress(
     userId: customer.userId,
     addressStore: createAddressStore(getDatabase()),
   });
-  revalidatePath("/profile");
+  revalidatePath("/profile", "layout");
   return { message: "Address added." };
 }
 
@@ -121,7 +157,7 @@ export async function updateAddress(
     }
     throw error;
   }
-  revalidatePath("/profile");
+  revalidatePath("/profile", "layout");
   return { message: "Address updated." };
 }
 
@@ -146,7 +182,7 @@ export async function makeDefaultAddress(
     }
     throw error;
   }
-  revalidatePath("/profile");
+  revalidatePath("/profile", "layout");
   return { message: "Default address changed." };
 }
 
@@ -174,6 +210,6 @@ export async function removeAddress(
     }
     throw error;
   }
-  revalidatePath("/profile");
+  revalidatePath("/profile", "layout");
   return { message: "Address deleted." };
 }

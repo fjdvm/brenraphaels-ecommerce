@@ -13,6 +13,8 @@ export type CustomerAddress = {
 export type CustomerOnFile = {
   userId: string;
   firstName: string;
+  middleName: string | null;
+  lastName: string;
   fullName: string;
   email: string;
   contactNumber: string;

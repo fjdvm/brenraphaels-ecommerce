@@ -14,6 +14,8 @@ export function createVisitorStore<
         .select({
           userId: customers.id,
           firstName: customers.firstName,
+          middleName: customers.middleName,
+          lastName: customers.lastName,
           fullName: customers.fullName,
           email: customers.email,
           contactNumber: customers.contactNumber,
