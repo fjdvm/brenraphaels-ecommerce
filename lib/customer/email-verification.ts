@@ -1,4 +1,5 @@
 export const resendCooldownSeconds = 60;
+const tokenMaximumLength = 2_048;
 
 export type VerificationAuth = {
   verifyEmail(token: string): Promise<"verified" | "expired" | "invalid">;
@@ -23,7 +24,7 @@ export async function verifyCustomerEmail(
     now: Date;
   },
 ): Promise<VerificationResult> {
-  if (!token) {
+  if (!token || token.length > tokenMaximumLength) {
     return "invalid";
   }
 

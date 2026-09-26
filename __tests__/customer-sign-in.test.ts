@@ -57,3 +57,31 @@ describe("Customer sign-in", () => {
     expect(auth.signIn).not.toHaveBeenCalled();
   });
 });
+
+describe("Customer sign-in input hygiene", () => {
+  test("cleans invisible characters out of the email before asking Neon", async () => {
+    const auth = authStub("signed-in");
+
+    await signInCustomer(
+      { email: "Jane​@Example.com", password: "Password1" },
+      { auth },
+    );
+
+    expect(auth.signIn).toHaveBeenCalledWith({
+      email: "jane@example.com",
+      password: "Password1",
+    });
+  });
+
+  test("rejects an oversized password without asking Neon", async () => {
+    const auth = authStub("signed-in");
+
+    await expect(
+      signInCustomer(
+        { email: "jane@example.com", password: "a".repeat(129) },
+        { auth },
+      ),
+    ).resolves.toMatchObject({ status: "invalid" });
+    expect(auth.signIn).not.toHaveBeenCalled();
+  });
+});

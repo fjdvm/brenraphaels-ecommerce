@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { emailMaximumLength, passwordMaximumLength } from "@/lib/validators/fields";
 
 export function SignInForm({ next }: { next?: string }) {
   const [state, action, pending] = useActionState(
@@ -41,16 +42,30 @@ export function SignInForm({ next }: { next?: string }) {
       <form action={action} className="space-y-5">
         {next ? <input type="hidden" name="next" value={next} /> : null}
         <div className="space-y-1.5">
-          <Label htmlFor="email">Email address</Label>
-          <Input id="email" name="email" type="email" autoComplete="email" required />
+          <Label htmlFor="email" required>
+            Email address
+          </Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            maxLength={emailMaximumLength}
+            required
+          />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password" required>
+            Password
+          </Label>
           <Input
             id="password"
             name="password"
             type="password"
             autoComplete="current-password"
+            maxLength={passwordMaximumLength}
             required
           />
         </div>

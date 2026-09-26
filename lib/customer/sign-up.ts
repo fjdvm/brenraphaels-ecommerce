@@ -1,82 +1,10 @@
 import { eq } from "drizzle-orm";
-import { z } from "zod";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { addresses, customers } from "../db/schema";
+import { customerSignUpSchema, type CustomerSignUp } from "./sign-up-schema";
 
-const emailMaximumLength = 256;
-const nameMaximumLength = 100;
-const passwordMaximumLength = 128;
-const addressFieldMaximumLength = 100;
-const contactNumberMaximumLength = 30;
-
-const philippineMobileNumber = /^(\+63|0)9\d{9}$/;
-const nameCharacters = /^[a-zA-Z\s'-]+$/;
-const addressCharacters = /^[a-zA-Z0-9\s,.#\-/'&]+$/;
-const postalCodeCharacters = /^[a-zA-Z0-9\s-]+$/;
-
-const password = z
-  .string()
-  .min(8, "Password must be at least 8 characters")
-  .max(passwordMaximumLength, `Must be ${passwordMaximumLength} characters or fewer`)
-  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-  .regex(/[0-9]/, "Password must contain at least one number");
-
-export const customerSignUpSchema = z
-  .object({
-    fullName: z
-      .string()
-      .trim()
-      .min(2, "Full name is required")
-      .max(nameMaximumLength, `Must be ${nameMaximumLength} characters or fewer`)
-      .regex(nameCharacters, "Can only contain letters, spaces, hyphens, and apostrophes"),
-    email: z
-      .string()
-      .trim()
-      .max(emailMaximumLength, `Must be ${emailMaximumLength} characters or fewer`)
-      .email("Enter a valid email address"),
-    password,
-    confirmPassword: z.string().max(passwordMaximumLength),
-    contactNumber: z
-      .string()
-      .trim()
-      .max(contactNumberMaximumLength, `Must be ${contactNumberMaximumLength} characters or fewer`)
-      .regex(
-        philippineMobileNumber,
-        "Enter a valid PH mobile number, e.g. 09171234567",
-      ),
-    street: addressField("Street address"),
-    barangay: addressField("Barangay"),
-    city: addressField("City or municipality"),
-    province: addressField("Province"),
-    postalCode: z
-      .string()
-      .trim()
-      .min(1, "Postal code is required")
-      .max(addressFieldMaximumLength, `Must be ${addressFieldMaximumLength} characters or fewer`)
-      .regex(postalCodeCharacters, "Contains characters that are not allowed"),
-    marketingOptIn: z.enum(["yes", "no"], {
-      message: "Please let us know if you'd like to receive marketing emails",
-    }),
-    terms: z.literal(true, {
-      error: "You must accept the Terms of Service",
-    }),
-  })
-  .refine((values) => values.password === values.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
-
-function addressField(name: string) {
-  return z
-    .string()
-    .trim()
-    .min(1, `${name} is required`)
-    .max(addressFieldMaximumLength, `Must be ${addressFieldMaximumLength} characters or fewer`)
-    .regex(addressCharacters, "Contains characters that are not allowed");
-}
-
-export type CustomerSignUp = z.input<typeof customerSignUpSchema>;
+export { customerSignUpSchema, type CustomerSignUp };
 
 type CustomerDetails = {
   userId: string;

@@ -1,7 +1,5 @@
 "use server";
 
-import { z } from "zod";
-
 import {
   resendCustomerVerification,
   verifyCustomerEmail,
@@ -9,6 +7,7 @@ import {
 import { createVerificationResendStore } from "@/lib/customer/verification-resend-store";
 import { createVerificationTokenStore } from "@/lib/customer/verification-token-store";
 import { getDatabase } from "@/lib/db";
+import { emailField } from "@/lib/validators/fields";
 import { neonVerificationAuth } from "@/lib/neon-auth/server";
 
 export type ResendVerificationState = {
@@ -29,7 +28,7 @@ export async function resendVerificationEmail(
   _previousState: ResendVerificationState,
   formData: FormData,
 ): Promise<ResendVerificationState> {
-  const email = z.string().trim().email().safeParse(formData.get("email"));
+  const email = emailField.safeParse(formData.get("email"));
   if (!email.success) {
     return { message: "Enter a valid email address." };
   }

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { emailField, passwordMaximumLength } from "../validators/fields";
+
 export const invalidCredentialsMessage = "Incorrect email or password.";
 
 export type SignInAuth = {
@@ -15,8 +17,8 @@ export type SignInResult =
   | { status: "unverified"; email: string };
 
 const credentialsSchema = z.object({
-  email: z.string().trim().max(256).email(),
-  password: z.string().min(1).max(128),
+  email: emailField,
+  password: z.string().min(1).max(passwordMaximumLength),
 });
 
 export async function signInCustomer(
@@ -28,7 +30,7 @@ export async function signInCustomer(
     return { status: "invalid", message: invalidCredentialsMessage };
   }
 
-  const email = credentials.data.email.toLowerCase();
+  const { email } = credentials.data;
   const outcome = await dependencies.auth.signIn({
     email,
     password: credentials.data.password,

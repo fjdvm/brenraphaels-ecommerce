@@ -70,6 +70,15 @@ describe("Customer email verification", () => {
     ).resolves.toBe("invalid");
   });
 
+  test("treats an oversized token as invalid without asking Neon", async () => {
+    const auth = authStub();
+
+    await expect(
+      verifyCustomerEmail("a".repeat(5_000), verificationDependencies(auth)),
+    ).resolves.toBe("invalid");
+    expect(auth.verifyEmail).not.toHaveBeenCalled();
+  });
+
   test("limits resends to once every 60 seconds for an email", async () => {
     const auth = authStub();
     const resendStore = createVerificationResendStore(drizzle(client));
