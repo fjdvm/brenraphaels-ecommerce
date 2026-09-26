@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { signOut } from "@/app/actions";
+import { SignOutButton } from "@/components/shared/sign-out-button";
 import { hasSessionCookie } from "@/lib/auth/route-access";
 import { getVisitorSession } from "@/lib/neon-auth/server";
 
@@ -26,14 +27,7 @@ export async function SessionNav({ className }: { className?: string }) {
         <Link href="/profile" className="hover:text-primary">
           Profile
         </Link>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="font-semibold hover:text-primary hover:underline hover:underline-offset-4"
-          >
-            Sign out
-          </button>
-        </form>
+        <SignOutButton action={signOut} />
       </div>
     );
   }
