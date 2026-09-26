@@ -2,6 +2,7 @@
 const publicPaths = new Set([
   "/",
   "/about",
+  "/journey",
   "/contact",
   "/faq",
   "/terms",

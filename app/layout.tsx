@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     template: "%s | Bren Raphael's Ube Jam & Halaya",
   },
   description:
-    "Authentic artisanal Filipino Ube Jam & Halaya handcrafted with real purple yam.",
+    "Premium Ube Jam & Ube Halaya - Rich, creamy, and proudly homemade.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

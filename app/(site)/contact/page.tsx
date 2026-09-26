@@ -1,22 +1,53 @@
 import { ContentPage } from "@/components/shared/content-page";
+import {
+  address,
+  closedDay,
+  email,
+  phones,
+  storeSchedule,
+} from "@/lib/site/store-info";
+
 export const metadata = { title: "Contact" };
+
 export default function ContactPage() {
   return (
-    <ContentPage eyebrow="Customer care" title="We're here to help.">
-      <p>
-        Have a question about our ube jam, an order, or our policies? We&apos;d
-        love to hear from you.
-      </p>
-      <p>
-        Email us at{" "}
-        <a
-          className="font-semibold text-primary underline"
-          href="mailto:hello@brenraphaels.com"
-        >
-          hello@brenraphaels.com
-        </a>{" "}
-        and our team will get back to you as soon as possible.
-      </p>
+    <ContentPage eyebrow="Customer care" title="Contact Us">
+      <section>
+        <h2 className="font-serif text-2xl text-primary">Store</h2>
+        <p>{address}</p>
+      </section>
+      <section>
+        <h2 className="font-serif text-2xl text-primary">Email</h2>
+        <p>
+          <a
+            className="font-semibold text-primary underline"
+            href={`mailto:${email}`}
+          >
+            {email}
+          </a>
+        </p>
+      </section>
+      <section>
+        <h2 className="font-serif text-2xl text-primary">Phone</h2>
+        <ul className="space-y-1">
+          {phones.map(({ label, number }) => (
+            <li key={label}>
+              <strong>{label}:</strong> {number}
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section>
+        <h2 className="font-serif text-2xl text-primary">Store Schedule</h2>
+        <ul className="space-y-1">
+          {storeSchedule.map(({ days, hours }) => (
+            <li key={days}>
+              {days} = {hours}
+            </li>
+          ))}
+          <li className="font-semibold">{closedDay}</li>
+        </ul>
+      </section>
     </ContentPage>
   );
 }

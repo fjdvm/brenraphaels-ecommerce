@@ -6,6 +6,7 @@ describe("Route access (proxy cookie check)", () => {
   test.each([
     "/",
     "/about",
+    "/journey",
     "/contact",
     "/faq",
     "/terms",

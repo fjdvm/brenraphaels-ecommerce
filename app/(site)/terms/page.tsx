@@ -15,8 +15,8 @@ export default function TermsPage() {
           2. Products &amp; Orders
         </h2>
         <p>
-          Products are subject to availability. Our ube jam and halaya are
-          handcrafted in small batches, and we may limit quantities per customer
+          Products are subject to availability, and orders are subject to
+          confirmation before processing. We may limit quantities per customer
           or order.
         </p>
       </section>
@@ -25,8 +25,8 @@ export default function TermsPage() {
           3. Pricing &amp; Payment
         </h2>
         <p>
-          Prices may change without notice. Payment must be completed when
-          placing an order through a supported payment method.
+          Prices may change without notice. We accept Cash on Delivery (COD)
+          and GCash.
         </p>
       </section>
       <section>
@@ -34,8 +34,9 @@ export default function TermsPage() {
           4. Perishable Product Handling
         </h2>
         <p>
-          Our products contain real dairy and no artificial preservatives.
-          Please ensure someone can receive and refrigerate deliveries promptly.
+          Our ube jam and halaya are perishable. Please ensure someone can
+          receive deliveries promptly, and follow the storage guidance in our
+          FAQ.
         </p>
       </section>
       <section>

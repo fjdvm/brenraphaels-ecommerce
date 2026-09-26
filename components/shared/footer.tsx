@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { address, socialLinks, tagline } from "@/lib/site/store-info";
+
 export function Footer() {
   return (
     <footer className="mt-auto bg-tertiary py-14 text-white">
@@ -24,9 +26,18 @@ export function Footer() {
             </div>
           </div>
           <p className="mt-4 max-w-sm text-sm leading-6 text-white/75">
-            Artisanal Filipino ube jam and halaya, made with authentic purple
-            yam and heritage recipes.
+            {tagline}
           </p>
+          <p className="mt-3 max-w-sm text-sm leading-6 text-white/75">
+            {address}
+          </p>
+          <div className="mt-4 flex gap-5 text-sm text-white/75">
+            {socialLinks.map(({ label, href }) => (
+              <a key={label} href={href} target="_blank" rel="noreferrer">
+                {label}
+              </a>
+            ))}
+          </div>
         </div>
         <div>
           <h2 className="text-xs font-bold uppercase tracking-[.15em] text-tertiary-fixed-dim">
@@ -34,6 +45,7 @@ export function Footer() {
           </h2>
           <div className="mt-4 grid gap-3 text-sm text-white/75">
             <Link href="/about">Our story</Link>
+            <Link href="/journey">Our journey</Link>
             <Link href="/faq">FAQ</Link>
             <Link href="/careers">Careers</Link>
           </div>
@@ -51,8 +63,8 @@ export function Footer() {
         </div>
       </div>
       <p className="mx-auto mt-12 max-w-7xl border-t border-white/15 px-5 pt-6 text-xs text-white/60 sm:px-8">
-        © {new Date().getFullYear()} Bren Raphael&apos;s Ube Jam &amp; Halaya
-        Shop. All rights reserved.
+        © {new Date().getFullYear()} Bren Raphael&apos;s Ube Jam &amp; Halaya. All
+        rights reserved.
       </p>
     </footer>
   );
