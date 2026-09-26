@@ -25,6 +25,7 @@ Never commit on `main` in the primary checkout. Do every change in its own git w
 7. **Clean up**: once the merge in step 5 succeeds, automatically remove the worktree and delete the branch; do not leave finished worktrees behind and do not wait for a push. Run `git worktree remove ../brenraphaels-ecommerce-worktrees/<branch>` and `git branch -d <branch>` from the primary checkout (not from inside the worktree). If the merge did not happen, keep the worktree. There is no remote branch to delete.
 
 Rules that hold throughout:
+- Exception for rule changes: edits to the rules themselves (`AGENTS.md`, `CLAUDE.md`) need no worktree and no branch. Make them directly on `main` in the primary checkout and commit them automatically, without asking. Pushing is still only done when the user asks.
 - Do not run destructive database migrations on the shared Neon `dev` branch while another agent might be using it; if you need isolation, create a Neon branch for your worktree and point that worktree's `DATABASE_URL` at it.
 - Do not edit files inside another agent's worktree.
 - If `main` moved while you worked, rebase again rather than merging `main` into your branch.
