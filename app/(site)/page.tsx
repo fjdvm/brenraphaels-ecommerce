@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { OrbitCarousel } from "@/components/shared/orbit-carousel";
 import { YouTubeVideo } from "@/components/shared/youtube-video";
 import { WelcomeModal } from "@/components/features/home/welcome-modal";
 import { completeProfilePath } from "@/lib/auth/route-access";
@@ -21,33 +22,30 @@ const recognitionVideos = [
   },
   {
     id: "ihuFz1MJPDA",
-    title: "KUMITA AT YUMAMAN SA PAGGAWA NG UBE! | My Puhunan: Kaya Mo! | ABS-CBN News",
+    title:
+      "KUMITA AT YUMAMAN SA PAGGAWA NG UBE! | My Puhunan: Kaya Mo! | ABS-CBN News",
   },
 ];
 
 const customerMessages = [
   {
     src: "/images/home/customer-rita-daniela.jpg",
-    width: 1290,
-    height: 1087,
+    label: "A business chat from missritadaniela",
     alt: 'A business chat from missritadaniela reading "SOOOO GOOD!", then "Definitely!!!" after Bren Raphael\'s replied "Thank you so much mam!"',
   },
   {
     src: "/images/home/customer-saudi-arabia.jpg",
-    width: 1290,
-    height: 1390,
+    label: "A customer in Saudi Arabia",
     alt: 'A customer\'s message with a photo of a pouch of Smooth Ube Halaya: "Hi, nadala ko na sya dito sa saudi. Thank you! Ang sarap!!!!"',
   },
   {
     src: "/images/home/customer-germany.jpg",
-    width: 1290,
-    height: 1487,
+    label: "A customer in Germany",
     alt: 'A customer\'s message with a photo of Ube Halaya: "Nakarating po ng germany ung Ube. Sayang 2 lang nabili ko sa SM north"',
   },
   {
     src: "/images/home/customer-france.jpg",
-    width: 1290,
-    height: 1566,
+    label: "A customer in France",
     alt: 'A customer\'s message from France with a photo of Ube Halaya with Tidbits: "Sobrang sarap po sa mga Ube lover like me - 1 of the best!.. How to order po?"',
   },
 ];
@@ -115,35 +113,33 @@ export default async function Home({ searchParams }: HomeProps) {
       {visitor?.state === "customer" ? (
         <WelcomeModal firstName={visitor.customer.firstName} />
       ) : null}
-      <section className="relative grid min-h-[620px] place-items-center overflow-hidden border-b border-outline-variant/50 bg-[radial-gradient(circle_at_20%_20%,#dfd1f4,transparent_38%),radial-gradient(circle_at_80%_75%,#d6bde6,transparent_35%)] px-5 text-center">
-        <div className="max-w-3xl space-y-7">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">
+      <section className="relative grid min-h-[620px] place-items-center overflow-hidden border-b border-outline-variant/50 px-5 text-center">
+        <Image
+          src="/images/home/hero-products.jpg"
+          alt="Bren Raphael's Ube Halaya pouches and boxes, Ube Jam jars and ube powder styled with fresh purple yam"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
+        <div aria-hidden className="absolute inset-0 bg-on-primary-fixed/65" />
+        <div className="relative max-w-3xl space-y-7">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-fixed-dim">
             {tagline}
           </p>
-          <h1 className="font-serif text-5xl leading-tight text-primary sm:text-7xl">
+          <h1 className="font-serif text-5xl leading-tight text-white sm:text-7xl">
             Premium Ube Jam &amp; Ube Halaya
           </h1>
-          <p className="mx-auto max-w-2xl text-lg leading-8 text-on-surface-variant">
+          <p className="mx-auto max-w-2xl text-lg leading-8 text-primary-fixed">
             Rich, creamy, and proudly homemade.
           </p>
           <Link
             href="/about"
-            className="inline-flex bg-primary px-8 py-4 text-sm font-bold uppercase tracking-widest text-white transition hover:bg-primary-container"
+            className="inline-flex bg-white px-8 py-4 text-sm font-bold uppercase tracking-widest text-primary transition hover:bg-primary-fixed"
           >
             Our story
           </Link>
         </div>
-      </section>
-      <section className="mx-auto max-w-6xl px-5 pt-16 sm:px-8">
-        <Image
-          src="/images/home/hero-products.jpg"
-          alt="Bren Raphael's Ube Halaya pouches and boxes, Ube Jam jars and ube powder styled with fresh purple yam"
-          width={1600}
-          height={1067}
-          priority
-          sizes="(min-width: 1152px) 1152px, 100vw"
-          className="h-auto w-full"
-        />
       </section>
       <section className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
         <div className="grid gap-8 md:grid-cols-3">
@@ -178,30 +174,44 @@ export default async function Home({ searchParams }: HomeProps) {
           crafting premium ube products and sharing our story with a wider
           audience.
         </p>
-        <YouTubeVideo {...recognitionVideos[0]} />
         <p>
           Also visited by popular food vlogger Kafoodtrip, helping showcase our
           products to more ube lovers.
         </p>
-        <YouTubeVideo {...recognitionVideos[1]} />
-        <YouTubeVideo {...recognitionVideos[2]} />
+      </section>
+      <section aria-label="Featured videos" className="px-5 pb-20 sm:px-8">
+        <OrbitCarousel
+          label="Featured videos"
+          stageClassName="max-w-3xl aspect-video"
+          items={recognitionVideos.map(({ id, title }) => ({
+            key: id,
+            label: title,
+            content: <YouTubeVideo id={id} title={title} />,
+          }))}
+        />
       </section>
       <section className="mx-auto max-w-6xl px-5 pb-24 sm:px-8">
         <h2 className="text-center font-serif text-4xl text-primary">
           What Our Customers Say
         </h2>
-        <div className="mt-10 grid items-start gap-6 sm:grid-cols-2">
-          {customerMessages.map(({ src, width, height, alt }) => (
-            <Image
-              key={src}
-              src={src}
-              alt={alt}
-              width={width}
-              height={height}
-              sizes="(min-width: 640px) 50vw, 100vw"
-              className="h-auto w-full border border-outline-variant/50"
-            />
-          ))}
+        <div className="mt-10">
+          <OrbitCarousel
+            label="Customer messages"
+            stageClassName="h-[520px] max-w-md sm:h-[600px]"
+            items={customerMessages.map(({ src, label, alt }) => ({
+              key: src,
+              label,
+              content: (
+                <Image
+                  src={src}
+                  alt={alt}
+                  fill
+                  sizes="(min-width: 448px) 448px, 100vw"
+                  className="border border-outline-variant/50 bg-white object-contain"
+                />
+              ),
+            }))}
+          />
         </div>
       </section>
     </div>
