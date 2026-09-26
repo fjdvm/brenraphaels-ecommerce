@@ -27,7 +27,10 @@ export async function SessionNav({ className }: { className?: string }) {
           Profile
         </Link>
         <form action={signOut}>
-          <button type="submit" className="font-semibold hover:text-primary">
+          <button
+            type="submit"
+            className="font-semibold hover:text-primary hover:underline hover:underline-offset-4"
+          >
             Sign out
           </button>
         </form>
@@ -37,7 +40,10 @@ export async function SessionNav({ className }: { className?: string }) {
 
   return (
     <div className={className}>
-      <Link href="/signin" className="hover:text-primary">
+      <Link
+        href="/signin"
+        className="hover:text-primary hover:underline hover:underline-offset-4"
+      >
         Sign in
       </Link>
     </div>
