@@ -26,6 +26,7 @@ export type PasswordResetRequestResult =
 export type PasswordResetResult =
   | { status: "reset" }
   | { status: "invalid-link" }
+  | { status: "failed" }
   | {
       status: "invalid-password";
       fieldErrors: Record<string, string[] | undefined>;
@@ -75,10 +76,16 @@ export async function resetCustomerPassword(
     };
   }
 
-  const outcome = await dependencies.auth.resetPassword({
-    token,
-    newPassword: parsed.data.password,
-  });
-
-  return outcome === "reset" ? { status: "reset" } : { status: "invalid-link" };
+  try {
+    const outcome = await dependencies.auth.resetPassword({
+      token,
+      newPassword: parsed.data.password,
+    });
+    return outcome === "reset" ? { status: "reset" } : { status: "invalid-link" };
+  } catch (error) {
+    // Neon failed in a way that says nothing about the link (for example it is
+    // down or rate-limiting), so the Customer is told to try again.
+    console.error("Password reset failed", error);
+    return { status: "failed" };
+  }
 }

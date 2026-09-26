@@ -101,6 +101,11 @@ export function ResetPasswordForm({ token }: { token?: string }) {
             </p>
           ) : null}
         </div>
+        {state.status === "failed" ? (
+          <p className="text-sm text-red-700" role="alert">
+            Something went wrong on our side. Please try again.
+          </p>
+        ) : null}
         <Button className="w-full" size="lg" disabled={pending} type="submit">
           {pending ? "Saving…" : "Set new password"}
         </Button>

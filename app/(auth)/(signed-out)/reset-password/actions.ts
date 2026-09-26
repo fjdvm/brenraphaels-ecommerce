@@ -4,7 +4,7 @@ import { resetCustomerPassword } from "@/lib/customer/password-reset";
 import { neonPasswordResetAuth } from "@/lib/neon-auth/server";
 
 export type ResetPasswordFormState = {
-  status?: "reset" | "invalid-link";
+  status?: "reset" | "invalid-link" | "failed";
   fieldErrors?: Record<string, string[] | undefined>;
 };
 

@@ -128,6 +128,17 @@ describe("Resetting a password", () => {
     ).resolves.toEqual({ status: "invalid-link" });
   });
 
+  test("reports a failure instead of throwing when Neon errors unexpectedly", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const auth = authStub();
+    auth.resetPassword.mockRejectedValue(new Error("Neon is down"));
+
+    await expect(resetCustomerPassword(validReset, { auth })).resolves.toEqual({
+      status: "failed",
+    });
+    expect(console.error).toHaveBeenCalled();
+  });
+
   test("treats a missing or oversized token as an invalid link without asking Neon", async () => {
     const auth = authStub();
 
