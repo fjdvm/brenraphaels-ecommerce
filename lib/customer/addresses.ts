@@ -3,33 +3,11 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 import { addresses } from "../db/schema";
-import { textField } from "../validators/fields";
-
-const addressFieldMaximumLength = 100;
-const addressCharacters = /^[\p{L}\p{M}\p{N}\s,.#\-/'&]+$/u;
-const postalCodeCharacters = /^[\p{L}\p{N}\s-]+$/u;
-
-function addressField(label: string) {
-  return textField(label, {
-    min: 1,
-    max: addressFieldMaximumLength,
-    pattern: addressCharacters,
-    patternMessage: "Contains characters that are not allowed",
-  });
-}
+import { addressFields, addressLabels } from "./address-fields";
 
 export const customerAddressSchema = z.object({
-  label: z.enum(["Home", "Work", "Other"]),
-  street: addressField("Street address"),
-  barangay: addressField("Barangay"),
-  city: addressField("City or municipality"),
-  province: addressField("Province"),
-  postalCode: textField("Postal code", {
-    min: 1,
-    max: addressFieldMaximumLength,
-    pattern: postalCodeCharacters,
-    patternMessage: "Contains characters that are not allowed",
-  }),
+  label: z.enum(addressLabels),
+  ...addressFields,
 });
 
 export type CustomerAddressInput = z.input<typeof customerAddressSchema>;
@@ -82,12 +60,13 @@ export function createAddressStore<
     },
     async setDefault(userId, addressId) {
       return db.transaction(async (transaction) => {
-        const [address] = await transaction
+        // Lock the Customer's Addresses so concurrent changes are applied one at a time.
+        const customerAddresses = await transaction
           .select({ id: addresses.id })
           .from(addresses)
-          .where(and(eq(addresses.id, addressId), eq(addresses.customerId, userId)))
-          .limit(1);
-        if (!address) {
+          .where(eq(addresses.customerId, userId))
+          .for("update");
+        if (!customerAddresses.some(({ id }) => id === addressId)) {
           return false;
         }
 
@@ -107,7 +86,8 @@ export function createAddressStore<
         const customerAddresses = await transaction
           .select({ id: addresses.id, isDefault: addresses.isDefault })
           .from(addresses)
-          .where(eq(addresses.customerId, userId));
+          .where(eq(addresses.customerId, userId))
+          .for("update");
         const address = customerAddresses.find(({ id }) => id === addressId);
         if (!address) {
           return "not-found";

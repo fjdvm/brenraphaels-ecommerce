@@ -156,6 +156,63 @@ describe("Customer Addresses", () => {
     ).toMatchObject({ rows: [{ label: "Work" }] });
   });
 
+  test("deletes a non-default Address and keeps the Default address", async () => {
+    await addCustomerAddress(
+      {
+        label: "Work",
+        street: "2 Second Street",
+        barangay: "Barangay Two",
+        city: "Makati City",
+        province: "Metro Manila",
+        postalCode: "1200",
+      },
+      { userId: "customer-1", addressStore: addressStore() },
+    );
+    const addedAddress = await client.query<{ id: number }>(
+      "select id from addresses where customer_id = 'customer-1' and label = 'Work'",
+    );
+
+    await deleteCustomerAddress(addedAddress.rows[0].id, {
+      userId: "customer-1",
+      addressStore: addressStore(),
+    });
+
+    expect(
+      await client.query(
+        "select label, is_default from addresses where customer_id = 'customer-1'",
+      ),
+    ).toMatchObject({ rows: [{ label: "Home", is_default: true }] });
+    await expectExactlyOneDefaultAddress("customer-1");
+  });
+
+  test("changing one Customer's Default address leaves another Customer's alone", async () => {
+    await addCustomerAddress(
+      {
+        label: "Work",
+        street: "2 Second Street",
+        barangay: "Barangay Two",
+        city: "Makati City",
+        province: "Metro Manila",
+        postalCode: "1200",
+      },
+      { userId: "customer-1", addressStore: addressStore() },
+    );
+    const addedAddress = await client.query<{ id: number }>(
+      "select id from addresses where customer_id = 'customer-1' and label = 'Work'",
+    );
+
+    await setCustomerDefaultAddress(addedAddress.rows[0].id, {
+      userId: "customer-1",
+      addressStore: addressStore(),
+    });
+
+    await expectExactlyOneDefaultAddress("customer-1");
+    await expectExactlyOneDefaultAddress("customer-2");
+    expect(
+      await client.query("select is_default from addresses where id = 2"),
+    ).toMatchObject({ rows: [{ is_default: true }] });
+  });
+
   test("refuses access to another Customer's Address", async () => {
     await expect(
       updateCustomerAddress(
@@ -186,7 +243,8 @@ describe("Customer Addresses", () => {
 
     expect(
       await client.query("select street from addresses where id = 2"),
-    ).toMatchObject({ rows: [{ street: "3 Third Street" }] });
+    ).toMatchObject({ rows: [{ street: "3 Third Street" }] });    await expectExactlyOneDefaultAddress("customer-1");
+    await expectExactlyOneDefaultAddress("customer-2");
   });
 });
 

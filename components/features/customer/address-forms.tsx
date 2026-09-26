@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { addressLabels } from "@/lib/customer/address-fields";
 import type { CustomerAddress } from "@/lib/customer/visitor";
 
 const initialProfileAddressState: ProfileAddressState = {};
@@ -25,13 +26,13 @@ const addressFields = [
 ] as const;
 
 export function AddressForms({ addresses }: { addresses: CustomerAddress[] }) {
-  const [notice, setNotice] = useState<string>();
+  const [notice, setNotice] = useState<ProfileAddressState>({});
 
   return (
     <div className="mt-4 space-y-4">
-      <p aria-live="polite" className="text-sm text-green-700" role="status">
-        {notice}
-      </p>
+      <div aria-live="polite">
+        {notice.message ? <Status state={notice} /> : null}
+      </div>
       {addresses.map((address) => (
         <AddressEditor key={address.id} address={address} onNotice={setNotice} />
       ))}
@@ -45,7 +46,7 @@ function AddressEditor({
   onNotice,
 }: {
   address: CustomerAddress;
-  onNotice: (message: string | undefined) => void;
+  onNotice: (result: ProfileAddressState) => void;
 }) {
   const [state, action, pending] = useActionState(
     updateAddress,
@@ -56,7 +57,7 @@ function AddressEditor({
   const [, defaultAction, defaultPending] = useActionState(
     async (previousState: ProfileAddressState, formData: FormData) => {
       const result = await makeDefaultAddress(previousState, formData);
-      onNotice(result.message);
+      onNotice(result);
       return result;
     },
     initialProfileAddressState,
@@ -64,7 +65,7 @@ function AddressEditor({
   const [, deleteAction, deletePending] = useActionState(
     async (previousState: ProfileAddressState, formData: FormData) => {
       const result = await removeAddress(previousState, formData);
-      onNotice(result.message);
+      onNotice(result);
       return result;
     },
     initialProfileAddressState,
@@ -85,7 +86,6 @@ function AddressEditor({
           <input name="addressId" type="hidden" value={address.id} />
           <Button
             disabled={address.isDefault || defaultPending}
-            size="sm"
             type="submit"
             variant="outline"
           >
@@ -95,22 +95,10 @@ function AddressEditor({
       </div>
       <form action={action} className="mt-4 grid gap-4 sm:grid-cols-2">
         <input name="addressId" type="hidden" value={address.id} />
-        <Label className="sm:col-span-2" htmlFor={`label-${address.id}`} required>
-          Label
-        </Label>
-        <select
-          className="h-10 border border-input bg-white px-3 text-sm focus:ring-2 focus:ring-ring sm:col-span-2"
-          defaultValue={address.label}
-          id={`label-${address.id}`}
-          name="label"
-        >
-          <option>Home</option>
-          <option>Work</option>
-          <option>Other</option>
-        </select>
+        <LabelSelect defaultValue={address.label} id={`label-${address.id}`} />
         <AddressFieldValues address={address} errors={state.fieldErrors} />
         <p className="text-sm text-on-surface-variant sm:col-span-2">Philippines</p>
-        {state.message ? <Status message={state.message} /> : null}
+        {state.message ? <Status state={state} /> : null}
         <div className="flex flex-wrap gap-2 sm:col-span-2">
           <Button disabled={pending} type="submit">
             {pending ? "Saving…" : "Save Address"}
@@ -119,7 +107,7 @@ function AddressEditor({
       </form>
       <form action={deleteAction} className="mt-3">
         <input name="addressId" type="hidden" value={address.id} />
-        <Button disabled={deletePending} size="sm" type="submit" variant="ghost">
+        <Button disabled={deletePending} type="submit" variant="ghost">
           {deletePending ? "Deleting…" : "Delete Address"}
         </Button>
       </form>
@@ -134,22 +122,10 @@ function AddAddressForm() {
     <form action={action} className="rounded-xl border border-outline-variant/60 p-4">
       <h3 className="font-semibold text-on-surface">Add an Address</h3>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Label className="sm:col-span-2" htmlFor="new-label" required>
-          Label
-        </Label>
-        <select
-          className="h-10 border border-input bg-white px-3 text-sm focus:ring-2 focus:ring-ring sm:col-span-2"
-          defaultValue="Home"
-          id="new-label"
-          name="label"
-        >
-          <option>Home</option>
-          <option>Work</option>
-          <option>Other</option>
-        </select>
+        <LabelSelect defaultValue="Home" id="new-label" />
         <AddressFieldValues errors={state.fieldErrors} />
         <p className="text-sm text-on-surface-variant sm:col-span-2">Country: Philippines</p>
-        {state.message ? <Status message={state.message} /> : null}
+        {state.message ? <Status state={state} /> : null}
         <Button disabled={pending} type="submit">
           {pending ? "Adding…" : "Add Address"}
         </Button>
@@ -193,10 +169,33 @@ function AddressFieldValues({
   });
 }
 
-function Status({ message }: { message: string }) {
+function LabelSelect({ defaultValue, id }: { defaultValue: string; id: string }) {
   return (
-    <p className="text-sm text-green-700 sm:col-span-2" role="status">
-      {message}
+    <>
+      <Label className="sm:col-span-2" htmlFor={id} required>
+        Label
+      </Label>
+      <select
+        className="h-10 border border-input bg-white px-3 text-sm focus:ring-2 focus:ring-ring sm:col-span-2"
+        defaultValue={defaultValue}
+        id={id}
+        name="label"
+      >
+        {addressLabels.map((label) => (
+          <option key={label}>{label}</option>
+        ))}
+      </select>
+    </>
+  );
+}
+
+function Status({ state }: { state: ProfileAddressState }) {
+  return (
+    <p
+      className={`text-sm sm:col-span-2 ${state.failed ? "text-red-700" : "text-green-700"}`}
+      role={state.failed ? "alert" : "status"}
+    >
+      {state.message}
     </p>
   );
 }

@@ -9,23 +9,12 @@ import {
   textField,
 } from "../validators/fields";
 import { cleanText } from "../validators/sanitize";
+import { addressFieldMaximumLength, addressFields } from "./address-fields";
 import { customerContactNumberSchema } from "./contact-number";
 
 const nameMaximumLength = 50;
-const addressFieldMaximumLength = 100;
 
 const nameCharacters = /^[\p{L}\p{M}\s'.-]+$/u;
-const addressCharacters = /^[\p{L}\p{M}\p{N}\s,.#\-/'&]+$/u;
-const postalCodeCharacters = /^[\p{L}\p{N}\s-]+$/u;
-
-function addressField(label: string) {
-  return textField(label, {
-    min: 1,
-    max: addressFieldMaximumLength,
-    pattern: addressCharacters,
-    patternMessage: "Contains characters that are not allowed",
-  });
-}
 
 /**
  * A Province, City or Barangay picked from a dropdown. Whether it is a real
@@ -71,16 +60,11 @@ const accountFields = {
 
 export const deliveryFields = {
   contactNumber: customerContactNumberSchema.shape.contactNumber,
-  street: addressField("Street address"),
+  street: addressFields.street,
   barangay: locationChoiceField("barangay"),
   city: locationChoiceField("city or municipality"),
   province: locationChoiceField("province"),
-  postalCode: textField("Postal code", {
-    min: 1,
-    max: addressFieldMaximumLength,
-    pattern: postalCodeCharacters,
-    patternMessage: "Contains characters that are not allowed",
-  }),
+  postalCode: addressFields.postalCode,
 };
 
 export const preferenceFields = {

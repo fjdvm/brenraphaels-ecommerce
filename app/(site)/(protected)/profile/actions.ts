@@ -29,6 +29,7 @@ export type ProfileContactNumberState = {
 export type ProfileAddressState = {
   fieldErrors?: Record<string, string[] | undefined>;
   message?: string;
+  failed?: boolean;
 };
 
 export async function saveContactNumber(
@@ -92,12 +93,11 @@ export async function updateAddress(
 ): Promise<ProfileAddressState> {
   const parsed = customerAddressSchema.safeParse(addressFormValues(formData));
   const parsedId = addressId(formData);
-  if (!parsed.success || !parsedId.success) {
-    return {
-      fieldErrors: !parsed.success
-        ? z.flattenError(parsed.error).fieldErrors
-        : { addressId: ["Address not found."] },
-    };
+  if (!parsedId.success) {
+    return { message: "Address not found.", failed: true };
+  }
+  if (!parsed.success) {
+    return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
   }
 
   const customer = await requireCustomer();
@@ -108,7 +108,7 @@ export async function updateAddress(
     });
   } catch (error) {
     if (error instanceof CustomerAddressNotFoundError) {
-      return { message: "Address not found." };
+      return { message: "Address not found.", failed: true };
     }
     throw error;
   }
@@ -122,7 +122,7 @@ export async function makeDefaultAddress(
 ): Promise<ProfileAddressState> {
   const parsedId = addressId(formData);
   if (!parsedId.success) {
-    return { message: "Address not found." };
+    return { message: "Address not found.", failed: true };
   }
 
   const customer = await requireCustomer();
@@ -133,7 +133,7 @@ export async function makeDefaultAddress(
     });
   } catch (error) {
     if (error instanceof CustomerAddressNotFoundError) {
-      return { message: "Address not found." };
+      return { message: "Address not found.", failed: true };
     }
     throw error;
   }
@@ -147,7 +147,7 @@ export async function removeAddress(
 ): Promise<ProfileAddressState> {
   const parsedId = addressId(formData);
   if (!parsedId.success) {
-    return { message: "Address not found." };
+    return { message: "Address not found.", failed: true };
   }
 
   const customer = await requireCustomer();
@@ -158,10 +158,10 @@ export async function removeAddress(
     });
   } catch (error) {
     if (error instanceof LastCustomerAddressError) {
-      return { message: "You must keep at least one Address." };
+      return { message: "You must keep at least one Address.", failed: true };
     }
     if (error instanceof CustomerAddressNotFoundError) {
-      return { message: "Address not found." };
+      return { message: "Address not found.", failed: true };
     }
     throw error;
   }
