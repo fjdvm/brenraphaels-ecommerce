@@ -14,7 +14,11 @@ Never commit on `main` in the primary checkout. Do every change in its own git w
 
 1. **Start**: from the primary checkout, `git fetch origin` and `git worktree add ../brenraphaels-ecommerce-worktrees/<branch> -b <branch> origin/main --no-track`. The branch is local only: never `git push` it, never set an upstream, never open a PR from it. Branch names: `issue-<number>-<short-slug>` (e.g. `issue-2-tooling-app-shell`). Work only inside that worktree.
 2. **Set up the worktree**: run `npm install` there (`node_modules` is not shared) and copy or re-pull the git-ignored env files (`vercel env pull`). Never commit env files.
-3. **Commit** on the branch as often as you like. One issue per branch; reference it in the commit message (`Refs #<number>`).
+3. **Commit** on the branch as often as you like. One issue per branch; reference it in the commit message (`Refs #<number>`). Credit both agents as contributors by ending every commit message with these trailers:
+   ```
+   Co-Authored-By: Claude <noreply@anthropic.com>
+   Co-Authored-By: Codex <noreply@openai.com>
+   ```
 4. **Before merging**: `git fetch origin && git rebase origin/main` on the branch, then run the tests, `npm run lint` and `npm run build`. All must pass. If the rebase conflicts, resolve them in the worktree, not on `main`.
 5. **Merge**: as soon as the implementation is done and step 4 passes, merge automatically; no separate request is needed. In the primary checkout, `git switch main && git pull --ff-only origin main`, then `git merge --ff-only <branch>` (after the rebase this is always a fast-forward; if it is not, go back to step 4). Merging is local only and does not push. Do not use `--no-verify`, and do not force-push.
 6. **Push**: `git push origin main` (the only branch ever pushed), only after step 5 succeeds and only when the user has asked you to push. The push deploys to production through Vercel, so make sure step 4 passed first. After a successful push, automatically close the implemented issue with a comment that links the commit; no separate closure request is needed.
