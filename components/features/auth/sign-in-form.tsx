@@ -6,7 +6,7 @@ import { useActionState } from "react";
 import {
   initialSignInFormState,
   submitSignIn,
-} from "@/app/(auth)/(guest)/signin/actions";
+} from "@/app/(auth)/(signed-out)/signin/actions";
 import { ResendVerificationForm } from "@/components/features/auth/resend-verification-form";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";

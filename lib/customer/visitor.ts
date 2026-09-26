@@ -9,7 +9,7 @@ export type CustomerAddress = {
   isDefault: boolean;
 };
 
-export type CustomerProfile = {
+export type CustomerOnFile = {
   userId: string;
   fullName: string;
   email: string;
@@ -23,10 +23,10 @@ export type VisitorSession = { userId: string; email: string } | null;
 export type Visitor =
   | { state: "signed-out" }
   | { state: "needs-details"; userId: string; email: string }
-  | { state: "customer"; customer: CustomerProfile };
+  | { state: "customer"; customer: CustomerOnFile };
 
 export type VisitorStore = {
-  findCustomer(userId: string): Promise<CustomerProfile | undefined>;
+  findCustomer(userId: string): Promise<CustomerOnFile | undefined>;
 };
 
 export async function classifyVisitor(

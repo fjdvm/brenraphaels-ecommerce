@@ -4,7 +4,7 @@ import {
   Hanken_Grotesk,
   Libre_Caslon_Text,
 } from "next/font/google";
-import { AccountNav } from "@/components/shared/account-nav";
+import { SessionNav } from "@/components/shared/session-nav";
 import { Footer } from "@/components/shared/footer";
 import { Header } from "@/components/shared/header";
 import "./globals.css";
@@ -43,11 +43,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <Header
-          desktopAccount={
-            <AccountNav className="hidden items-center gap-5 text-sm font-semibold text-on-surface-variant md:flex" />
+          desktopSession={
+            <SessionNav className="hidden items-center gap-5 text-sm font-semibold text-on-surface-variant md:flex" />
           }
-          mobileAccount={
-            <AccountNav className="flex flex-col gap-3 border-t border-outline-variant/60 pt-3 text-sm font-semibold text-on-surface" />
+          mobileSession={
+            <SessionNav className="flex flex-col gap-3 border-t border-outline-variant/60 pt-3 text-sm font-semibold text-on-surface" />
           }
         />
         <main className="flex-1">{children}</main>

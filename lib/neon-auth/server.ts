@@ -65,8 +65,10 @@ export const neonSignInAuth: SignInAuth = {
       return "signed-in";
     }
 
-    // Neon only reports an unverified email after the password was right, so
-    // this does not reveal whether an email has an account.
+    // Better Auth runs on Neon's side, so whether it checks the password before
+    // the verification status is unconfirmed. If it checks verification first,
+    // an unverified email is distinguishable here: the accepted trade-off is
+    // that the ticket requires telling unverified people to confirm their email.
     return result.error.code === "EMAIL_NOT_VERIFIED" ? "unverified" : "invalid";
   },
 };

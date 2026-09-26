@@ -11,8 +11,8 @@ const publicPaths = new Set([
   "/verify-email",
 ]);
 
-/** Pages for signed-out visitors; signed-in people are sent away server-side. */
-export const guestPaths = new Set([
+/** Pages for signed-out Visitors; signed-in people are sent away server-side. */
+export const signedOutPaths = new Set([
   "/signin",
   "/signup",
   "/forgot-password",
@@ -20,11 +20,15 @@ export const guestPaths = new Set([
 ]);
 
 export const signInPath = "/signin";
+export const completeProfilePath = "/complete-profile";
+
+/** Request header the proxy sets so server-side checks know the page asked for. */
+export const returnPathHeader = "x-return-path";
 
 const neonSessionCookie = /^__Secure-neon-auth.*session_token$/;
 
-export function hasSessionCookie(cookieNames: string[]) {
-  return cookieNames.some((name) => neonSessionCookie.test(name));
+export function hasSessionCookie(cookies: { name: string }[]) {
+  return cookies.some((cookie) => neonSessionCookie.test(cookie.name));
 }
 
 export type RouteAccess =
@@ -41,7 +45,7 @@ export function decideRouteAccess(request: {
   hasSession: boolean;
 }): RouteAccess {
   const { pathname } = request;
-  if (publicPaths.has(pathname) || guestPaths.has(pathname) || request.hasSession) {
+  if (publicPaths.has(pathname) || signedOutPaths.has(pathname) || request.hasSession) {
     return { action: "next" };
   }
 
@@ -49,12 +53,24 @@ export function decideRouteAccess(request: {
   return { action: "redirect", to: `${signInPath}?next=${next}` };
 }
 
-/** Only follows paths within this site, and never back to a guest page. */
+const controlCharacters = /[\u0000-\u001f\u007f]/;
+const placeholderOrigin = "http://return-path.invalid";
+
+/** Only follows paths within this site, and never back to a signed-out page. */
 export function safeReturnPath(path: string | undefined | null) {
   if (!path || !path.startsWith("/") || path.startsWith("//") || path.startsWith("/\\")) {
     return undefined;
   }
 
-  const pathname = path.split(/[?#]/)[0];
-  return guestPaths.has(pathname) ? undefined : path;
+  // Browsers drop tabs and newlines when parsing a URL, so "/\t/evil.example"
+  // would otherwise point off-site.
+  if (controlCharacters.test(path)) {
+    return undefined;
+  }
+  const resolved = new URL(path, placeholderOrigin);
+  if (resolved.origin !== placeholderOrigin) {
+    return undefined;
+  }
+
+  return signedOutPaths.has(resolved.pathname) ? undefined : path;
 }

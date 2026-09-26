@@ -14,11 +14,11 @@ const links = [
 ];
 
 export function Header({
-  desktopAccount,
-  mobileAccount,
+  desktopSession,
+  mobileSession,
 }: {
-  desktopAccount: ReactNode;
-  mobileAccount: ReactNode;
+  desktopSession: ReactNode;
+  mobileSession: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -52,7 +52,7 @@ export function Header({
             </Link>
           ))}
         </nav>
-        {desktopAccount}
+        {desktopSession}
         <button
           type="button"
           className="p-2 text-primary md:hidden"
@@ -75,7 +75,7 @@ export function Header({
               {link.label}
             </Link>
           ))}
-          {mobileAccount}
+          {mobileSession}
         </nav>
       )}
     </header>

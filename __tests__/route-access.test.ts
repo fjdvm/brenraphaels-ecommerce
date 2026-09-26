@@ -56,6 +56,9 @@ describe("Return path after signing in", () => {
     "https://evil.example",
     "/signin",
     "/signup",
+    "/\t/evil.example",
+    "/\n/evil.example",
+    "/profile\r\nSet-Cookie: a=b",
   ])("rejects %s", (path) => {
     expect(safeReturnPath(path)).toBeUndefined();
   });

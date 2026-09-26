@@ -7,7 +7,7 @@ import { getVisitorSession } from "@/lib/neon-auth/server";
 
 async function isSignedIn() {
   const cookieStore = await cookies();
-  if (!hasSessionCookie(cookieStore.getAll().map((cookie) => cookie.name))) {
+  if (!hasSessionCookie(cookieStore.getAll())) {
     return false;
   }
 
@@ -19,7 +19,7 @@ async function isSignedIn() {
   }
 }
 
-export async function AccountNav({ className }: { className?: string }) {
+export async function SessionNav({ className }: { className?: string }) {
   if (await isSignedIn()) {
     return (
       <div className={className}>
