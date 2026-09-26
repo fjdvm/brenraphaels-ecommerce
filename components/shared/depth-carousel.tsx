@@ -9,6 +9,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
+import { Play } from "lucide-react";
 
 import { CarouselArrow } from "@/components/shared/carousel-arrow";
 import { EditorialRow } from "@/components/shared/editorial-row";
@@ -19,10 +20,10 @@ export type DepthItem = {
   alt: string;
   /** Shown beside the cards while this card is at the front. */
   text: ReactNode;
+  /** Gives the card a play button; pressing it swaps the image for this. */
+  player?: ReactNode;
 };
 
-const CARD_WIDTH = 300;
-const CARD_HEIGHT = 420;
 const DEPTH = 200;
 const TILT_DEG = 20;
 const PERSPECTIVE_PX = 1400;
@@ -87,15 +88,21 @@ export function DepthCarousel({
   items,
   intro,
   mediaSide,
+  cardWidth,
+  cardHeight,
 }: {
   label: string;
   items: DepthItem[];
+  /** Size of a card at full scale; it shrinks to fit a narrow stage. */
+  cardWidth: number;
+  cardHeight: number;
   /** Static text above the active item's text. */
   intro?: ReactNode;
   mediaSide: "left" | "right";
 }) {
   const count = items.length;
   const [active, setActive] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
   const cards = useRef<(HTMLDivElement | null)[]>([]);
   // Fractional while animating, so the cards can be between two positions.
@@ -122,10 +129,10 @@ export function DepthCarousel({
       const width = entry.contentRect.width;
       const compact = width < COMPACT_BELOW_PX;
       const { visible, spread } = spacing(compact);
-      const needed = CARD_WIDTH + spread * visible + 24;
+      const needed = cardWidth + spread * visible + 24;
       const scale = clamp(width / needed, 0.4, 1);
       layout.current = { scale, compact };
-      element.style.height = `${Math.round(CARD_HEIGHT * scale + 40)}px`;
+      element.style.height = `${Math.round(cardHeight * scale + 40)}px`;
       place(position.current);
     });
     observer.observe(element);
@@ -135,11 +142,12 @@ export function DepthCarousel({
     };
     // `place` only reads refs and `count`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [count]);
+  }, [count, cardWidth, cardHeight]);
 
   function goTo(index: number) {
     const next = wrap(index, count);
     if (next === active) return;
+    setPlaying(false);
     cancelAnimationFrame(frame.current);
     const from = position.current;
     // The shorter way round the ring.
@@ -198,14 +206,14 @@ export function DepthCarousel({
             <div
               ref={stage}
               className="relative min-w-0 flex-1 touch-pan-y select-none"
-              style={{ height: CARD_HEIGHT + 40, perspective: PERSPECTIVE_PX }}
+              style={{ height: cardHeight + 40, perspective: PERSPECTIVE_PX }}
               onPointerDown={(event) => {
                 swipe.current = { x: event.clientX, swiped: false };
               }}
               onPointerUp={onPointerUp}
             >
               <div className="absolute inset-0 [transform-style:preserve-3d]">
-                {items.map(({ key, src, alt }, index) => (
+                {items.map(({ key, src, alt, player }, index) => (
                   <div
                     key={key}
                     ref={(element) => {
@@ -220,8 +228,8 @@ export function DepthCarousel({
                     }}
                     className="absolute left-1/2 top-1/2 cursor-pointer overflow-hidden border border-outline-variant/50 bg-white shadow-[0_30px_60px_-20px_rgba(0,0,0,0.45)] will-change-transform"
                     style={{
-                      width: CARD_WIDTH,
-                      height: CARD_HEIGHT,
+                      width: cardWidth,
+                      height: cardHeight,
                       ...cardStyle(offsetOf(index, 0, count), 1, false, count),
                     }}
                   >
@@ -229,10 +237,30 @@ export function DepthCarousel({
                       src={src}
                       alt={alt}
                       fill
-                      sizes={`${CARD_WIDTH}px`}
+                      sizes={`${cardWidth}px`}
                       draggable={false}
                       className="object-contain"
                     />
+                    {player && index === active && !playing ? (
+                      <button
+                        type="button"
+                        aria-label="Play video"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setPlaying(true);
+                        }}
+                        className="absolute inset-0 z-10 grid place-items-center focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white"
+                      >
+                        <span className="grid size-14 place-items-center bg-primary text-white shadow-lg transition hover:bg-primary-container">
+                          <Play aria-hidden className="size-6 fill-current" />
+                        </span>
+                      </button>
+                    ) : null}
+                    {player && index === active && playing ? (
+                      <div className="absolute inset-0 z-20 bg-black">
+                        {player}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -249,6 +277,15 @@ export function DepthCarousel({
               className="editorial-swap mt-8"
             >
               {items[active].text}
+              {items[active].player && !playing ? (
+                <button
+                  type="button"
+                  onClick={() => setPlaying(true)}
+                  className="mt-8 inline-flex bg-primary px-8 py-4 text-sm font-bold uppercase tracking-widest text-white transition hover:bg-primary-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  Watch the video
+                </button>
+              ) : null}
             </div>
             <p className="mt-8 font-serif text-sm tracking-widest text-secondary">
               {String(active + 1).padStart(2, "0")} /{" "}

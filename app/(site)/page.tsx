@@ -228,6 +228,8 @@ export default async function Home({ searchParams }: HomeProps) {
           <DepthCarousel
             label="Customer messages"
             mediaSide="left"
+            cardWidth={300}
+            cardHeight={420}
             intro={
               <>
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">
