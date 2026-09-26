@@ -1,26 +1,96 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --surface: #fbf9fc;
+  --surface-container-low: #f5f3f6;
+  --surface-container: #efedf0;
+  --surface-container-high: #e9e7ea;
+  --surface-container-highest: #e3e2e5;
+  --surface-container-lowest: #ffffff;
+  --surface-card: #ffffff;
+  --on-surface: #1b1b1e;
+  --on-surface-variant: #4a4450;
+  --primary: #452175;
+  --primary-container: #5d3a8e;
+  --on-primary: #ffffff;
+  --on-primary-container: #d0aeff;
+  --primary-fixed: #eddcff;
+  --primary-fixed-dim: #d7baff;
+  --on-primary-fixed: #290055;
+  --on-primary-fixed-variant: #573488;
+  --secondary: #625981;
+  --secondary-container: #dacefd;
+  --on-secondary: #ffffff;
+  --on-secondary-container: #5f567e;
+  --secondary-fixed: #e7deff;
+  --secondary-fixed-dim: #ccc0ee;
+  --tertiary: #3e2c5f;
+  --tertiary-container: #554377;
+  --on-tertiary: #ffffff;
+  --on-tertiary-container: #c9b3ef;
+  --tertiary-fixed-dim: #d3bcf9;
+  --outline-variant: #ccc3d2;
+  --background: var(--surface);
+  --foreground: var(--on-surface);
+  --border: var(--outline-variant);
+  --input: var(--outline-variant);
+  --ring: var(--primary);
+  --radius-sm: 0.5rem;
+  --radius-md: 1.5rem;
+  --radius-lg: 2rem;
+  --radius-xl: 3rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-surface: var(--surface);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-card: var(--surface-card);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-primary: var(--primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary: var(--on-primary);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-primary-fixed: var(--primary-fixed);
+  --color-primary-fixed-dim: var(--primary-fixed-dim);
+  --color-on-primary-fixed: var(--on-primary-fixed);
+  --color-on-primary-fixed-variant: var(--on-primary-fixed-variant);
+  --color-secondary: var(--secondary);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary: var(--on-secondary);
+  --color-on-secondary-container: var(--on-secondary-container);
+  --color-secondary-fixed: var(--secondary-fixed);
+  --color-secondary-fixed-dim: var(--secondary-fixed-dim);
+  --color-tertiary: var(--tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-on-tertiary: var(--on-tertiary);
+  --color-on-tertiary-container: var(--on-tertiary-container);
+  --color-tertiary-fixed-dim: var(--tertiary-fixed-dim);
+  --color-outline-variant: var(--outline-variant);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-hanken-sans);
+  --font-serif: var(--font-libre-serif);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-hanken-sans), system-ui, sans-serif;
+}
+
+@utility font-serif {
+  font-family: var(--font-libre-serif), Georgia, serif;
 }

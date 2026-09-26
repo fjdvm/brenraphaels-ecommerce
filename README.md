@@ -1,4 +1,4 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Public storefront foundation for Bren Raphael's Ube Jam & Halaya.
 
 ## Getting Started
 
@@ -15,6 +15,16 @@ bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Database migrations
+
+Drizzle uses `DATABASE_URL_UNPOOLED` so schema changes run over Neon's direct, non-pooled connection. Copy `.env.production.example` to `.env.local` and set that value before running migrations.
+
+```bash
+npm run db:generate # create a migration after editing lib/db/schema.ts
+npm run db:migrate  # apply migrations
+npm test            # includes an in-memory PGlite migration harness
+```
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
