@@ -8,10 +8,12 @@ import {
 import { cleanEmail, cleanPhone, cleanText } from "../lib/validators/sanitize";
 
 const validSignUp = {
-  fullName: "Jane Doe",
+  firstName: "Jane",
+  middleName: "",
+  lastName: "Doe",
   email: "jane@example.com",
-  password: "Password1",
-  confirmPassword: "Password1",
+  password: "Password1!",
+  confirmPassword: "Password1!",
   contactNumber: "09171234567",
   street: "123 Katipunan Avenue",
   barangay: "Loyola Heights",
@@ -39,14 +41,16 @@ describe("Sign-up validation", () => {
   test("stores the sanitised values", () => {
     const parsed = customerSignUpSchema.parse({
       ...validSignUp,
-      fullName: "  Jane​   Doe ",
+      firstName: "  Jane​  ",
+      middleName: "  Marie \t Anne ",
       email: " JANE@Example.com ",
       contactNumber: "0917 123 4567",
       street: "123   Katipunan\tAvenue",
     });
 
     expect(parsed).toMatchObject({
-      fullName: "Jane Doe",
+      firstName: "Jane",
+      middleName: "Marie Anne",
       email: "jane@example.com",
       contactNumber: "09171234567",
       street: "123 Katipunan Avenue",
@@ -56,25 +60,28 @@ describe("Sign-up validation", () => {
   test("accepts accented letters and periods in names and addresses", () => {
     const parsed = customerSignUpSchema.parse({
       ...validSignUp,
-      fullName: "José Peña Jr.",
+      firstName: "José",
+      lastName: "Peña Jr.",
       barangay: "Barangay Niño",
     });
 
-    expect(parsed).toMatchObject({ fullName: "José Peña Jr.", barangay: "Barangay Niño" });
+    expect(parsed).toMatchObject({ firstName: "José", lastName: "Peña Jr.", barangay: "Barangay Niño" });
   });
 
   test("never alters the password", () => {
     const parsed = customerSignUpSchema.parse({
       ...validSignUp,
-      password: " Password1 ",
-      confirmPassword: " Password1 ",
+      password: " Password1! ",
+      confirmPassword: " Password1! ",
     });
 
-    expect(parsed.password).toBe(" Password1 ");
+    expect(parsed.password).toBe(" Password1! ");
   });
 
   test.each([
-    ["fullName", "<script>alert(1)</script>"],
+    ["firstName", "<script>alert(1)</script>"],
+    ["middleName", "Marie<b>"],
+    ["lastName", "Doe123"],
     ["street", "12 <b>Main</b>"],
     ["city", "Quezon <City>"],
     ["postalCode", "11<08"],
@@ -88,21 +95,57 @@ describe("Sign-up validation", () => {
   test("reports a friendly message when a field is missing entirely", () => {
     const result = customerSignUpSchema.safeParse({
       ...validSignUp,
-      fullName: null,
+      firstName: null,
+      lastName: "",
+    });
+
+    const messages = result.success ? [] : result.error.issues.map((issue) => issue.message);
+    expect(messages).toContain("First name is required");
+    expect(messages).toContain("Last name is required");
+  });
+
+  test("the middle name is optional", () => {
+    for (const middleName of [undefined, null, "", "   "]) {
+      const result = customerSignUpSchema.safeParse({ ...validSignUp, middleName });
+
+      expect(result.success ? result.data.middleName : "invalid").toBe("");
+    }
+  });
+
+  test.each([
+    ["Password1", "Password must contain at least one special character"],
+    ["password1!", "Password must contain at least one uppercase letter"],
+    ["Password!!", "Password must contain at least one number"],
+    ["Pa1!", "Password must be at least 8 characters"],
+  ])("rejects the password %s", (password, message) => {
+    const result = customerSignUpSchema.safeParse({
+      ...validSignUp,
+      password,
+      confirmPassword: password,
     });
 
     expect(result.success ? [] : result.error.issues.map((issue) => issue.message)).toContain(
-      "Full name is required",
+      message,
     );
+  });
+
+  test("accepts a password with a special character", () => {
+    expect(
+      customerSignUpSchema.safeParse({
+        ...validSignUp,
+        password: "Sup3r secret#",
+        confirmPassword: "Sup3r secret#",
+      }).success,
+    ).toBe(true);
   });
 
   test("builds form values from FormData, treating an unticked box as false", () => {
     const formData = new FormData();
-    formData.set("fullName", "Jane Doe");
+    formData.set("firstName", "Jane");
     formData.set("terms", "on");
 
     expect(signUpFormValues(formData)).toMatchObject({
-      fullName: "Jane Doe",
+      firstName: "Jane",
       terms: true,
     });
     expect(signUpFormValues(new FormData()).terms).toBe(false);
@@ -122,7 +165,7 @@ describe("Sign-up steps", () => {
   test("the account step checks the passwords match", () => {
     const result = account.schema.safeParse({
       ...validSignUp,
-      confirmPassword: "Different1",
+      confirmPassword: "Different1!",
     });
 
     expect(result.success).toBe(false);
@@ -133,10 +176,11 @@ describe("Sign-up steps", () => {
 
   test("each step validates only its own fields", () => {
     const onlyAccount = {
-      fullName: "Jane Doe",
+      firstName: "Jane",
+      lastName: "Doe",
       email: "jane@example.com",
-      password: "Password1",
-      confirmPassword: "Password1",
+      password: "Password1!",
+      confirmPassword: "Password1!",
     };
 
     expect(account.schema.safeParse(onlyAccount).success).toBe(true);

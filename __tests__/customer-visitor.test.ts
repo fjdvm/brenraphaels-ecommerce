@@ -25,10 +25,11 @@ function visitorStore() {
 async function signUpJane() {
   await signUpCustomer(
     {
-      fullName: "Jane Doe",
+      firstName: "Jane",
+      lastName: "Doe",
       email: "jane@example.com",
-      password: "Password1",
-      confirmPassword: "Password1",
+      password: "Password1!",
+      confirmPassword: "Password1!",
       contactNumber: "09171234567",
       street: "123 Katipunan Avenue",
       barangay: "Loyola Heights",

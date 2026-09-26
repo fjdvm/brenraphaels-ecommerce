@@ -2,25 +2,20 @@ import { z } from "zod";
 
 import {
   emailField,
+  optionalTextField,
+  passwordField,
   passwordMaximumLength,
   phoneField,
   textField,
 } from "../validators/fields";
 
-const nameMaximumLength = 100;
+const nameMaximumLength = 50;
 const addressFieldMaximumLength = 100;
 
 const philippineMobileNumber = /^(\+63|0)9\d{9}$/;
 const nameCharacters = /^[\p{L}\p{M}\s'.-]+$/u;
 const addressCharacters = /^[\p{L}\p{M}\p{N}\s,.#\-/'&]+$/u;
 const postalCodeCharacters = /^[\p{L}\p{N}\s-]+$/u;
-
-const password = z
-  .string({ error: "Password is required" })
-  .min(8, "Password must be at least 8 characters")
-  .max(passwordMaximumLength, `Must be ${passwordMaximumLength} characters or fewer`)
-  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-  .regex(/[0-9]/, "Password must contain at least one number");
 
 function addressField(label: string) {
   return textField(label, {
@@ -31,16 +26,28 @@ function addressField(label: string) {
   });
 }
 
-const accountFields = {
-  fullName: textField("Full name", {
-    min: 2,
+const nameCharactersMessage =
+  "Can only contain letters, spaces, hyphens, apostrophes, and periods";
+
+function nameField(label: string) {
+  return textField(label, {
+    min: 1,
     max: nameMaximumLength,
     pattern: nameCharacters,
-    patternMessage:
-      "Can only contain letters, spaces, hyphens, apostrophes, and periods",
+    patternMessage: nameCharactersMessage,
+  });
+}
+
+const accountFields = {
+  firstName: nameField("First name"),
+  middleName: optionalTextField({
+    max: nameMaximumLength,
+    pattern: nameCharacters,
+    patternMessage: nameCharactersMessage,
   }),
+  lastName: nameField("Last name"),
   email: emailField,
-  password,
+  password: passwordField,
   confirmPassword: z
     .string({ error: "Confirm your password" })
     .max(passwordMaximumLength, `Must be ${passwordMaximumLength} characters or fewer`),
@@ -118,4 +125,13 @@ export function signUpFormValues(formData: FormData) {
   }
   values.terms = formData.get("terms") === "on";
   return values;
+}
+
+/** Joins the name parts, skipping an empty middle name. */
+export function composeFullName(name: {
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+}) {
+  return [name.firstName, name.middleName, name.lastName].filter(Boolean).join(" ");
 }

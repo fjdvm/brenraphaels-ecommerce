@@ -2,12 +2,19 @@ import { eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { addresses, customers } from "../db/schema";
-import { customerSignUpSchema, type CustomerSignUp } from "./sign-up-schema";
+import {
+  composeFullName,
+  customerSignUpSchema,
+  type CustomerSignUp,
+} from "./sign-up-schema";
 
 export { customerSignUpSchema, type CustomerSignUp };
 
 type CustomerDetails = {
   userId: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
   fullName: string;
   email: string;
   contactNumber: string;
@@ -64,6 +71,9 @@ export function createCustomerStore<
           .insert(customers)
           .values({
           id: details.userId,
+          firstName: details.firstName,
+          middleName: details.middleName,
+          lastName: details.lastName,
           fullName: details.fullName,
           email: details.email,
           contactNumber: details.contactNumber,
@@ -100,11 +110,12 @@ export async function signUpCustomer(
 ) {
   const signUp = customerSignUpSchema.parse(input);
   const email = signUp.email.toLowerCase();
+  const fullName = composeFullName(signUp);
   const existingCustomer = await dependencies.customerStore.hasEmail(email);
   const login = await dependencies.auth.createLogin({
     email,
     password: signUp.password,
-    fullName: signUp.fullName,
+    fullName,
   });
 
   if (existingCustomer) {
@@ -117,7 +128,10 @@ export async function signUpCustomer(
   try {
     await dependencies.customerStore.save({
       userId: login.userId,
-      fullName: signUp.fullName,
+      firstName: signUp.firstName,
+      middleName: signUp.middleName || null,
+      lastName: signUp.lastName,
+      fullName,
       email,
       contactNumber: signUp.contactNumber,
       marketingOptIn: signUp.marketingOptIn === "yes",

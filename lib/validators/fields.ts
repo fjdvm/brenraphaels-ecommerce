@@ -46,3 +46,31 @@ export function phoneField(
     .transform(cleanPhone)
     .pipe(z.string().regex(rules.pattern, rules.patternMessage));
 }
+
+/** Optional free text: absent, null or blank all become an empty string. */
+export function optionalTextField(rules: {
+  max: number;
+  pattern: RegExp;
+  patternMessage: string;
+}) {
+  return z
+    .string()
+    .max(maximumRawLength, `Must be ${rules.max} characters or fewer`)
+    .nullish()
+    .transform((value) => cleanText(value ?? ""))
+    .pipe(
+      z
+        .string()
+        .max(rules.max, `Must be ${rules.max} characters or fewer`)
+        .refine((value) => value === "" || rules.pattern.test(value), rules.patternMessage),
+    );
+}
+
+/** The rules for choosing a password; sign-in never applies them to old passwords. */
+export const passwordField = z
+  .string({ error: "Password is required" })
+  .min(8, "Password must be at least 8 characters")
+  .max(passwordMaximumLength, `Must be ${passwordMaximumLength} characters or fewer`)
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/[0-9]/, "Password must contain at least one number")
+  .regex(/[^\p{L}\p{N}\s]/u, "Password must contain at least one special character");

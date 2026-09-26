@@ -13,10 +13,11 @@ import {
 let client: PGlite;
 
 const validSignUp: CustomerSignUp = {
-  fullName: "Jane Doe",
+  firstName: "Jane",
+  lastName: "Doe",
   email: "jane@example.com",
-  password: "Password1",
-  confirmPassword: "Password1",
+  password: "Password1!",
+  confirmPassword: "Password1!",
   contactNumber: "09171234567",
   street: "123 Katipunan Avenue",
   barangay: "Loyola Heights",
@@ -55,7 +56,7 @@ describe("Customer sign-up", () => {
 
     expect(auth.createLogin).toHaveBeenCalledWith({
       email: "jane@example.com",
-      password: "Password1",
+      password: "Password1!",
       fullName: "Jane Doe",
     });
     expect(
@@ -88,6 +89,44 @@ describe("Customer sign-up", () => {
     });
   });
 
+  test("saves first, middle and last name and gives Neon the full name", async () => {
+    const auth = authStub();
+
+    await signUpCustomer(
+      { ...validSignUp, firstName: "Jane", middleName: " Marie ", lastName: "Doe" },
+      { auth, customerStore: customerStore() },
+    );
+
+    expect(auth.createLogin).toHaveBeenCalledWith(
+      expect.objectContaining({ fullName: "Jane Marie Doe" }),
+    );
+    expect(
+      await client.query(
+        "select first_name, middle_name, last_name, full_name from customers",
+      ),
+    ).toMatchObject({
+      rows: [
+        {
+          first_name: "Jane",
+          middle_name: "Marie",
+          last_name: "Doe",
+          full_name: "Jane Marie Doe",
+        },
+      ],
+    });
+  });
+
+  test("leaves the middle name empty when there is none", async () => {
+    await signUpCustomer(validSignUp, {
+      auth: authStub(),
+      customerStore: customerStore(),
+    });
+
+    expect(
+      await client.query("select middle_name, full_name from customers"),
+    ).toMatchObject({ rows: [{ middle_name: null, full_name: "Jane Doe" }] });
+  });
+
   test("rejects an invalid Contact number before creating a login", async () => {
     const auth = authStub();
 
@@ -107,7 +146,7 @@ describe("Customer sign-up", () => {
       customerStore: customerStore(),
     });
     await signUpCustomer(
-      { ...validSignUp, fullName: "John Doe", email: "john@example.com" },
+      { ...validSignUp, firstName: "John", email: "john@example.com" },
       { auth: authStub("neon-user-2"), customerStore: customerStore() },
     );
 

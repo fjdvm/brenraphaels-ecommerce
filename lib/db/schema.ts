@@ -21,6 +21,10 @@ export const customers = pgTable("customers", {
   // This is the Neon Auth user id. A foreign key is deliberately not possible:
   // application migrations must never write to or manage the neon_auth schema.
   id: text("id").primaryKey(),
+  firstName: text("first_name").notNull(),
+  middleName: text("middle_name"),
+  lastName: text("last_name").notNull(),
+  // The three names joined, kept because Neon Auth and the profile use it.
   fullName: text("full_name").notNull(),
   email: text("email").notNull().unique(),
   contactNumber: text("contact_number").notNull(),

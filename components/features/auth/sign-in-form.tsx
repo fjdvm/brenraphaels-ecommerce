@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { emailMaximumLength, passwordMaximumLength } from "@/lib/validators/fields";
 
 export function SignInForm({ next }: { next?: string }) {
@@ -60,10 +61,9 @@ export function SignInForm({ next }: { next?: string }) {
           <Label htmlFor="password" required>
             Password
           </Label>
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="current-password"
             maxLength={passwordMaximumLength}
             required

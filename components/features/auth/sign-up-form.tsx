@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { signUpFormValues, signUpSteps } from "@/lib/customer/sign-up-schema";
 import { emailMaximumLength, passwordMaximumLength } from "@/lib/validators/fields";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ type FieldProps = {
   type?: "email" | "password" | "tel" | "text";
   autoComplete?: string;
   maxLength: number;
+  optional?: boolean;
   error?: string;
 };
 
@@ -30,18 +32,23 @@ function Field({
   type = "text",
   autoComplete,
   maxLength,
+  optional,
   error,
 }: FieldProps) {
   const errorId = `${name}-error`;
+  const Control = type === "password" ? PasswordInput : Input;
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={name} required>
+      <Label htmlFor={name} required={!optional}>
         {label}
+        {optional ? (
+          <span className="ml-1 font-normal text-on-surface-variant">(optional)</span>
+        ) : null}
       </Label>
-      <Input
+      <Control
         id={name}
         name={name}
-        type={type}
+        {...(type === "password" ? {} : { type })}
         autoComplete={autoComplete}
         maxLength={maxLength}
         inputMode={type === "tel" ? "tel" : undefined}
@@ -49,7 +56,7 @@ function Field({
         spellCheck={type === "text" ? undefined : false}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
-        required
+        required={!optional}
       />
       {error ? (
         <p id={errorId} className="text-sm text-red-700" role="alert">
@@ -139,8 +146,8 @@ export function SignUpForm() {
     <Card className="mx-auto w-full max-w-lg rounded-2xl p-6 shadow-sm sm:p-8">
       <div className="mb-5">
         <h1 className="font-serif text-3xl text-primary">Become a Customer</h1>
-        <p className="mt-1 text-on-surface-variant">
-          Step {step + 1} of {signUpSteps.length} · {signUpSteps[step].title}
+        <p className="sr-only" aria-live="polite">
+          Step {step + 1} of {signUpSteps.length}: {signUpSteps[step].title}
         </p>
         <ol className="mt-4 flex gap-2" aria-label="Sign-up progress">
           {signUpSteps.map((candidate, index) => (
@@ -161,12 +168,29 @@ export function SignUpForm() {
       <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div data-step="0" hidden={step !== 0} className="space-y-4">
           <Field
-            name="fullName"
-            label="Full name"
-            autoComplete="name"
-            maxLength={100}
-            error={errors.fullName?.[0]}
+            name="firstName"
+            label="First name"
+            autoComplete="given-name"
+            maxLength={50}
+            error={errors.firstName?.[0]}
           />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              name="middleName"
+              label="Middle name"
+              autoComplete="additional-name"
+              maxLength={50}
+              optional
+              error={errors.middleName?.[0]}
+            />
+            <Field
+              name="lastName"
+              label="Last name"
+              autoComplete="family-name"
+              maxLength={50}
+              error={errors.lastName?.[0]}
+            />
+          </div>
           <Field
             name="email"
             label="Email address"
@@ -175,24 +199,27 @@ export function SignUpForm() {
             maxLength={emailMaximumLength}
             error={errors.email?.[0]}
           />
-          <Field
-            name="password"
-            label="Password"
-            type="password"
-            autoComplete="new-password"
-            maxLength={passwordMaximumLength}
-            error={errors.password?.[0]}
-          />
-          <Field
-            name="confirmPassword"
-            label="Confirm password"
-            type="password"
-            autoComplete="new-password"
-            maxLength={passwordMaximumLength}
-            error={errors.confirmPassword?.[0]}
-          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              name="password"
+              label="Password"
+              type="password"
+              autoComplete="new-password"
+              maxLength={passwordMaximumLength}
+              error={errors.password?.[0]}
+            />
+            <Field
+              name="confirmPassword"
+              label="Confirm password"
+              type="password"
+              autoComplete="new-password"
+              maxLength={passwordMaximumLength}
+              error={errors.confirmPassword?.[0]}
+            />
+          </div>
           <p className="text-sm text-on-surface-variant">
-            Use at least 8 characters, including an uppercase letter and a number.
+            Use at least 8 characters, including an uppercase letter, a number and
+            a special character (such as ! or #).
           </p>
         </div>
 
