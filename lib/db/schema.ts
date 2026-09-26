@@ -30,6 +30,19 @@ export const customers = pgTable("customers", {
     .notNull(),
 });
 
+export const emailVerificationResends = pgTable("email_verification_resends", {
+  email: text("email").primaryKey(),
+  lastSentAt: timestamp("last_sent_at", { withTimezone: true }).notNull(),
+});
+
+export const usedEmailVerificationTokens = pgTable(
+  "used_email_verification_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull(),
+  },
+);
+
 export const addresses = pgTable(
   "addresses",
   {

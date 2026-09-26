@@ -15,6 +15,20 @@
       "when": 1790407178061,
       "tag": "0001_big_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790409088507,
+      "tag": "0002_daffy_thor",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790409143392,
+      "tag": "0003_redundant_doctor_doom",
+      "breakpoints": true
     }
   ]
 }

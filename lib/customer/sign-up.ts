@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
@@ -93,7 +94,9 @@ type CustomerDetails = {
 };
 
 export type CustomerStore = {
-  save(details: CustomerDetails): Promise<void>;
+  hasEmail(email: string): Promise<boolean>;
+  /** Returns false when a Customer with this email was already saved. */
+  save(details: CustomerDetails): Promise<boolean>;
 };
 
 export type NeonAuth = {
@@ -102,6 +105,7 @@ export type NeonAuth = {
     password: string;
     fullName: string;
   }): Promise<{ userId: string }>;
+  sendVerificationEmail(email: string): Promise<void>;
 };
 
 export class CustomerDetailsSaveError extends Error {
@@ -118,15 +122,32 @@ export function createCustomerStore<
   TSchema extends Record<string, unknown>,
 >(db: PgDatabase<TQueryResult, TSchema>): CustomerStore {
   return {
+    async hasEmail(email) {
+      const [customer] = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(eq(customers.email, email))
+        .limit(1);
+      return Boolean(customer);
+    },
     async save(details) {
-      await db.transaction(async (transaction) => {
-        await transaction.insert(customers).values({
+      return db.transaction(async (transaction) => {
+        const [customer] = await transaction
+          .insert(customers)
+          .values({
           id: details.userId,
           fullName: details.fullName,
           email: details.email,
           contactNumber: details.contactNumber,
           marketingOptIn: details.marketingOptIn,
-        });
+          })
+          .onConflictDoNothing({ target: customers.email })
+          .returning({ id: customers.id });
+
+        if (!customer) {
+          return false;
+        }
+
         await transaction.insert(addresses).values({
           customerId: details.userId,
           label: "Home",
@@ -138,6 +159,8 @@ export function createCustomerStore<
           country: "Philippines",
           isDefault: true,
         });
+
+        return true;
       });
     },
   };
@@ -148,17 +171,26 @@ export async function signUpCustomer(
   dependencies: { auth: NeonAuth; customerStore: CustomerStore },
 ) {
   const signUp = customerSignUpSchema.parse(input);
+  const email = signUp.email.toLowerCase();
+  const existingCustomer = await dependencies.customerStore.hasEmail(email);
   const login = await dependencies.auth.createLogin({
-    email: signUp.email,
+    email,
     password: signUp.password,
     fullName: signUp.fullName,
   });
+
+  if (existingCustomer) {
+    // Neon Auth sends only when this is an unverified email, while returning a
+    // neutral response for an existing verified login.
+    await dependencies.auth.sendVerificationEmail(email);
+    return { email };
+  }
 
   try {
     await dependencies.customerStore.save({
       userId: login.userId,
       fullName: signUp.fullName,
-      email: signUp.email,
+      email,
       contactNumber: signUp.contactNumber,
       marketingOptIn: signUp.marketingOptIn === "yes",
       address: {
@@ -173,5 +205,5 @@ export async function signUpCustomer(
     throw new CustomerDetailsSaveError(error);
   }
 
-  return { email: signUp.email };
+  return { email };
 }

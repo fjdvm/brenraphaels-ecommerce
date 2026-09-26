@@ -41,7 +41,10 @@ function customerStore() {
 }
 
 function authStub(userId = "neon-user-1") {
-  return { createLogin: vi.fn().mockResolvedValue({ userId }) };
+  return {
+    createLogin: vi.fn().mockResolvedValue({ userId }),
+    sendVerificationEmail: vi.fn().mockResolvedValue(undefined),
+  };
 }
 
 describe("Customer sign-up", () => {
@@ -118,6 +121,48 @@ describe("Customer sign-up", () => {
         { contact_number: "09171234567" },
       ],
     });
+  });
+
+  test("reuses an unverified Customer's login, sends a fresh confirmation, and saves no duplicate data", async () => {
+    const firstAttempt = authStub("neon-user-1");
+    await signUpCustomer(validSignUp, {
+      auth: firstAttempt,
+      customerStore: customerStore(),
+    });
+    const repeatAttempt = authStub("synthetic-neon-user-id");
+
+    await signUpCustomer(validSignUp, {
+      auth: repeatAttempt,
+      customerStore: customerStore(),
+    });
+
+    expect(repeatAttempt.createLogin).toHaveBeenCalledOnce();
+    expect(repeatAttempt.sendVerificationEmail).toHaveBeenCalledWith("jane@example.com");
+    expect(await client.query("select id from customers")).toMatchObject({
+      rows: [{ id: "neon-user-1" }],
+    });
+    expect(await client.query("select customer_id from addresses")).toMatchObject({
+      rows: [{ customer_id: "neon-user-1" }],
+    });
+  });
+
+  test("gives an existing Verified Customer the neutral check-email response", async () => {
+    await signUpCustomer(validSignUp, {
+      auth: authStub("neon-user-1"),
+      customerStore: customerStore(),
+    });
+    const repeatAttempt = authStub("synthetic-neon-user-id");
+
+    await expect(
+      signUpCustomer(validSignUp, {
+        auth: repeatAttempt,
+        customerStore: customerStore(),
+      }),
+    ).resolves.toEqual({ email: "jane@example.com" });
+
+    // Neon Auth's resend endpoint deliberately sends nothing for a Verified
+    // login while preserving this same neutral response.
+    expect(repeatAttempt.sendVerificationEmail).toHaveBeenCalledWith("jane@example.com");
   });
 
   test("keeps a created login when saving Customer details fails, without partial rows", async () => {
