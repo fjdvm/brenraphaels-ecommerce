@@ -67,16 +67,6 @@ const groups: Group[] = [
     heading: "Ordering",
     faqs: [
       [
-        "How can I place an order?",
-        {
-          paragraphs: [
-            "You can place your order through our website or by contacting our official social media pages. Simply choose your preferred product, select the quantity, and send us your order details for confirmation.",
-            "Once we have received your payment, our team will process your order immediately and prepare it for dispatch. Delivery will be booked via trusted couriers such as Lalamove, GrabExpress, or other available delivery services.",
-            "You will be notified once your order is ready for pickup and on its way to you.",
-          ],
-        },
-      ],
-      [
         "Do you accept Senior Citizen and PWD discounts?",
         {
           paragraphs: [
@@ -93,13 +83,23 @@ const groups: Group[] = [
           ],
         },
       ],
+      [
+        "How can I place an order?",
+        {
+          paragraphs: [
+            "You can place your order through our website or by contacting our official social media pages. Simply choose your preferred product, select the quantity, and send us your order details for confirmation.",
+            "Once we have received your payment, our team will process your order immediately and prepare it for dispatch. Delivery will be booked via trusted couriers such as Lalamove, GrabExpress, or other available delivery services.",
+            "You will be notified once your order is ready for pickup and on its way to you.",
+          ],
+        },
+      ],
     ],
   },
   {
     heading: "Payment",
     faqs: [
       [
-        "Which payment methods do you accept?",
+        "Payment Methods",
         {
           paragraphs: ["We accept the following payment options:"],
           bullets: ["Cash on Delivery (COD)", "GCash"],
@@ -111,7 +111,7 @@ const groups: Group[] = [
     heading: "Shipping",
     faqs: [
       [
-        "How does shipping and delivery work?",
+        "Shipping & Delivery",
         {
           bullets: [
             "Delivery fees may vary depending on your location",
@@ -126,7 +126,7 @@ const groups: Group[] = [
     heading: "Pickup",
     faqs: [
       [
-        "How does store pickup work?",
+        "Store Pickup",
         {
           bullets: [
             "Available for pre-orders and confirmed orders",
