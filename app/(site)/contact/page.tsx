@@ -1,3 +1,4 @@
+import { ContactForm } from "@/components/features/contact/contact-form";
 import { ContentPage } from "@/components/shared/content-page";
 import {
   address,
@@ -12,6 +13,7 @@ export const metadata = { title: "Contact" };
 export default function ContactPage() {
   return (
     <ContentPage eyebrow="Customer care" title="Contact Us">
+      <ContactForm />
       <section>
         <h2 className="font-serif text-2xl text-primary">Store</h2>
         <p>{address}</p>
