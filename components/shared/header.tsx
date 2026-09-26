@@ -23,7 +23,7 @@ export function Header({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <header className="sticky top-0 z-20 border-b border-outline-variant/60 bg-surface/95 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-outline-variant/60 bg-surface">
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8">
         <Link href="/" className="flex items-center gap-3">
           <Image
