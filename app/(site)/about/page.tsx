@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { ContentPage } from "@/components/shared/content-page";
 import { tagline } from "@/lib/site/store-info";
 
@@ -52,6 +54,22 @@ export default function AboutPage() {
         At Bren Raphael&apos;s, every jar represents tradition, perseverance,
         faith, and the belief that great things can grow from humble beginnings.
       </p>
+      <Image
+        src="/images/about/sweet-journey.jpg"
+        alt="A collage of the Bren Raphael's family and team, titled A Sweet Journey — A Story of Family, Love, Faith, and Dreams"
+        width={739}
+        height={525}
+        sizes="(min-width: 896px) 896px, 100vw"
+        className="h-auto w-full"
+      />
+      <Image
+        src="/images/about/brand-banner.jpg"
+        alt="The Bren Raphael's logo, A Taste of Heritage, A Spoonful of Love. Premium handcrafted ube products made to bring authentic Filipino flavors closer to every home and business."
+        width={739}
+        height={417}
+        sizes="(min-width: 896px) 896px, 100vw"
+        className="h-auto w-full"
+      />
       <section>
         <h2 className="font-serif text-2xl text-primary">Our Mission</h2>
         <p>

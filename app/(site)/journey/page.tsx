@@ -1,7 +1,33 @@
+import Image from "next/image";
+
 import { ContentPage } from "@/components/shared/content-page";
+import { YouTubeVideo } from "@/components/shared/youtube-video";
 import { tagline } from "@/lib/site/store-info";
 
 export const metadata = { title: "Our Journey" };
+
+function Photo({
+  src,
+  alt,
+  width,
+  height,
+}: {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+}) {
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      sizes="(min-width: 896px) 896px, 100vw"
+      className="mt-4 h-auto w-full"
+    />
+  );
+}
 
 export default function JourneyPage() {
   return (
@@ -21,6 +47,12 @@ export default function JourneyPage() {
             We visited Kota Paradiso for the sustainable sourcing of our premium
             raw ube, and took part in planting ube seedlings.
           </p>
+          <Photo
+            src="/images/journey/kota-paradiso.jpg"
+            alt="The Bren Raphael's team in purple shirts posing with hand signs after planting ube seedlings at Kota Paradiso"
+            width={1200}
+            height={1600}
+          />
         </article>
         <article>
           <h3 className="font-serif text-2xl text-primary">
@@ -31,6 +63,18 @@ export default function JourneyPage() {
             Hirap, Inc. (ASHI), together with local farmers, through DTI OIC PD
             coordination.
           </p>
+          <Photo
+            src="/images/journey/ashi-meeting.jpg"
+            alt="Two group photos of the Bren Raphael's team with ASHI representatives and local farmers, outdoors and in a meeting room"
+            width={1290}
+            height={1111}
+          />
+          <Photo
+            src="/images/journey/ashi-farmers.jpg"
+            alt="A collage of local farmers and the Bren Raphael's team examining freshly harvested purple yam"
+            width={1092}
+            height={626}
+          />
         </article>
       </section>
       <section className="space-y-6">
@@ -45,6 +89,18 @@ export default function JourneyPage() {
             the Tatak Pinoy Expo 2026, showcasing proudly Filipino products on a
             national stage alongside leading industries and MSMEs.
           </p>
+          <Photo
+            src="/images/journey/tatak-pinoy-1.jpg"
+            alt="The Bren Raphael's team at their Tatak Pinoy Expo 2026 booth, beside the price list and displays of purple yam, jars and pouches"
+            width={1600}
+            height={1066}
+          />
+          <Photo
+            src="/images/journey/tatak-pinoy-2.jpg"
+            alt="Three team members at the Tatak Pinoy Expo 2026 booth in front of shelves of Bren Raphael's Ube Jam and Ube Halaya"
+            width={1600}
+            height={1066}
+          />
         </article>
         <article>
           <h3 className="font-serif text-2xl text-primary">
@@ -54,13 +110,37 @@ export default function JourneyPage() {
             Agripreneur is a television program that highlights inspiring
             Filipino farmers and agribusinesses.
           </p>
+          <Photo
+            src="/images/journey/agripreneur-1.jpg"
+            alt="The Bren Raphael's team in purple uniforms on Agripreneur, with Ralph at the front"
+            width={1290}
+            height={712}
+          />
+          <Photo
+            src="/images/journey/agripreneur-2.jpg"
+            alt="Bernice holding two jars of Ube Jam, with the team behind her, on Agripreneur"
+            width={1290}
+            height={714}
+          />
         </article>
         <article>
           <h3 className="font-serif text-2xl text-primary">Media Features</h3>
-          <ul className="mt-2 list-disc space-y-1 pl-6">
-            <li>Halukay Ube with Sexbomb Monic | Unang Hirit</li>
-            <li>Ultimate ube food trip sa Antipolo | Gud Morning Kapatid</li>
-          </ul>
+          <div className="mt-4 space-y-6">
+            <div className="space-y-2">
+              <p>Halukay Ube with Sexbomb Monic | Unang Hirit</p>
+              <YouTubeVideo
+                id="dGstTnnsdFo"
+                title="Halukay Ube with Sexbomb Monic | Unang Hirit"
+              />
+            </div>
+            <div className="space-y-2">
+              <p>Ultimate ube food trip sa Antipolo | Gud Morning Kapatid</p>
+              <YouTubeVideo
+                id="iGeXYtSVtMk"
+                title="Ultimate ube food trip sa Antipolo | Gud Morning Kapatid"
+              />
+            </div>
+          </div>
         </article>
       </section>
     </ContentPage>
