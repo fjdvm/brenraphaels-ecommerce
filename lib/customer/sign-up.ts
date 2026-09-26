@@ -58,6 +58,15 @@ export class CustomerDetailsSaveError extends Error {
   }
 }
 
+export class SignUpAuthError extends Error {
+  constructor(cause: unknown) {
+    super("Neon Auth could not create the login or send the confirmation email.", {
+      cause,
+    });
+    this.name = "SignUpAuthError";
+  }
+}
+
 export function createCustomerStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
@@ -124,16 +133,25 @@ export async function signUpCustomer(
   const email = signUp.email.toLowerCase();
   const fullName = composeFullName(signUp);
   const existingCustomer = await dependencies.customerStore.hasEmail(email);
-  const login = await dependencies.auth.createLogin({
-    email,
-    password: signUp.password,
-    fullName,
-  });
+  let login: { userId: string };
+  try {
+    login = await dependencies.auth.createLogin({
+      email,
+      password: signUp.password,
+      fullName,
+    });
+  } catch (error) {
+    throw new SignUpAuthError(error);
+  }
 
   if (existingCustomer) {
     // Neon Auth sends only when this is an unverified email, while returning a
     // neutral response for an existing verified login.
-    await dependencies.auth.sendVerificationEmail(email);
+    try {
+      await dependencies.auth.sendVerificationEmail(email);
+    } catch (error) {
+      throw new SignUpAuthError(error);
+    }
     return { email };
   }
 

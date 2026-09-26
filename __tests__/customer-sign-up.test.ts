@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   CustomerDetailsSaveError,
+  SignUpAuthError,
   createCustomerStore,
   signUpCustomer,
   type CustomerSignUp,
@@ -226,5 +227,39 @@ describe("Customer sign-up", () => {
     expect(await client.query("select id from addresses")).toMatchObject({
       rows: [],
     });
+  });
+
+  test("reports a failed login creation without saving any Customer data", async () => {
+    const auth = authStub();
+    auth.createLogin.mockRejectedValue(new Error("Invalid origin"));
+
+    const attempt = signUpCustomer(validSignUp, {
+      auth,
+      customerStore: customerStore(),
+    });
+
+    await expect(attempt).rejects.toBeInstanceOf(SignUpAuthError);
+    await expect(attempt).rejects.toMatchObject({
+      cause: expect.objectContaining({ message: "Invalid origin" }),
+    });
+    expect(await client.query("select id from customers")).toMatchObject({
+      rows: [],
+    });
+  });
+
+  test("reports a failed confirmation resend for an existing email", async () => {
+    await signUpCustomer(validSignUp, {
+      auth: authStub("neon-user-1"),
+      customerStore: customerStore(),
+    });
+    const repeatAttempt = authStub();
+    repeatAttempt.sendVerificationEmail.mockRejectedValue(new Error("Brevo down"));
+
+    await expect(
+      signUpCustomer(validSignUp, {
+        auth: repeatAttempt,
+        customerStore: customerStore(),
+      }),
+    ).rejects.toBeInstanceOf(SignUpAuthError);
   });
 });

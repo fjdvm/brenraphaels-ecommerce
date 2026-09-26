@@ -25,6 +25,7 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [email, setEmail] = useState<string>();
+  const [formError, setFormError] = useState<string>();
   const [pending, startTransition] = useTransition();
   const lastStep = signUpSteps.length - 1;
 
@@ -52,8 +53,13 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
       return;
     }
 
+    setFormError(undefined);
     startTransition(async () => {
       const outcome = await submitSignUp(formData);
+      if (outcome.formError) {
+        setFormError(outcome.formError);
+        return;
+      }
       if (outcome.email) {
         setEmail(outcome.email);
         return;
@@ -150,6 +156,12 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
         <div data-step="2" hidden={step !== 2} className="space-y-5">
           <PreferenceFields errors={errors} />
         </div>
+
+        {formError ? (
+          <p className="text-sm text-red-700" role="alert">
+            {formError}
+          </p>
+        ) : null}
 
         <div className="flex gap-3 pt-1">
           {step > 0 ? (

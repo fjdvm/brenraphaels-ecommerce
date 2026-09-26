@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { locationErrors } from "@/lib/address/locations";
 import {
   CustomerDetailsSaveError,
+  SignUpAuthError,
   createCustomerStore,
   signUpCustomer,
 } from "@/lib/customer/sign-up";
@@ -15,6 +16,8 @@ import { neonAuth } from "@/lib/neon-auth/server";
 
 export type SignUpResult = {
   email?: string;
+  /** A failure that belongs to no single field, such as Neon Auth being unavailable. */
+  formError?: string;
   fieldErrors?: Record<string, string[] | undefined>;
 };
 
@@ -37,6 +40,14 @@ export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
     });
     return { email: result.email };
   } catch (error) {
+    if (error instanceof SignUpAuthError) {
+      // The real cause (for example "Invalid origin") stays in the server log.
+      console.error("Sign-up failed at Neon Auth", error);
+      return {
+        formError:
+          "We couldn't create your login right now. Please try again in a moment.",
+      };
+    }
     if (error instanceof CustomerDetailsSaveError) {
       redirect("/complete-profile");
     }
