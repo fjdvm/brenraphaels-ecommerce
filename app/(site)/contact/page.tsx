@@ -35,48 +35,38 @@ export default function ContactPage() {
                 <h2 className="font-serif text-3xl text-primary">Store</h2>
                 <p className="mt-3">{address}</p>
               </section>
+              <section>
+                <h2 className="font-serif text-3xl text-primary">Phone</h2>
+                <ul className="mt-3 space-y-2">
+                  {phones.map(({ label, number }) => (
+                    <li key={label}>
+                      <strong>{label}:</strong> {number}
+                    </li>
+                  ))}
+                </ul>
+              </section>
             </div>
           }
         />
-        <EditorialRow
-          className="border-t border-outline-variant/50 pt-12"
-          mediaSide="left"
-          media={
-            <section className="border border-outline-variant/50 bg-surface-card p-8">
-              <h2 className="font-serif text-3xl text-primary">
-                Store Schedule
-              </h2>
-              <ul className="mt-6 divide-y divide-outline-variant/50">
-                {storeSchedule.map(({ days, hours }) => (
-                  <li
-                    key={days}
-                    className="flex flex-wrap items-baseline justify-between gap-x-6 py-4"
-                  >
-                    <span>{days}</span>
-                    <span className="font-serif text-xl text-primary">
-                      {hours}
-                    </span>
-                  </li>
-                ))}
-                <li className="py-4 font-semibold text-secondary">
-                  {closedDay}
-                </li>
-              </ul>
-            </section>
-          }
-          text={
-            <section>
-              <h2 className="font-serif text-3xl text-primary">Phone</h2>
-              <ul className="mt-3 space-y-2">
-                {phones.map(({ label, number }) => (
-                  <li key={label}>
-                    <strong>{label}:</strong> {number}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          }
-        />
+        <section className="border-t border-outline-variant/50 pt-12">
+          <h2 className="font-serif text-3xl text-primary">Store Schedule</h2>
+          <ul className="mt-8 grid gap-6 sm:grid-cols-3">
+            {storeSchedule.map(({ days, hours }) => (
+              <li
+                key={days}
+                className="border border-outline-variant/50 bg-surface-card p-8"
+              >
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-secondary">
+                  {days}
+                </p>
+                <p className="mt-3 font-serif text-3xl text-primary">{hours}</p>
+              </li>
+            ))}
+            <li className="flex items-center border border-outline-variant/50 bg-primary p-8">
+              <p className="font-serif text-3xl text-white">{closedDay}</p>
+            </li>
+          </ul>
+        </section>
       </div>
     </ContentPage>
   );
