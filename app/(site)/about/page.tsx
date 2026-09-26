@@ -110,7 +110,7 @@ export default function AboutPage() {
             </div>
           }
           media={
-            <div className="grid gap-6 sm:grid-cols-2">
+            <div className="space-y-6">
               <section className="border border-outline-variant/50 bg-surface-card p-6">
                 <h2 className="font-serif text-2xl text-primary">
                   Our Mission
