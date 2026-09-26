@@ -185,6 +185,33 @@ describe("Completing a Customer's profile", () => {
       rows: [{ street: "123 Katipunan Avenue" }],
     });
   });
+
+  test("tells the Customer when their email already belongs to another Customer, saving nothing", async () => {
+    await complete(validDetails, { ...identity, userId: "neon-user-old" });
+
+    await expect(complete({ ...validDetails, street: "Elsewhere" })).resolves.toEqual({
+      status: "email-taken",
+    });
+
+    expect(await client.query("select id from customers")).toMatchObject({
+      rows: [{ id: "neon-user-old" }],
+    });
+    expect(await client.query("select street from addresses")).toMatchObject({
+      rows: [{ street: "123 Katipunan Avenue" }],
+    });
+  });
+
+  test("saves once when the same Customer submits twice at the same time", async () => {
+    const outcomes = await Promise.all([complete(validDetails), complete(validDetails)]);
+
+    expect(outcomes.map((outcome) => outcome.status).sort()).toEqual([
+      "already-complete",
+      "completed",
+    ]);
+    expect(await client.query("select id from addresses")).toMatchObject({
+      rows: [expect.anything()],
+    });
+  });
 });
 
 describe("Pre-filling the name from the login", () => {

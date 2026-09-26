@@ -37,5 +37,12 @@ export async function submitCompleteProfile(
     return { fieldErrors: result.fieldErrors };
   }
 
+  if (result.status === "email-taken") {
+    return {
+      message:
+        "This email already belongs to another Customer, so we couldn't save your details. Please contact us for help.",
+    };
+  }
+
   redirect(profilePath);
 }

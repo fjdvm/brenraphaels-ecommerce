@@ -28,10 +28,16 @@ type CustomerDetails = {
   };
 };
 
+export type SaveCustomerOutcome =
+  | "saved"
+  /** This login's own Customer details were already saved; nothing was changed. */
+  | "already-saved"
+  /** Another login's Customer already has this email; nothing was saved. */
+  | "email-taken";
+
 export type CustomerStore = {
   hasEmail(email: string): Promise<boolean>;
-  /** Returns false when a Customer with this email was already saved. */
-  save(details: CustomerDetails): Promise<boolean>;
+  save(details: CustomerDetails): Promise<SaveCustomerOutcome>;
 };
 
 export type NeonAuth = {
@@ -79,11 +85,17 @@ export function createCustomerStore<
           contactNumber: details.contactNumber,
           marketingOptIn: details.marketingOptIn,
           })
-          .onConflictDoNothing({ target: customers.email })
+          // No target, so a clash on the id (a double submit) is handled too.
+          .onConflictDoNothing()
           .returning({ id: customers.id });
 
         if (!customer) {
-          return false;
+          const [own] = await transaction
+            .select({ id: customers.id })
+            .from(customers)
+            .where(eq(customers.id, details.userId))
+            .limit(1);
+          return own ? "already-saved" : "email-taken";
         }
 
         await transaction.insert(addresses).values({
@@ -98,7 +110,7 @@ export function createCustomerStore<
           isDefault: true,
         });
 
-        return true;
+        return "saved";
       });
     },
   };

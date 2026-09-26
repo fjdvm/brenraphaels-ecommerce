@@ -8,6 +8,8 @@ export type CompleteProfileResult =
   | { status: "completed" }
   /** The Customer's details were already saved, so nothing was changed. */
   | { status: "already-complete" }
+  /** The email is already used by another Customer, so nothing was saved. */
+  | { status: "email-taken" }
   | { status: "invalid"; fieldErrors: Record<string, string[] | undefined> };
 
 /**
@@ -48,5 +50,12 @@ export async function completeCustomerProfile(
     },
   });
 
-  return { status: saved ? "completed" : "already-complete" };
+  switch (saved) {
+    case "saved":
+      return { status: "completed" };
+    case "already-saved":
+      return { status: "already-complete" };
+    case "email-taken":
+      return { status: "email-taken" };
+  }
 }
