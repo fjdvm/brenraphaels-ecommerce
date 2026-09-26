@@ -5,14 +5,13 @@ import {
   optionalTextField,
   passwordField,
   passwordMaximumLength,
-  phoneField,
   textField,
 } from "../validators/fields";
+import { customerContactNumberSchema } from "./contact-number";
 
 const nameMaximumLength = 50;
 const addressFieldMaximumLength = 100;
 
-const philippineMobileNumber = /^(\+63|0)9\d{9}$/;
 const nameCharacters = /^[\p{L}\p{M}\s'.-]+$/u;
 const addressCharacters = /^[\p{L}\p{M}\p{N}\s,.#\-/'&]+$/u;
 const postalCodeCharacters = /^[\p{L}\p{N}\s-]+$/u;
@@ -54,10 +53,7 @@ const accountFields = {
 };
 
 const deliveryFields = {
-  contactNumber: phoneField("Contact number", {
-    pattern: philippineMobileNumber,
-    patternMessage: "Enter a valid PH mobile number, e.g. 09171234567",
-  }),
+  contactNumber: customerContactNumberSchema.shape.contactNumber,
   street: addressField("Street address"),
   barangay: addressField("Barangay"),
   city: addressField("City or municipality"),
