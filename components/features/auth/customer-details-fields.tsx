@@ -171,13 +171,27 @@ export function PreferenceFields({ errors }: { errors: FieldErrors }) {
             *
           </span>
         </legend>
-        <div className="flex gap-5">
-          <Label className="flex items-center gap-2 font-normal" htmlFor="marketing-yes">
-            <input id="marketing-yes" type="radio" name="marketingOptIn" value="yes" required />
+        <div className="flex gap-6">
+          <Label className="flex min-h-11 items-center gap-2 font-normal" htmlFor="marketing-yes">
+            <input
+              id="marketing-yes"
+              type="radio"
+              name="marketingOptIn"
+              value="yes"
+              className="size-5"
+              required
+            />
             Yes
           </Label>
-          <Label className="flex items-center gap-2 font-normal" htmlFor="marketing-no">
-            <input id="marketing-no" type="radio" name="marketingOptIn" value="no" required />
+          <Label className="flex min-h-11 items-center gap-2 font-normal" htmlFor="marketing-no">
+            <input
+              id="marketing-no"
+              type="radio"
+              name="marketingOptIn"
+              value="no"
+              className="size-5"
+              required
+            />
             No
           </Label>
         </div>
@@ -185,8 +199,8 @@ export function PreferenceFields({ errors }: { errors: FieldErrors }) {
       </fieldset>
 
       <div className="space-y-2">
-        <Label className="flex items-start gap-2 font-normal" htmlFor="terms">
-          <input id="terms" type="checkbox" name="terms" className="mt-1" required />
+        <Label className="flex min-h-11 items-start gap-3 font-normal" htmlFor="terms">
+          <input id="terms" type="checkbox" name="terms" className="mt-0.5 size-5 shrink-0" required />
           <span>
             I accept the{" "}
             <Link className="text-primary underline" href="/terms" {...newTab}>

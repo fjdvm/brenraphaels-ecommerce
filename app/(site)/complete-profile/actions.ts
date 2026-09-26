@@ -2,12 +2,10 @@
 
 import { redirect } from "next/navigation";
 
+import { profilePath } from "@/lib/auth/route-access";
 import { completeCustomerProfile } from "@/lib/customer/complete-profile";
 import { completeProfileFormValues } from "@/lib/customer/complete-profile-schema";
-import {
-  profilePath,
-  requireVisitorNeedingDetails,
-} from "@/lib/customer/current-visitor";
+import { requireVisitorNeedingDetails } from "@/lib/customer/current-visitor";
 import { createCustomerStore } from "@/lib/customer/sign-up";
 import { getDatabase } from "@/lib/db";
 

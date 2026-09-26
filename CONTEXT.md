@@ -17,7 +17,7 @@ A Customer whose email address is proven to be theirs by confirming a message se
 _Avoid_: Confirmed, activated
 
 **Contact number**:
-A Philippine mobile number the shop can use to reach the Customer about an order. It is collected at sign-up but is not itself verified.
+A Philippine mobile number the shop can use to reach the Customer about an order. It is collected at sign-up, or on the complete-profile form for a login whose details were never saved, but is not itself verified.
 _Avoid_: Phone, mobile, cellphone
 
 **Marketing opt-in**:

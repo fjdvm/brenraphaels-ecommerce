@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import {
   completeProfilePath,
+  profilePath,
   returnPathHeader,
   signInPath,
 } from "@/lib/auth/route-access";
@@ -10,8 +11,6 @@ import { getDatabase } from "@/lib/db";
 import { getVisitorSession } from "@/lib/neon-auth/server";
 import { classifyVisitor } from "./visitor";
 import { createVisitorStore } from "./visitor-store";
-
-export const profilePath = "/profile";
 
 export async function currentVisitor() {
   const session = await getVisitorSession();

@@ -21,6 +21,7 @@ export const signedOutPaths = new Set([
 
 export const signInPath = "/signin";
 export const completeProfilePath = "/complete-profile";
+export const profilePath = "/profile";
 
 /** Request header the proxy sets so server-side checks know the page asked for. */
 export const returnPathHeader = "x-return-path";

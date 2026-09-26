@@ -53,7 +53,7 @@ export function CompleteProfileForm({ email, defaults }: CompleteProfileFormProp
       <h1 className="font-serif text-3xl text-primary">Complete your profile</h1>
       <p className="mt-3 text-on-surface-variant">
         Your login for <strong>{email}</strong> is ready. We just need a few more
-        details before you can use your account.
+        details before you can shop.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
