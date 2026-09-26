@@ -40,9 +40,6 @@ export async function SessionNav({ className }: { className?: string }) {
       <Link href="/signin" className="hover:text-primary">
         Sign in
       </Link>
-      <Link href="/signup" className="hover:text-primary">
-        Sign up
-      </Link>
     </div>
   );
 }

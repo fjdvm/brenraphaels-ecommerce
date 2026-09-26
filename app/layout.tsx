@@ -4,9 +4,6 @@ import {
   Hanken_Grotesk,
   Libre_Caslon_Text,
 } from "next/font/google";
-import { SessionNav } from "@/components/shared/session-nav";
-import { Footer } from "@/components/shared/footer";
-import { Header } from "@/components/shared/header";
 import "./globals.css";
 
 const libreCaslon = Libre_Caslon_Text({
@@ -42,16 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${libreCaslon.variable} ${hankenGrotesk.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <Header
-          desktopSession={
-            <SessionNav className="hidden items-center gap-5 text-sm font-semibold text-on-surface-variant md:flex" />
-          }
-          mobileSession={
-            <SessionNav className="flex flex-col gap-3 border-t border-outline-variant/60 pt-3 text-sm font-semibold text-on-surface" />
-          }
-        />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        {children}
       </body>
     </html>
   );

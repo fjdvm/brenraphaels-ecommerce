@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { confirmVerificationEmail } from "@/app/(auth)/verify-email/actions";
+import { confirmVerificationEmail } from "@/app/(site)/verify-email/actions";
 
 import { ResendVerificationForm } from "./resend-verification-form";
 

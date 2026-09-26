@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import {
   initialResendVerificationState,
   resendVerificationEmail,
-} from "@/app/(auth)/verify-email/actions";
+} from "@/app/(site)/verify-email/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

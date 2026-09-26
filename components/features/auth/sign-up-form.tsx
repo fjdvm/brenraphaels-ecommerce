@@ -66,7 +66,7 @@ export function SignUpForm() {
 
   if (state.email) {
     return (
-      <Card className="mx-auto max-w-xl rounded-2xl p-8 text-center shadow-sm">
+      <Card className="mx-auto w-full max-w-xl rounded-2xl p-8 text-center shadow-sm">
         <h1 className="font-serif text-4xl text-primary">Check your email</h1>
         <p className="mt-4 text-on-surface-variant">
           We&apos;ve sent a confirmation link to <strong>{state.email}</strong>.
@@ -80,7 +80,7 @@ export function SignUpForm() {
   }
 
   return (
-    <Card className="mx-auto max-w-2xl rounded-2xl p-6 shadow-sm sm:p-8">
+    <Card className="mx-auto w-full max-w-2xl rounded-2xl p-6 shadow-sm sm:p-8">
       <div className="mb-7 text-center">
         <h1 className="font-serif text-4xl text-primary">Become a Customer</h1>
         <p className="mt-2 text-on-surface-variant">

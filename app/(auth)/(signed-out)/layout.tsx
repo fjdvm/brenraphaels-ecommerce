@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { completeProfilePath } from "@/lib/auth/route-access";
+import { AuthShell } from "@/components/shared/auth-shell";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 
 // Sign-in, sign-up and password pages are for signed-out Visitors only. The
@@ -14,5 +15,5 @@ export default async function SignedOutLayout({ children }: LayoutProps<"/">) {
     redirect(completeProfilePath);
   }
 
-  return children;
+  return <AuthShell>{children}</AuthShell>;
 }

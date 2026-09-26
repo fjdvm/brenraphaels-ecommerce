@@ -21,7 +21,7 @@ export function SignInForm({ next }: { next?: string }) {
 
   if (state.unverifiedEmail) {
     return (
-      <Card className="mx-auto max-w-xl rounded-2xl p-8 text-center shadow-sm">
+      <Card className="mx-auto w-full max-w-xl rounded-2xl p-8 text-center shadow-sm">
         <h1 className="font-serif text-4xl text-primary">Confirm your email</h1>
         <p className="mt-4 text-on-surface-variant" role="alert">
           You need to confirm <strong>{state.unverifiedEmail}</strong> before you
@@ -33,7 +33,7 @@ export function SignInForm({ next }: { next?: string }) {
   }
 
   return (
-    <Card className="mx-auto max-w-md rounded-2xl p-6 shadow-sm sm:p-8">
+    <Card className="mx-auto w-full max-w-md rounded-2xl p-6 shadow-sm sm:p-8">
       <div className="mb-7 text-center">
         <h1 className="font-serif text-4xl text-primary">Sign in</h1>
         <p className="mt-2 text-on-surface-variant">Welcome back to Bren Raphael&apos;s.</p>
