@@ -18,11 +18,16 @@ export type CustomerOnFile = {
 };
 
 /** What Neon Auth tells us about the current login, if there is one. */
-export type VisitorSession = { userId: string; email: string } | null;
+export type VisitorSession = {
+  userId: string;
+  email: string;
+  /** The single name given at sign-up; the Customer's name parts are not known yet. */
+  fullName: string;
+} | null;
 
 export type Visitor =
   | { state: "signed-out" }
-  | { state: "needs-details"; userId: string; email: string }
+  | { state: "needs-details"; userId: string; email: string; fullName: string }
   | { state: "customer"; customer: CustomerOnFile };
 
 export type VisitorStore = {
@@ -43,6 +48,7 @@ export async function classifyVisitor(
       state: "needs-details",
       userId: session.userId,
       email: session.email,
+      fullName: session.fullName,
     };
   }
 

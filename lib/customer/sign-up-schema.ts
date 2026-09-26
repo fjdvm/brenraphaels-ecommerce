@@ -38,7 +38,7 @@ function nameField(label: string) {
   });
 }
 
-const accountFields = {
+export const nameFields = {
   firstName: nameField("First name"),
   middleName: optionalTextField({
     max: nameMaximumLength,
@@ -46,12 +46,16 @@ const accountFields = {
     patternMessage: nameCharactersMessage,
   }),
   lastName: nameField("Last name"),
+};
+
+const accountFields = {
+  ...nameFields,
   email: emailField,
   password: passwordField,
   confirmPassword: confirmPasswordField,
 };
 
-const deliveryFields = {
+export const deliveryFields = {
   contactNumber: customerContactNumberSchema.shape.contactNumber,
   street: addressField("Street address"),
   barangay: addressField("Barangay"),
@@ -65,7 +69,7 @@ const deliveryFields = {
   }),
 };
 
-const preferenceFields = {
+export const preferenceFields = {
   marketingOptIn: z.enum(["yes", "no"], {
     message: "Please let us know if you'd like to receive marketing emails",
   }),

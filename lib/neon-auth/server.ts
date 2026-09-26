@@ -103,7 +103,13 @@ export async function getVisitorSession(): Promise<VisitorSession> {
   // so opt in to per-request rendering ourselves before it reads cookies.
   await connection();
   const { data } = await getNeonAuth().getSession();
-  return data?.user ? { userId: data.user.id, email: data.user.email } : null;
+  return data?.user
+    ? {
+        userId: data.user.id,
+        email: data.user.email,
+        fullName: data.user.name ?? "",
+      }
+    : null;
 }
 
 export async function signOutVisitor() {

@@ -59,13 +59,14 @@ describe("Visitor classification", () => {
   test("a signed-in login without Customer details still needs to finish them", async () => {
     await expect(
       classifyVisitor(
-        { userId: "neon-user-2", email: "half@example.com" },
+        { userId: "neon-user-2", email: "half@example.com", fullName: "Half Way" },
         { visitorStore: visitorStore() },
       ),
     ).resolves.toEqual({
       state: "needs-details",
       userId: "neon-user-2",
       email: "half@example.com",
+      fullName: "Half Way",
     });
   });
 
@@ -74,7 +75,7 @@ describe("Visitor classification", () => {
 
     await expect(
       classifyVisitor(
-        { userId: "neon-user-1", email: "jane@example.com" },
+        { userId: "neon-user-1", email: "jane@example.com", fullName: "Jane Doe" },
         { visitorStore: visitorStore() },
       ),
     ).resolves.toEqual({

@@ -1,0 +1,209 @@
+import Link from "next/link";
+
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
+
+export type FieldErrors = Record<string, string[] | undefined>;
+
+type FieldProps = {
+  name: string;
+  label: string;
+  type?: "email" | "password" | "tel" | "text";
+  autoComplete?: string;
+  maxLength: number;
+  optional?: boolean;
+  defaultValue?: string;
+  error?: string;
+};
+
+export function Field({
+  name,
+  label,
+  type = "text",
+  autoComplete,
+  maxLength,
+  optional,
+  defaultValue,
+  error,
+}: FieldProps) {
+  const errorId = `${name}-error`;
+  const Control = type === "password" ? PasswordInput : Input;
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={name} required={!optional}>
+        {label}
+        {optional ? (
+          <span className="ml-1 font-normal text-on-surface-variant">(optional)</span>
+        ) : null}
+      </Label>
+      <Control
+        id={name}
+        name={name}
+        {...(type === "password" ? {} : { type })}
+        autoComplete={autoComplete}
+        maxLength={maxLength}
+        defaultValue={defaultValue}
+        inputMode={type === "tel" ? "tel" : undefined}
+        autoCapitalize={type === "email" ? "none" : undefined}
+        spellCheck={type === "text" ? undefined : false}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+        required={!optional}
+      />
+      {error ? (
+        <p id={errorId} className="text-sm text-red-700" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function FieldError({ error }: { error?: string }) {
+  return error ? (
+    <p className="text-sm text-red-700" role="alert">
+      {error}
+    </p>
+  ) : null;
+}
+
+type NameFieldsProps = {
+  errors: FieldErrors;
+  defaults?: { firstName?: string; middleName?: string; lastName?: string };
+};
+
+export function NameFields({ errors, defaults }: NameFieldsProps) {
+  return (
+    <>
+      <Field
+        name="firstName"
+        label="First name"
+        autoComplete="given-name"
+        maxLength={50}
+        defaultValue={defaults?.firstName}
+        error={errors.firstName?.[0]}
+      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          name="middleName"
+          label="Middle name"
+          autoComplete="additional-name"
+          maxLength={50}
+          optional
+          defaultValue={defaults?.middleName}
+          error={errors.middleName?.[0]}
+        />
+        <Field
+          name="lastName"
+          label="Last name"
+          autoComplete="family-name"
+          maxLength={50}
+          defaultValue={defaults?.lastName}
+          error={errors.lastName?.[0]}
+        />
+      </div>
+    </>
+  );
+}
+
+export function DeliveryFields({ errors }: { errors: FieldErrors }) {
+  return (
+    <>
+      <Field
+        name="contactNumber"
+        label="Contact number"
+        type="tel"
+        autoComplete="tel"
+        maxLength={30}
+        error={errors.contactNumber?.[0]}
+      />
+      <Field
+        name="street"
+        label="Street"
+        autoComplete="street-address"
+        maxLength={100}
+        error={errors.street?.[0]}
+      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field name="barangay" label="Barangay" maxLength={100} error={errors.barangay?.[0]} />
+        <Field
+          name="city"
+          label="City or municipality"
+          autoComplete="address-level2"
+          maxLength={100}
+          error={errors.city?.[0]}
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          name="province"
+          label="Province"
+          autoComplete="address-level1"
+          maxLength={100}
+          error={errors.province?.[0]}
+        />
+        <Field
+          name="postalCode"
+          label="Postal code"
+          autoComplete="postal-code"
+          maxLength={100}
+          error={errors.postalCode?.[0]}
+        />
+      </div>
+      <p className="text-sm text-on-surface-variant">
+        This becomes your Home Address and your Default address.
+      </p>
+    </>
+  );
+}
+
+const newTab = { target: "_blank", rel: "noopener noreferrer" } as const;
+
+/** The Marketing opt-in question (never pre-selected) and the terms checkbox. */
+export function PreferenceFields({ errors }: { errors: FieldErrors }) {
+  return (
+    <>
+      <fieldset className="space-y-2">
+        <legend className="font-medium">
+          Would you like marketing emails?
+          <span aria-hidden="true" className="ml-0.5 text-red-700">
+            *
+          </span>
+        </legend>
+        <div className="flex gap-5">
+          <Label className="flex items-center gap-2 font-normal" htmlFor="marketing-yes">
+            <input id="marketing-yes" type="radio" name="marketingOptIn" value="yes" required />
+            Yes
+          </Label>
+          <Label className="flex items-center gap-2 font-normal" htmlFor="marketing-no">
+            <input id="marketing-no" type="radio" name="marketingOptIn" value="no" required />
+            No
+          </Label>
+        </div>
+        <FieldError error={errors.marketingOptIn?.[0]} />
+      </fieldset>
+
+      <div className="space-y-2">
+        <Label className="flex items-start gap-2 font-normal" htmlFor="terms">
+          <input id="terms" type="checkbox" name="terms" className="mt-1" required />
+          <span>
+            I accept the{" "}
+            <Link className="text-primary underline" href="/terms" {...newTab}>
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link className="text-primary underline" href="/privacy" {...newTab}>
+              Privacy Policy
+            </Link>
+            .
+            <span aria-hidden="true" className="ml-0.5 text-red-700">
+              *
+            </span>
+          </span>
+        </Label>
+        <FieldError error={errors.terms?.[0]} />
+      </div>
+    </>
+  );
+}
