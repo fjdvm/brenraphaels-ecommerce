@@ -1,3 +1,5 @@
+import { ChevronDown } from "lucide-react";
+
 import { ContentPage } from "@/components/shared/content-page";
 
 export const metadata = { title: "FAQ" };
@@ -118,18 +120,28 @@ export default function FaqPage() {
       eyebrow="Frequently asked questions"
       title="Everything you need to know."
     >
-      {faqs.map(([question, { paragraphs, bullets, after }]) => (
-        <article key={question} className="space-y-2">
-          <h2 className="font-serif text-2xl text-primary">{question}</h2>
-          {paragraphs?.map((text) => <p key={text}>{text}</p>)}
-          {bullets ? (
-            <ul className="list-disc space-y-1 pl-6">
-              {bullets.map((text) => <li key={text}>{text}</li>)}
-            </ul>
-          ) : null}
-          {after?.map((text) => <p key={text}>{text}</p>)}
-        </article>
-      ))}
+      <div className="divide-y divide-outline-variant/60 border-y border-outline-variant/60">
+        {faqs.map(([question, { paragraphs, bullets, after }]) => (
+          <details key={question} className="group py-5">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
+              <h2 className="font-serif text-2xl text-primary">{question}</h2>
+              <ChevronDown
+                aria-hidden
+                className="h-5 w-5 shrink-0 text-primary transition-transform group-open:rotate-180"
+              />
+            </summary>
+            <div className="mt-4 space-y-2">
+              {paragraphs?.map((text) => <p key={text}>{text}</p>)}
+              {bullets ? (
+                <ul className="list-disc space-y-1 pl-6">
+                  {bullets.map((text) => <li key={text}>{text}</li>)}
+                </ul>
+              ) : null}
+              {after?.map((text) => <p key={text}>{text}</p>)}
+            </div>
+          </details>
+        ))}
+      </div>
     </ContentPage>
   );
 }
