@@ -4,14 +4,17 @@ export function ContentPage({
   eyebrow,
   title,
   children,
+  wide = false,
 }: {
   eyebrow: string;
   title: string;
   children: ReactNode;
+  /** Room for rows with text beside a visual, rather than one reading column. */
+  wide?: boolean;
 }) {
   return (
     <section className="min-h-[60vh] bg-surface px-5 py-16 sm:px-8">
-      <div className="mx-auto max-w-4xl">
+      <div className={wide ? "mx-auto max-w-6xl" : "mx-auto max-w-4xl"}>
         <p className="text-xs font-bold uppercase tracking-[.18em] text-secondary">
           {eyebrow}
         </p>

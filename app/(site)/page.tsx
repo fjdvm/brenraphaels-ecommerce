@@ -2,7 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { OrbitCarousel } from "@/components/shared/orbit-carousel";
+import { DepthCarousel } from "@/components/shared/depth-carousel";
+import { MorphSlider } from "@/components/shared/morph-slider";
 import { YouTubeVideo } from "@/components/shared/youtube-video";
 import { WelcomeModal } from "@/components/features/home/welcome-modal";
 import { completeProfilePath } from "@/lib/auth/route-access";
@@ -14,38 +15,54 @@ const recognitionVideos = [
     id: "1NdE5vCMzPo",
     title:
       "UBE WORLD DOMINATION: Mag-Asawa, Umasenso Dahil sa Ube | DTI: Asenso Pilipino S3EP1",
+    kicker: "DTI: Asenso Pilipino \u00b7 S3 EP1",
+    headline: "Ube World Domination: Mag-asawa, Umasenso Dahil sa Ube",
+    body: "Bren Raphael\u2019s Ube Jam & Halaya was featured on DTI Asenso, highlighting our journey as a growing Filipino brand committed to crafting premium ube products and sharing our story with a wider audience.",
   },
   {
     id: "7kh6RzlDcH4",
     title:
       "PATOK na NEGOSYO | ONE of the BIGGEST MAKER of UBE JAM & HALAYA in Philippines | KAFOODTRIP",
+    kicker: "Kafoodtrip",
+    headline:
+      "Patok na Negosyo: One of the Biggest Makers of Ube Jam & Halaya in the Philippines",
+    body: "Also visited by popular food vlogger Kafoodtrip, helping showcase our products to more ube lovers.",
   },
   {
     id: "ihuFz1MJPDA",
     title:
       "KUMITA AT YUMAMAN SA PAGGAWA NG UBE! | My Puhunan: Kaya Mo! | ABS-CBN News",
+    kicker: "ABS-CBN News \u00b7 My Puhunan: Kaya Mo!",
+    headline: "Kumita at Yumaman sa Paggawa ng Ube!",
+    body: "Watch our feature on ABS-CBN News.",
   },
 ];
 
 const customerMessages = [
   {
     src: "/images/home/customer-rita-daniela.jpg",
-    label: "A business chat from missritadaniela",
+    place: "A business chat from missritadaniela",
+    quote: "SOOOO GOOD! Definitely!!!",
     alt: 'A business chat from missritadaniela reading "SOOOO GOOD!", then "Definitely!!!" after Bren Raphael\'s replied "Thank you so much mam!"',
   },
   {
     src: "/images/home/customer-saudi-arabia.jpg",
-    label: "A customer in Saudi Arabia",
+    place: "A customer in Saudi Arabia",
+    quote: "Hi, nadala ko na sya dito sa saudi. Thank you! Ang sarap!!!!",
     alt: 'A customer\'s message with a photo of a pouch of Smooth Ube Halaya: "Hi, nadala ko na sya dito sa saudi. Thank you! Ang sarap!!!!"',
   },
   {
     src: "/images/home/customer-germany.jpg",
-    label: "A customer in Germany",
+    place: "A customer in Germany",
+    quote:
+      "Nakarating po ng germany ung Ube. Sayang 2 lang nabili ko sa SM north",
     alt: 'A customer\'s message with a photo of Ube Halaya: "Nakarating po ng germany ung Ube. Sayang 2 lang nabili ko sa SM north"',
   },
   {
     src: "/images/home/customer-france.jpg",
-    label: "A customer in France",
+    place: "A customer in France",
+    quote:
+      "Sobrang sarap po sa mga Ube lover like me - 1 of the best!.. How to order po?",
     alt: 'A customer\'s message from France with a photo of Ube Halaya with Tidbits: "Sobrang sarap po sa mga Ube lover like me - 1 of the best!.. How to order po?"',
   },
 ];
@@ -166,49 +183,74 @@ export default async function Home({ searchParams }: HomeProps) {
       </section>
       <section
         aria-label="Recognition"
-        className="mx-auto max-w-4xl space-y-6 px-5 pb-20 leading-7 text-on-surface-variant sm:px-8"
+        className="border-t border-outline-variant/50 px-5 py-20 sm:px-8"
       >
-        <p>
-          Bren Raphael&apos;s Ube Jam &amp; Halaya was featured on DTI Asenso,
-          highlighting our journey as a growing Filipino brand committed to
-          crafting premium ube products and sharing our story with a wider
-          audience.
-        </p>
-        <p>
-          Also visited by popular food vlogger Kafoodtrip, helping showcase our
-          products to more ube lovers.
-        </p>
+        <div className="mx-auto max-w-6xl">
+          <MorphSlider
+            label="Featured videos"
+            mediaSide="right"
+            intro={
+              <>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">
+                  Featured
+                </p>
+                <h2 className="mt-3 font-serif text-4xl text-primary">
+                  Recognition
+                </h2>
+              </>
+            }
+            items={recognitionVideos.map(
+              ({ id, title, kicker, headline, body }) => ({
+                key: id,
+                image: `/images/home/video-${id}.jpg`,
+                alt: title,
+                text: (
+                  <>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-secondary">
+                      {kicker}
+                    </p>
+                    <h3 className="mt-3 font-serif text-2xl leading-snug text-primary sm:text-3xl">
+                      {headline}
+                    </h3>
+                    <p className="mt-4 leading-7 text-on-surface-variant">
+                      {body}
+                    </p>
+                  </>
+                ),
+                player: <YouTubeVideo id={id} title={title} autoplay />,
+              }),
+            )}
+          />
+        </div>
       </section>
-      <section aria-label="Featured videos" className="px-5 pb-20 sm:px-8">
-        <OrbitCarousel
-          label="Featured videos"
-          stageClassName="max-w-3xl aspect-video"
-          items={recognitionVideos.map(({ id, title }) => ({
-            key: id,
-            label: title,
-            content: <YouTubeVideo id={id} title={title} />,
-          }))}
-        />
-      </section>
-      <section className="mx-auto max-w-6xl px-5 pb-24 sm:px-8">
-        <h2 className="text-center font-serif text-4xl text-primary">
-          What Our Customers Say
-        </h2>
-        <div className="mt-10">
-          <OrbitCarousel
+      <section className="border-t border-outline-variant/50 px-5 py-20 sm:px-8">
+        <div className="mx-auto max-w-6xl">
+          <DepthCarousel
             label="Customer messages"
-            stageClassName="h-[520px] max-w-md sm:h-[600px]"
-            items={customerMessages.map(({ src, label, alt }) => ({
+            mediaSide="left"
+            intro={
+              <>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">
+                  Kind words
+                </p>
+                <h2 className="mt-3 font-serif text-4xl text-primary">
+                  What Our Customers Say
+                </h2>
+              </>
+            }
+            items={customerMessages.map(({ src, place, quote, alt }) => ({
               key: src,
-              label,
-              content: (
-                <Image
-                  src={src}
-                  alt={alt}
-                  fill
-                  sizes="(min-width: 448px) 448px, 100vw"
-                  className="border border-outline-variant/50 bg-white object-contain"
-                />
+              src,
+              alt,
+              text: (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-secondary">
+                    {place}
+                  </p>
+                  <blockquote className="mt-3 font-serif text-2xl leading-snug text-primary sm:text-3xl">
+                    &ldquo;{quote}&rdquo;
+                  </blockquote>
+                </>
               ),
             }))}
           />

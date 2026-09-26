@@ -116,3 +116,25 @@ body {
     animation: none;
   }
 }
+
+/* An editorial slide's text fades up when its slide comes to the front. */
+@keyframes editorial-swap {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.editorial-swap {
+  animation: editorial-swap 500ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editorial-swap {
+    animation: none;
+  }
+}
