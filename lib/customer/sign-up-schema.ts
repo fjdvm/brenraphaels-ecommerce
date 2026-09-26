@@ -8,6 +8,7 @@ import {
   passwordsMatch,
   textField,
 } from "../validators/fields";
+import { cleanText } from "../validators/sanitize";
 import { customerContactNumberSchema } from "./contact-number";
 
 const nameMaximumLength = 50;
@@ -24,6 +25,19 @@ function addressField(label: string) {
     pattern: addressCharacters,
     patternMessage: "Contains characters that are not allowed",
   });
+}
+
+/**
+ * A Province, City or Barangay picked from a dropdown. Whether it is a real
+ * place, and one that goes with the others, is checked on the server against
+ * the location list, which is too large to ship to the browser.
+ */
+function locationChoiceField(label: string) {
+  return z
+    .string({ error: `Choose a ${label}` })
+    .max(addressFieldMaximumLength, "Choose from the list")
+    .transform(cleanText)
+    .pipe(z.string().min(1, `Choose a ${label}`));
 }
 
 const nameCharactersMessage =
@@ -58,9 +72,9 @@ const accountFields = {
 export const deliveryFields = {
   contactNumber: customerContactNumberSchema.shape.contactNumber,
   street: addressField("Street address"),
-  barangay: addressField("Barangay"),
-  city: addressField("City or municipality"),
-  province: addressField("Province"),
+  barangay: locationChoiceField("barangay"),
+  city: locationChoiceField("city or municipality"),
+  province: locationChoiceField("province"),
   postalCode: textField("Postal code", {
     min: 1,
     max: addressFieldMaximumLength,

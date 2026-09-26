@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 
 const newTab = { target: "_blank", rel: "noopener noreferrer" } as const;
 
-export function SignUpForm() {
+export function SignUpForm({ provinces }: { provinces: string[] }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -144,7 +144,7 @@ export function SignUpForm() {
         </div>
 
         <div data-step="1" hidden={step !== 1} className="space-y-4">
-          <DeliveryFields errors={errors} />
+          <DeliveryFields errors={errors} provinces={provinces} />
         </div>
 
         <div data-step="2" hidden={step !== 2} className="space-y-5">

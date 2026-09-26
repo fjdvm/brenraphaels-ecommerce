@@ -13,6 +13,7 @@ const markup = renderToStaticMarkup(
   <CompleteProfileForm
     email="jane@example.com"
     defaults={{ firstName: "Jane", middleName: "", lastName: "Doe" }}
+    provinces={["Cebu", "Metro Manila"]}
   />,
 );
 
@@ -24,7 +25,7 @@ function attributeValues(attribute: string, tag: string) {
 
 describe("The complete-profile form, for keyboard and phone use", () => {
   test("gives every control a label, so it can be reached and named without a mouse", () => {
-    const controlIds = attributeValues("id", "input");
+    const controlIds = [...attributeValues("id", "input"), ...attributeValues("id", "select")];
     const labelTargets = attributeValues("for", "label");
 
     expect(controlIds.length).toBeGreaterThan(0);
@@ -46,6 +47,16 @@ describe("The complete-profile form, for keyboard and phone use", () => {
     expect(markup).toMatch(/inputMode="tel"/);
     expect(markup).toContain('autoComplete="tel"');
     expect(markup).toContain('autoComplete="postal-code"');
+  });
+
+  test("makes Province, City and Barangay dropdowns, with only the province filled in at first", () => {
+    for (const name of ["province", "city", "barangay"]) {
+      expect(markup).toMatch(new RegExp(`<select[^>]*name="${name}"`));
+      expect(markup).not.toMatch(new RegExp(`<input[^>]*name="${name}"`));
+    }
+    expect(markup).toContain('<option value="Cebu">Cebu</option>');
+    expect(markup).toMatch(/<select[^>]*disabled=""[^>]*name="city"|<select[^>]*name="city"[^>]*disabled=""/);
+    expect(markup).toMatch(/<select[^>]*disabled=""[^>]*name="barangay"|<select[^>]*name="barangay"[^>]*disabled=""/);
   });
 
   test("has one submit button and never takes a control out of the tab order", () => {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { LocationFields } from "@/components/features/auth/location-fields";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -107,7 +108,13 @@ export function NameFields({ errors, defaults }: NameFieldsProps) {
   );
 }
 
-export function DeliveryFields({ errors }: { errors: FieldErrors }) {
+export function DeliveryFields({
+  errors,
+  provinces,
+}: {
+  errors: FieldErrors;
+  provinces: string[];
+}) {
   return (
     <>
       <Field
@@ -125,32 +132,14 @@ export function DeliveryFields({ errors }: { errors: FieldErrors }) {
         maxLength={100}
         error={errors.street?.[0]}
       />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field name="barangay" label="Barangay" maxLength={100} error={errors.barangay?.[0]} />
-        <Field
-          name="city"
-          label="City or municipality"
-          autoComplete="address-level2"
-          maxLength={100}
-          error={errors.city?.[0]}
-        />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          name="province"
-          label="Province"
-          autoComplete="address-level1"
-          maxLength={100}
-          error={errors.province?.[0]}
-        />
-        <Field
-          name="postalCode"
-          label="Postal code"
-          autoComplete="postal-code"
-          maxLength={100}
-          error={errors.postalCode?.[0]}
-        />
-      </div>
+      <LocationFields provinces={provinces} errors={errors} />
+      <Field
+        name="postalCode"
+        label="Postal code"
+        autoComplete="postal-code"
+        maxLength={100}
+        error={errors.postalCode?.[0]}
+      />
       <p className="text-sm text-on-surface-variant">
         This becomes your Home Address and your Default address.
       </p>

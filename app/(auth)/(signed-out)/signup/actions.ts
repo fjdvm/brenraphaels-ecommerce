@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { redirect } from "next/navigation";
 
+import { locationErrors } from "@/lib/address/locations";
 import {
   CustomerDetailsSaveError,
   createCustomerStore,
@@ -22,6 +23,11 @@ export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
 
   if (!parsed.success) {
     return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
+  }
+
+  const badLocation = locationErrors(parsed.data);
+  if (Object.keys(badLocation).length > 0) {
+    return { fieldErrors: badLocation };
   }
 
   try {

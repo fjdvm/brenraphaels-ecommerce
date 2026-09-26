@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { locationErrors } from "../address/locations";
 import { completeProfileSchema } from "./complete-profile-schema";
 import { composeFullName } from "./sign-up-schema";
 import type { CustomerStore } from "./sign-up";
@@ -32,6 +33,11 @@ export async function completeCustomerProfile(
   }
 
   const details = parsed.data;
+  const badLocation = locationErrors(details);
+  if (Object.keys(badLocation).length > 0) {
+    return { status: "invalid", fieldErrors: badLocation };
+  }
+
   const saved = await dependencies.customerStore.save({
     userId: dependencies.identity.userId,
     firstName: details.firstName,

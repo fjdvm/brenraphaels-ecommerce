@@ -83,13 +83,20 @@ describe("Sign-up validation", () => {
     ["middleName", "Marie<b>"],
     ["lastName", "Doe123"],
     ["street", "12 <b>Main</b>"],
-    ["city", "Quezon <City>"],
     ["postalCode", "11<08"],
     ["email", "jane@example.com\nbcc:evil@example.com"],
   ])("rejects markup and stray characters in %s", (field, value) => {
     expect(
       customerSignUpSchema.safeParse({ ...validSignUp, [field]: value }).success,
     ).toBe(false);
+  });
+
+  test.each(["province", "city", "barangay"])("asks for %s to be chosen when none is", (field) => {
+    const result = customerSignUpSchema.safeParse({ ...validSignUp, [field]: "" });
+
+    expect(result.success ? [] : result.error.issues.map((issue) => issue.message)).toEqual([
+      expect.stringMatching(/^Choose a /),
+    ]);
   });
 
   test("reports a friendly message when a field is missing entirely", () => {

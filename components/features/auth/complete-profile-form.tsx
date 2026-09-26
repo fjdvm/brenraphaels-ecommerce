@@ -20,9 +20,10 @@ import {
 type CompleteProfileFormProps = {
   email: string;
   defaults: { firstName: string; middleName: string; lastName: string };
+  provinces: string[];
 };
 
-export function CompleteProfileForm({ email, defaults }: CompleteProfileFormProps) {
+export function CompleteProfileForm({ email, defaults, provinces }: CompleteProfileFormProps) {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<string>();
   const [pending, startTransition] = useTransition();
@@ -58,7 +59,7 @@ export function CompleteProfileForm({ email, defaults }: CompleteProfileFormProp
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
         <NameFields errors={errors} defaults={defaults} />
-        <DeliveryFields errors={errors} />
+        <DeliveryFields errors={errors} provinces={provinces} />
         <PreferenceFields errors={errors} />
 
         {message ? (

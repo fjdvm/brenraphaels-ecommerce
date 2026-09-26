@@ -50,6 +50,15 @@ function complete(input: CompleteProfileInput, who = identity) {
 }
 
 describe("Completing a Customer's profile", () => {
+  test("refuses a barangay that is not in the chosen city, and saves nothing", async () => {
+    await expect(complete({ ...validDetails, barangay: "Nowhere" })).resolves.toEqual({
+      status: "invalid",
+      fieldErrors: { barangay: ["Choose a barangay from the list"] },
+    });
+
+    expect((await client.query("select id from customers")).rows).toEqual([]);
+  });
+
   test("saves the Customer and their first Address as the Default address", async () => {
     await expect(complete(validDetails)).resolves.toEqual({ status: "completed" });
 

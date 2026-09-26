@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { listProvinces } from "@/lib/address/locations";
 import { CompleteProfileForm } from "@/components/features/auth/complete-profile-form";
 import { splitFullName } from "@/lib/customer/complete-profile-schema";
 import { requireVisitorNeedingDetails } from "@/lib/customer/current-visitor";
@@ -14,6 +15,7 @@ export default async function CompleteProfilePage() {
       <CompleteProfileForm
         email={visitor.email}
         defaults={splitFullName(visitor.fullName)}
+        provinces={listProvinces()}
       />
     </section>
   );
