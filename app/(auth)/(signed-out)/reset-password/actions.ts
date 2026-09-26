@@ -8,8 +8,6 @@ export type ResetPasswordFormState = {
   fieldErrors?: Record<string, string[] | undefined>;
 };
 
-export const initialResetPasswordFormState: ResetPasswordFormState = {};
-
 function text(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value : "";
 }

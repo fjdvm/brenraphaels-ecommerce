@@ -12,8 +12,6 @@ export type SignInFormState = {
   unverifiedEmail?: string;
 };
 
-export const initialSignInFormState: SignInFormState = {};
-
 function text(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value : "";
 }

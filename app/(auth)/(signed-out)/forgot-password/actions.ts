@@ -9,8 +9,6 @@ export type ForgotPasswordFormState = {
   message?: string;
 };
 
-export const initialForgotPasswordFormState: ForgotPasswordFormState = {};
-
 export async function submitForgotPassword(
   _previousState: ForgotPasswordFormState,
   formData: FormData,

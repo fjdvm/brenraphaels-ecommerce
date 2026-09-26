@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import {
-  initialResetPasswordFormState,
-  submitResetPassword,
-} from "@/app/(auth)/(signed-out)/reset-password/actions";
+import { submitResetPassword, type ResetPasswordFormState } from "@/app/(auth)/(signed-out)/reset-password/actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -27,6 +24,8 @@ function InvalidLink() {
     </Card>
   );
 }
+
+const initialResetPasswordFormState: ResetPasswordFormState = {};
 
 export function ResetPasswordForm({ token }: { token?: string }) {
   const [state, action, pending] = useActionState(

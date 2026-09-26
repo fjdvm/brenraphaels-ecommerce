@@ -3,15 +3,14 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import {
-  initialForgotPasswordFormState,
-  submitForgotPassword,
-} from "@/app/(auth)/(signed-out)/forgot-password/actions";
+import { submitForgotPassword, type ForgotPasswordFormState } from "@/app/(auth)/(signed-out)/forgot-password/actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { emailMaximumLength } from "@/lib/validators/fields";
+
+const initialForgotPasswordFormState: ForgotPasswordFormState = {};
 
 export function ForgotPasswordForm() {
   const [state, action, pending] = useActionState(

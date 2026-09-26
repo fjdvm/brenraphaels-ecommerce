@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import {
-  initialSignInFormState,
-  submitSignIn,
-} from "@/app/(auth)/(signed-out)/signin/actions";
+import { submitSignIn, type SignInFormState } from "@/app/(auth)/(signed-out)/signin/actions";
 import { ResendVerificationForm } from "@/components/features/auth/resend-verification-form";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { emailMaximumLength, passwordMaximumLength } from "@/lib/validators/fields";
+
+const initialSignInFormState: SignInFormState = {};
 
 export function SignInForm({ next }: { next?: string }) {
   const [state, action, pending] = useActionState(

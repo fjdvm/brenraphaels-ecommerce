@@ -14,8 +14,6 @@ export type ResendVerificationState = {
   message?: string;
 };
 
-export const initialResendVerificationState: ResendVerificationState = {};
-
 export async function confirmVerificationEmail(token: string | undefined) {
   return verifyCustomerEmail(token, {
     auth: neonVerificationAuth,

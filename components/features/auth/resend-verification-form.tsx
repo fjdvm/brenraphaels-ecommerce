@@ -2,14 +2,13 @@
 
 import { useActionState } from "react";
 
-import {
-  initialResendVerificationState,
-  resendVerificationEmail,
-} from "@/app/(site)/verify-email/actions";
+import { resendVerificationEmail, type ResendVerificationState } from "@/app/(site)/verify-email/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { emailMaximumLength } from "@/lib/validators/fields";
+
+const initialResendVerificationState: ResendVerificationState = {};
 
 export function ResendVerificationForm({
   defaultEmail,
