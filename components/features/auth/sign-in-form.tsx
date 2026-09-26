@@ -68,6 +68,11 @@ export function SignInForm({ next }: { next?: string }) {
             maxLength={passwordMaximumLength}
             required
           />
+          <p className="text-right text-sm">
+            <Link className="text-primary underline" href="/forgot-password">
+              Forgot password?
+            </Link>
+          </p>
         </div>
         {state.message ? (
           <p className="text-sm text-red-700" role="alert">

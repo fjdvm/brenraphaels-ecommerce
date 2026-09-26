@@ -74,3 +74,17 @@ export const passwordField = z
   .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
   .regex(/[0-9]/, "Password must contain at least one number")
   .regex(/[^\p{L}\p{N}\s]/u, "Password must contain at least one special character");
+
+export const confirmPasswordField = z
+  .string({ error: "Confirm your password" })
+  .max(passwordMaximumLength, `Must be ${passwordMaximumLength} characters or fewer`);
+
+type PasswordPair = { password: string; confirmPassword: string };
+
+/** Adds the "both password boxes match" rule to a schema that has the pair. */
+export function passwordsMatch<T extends z.ZodType<PasswordPair>>(schema: T) {
+  return schema.refine((values) => values.password === values.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+}

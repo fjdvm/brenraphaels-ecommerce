@@ -1,10 +1,11 @@
 import { z } from "zod";
 
 import {
+  confirmPasswordField,
   emailField,
   optionalTextField,
   passwordField,
-  passwordMaximumLength,
+  passwordsMatch,
   textField,
 } from "../validators/fields";
 import { customerContactNumberSchema } from "./contact-number";
@@ -47,9 +48,7 @@ const accountFields = {
   lastName: nameField("Last name"),
   email: emailField,
   password: passwordField,
-  confirmPassword: z
-    .string({ error: "Confirm your password" })
-    .max(passwordMaximumLength, `Must be ${passwordMaximumLength} characters or fewer`),
+  confirmPassword: confirmPasswordField,
 };
 
 const deliveryFields = {
@@ -74,15 +73,6 @@ const preferenceFields = {
     error: "You must accept the Terms of Service",
   }),
 };
-
-type PasswordPair = { password: string; confirmPassword: string };
-
-function passwordsMatch<T extends z.ZodType<PasswordPair>>(schema: T) {
-  return schema.refine((values) => values.password === values.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
-}
 
 type SignUpStep = { title: string; fields: string[]; schema: z.ZodType };
 

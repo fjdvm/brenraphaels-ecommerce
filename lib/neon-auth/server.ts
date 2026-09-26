@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import type { NeonAuth } from "../customer/sign-up";
 import type { VerificationAuth } from "../customer/email-verification";
+import type { PasswordResetAuth } from "../customer/password-reset";
 import type { SignInAuth } from "../customer/sign-in";
 import type { VisitorSession } from "../customer/visitor";
 
@@ -70,6 +71,29 @@ export const neonSignInAuth: SignInAuth = {
     // an unverified email is distinguishable here: the accepted trade-off is
     // that the ticket requires telling unverified people to confirm their email.
     return result.error.code === "EMAIL_NOT_VERIFIED" ? "unverified" : "invalid";
+  },
+};
+
+export const neonPasswordResetAuth: PasswordResetAuth = {
+  async requestPasswordReset(email) {
+    const result = await getNeonAuth().requestPasswordReset({ email });
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+  },
+
+  async resetPassword({ token, newPassword }) {
+    const result = await getNeonAuth().resetPassword({ token, newPassword });
+    if (!result.error) {
+      return "reset";
+    }
+
+    // Better Auth spends a reset link when it is used and gives one error for
+    // both an expired and a used link.
+    if (result.error.code === "INVALID_TOKEN") {
+      return "invalid";
+    }
+    throw new Error(result.error.message);
   },
 };
 
