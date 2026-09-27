@@ -1,6 +1,6 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
 
+import { ProductGallery } from "@/components/features/catalog/product-gallery";
 import { AddToCart } from "@/components/features/orders/add-to-cart";
 import { createCatalogStore } from "@/lib/catalog/catalog";
 import { formatPeso } from "@/lib/catalog/currency";
@@ -19,20 +19,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   return (
     <div className="bg-surface">
       <section className="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:px-8 lg:grid-cols-2 lg:py-20">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {product.images.map((image, index) => (
-            <Image
-              key={image.url}
-              src={image.url}
-              alt={image.alt}
-              width={1000}
-              height={1000}
-              priority={index === 0}
-              sizes="(min-width: 1024px) 45vw, (min-width: 640px) 50vw, 100vw"
-              className="aspect-square w-full object-cover"
-            />
-          ))}
-        </div>
+        <ProductGallery images={product.images} />
         <div className="lg:pt-4">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">Bren Raphael&apos;s</p>
           <h1 className="mt-3 font-serif text-5xl leading-tight text-primary">{product.name}</h1>
