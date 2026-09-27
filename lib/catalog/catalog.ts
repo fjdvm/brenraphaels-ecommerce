@@ -3,12 +3,15 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { productImages, products, sizes } from "../db/schema";
 
+export type CatalogProductSize = { id: number; label: string; priceInCentavos: number; available: boolean };
+
 export type CatalogProduct = {
   slug: string;
   name: string;
   image: string;
   lowestPriceInCentavos: number;
   highestPriceInCentavos: number;
+  sizes: CatalogProductSize[];
 };
 
 export type CatalogProductDetail = {
@@ -16,7 +19,7 @@ export type CatalogProductDetail = {
   name: string;
   description: string;
   images: { url: string; alt: string }[];
-  sizes: { id: number; label: string; priceInCentavos: number; available: boolean }[];
+  sizes: CatalogProductSize[];
 };
 
 export type CatalogStore = {
@@ -34,7 +37,16 @@ export function createCatalogStore<
       const [allProducts, allImages, allSizes] = await Promise.all([
         db.select().from(products).orderBy(asc(products.name)),
         db.select().from(productImages).orderBy(asc(productImages.position)),
-        db.select().from(sizes),
+        db
+          .select({
+            id: sizes.id,
+            productSlug: sizes.productSlug,
+            label: sizes.label,
+            priceInCentavos: sizes.priceInCentavos,
+            available: sizes.available,
+          })
+          .from(sizes)
+          .orderBy(asc(sizes.priceInCentavos)),
       ]);
 
       return allProducts.flatMap((product) => {
@@ -49,6 +61,7 @@ export function createCatalogStore<
           image: image.url,
           lowestPriceInCentavos: Math.min(...prices),
           highestPriceInCentavos: Math.max(...prices),
+          sizes: productSizes.map(({ id, label, priceInCentavos, available }) => ({ id, label, priceInCentavos, available })),
         }];
       });
     },

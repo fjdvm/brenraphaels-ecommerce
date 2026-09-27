@@ -3,10 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
-import { addSizeToCart } from "@/app/(site)/cart/actions";
 import { formatPeso } from "@/lib/catalog/currency";
+import { addProductSizeToCart } from "@/lib/orders/add-product-size";
 import { cartLineQuantityLimit } from "@/lib/orders/quantity";
-import { addVisitorCartLine } from "@/lib/orders/visitor-cart";
 
 type Size = { id: number; label: string; priceInCentavos: number; available: boolean };
 
@@ -29,25 +28,13 @@ export function AddToCart({
   /** Adds the selected Size and quantity to the Cart, reporting whether it succeeded. */
   async function addToCart() {
     if (!selectedSize) return false;
-    if (customerHasCart) {
-      try {
-        await addSizeToCart(selectedSize.id, quantity);
-        return true;
-      } catch {
-        setMessage("We couldn't add that Size to your Cart. Please try again.");
-        return false;
-      }
+    try {
+      await addProductSizeToCart({ customerHasCart, product, size: selectedSize, quantity });
+      return true;
+    } catch {
+      setMessage("We couldn't add that Size to your Cart. Please try again.");
+      return false;
     }
-
-    addVisitorCartLine({
-      sizeId: selectedSize.id,
-      productSlug: product.slug,
-      productName: product.name,
-      sizeLabel: selectedSize.label,
-      priceInCentavos: selectedSize.priceInCentavos,
-      quantity,
-    });
-    return true;
   }
 
   function handleAddToCart() {

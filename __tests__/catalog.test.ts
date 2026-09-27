@@ -58,6 +58,10 @@ describe("Catalog", () => {
         image: "https://blob.example/ube-jam.jpg",
         lowestPriceInCentavos: 21900,
         highestPriceInCentavos: 46900,
+        sizes: [
+          { id: expect.any(Number), label: "200g", priceInCentavos: 21900, available: true },
+          { id: expect.any(Number), label: "500g", priceInCentavos: 46900, available: false },
+        ],
       },
     ]);
   });
