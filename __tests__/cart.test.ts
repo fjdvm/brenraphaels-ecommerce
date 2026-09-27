@@ -108,13 +108,13 @@ describe("Cart", () => {
     });
   });
 
-  test("merges a guest Cart into the persisted Cart without replacing its lines", async () => {
+  test("merges a Visitor Cart into the persisted Cart without replacing its lines", async () => {
     const store = createCartStore(drizzle(client));
     const small = await sizeId("250g");
     const large = await sizeId("500g");
     await store.addSize("customer-1", small, 2);
 
-    await store.mergeGuestCart("customer-1", [
+    await store.mergeVisitorCart("customer-1", "visitor-cart-1", [
       { sizeId: small, quantity: 3 },
       { sizeId: large, quantity: 4 },
     ]);
@@ -125,5 +125,18 @@ describe("Cart", () => {
       expect.objectContaining({ sizeId: large, quantity: 4 }),
     ]));
     expect(cart.subtotalInCentavos).toBe(21900 * 5 + 39900 * 4);
+  });
+
+  test("merges each Visitor Cart only once when a request is retried", async () => {
+    const store = createCartStore(drizzle(client));
+    const small = await sizeId("250g");
+
+    await store.mergeVisitorCart("customer-1", "visitor-cart-1", [{ sizeId: small, quantity: 3 }]);
+    await store.mergeVisitorCart("customer-1", "visitor-cart-1", [{ sizeId: small, quantity: 3 }]);
+
+    await expect(store.get("customer-1")).resolves.toMatchObject({
+      lines: [{ sizeId: small, quantity: 3 }],
+      subtotalInCentavos: 65700,
+    });
   });
 });

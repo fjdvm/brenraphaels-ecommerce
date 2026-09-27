@@ -126,3 +126,14 @@ export const cartLines = pgTable(
   },
   (table) => [uniqueIndex("cart_lines_customer_size").on(table.customerId, table.sizeId)],
 );
+
+/** Records a completed Visitor Cart merge, so retried requests stay idempotent. */
+export const cartMerges = pgTable("cart_merges", {
+  visitorCartId: text("visitor_cart_id").primaryKey(),
+  customerId: text("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});

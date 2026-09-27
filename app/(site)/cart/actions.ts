@@ -44,9 +44,10 @@ export async function removeCartLine(lineId: number) {
   );
 }
 
-export async function mergeGuestCart(lines: { sizeId: number; quantity: number }[]) {
-  return createCartStore(getDatabase()).mergeGuestCart(
+export async function mergeVisitorCart(visitorCartId: string, lines: { sizeId: number; quantity: number }[]) {
+  return createCartStore(getDatabase()).mergeVisitorCart(
     await currentCustomerId(),
+    z.string().min(1).max(100).parse(visitorCartId),
     z.array(cartLineInput).max(100).parse(lines),
   );
 }

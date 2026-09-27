@@ -4,7 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 
 import { addSizeToCart } from "@/app/(site)/cart/actions";
 import { formatPeso } from "@/lib/catalog/currency";
-import { addGuestCartLine } from "@/lib/orders/guest-cart";
+import { cartLineQuantityLimit } from "@/lib/orders/quantity";
+import { addVisitorCartLine } from "@/lib/orders/visitor-cart";
 
 type Size = { id: number; label: string; priceInCentavos: number; available: boolean };
 
@@ -37,7 +38,7 @@ export function AddToCart({
       return;
     }
 
-    addGuestCartLine({
+    addVisitorCartLine({
       sizeId: selectedSize.id,
       productSlug: product.slug,
       productName: product.name,
@@ -75,9 +76,9 @@ export function AddToCart({
           <input
             type="number"
             min="1"
-            max="10"
+            max={cartLineQuantityLimit}
             value={quantity}
-            onChange={(event) => setQuantity(Math.min(10, Math.max(1, Number(event.target.value) || 1)))}
+            onChange={(event) => setQuantity(Math.min(cartLineQuantityLimit, Math.max(1, Number(event.target.value) || 1)))}
             className="w-24 border border-outline-variant bg-surface px-3 py-2.5 text-base"
           />
         </label>

@@ -6,16 +6,16 @@ import { useEffect, useState, useTransition } from "react";
 import { getPersistedCart, removeCartLine, updateCartLine } from "@/app/(site)/cart/actions";
 import { formatPeso } from "@/lib/catalog/currency";
 import {
-  guestCartLineQuantityLimit,
-  readGuestCart,
-  writeGuestCart,
-} from "@/lib/orders/guest-cart";
+  readVisitorCart,
+  writeVisitorCart,
+} from "@/lib/orders/visitor-cart";
+import { cartLineQuantityLimit } from "@/lib/orders/quantity";
 import type { Cart, CartLine } from "@/lib/orders/cart";
 
 type DisplayLine = Pick<CartLine, "id" | "sizeId" | "productSlug" | "productName" | "sizeLabel" | "priceInCentavos" | "quantity" | "available">;
 
-function guestCart(): Cart {
-  const lines = readGuestCart().map((line) => ({ ...line, id: line.sizeId, available: true }));
+function visitorCart(): Cart {
+  const lines = readVisitorCart().map((line) => ({ ...line, id: line.sizeId, available: true }));
   return {
     lines,
     subtotalInCentavos: lines.reduce((subtotal, line) => subtotal + line.priceInCentavos * line.quantity, 0),
@@ -30,7 +30,7 @@ export function CartView({ customerHasCart, initialCart }: { customerHasCart: bo
 
   useEffect(() => {
     if (!customerHasCart) {
-      const timer = window.setTimeout(() => setCart(guestCart()), 0);
+      const timer = window.setTimeout(() => setCart(visitorCart()), 0);
       return () => window.clearTimeout(timer);
     }
 
@@ -59,13 +59,13 @@ export function CartView({ customerHasCart, initialCart }: { customerHasCart: bo
       return;
     }
 
-    const next = readGuestCart().map((guestLine) => (
-      guestLine.sizeId === line.sizeId
-        ? { ...guestLine, quantity: Math.min(quantity, guestCartLineQuantityLimit) }
-        : guestLine
+    const next = readVisitorCart().map((visitorLine) => (
+      visitorLine.sizeId === line.sizeId
+        ? { ...visitorLine, quantity: Math.min(quantity, cartLineQuantityLimit) }
+        : visitorLine
     ));
-    writeGuestCart(next);
-    setCart(guestCart());
+    writeVisitorCart(next);
+    setCart(visitorCart());
     setPendingLineId(undefined);
   }
 
@@ -85,8 +85,8 @@ export function CartView({ customerHasCart, initialCart }: { customerHasCart: bo
       return;
     }
 
-    writeGuestCart(readGuestCart().filter((guestLine) => guestLine.sizeId !== line.sizeId));
-    setCart(guestCart());
+    writeVisitorCart(readVisitorCart().filter((visitorLine) => visitorLine.sizeId !== line.sizeId));
+    setCart(visitorCart());
     setPendingLineId(undefined);
   }
 
@@ -114,7 +114,7 @@ export function CartView({ customerHasCart, initialCart }: { customerHasCart: bo
                   <div className="flex items-center gap-3">
                     <button type="button" aria-label={`Decrease ${line.productName} quantity`} disabled={pending} onClick={() => changeQuantity(line, line.quantity - 1)} className="border border-outline-variant px-3 py-1 disabled:opacity-50">−</button>
                     <span aria-label={`${line.productName} quantity`} className="min-w-5 text-center font-semibold">{line.quantity}</span>
-                    <button type="button" aria-label={`Increase ${line.productName} quantity`} disabled={pending || line.quantity === guestCartLineQuantityLimit} onClick={() => changeQuantity(line, line.quantity + 1)} className="border border-outline-variant px-3 py-1 disabled:opacity-50">+</button>
+                    <button type="button" aria-label={`Increase ${line.productName} quantity`} disabled={pending || line.quantity === cartLineQuantityLimit} onClick={() => changeQuantity(line, line.quantity + 1)} className="border border-outline-variant px-3 py-1 disabled:opacity-50">+</button>
                     <button type="button" disabled={pending} onClick={() => remove(line)} className="text-sm font-semibold text-secondary underline underline-offset-4 disabled:opacity-50">Remove</button>
                   </div>
                 </li>

@@ -1,12 +1,12 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { cartLines, products, sizes } from "../db/schema";
+import { cartLines, cartMerges, products, sizes } from "../db/schema";
+import { cartLineQuantityLimit } from "./quantity";
 
-/** A line is capped so one accidental tap cannot create an impractical Order. */
-export const cartLineQuantityLimit = 10;
+export { cartLineQuantityLimit } from "./quantity";
 
-export type GuestCartLine = { sizeId: number; quantity: number };
+export type VisitorCartLine = { sizeId: number; quantity: number };
 
 export type CartLine = {
   id: number;
@@ -26,7 +26,11 @@ export type CartStore = {
   addSize(customerId: string, sizeId: number, quantity: number): Promise<Cart>;
   updateLine(customerId: string, lineId: number, quantity: number): Promise<Cart>;
   removeLine(customerId: string, lineId: number): Promise<Cart>;
-  mergeGuestCart(customerId: string, lines: GuestCartLine[]): Promise<Cart>;
+  mergeVisitorCart(
+    customerId: string,
+    visitorCartId: string,
+    lines: VisitorCartLine[],
+  ): Promise<Cart>;
 };
 
 function cappedQuantity(quantity: number) {
@@ -106,14 +110,42 @@ export function createCartStore<
     return get(customerId);
   }
 
-  async function mergeGuestCart(customerId: string, lines: GuestCartLine[]): Promise<Cart> {
-    for (const line of lines) {
-      if (Number.isInteger(line.sizeId) && Number.isInteger(line.quantity) && line.quantity > 0) {
-        await addSize(customerId, line.sizeId, line.quantity);
-      }
+  async function mergeVisitorCart(
+    customerId: string,
+    visitorCartId: string,
+    lines: VisitorCartLine[],
+  ): Promise<Cart> {
+    if (!visitorCartId) {
+      throw new Error("A Visitor Cart needs an identifier to merge.");
     }
+
+    await db.transaction(async (transaction) => {
+      const inserted = await transaction
+        .insert(cartMerges)
+        .values({ visitorCartId, customerId })
+        .onConflictDoNothing()
+        .returning({ customerId: cartMerges.customerId });
+
+      if (inserted.length === 0) {
+        const [existing] = await transaction
+          .select({ customerId: cartMerges.customerId })
+          .from(cartMerges)
+          .where(eq(cartMerges.visitorCartId, visitorCartId));
+        if (existing?.customerId !== customerId) {
+          throw new Error("This Visitor Cart belongs to a different Customer.");
+        }
+        return;
+      }
+
+      const transactionalStore = createCartStore(transaction);
+      for (const line of lines) {
+        if (Number.isInteger(line.sizeId) && Number.isInteger(line.quantity) && line.quantity > 0) {
+          await transactionalStore.addSize(customerId, line.sizeId, line.quantity);
+        }
+      }
+    });
     return get(customerId);
   }
 
-  return { get, addSize, updateLine, removeLine, mergeGuestCart };
+  return { get, addSize, updateLine, removeLine, mergeVisitorCart };
 }
