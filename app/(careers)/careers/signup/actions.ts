@@ -9,7 +9,7 @@ export async function submitApplicantSignUp(
   formData: FormData,
 ): Promise<ApplicantSignUpState> {
   try {
-    const result = await signUpApplicant({ name: String(formData.get("name") ?? ""), email: String(formData.get("email") ?? ""), password: String(formData.get("password") ?? "") }, { auth: careersApplicantAuth });
+    const result = await signUpApplicant({ firstName: String(formData.get("firstName") ?? ""), middleName: String(formData.get("middleName") ?? ""), lastName: String(formData.get("lastName") ?? ""), email: String(formData.get("email") ?? ""), password: String(formData.get("password") ?? "") }, { auth: careersApplicantAuth });
     return { message: `We sent a verification link to ${result.email}.` };
   } catch (error) {
     console.error("Applicant sign-up failed", error);

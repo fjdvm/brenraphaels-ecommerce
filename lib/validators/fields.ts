@@ -103,6 +103,16 @@ export function optionalNameField(rules: {
     );
 }
 
+/** A person's name: letters (any script), spaces, and the punctuation names actually use. */
+export const personNameCharacterPattern = /^[\p{L}\p{M}\s'.-]+$/u;
+export const personNameCharacterPatternMessage =
+  "Can only contain letters, spaces, hyphens, apostrophes, and periods";
+
+/** Joins first/middle/last into one display name, skipping an empty middle name. */
+export function composeFullName(name: { firstName: string; middleName?: string | null; lastName: string }) {
+  return [name.firstName, name.middleName, name.lastName].filter(Boolean).join(" ");
+}
+
 /** The rules for choosing a password; sign-in never applies them to old passwords. */
 export const passwordField = z
   .string({ error: "Password is required" })

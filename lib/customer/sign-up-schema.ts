@@ -6,6 +6,8 @@ import {
   optionalNameField,
   passwordField,
   passwordsMatch,
+  personNameCharacterPattern,
+  personNameCharacterPatternMessage,
   nameTextField,
 } from "../validators/fields";
 import { cleanText } from "../validators/sanitize";
@@ -13,8 +15,6 @@ import { addressFieldMaximumLength, addressFields } from "./address-fields";
 import { customerContactNumberSchema } from "./contact-number";
 
 const nameMaximumLength = 50;
-
-const nameCharacters = /^[\p{L}\p{M}\s'.-]+$/u;
 
 /**
  * A Province, City or Barangay picked from a dropdown. Whether it is a real
@@ -29,15 +29,12 @@ function locationChoiceField(label: string) {
     .pipe(z.string().min(1, `Choose a ${label}`));
 }
 
-const nameCharactersMessage =
-  "Can only contain letters, spaces, hyphens, apostrophes, and periods";
-
 function nameField(label: string) {
   return nameTextField(label, {
     min: 1,
     max: nameMaximumLength,
-    pattern: nameCharacters,
-    patternMessage: nameCharactersMessage,
+    pattern: personNameCharacterPattern,
+    patternMessage: personNameCharacterPatternMessage,
   });
 }
 
@@ -45,8 +42,8 @@ export const nameFields = {
   firstName: nameField("First name"),
   middleName: optionalNameField({
     max: nameMaximumLength,
-    pattern: nameCharacters,
-    patternMessage: nameCharactersMessage,
+    pattern: personNameCharacterPattern,
+    patternMessage: personNameCharacterPatternMessage,
   }),
   lastName: nameField("Last name"),
 };
