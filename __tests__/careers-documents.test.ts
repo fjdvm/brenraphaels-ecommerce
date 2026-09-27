@@ -19,3 +19,20 @@ test("rejects an unsafe type before writing a Blob or profile record", async () 
   await expect(uploadApplicantDocument(new File(["bad"], "virus.exe", { type: "application/octet-stream" }), { applicantId: "a-1", store: createApplicantDocumentStore(drizzle(client)), put })).rejects.toThrow("PDF, Word document, or image");
   expect(put).not.toHaveBeenCalled();
 });
+
+test("rejects an oversized Document before writing a Blob or profile record", async () => {
+  const put = vi.fn();
+  const oversized = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "resume.pdf", {
+    type: "application/pdf",
+  });
+
+  await expect(
+    uploadApplicantDocument(oversized, {
+      applicantId: "a-1",
+      store: createApplicantDocumentStore(drizzle(client)),
+      put,
+    }),
+  ).rejects.toThrow("Documents must be 10 MB or smaller.");
+
+  expect(put).not.toHaveBeenCalled();
+});
