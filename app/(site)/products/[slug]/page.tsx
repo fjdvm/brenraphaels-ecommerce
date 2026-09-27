@@ -1,8 +1,10 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
+import { AddToCart } from "@/components/features/orders/add-to-cart";
 import { createCatalogStore } from "@/lib/catalog/catalog";
 import { formatPeso } from "@/lib/catalog/currency";
+import { currentVisitor } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +14,7 @@ type ProductPageProps = { params: Promise<{ slug: string }> };
 export default async function ProductPage({ params }: ProductPageProps) {
   const product = await createCatalogStore(getDatabase()).findProduct((await params).slug);
   if (!product) notFound();
+  const visitor = await currentVisitor();
 
   return (
     <div className="bg-surface">
@@ -50,6 +53,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
               ))}
             </ul>
           </section>
+          <AddToCart
+            product={{ slug: product.slug, name: product.name, sizes: product.sizes }}
+            customerHasCart={visitor.state === "customer"}
+          />
         </div>
       </section>
     </div>

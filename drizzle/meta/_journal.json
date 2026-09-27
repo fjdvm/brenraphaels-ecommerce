@@ -43,6 +43,13 @@
       "when": 1790496275925,
       "tag": "0005_fancy_hex",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790505802208,
+      "tag": "0006_petite_black_cat",
+      "breakpoints": true
     }
   ]
 }

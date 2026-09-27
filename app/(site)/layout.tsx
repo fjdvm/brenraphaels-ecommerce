@@ -1,10 +1,14 @@
 import { Footer } from "@/components/shared/footer";
+import { CartSessionSync } from "@/components/features/orders/cart-session-sync";
 import { Header } from "@/components/shared/header";
 import { SessionNav } from "@/components/shared/session-nav";
+import { currentVisitor } from "@/lib/customer/current-visitor";
 
-export default function SiteLayout({ children }: LayoutProps<"/">) {
+export default async function SiteLayout({ children }: LayoutProps<"/">) {
+  const visitor = await currentVisitor();
   return (
     <>
+      <CartSessionSync customerId={visitor.state === "customer" ? visitor.customer.userId : undefined} />
       <Header
         desktopSession={
           <SessionNav className="hidden items-center gap-5 text-sm font-semibold text-on-surface-variant md:flex" />

@@ -96,6 +96,7 @@ describe("Catalog", () => {
       ],
       sizes: [
         {
+          id: expect.any(Number),
           label: "100g",
           priceInCentavos: 21900,
           available: false,

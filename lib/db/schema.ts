@@ -110,3 +110,19 @@ export const sizes = pgTable(
   },
   (table) => [uniqueIndex("sizes_product_label").on(table.productSlug, table.label)],
 );
+
+/** A Customer has at most one line for each Size in their persisted Cart. */
+export const cartLines = pgTable(
+  "cart_lines",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    customerId: text("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    sizeId: integer("size_id")
+      .notNull()
+      .references(() => sizes.id, { onDelete: "restrict" }),
+    quantity: integer("quantity").notNull(),
+  },
+  (table) => [uniqueIndex("cart_lines_customer_size").on(table.customerId, table.sizeId)],
+);

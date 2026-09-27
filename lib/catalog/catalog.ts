@@ -16,7 +16,7 @@ export type CatalogProductDetail = {
   name: string;
   description: string;
   images: { url: string; alt: string }[];
-  sizes: { label: string; priceInCentavos: number; available: boolean }[];
+  sizes: { id: number; label: string; priceInCentavos: number; available: boolean }[];
 };
 
 export type CatalogStore = {
@@ -65,6 +65,7 @@ export function createCatalogStore<
           .orderBy(asc(productImages.position)),
         db
           .select({
+            id: sizes.id,
             label: sizes.label,
             priceInCentavos: sizes.priceInCentavos,
             available: sizes.available,
