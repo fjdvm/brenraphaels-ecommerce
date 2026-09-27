@@ -54,8 +54,8 @@ reset, the resend action and password guessing on `/signin`.
 
 ## Go-live checklist
 
-- [ ] Enable BotID (and Deep Analysis if available) for the project:
-      **Project → Firewall → Rules**, after a deployment containing this code.
+- [ ] Enable BotID (and Deep Analysis if available) for the project in its
+      **Firewall** settings, after a deployment containing this code.
 - [ ] Create the rate-limit rule above and confirm it with `vercel firewall`
       or the dashboard.
 - [ ] From a deployed preview, submit the sign-up form more than 10 times in a
