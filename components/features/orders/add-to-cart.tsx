@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { addSizeToCart } from "@/app/(site)/cart/actions";
@@ -16,26 +17,26 @@ export function AddToCart({
   product: { slug: string; name: string; sizes: Size[] };
   customerHasCart: boolean;
 }) {
+  const router = useRouter();
   const availableSizes = useMemo(() => product.sizes.filter(({ available }) => available), [product.sizes]);
   const [sizeId, setSizeId] = useState(availableSizes[0]?.id ?? 0);
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState<string>();
+  const [pendingAction, setPendingAction] = useState<"cart" | "buy">();
   const [pending, startTransition] = useTransition();
   const selectedSize = availableSizes.find((size) => size.id === sizeId);
 
-  function addToCart() {
-    if (!selectedSize) return;
-    setMessage(undefined);
+  /** Adds the selected Size and quantity to the Cart, reporting whether it succeeded. */
+  async function addToCart() {
+    if (!selectedSize) return false;
     if (customerHasCart) {
-      startTransition(async () => {
-        try {
-          await addSizeToCart(selectedSize.id, quantity);
-          setMessage("Added to your Cart.");
-        } catch {
-          setMessage("We couldn't add that Size to your Cart. Please try again.");
-        }
-      });
-      return;
+      try {
+        await addSizeToCart(selectedSize.id, quantity);
+        return true;
+      } catch {
+        setMessage("We couldn't add that Size to your Cart. Please try again.");
+        return false;
+      }
     }
 
     addVisitorCartLine({
@@ -46,7 +47,23 @@ export function AddToCart({
       priceInCentavos: selectedSize.priceInCentavos,
       quantity,
     });
-    setMessage("Added to your Cart.");
+    return true;
+  }
+
+  function handleAddToCart() {
+    setMessage(undefined);
+    setPendingAction("cart");
+    startTransition(async () => {
+      if (await addToCart()) setMessage("Added to your Cart.");
+    });
+  }
+
+  function handleBuyNow() {
+    setMessage(undefined);
+    setPendingAction("buy");
+    startTransition(async () => {
+      if (await addToCart()) router.push("/cart");
+    });
   }
 
   if (availableSizes.length === 0) {
@@ -83,14 +100,24 @@ export function AddToCart({
           />
         </label>
       </div>
-      <button
-        type="button"
-        onClick={addToCart}
-        disabled={pending}
-        className="mt-5 bg-primary px-5 py-3 font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {pending ? "Adding…" : "Add to Cart"}
-      </button>
+      <div className="mt-5 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={handleBuyNow}
+          disabled={pending}
+          className="bg-primary px-5 py-3 font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {pending && pendingAction === "buy" ? "Adding…" : "Buy Now"}
+        </button>
+        <button
+          type="button"
+          onClick={handleAddToCart}
+          disabled={pending}
+          className="border-2 border-primary px-5 py-2.5 font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {pending && pendingAction === "cart" ? "Adding…" : "Add to Cart"}
+        </button>
+      </div>
       {message && <p role="status" className="mt-3 text-sm font-semibold text-on-surface-variant">{message}</p>}
     </section>
   );
