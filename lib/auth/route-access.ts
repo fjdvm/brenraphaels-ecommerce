@@ -10,6 +10,7 @@ const publicPaths = new Set([
   "/returns",
   "/careers",
   "/verify-email",
+  "/products",
 ]);
 
 /** Pages for signed-out Visitors; signed-in people are sent away server-side. */
@@ -49,7 +50,12 @@ export function decideRouteAccess(request: {
   hasSession: boolean;
 }): RouteAccess {
   const { pathname } = request;
-  if (publicPaths.has(pathname) || signedOutPaths.has(pathname) || request.hasSession) {
+  if (
+    publicPaths.has(pathname)
+    || pathname.startsWith("/products/")
+    || signedOutPaths.has(pathname)
+    || request.hasSession
+  ) {
     return { action: "next" };
   }
 

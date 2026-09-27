@@ -16,6 +16,7 @@ type NavItem = NavLink | { label: string; children: NavLink[] };
 
 const links: NavItem[] = [
   { href: "/", label: "Home" },
+  { href: "/products", label: "Shop" },
   { label: "About Us", children: aboutLinks },
   { href: "/faq", label: "FAQ" },
   { href: "/careers", label: "Careers" },

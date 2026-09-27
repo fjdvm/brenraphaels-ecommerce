@@ -72,3 +72,40 @@ export const addresses = pgTable(
       .where(sql`${table.isDefault} = true`),
   ],
 );
+
+export const products = pgTable("products", {
+  // The Shopify handle is retained as the stable public URL for the grouped Product.
+  slug: text("slug").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+});
+
+export const productImages = pgTable(
+  "product_images",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    productSlug: text("product_slug")
+      .notNull()
+      .references(() => products.slug, { onDelete: "cascade" }),
+    // This is a Vercel Blob URL, never a URL from the former Shopify shop.
+    url: text("url").notNull(),
+    alt: text("alt").notNull(),
+    position: integer("position").notNull(),
+  },
+  (table) => [uniqueIndex("product_images_position").on(table.productSlug, table.position)],
+);
+
+export const sizes = pgTable(
+  "sizes",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    productSlug: text("product_slug")
+      .notNull()
+      .references(() => products.slug, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    // Philippine pesos in centavos, so prices never pass through floating point.
+    priceInCentavos: integer("price_in_centavos").notNull(),
+    available: boolean("available").notNull(),
+  },
+  (table) => [uniqueIndex("sizes_product_label").on(table.productSlug, table.label)],
+);

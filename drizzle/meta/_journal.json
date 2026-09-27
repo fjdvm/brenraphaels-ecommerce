@@ -36,6 +36,13 @@
       "when": 1790413770714,
       "tag": "0004_name_parts",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790496275925,
+      "tag": "0005_fancy_hex",
+      "breakpoints": true
     }
   ]
 }
