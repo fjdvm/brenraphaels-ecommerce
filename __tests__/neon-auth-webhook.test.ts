@@ -25,6 +25,7 @@ const jwks = {
 };
 
 let post: (request: Request) => Promise<Response>;
+let postCareers: (request: Request) => Promise<Response>;
 
 beforeAll(async () => {
   process.env.BREVO_SMTP_HOST = "smtp.example.test";
@@ -34,6 +35,7 @@ beforeAll(async () => {
   process.env.EMAIL_FROM_ADDRESS = "hello@example.test";
   process.env.EMAIL_FROM_NAME = "Bren Raphael's Ube Jam & Halaya";
   process.env.NEON_AUTH_BASE_URL = "https://auth.example.test/neondb/auth";
+  process.env.CAREERS_NEON_AUTH_BASE_URL = "https://careers-auth.example.test/neondb/auth";
   process.env.NEXT_PUBLIC_SITE_URL = "https://shop.example.test";
 
   vi.stubGlobal(
@@ -42,6 +44,7 @@ beforeAll(async () => {
   );
   createTransport.mockReturnValue({ sendMail });
   ({ POST: post } = await import("../app/api/webhooks/neon-auth/route"));
+  ({ POST: postCareers } = await import("../app/api/webhooks/careers-neon-auth/route"));
 });
 
 afterEach(() => {
@@ -129,6 +132,20 @@ describe("POST /api/webhooks/neon-auth", () => {
     expect(response.status).toBe(204);
     expect(sendMail.mock.calls[0][0].html).toContain(
       'href="https://shop.example.test/reset-password?token=neon-token"',
+    );
+  });
+
+  it("sends Careers Auth links only to Careers routes", async () => {
+    const body = magicLinkPayload("email-verification");
+    const response = await postCareers(request(body, sign(body)));
+
+    expect(response.status).toBe(204);
+    expect(fetch).toHaveBeenCalledWith(
+      "https://careers-auth.example.test/neondb/auth/.well-known/jwks.json",
+      expect.anything(),
+    );
+    expect(sendMail.mock.calls[0][0].html).toContain(
+      'href="https://shop.example.test/careers/verify-email?token=neon-token"',
     );
   });
 

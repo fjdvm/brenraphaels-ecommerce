@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 
 const maximumWebhookAgeMs = 5 * 60 * 1000;
+// `kid` is only unique within an Auth issuer. Careers and Storefront use
+// different Neon Auth instances, so cache by both the issuer and key id.
 const publicKeys = new Map<string, crypto.KeyObject>();
 
 type NeonWebhookEnvelope = {
@@ -15,8 +17,7 @@ type NeonWebhookEnvelope = {
   };
 };
 
-function neonAuthBaseUrl() {
-  const baseUrl = process.env.NEON_AUTH_BASE_URL;
+function neonAuthBaseUrl(baseUrl = process.env.NEON_AUTH_BASE_URL) {
   if (!baseUrl) {
     throw new Error("NEON_AUTH_BASE_URL is not configured");
   }
@@ -24,13 +25,15 @@ function neonAuthBaseUrl() {
   return baseUrl.replace(/\/$/, "");
 }
 
-async function getPublicKey(keyId: string) {
-  const cachedKey = publicKeys.get(keyId);
+async function getPublicKey(keyId: string, baseUrl?: string) {
+  const issuer = neonAuthBaseUrl(baseUrl);
+  const cacheKey = `${issuer}:${keyId}`;
+  const cachedKey = publicKeys.get(cacheKey);
   if (cachedKey) {
     return cachedKey;
   }
 
-  const response = await fetch(`${neonAuthBaseUrl()}/.well-known/jwks.json`, {
+  const response = await fetch(`${issuer}/.well-known/jwks.json`, {
     signal: AbortSignal.timeout(2_000),
   });
   if (!response.ok) {
@@ -44,7 +47,7 @@ async function getPublicKey(keyId: string) {
   }
 
   const publicKey = crypto.createPublicKey({ format: "jwk", key: jwk });
-  publicKeys.set(keyId, publicKey);
+  publicKeys.set(cacheKey, publicKey);
   return publicKey;
 }
 
@@ -64,6 +67,7 @@ function parseTimestamp(timestamp: string) {
 export async function verifyNeonWebhook(
   rawBody: string,
   headers: Headers,
+  baseUrl?: string,
 ): Promise<NeonWebhookEnvelope> {
   const signature = headers.get("x-neon-signature");
   const keyId = headers.get("x-neon-signature-kid");
@@ -83,7 +87,7 @@ export async function verifyNeonWebhook(
   const body = Buffer.from(rawBody).toString("base64url");
   const signaturePayload = Buffer.from(`${timestamp}.${body}`).toString("base64url");
   const signingInput = Buffer.from(`${header}.${signaturePayload}`);
-  const publicKey = await getPublicKey(keyId);
+  const publicKey = await getPublicKey(keyId, baseUrl);
   const isValid = crypto.verify(
     null,
     signingInput,

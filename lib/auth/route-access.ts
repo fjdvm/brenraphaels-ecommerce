@@ -53,6 +53,11 @@ export function decideRouteAccess(request: {
   if (
     publicPaths.has(pathname)
     || pathname.startsWith("/products/")
+    // Careers has a separate identity provider. Its own layouts/actions make
+    // the authoritative Applicant-session check, so Storefront's proxy must
+    // not send these routes to the Customer sign-in page.
+    || pathname === "/careers"
+    || pathname.startsWith("/careers/")
     || signedOutPaths.has(pathname)
     || request.hasSession
   ) {

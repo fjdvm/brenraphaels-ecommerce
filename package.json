@@ -11,6 +11,8 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "careers:db:generate": "drizzle-kit generate --config drizzle-careers.config.ts",
+    "careers:db:migrate": "drizzle-kit migrate --config drizzle-careers.config.ts",
     "catalog:import": "node --env-file-if-exists=.env.local scripts/import-catalog.mjs"
   },
   "dependencies": {
