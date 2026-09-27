@@ -1,0 +1,47 @@
+# Careers
+
+Where people apply for a job at Bren Raphael's. This context covers how people become Applicants, prove they own their email, build an Applicant profile, browse open Job Postings, and submit, track, and withdraw job Applications. It lives inside this same app (see [Context Map](../../CONTEXT-MAP.md)) but shares no data, accounts, or vocabulary with the Storefront context — a Customer and an Applicant are unrelated identities, even for the same person, and each has its own dedicated Neon project and Neon Auth instance (see [ADR-0006](../../docs/adr/0006-applicant-identity-lives-on-its-own-neon-project.md)).
+
+HR-ATS (the company's Applicant Tracking System) is a separate application, with its own database, built and run independently of this one. It owns Job Postings and the Application lifecycle from the moment an Application is submitted — screening, exams, interviews, evaluation, offers, and hiring all happen there, with no interactive UI for any of it in this app. This context integrates with HR-ATS over API/webhook, not a shared database (see [ADR-0005](../../docs/adr/0005-careers-and-hr-ats-integrate-over-api-webhook.md)).
+
+## Language
+
+**Applicant**:
+A person applying for a job, identified by their email address. Unrelated to Customer, even for the same person.
+_Avoid_: User, candidate, account
+
+**Verified** (Applicant):
+An Applicant whose email address is proven to be theirs by confirming a message sent to it. Required before applying; not required to browse Job Postings.
+_Avoid_: Confirmed, activated
+
+**Applicant profile**:
+An Applicant's standing personal info, education, work history, skills, and Documents, built up over time and reused across Applications. Must be complete, along with a Job Posting's required Documents, before an Application can be submitted.
+_Avoid_: Resume, CV (a resume is one Document within the profile, not the profile itself)
+
+**Document**:
+A file — resume, transcript, government ID, or whatever a Job Posting requires — an Applicant attaches to their profile, stored in this app's own file storage.
+_Avoid_: Attachment, upload
+
+**Job Posting**:
+An open role, authored and owned by HR-ATS, synced into this app by webhook so Careers keeps working even if HR-ATS is unreachable. Carries the required Documents and screening criteria an Applicant must satisfy to apply, and closes automatically at its deadline or when HR-ATS marks it filled.
+_Avoid_: Job, listing, vacancy
+
+**Application**:
+An Applicant's submission for one Job Posting: a snapshot of their profile, taken at submission, plus a Reference number. Only one Application per Applicant per Job Posting is allowed.
+_Avoid_: Submission (as a noun for the record), candidacy
+
+**Reference number**:
+The identifier this app assigns an Application the instant it's submitted, sent in the confirmation email and adopted by HR-ATS as that record's own identifier. Permanent — HR-ATS never replaces it with an identifier of its own.
+_Avoid_: Tracking number, application ID
+
+**Frozen** (Application):
+The point where an Application's profile snapshot stops following the Applicant's live profile — triggered by HR-ATS marking any Application status past `Received`, or the Job Posting's deadline passing, whichever happens first. Both the Application's creation and last-edit timestamps are recorded. Before this point, editing the profile updates the Application; after it, edits only affect future Applications.
+_Avoid_: Locked, finalized
+
+**Application status**:
+Where an Application stands in HR-ATS's workflow — from `Received` through screening, exams, interviews, evaluation, offers, and hiring — mirrored here read-only via webhook. This app has no UI for acting on any status past `Received`, only for displaying it.
+_Avoid_: Application state
+
+**Withdraw**:
+An Applicant ending their own Application before it reaches a final status (`Hired`, offer `Declined`/`Expired`, or `Rejected`). Allowed at any point — unlike editing the profile snapshot, which stops once the Application is Frozen.
+_Avoid_: Cancel, retract

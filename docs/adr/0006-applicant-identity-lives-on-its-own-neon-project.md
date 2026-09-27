@@ -1,0 +1,12 @@
+# Applicant identity lives on its own Neon project and Neon Auth instance, separate from Customer's
+
+Careers needs an Applicant identity that is completely unrelated to Customer, even for the same person. We first considered reusing this app's existing Neon Auth instance (`bren-raphaels-ecommerce`, ADR-0001) with a separate application-level table for Applicants, since it would cost no new infrastructure. That doesn't work: Better Auth's email/password sign-up treats email as the account key for the whole instance, so a person who already has a Customer account could not sign up as an Applicant with that same email — they'd either hit a confusing "email already registered" error, or (if we special-cased sign-in-instead-of-sign-up) end up authenticating into Careers with their Customer credentials, which quietly links the two logins even though the application data stays separate. Neither honors the decision that Applicant and Customer are not even aware of each other.
+
+We chose to accept the extra cost instead: Careers gets its own dedicated Neon project, with its own Neon Auth instance provisioned on its default branch, entirely independent of the Storefront's. The same email can be a Customer in one and an Applicant in the other with zero collision, and signing in to one never signs you in to the other. That new project's database also holds the rest of the Careers schema (Applicant profile, the Job-Posting cache synced from HR-ATS, Application records) — the same "own database" shape this app already uses for its CREOMS boundary (ADR-0003), applied here to Storefront vs. Careers instead.
+
+## Consequences
+
+- This app now talks to two separate Neon databases and two separate Neon Auth instances at once — Storefront's existing one, and Careers' new one — each with its own connection string and auth env vars.
+- A cross-database join between Customer and Applicant data isn't possible in SQL — which is the point, not a limitation to work around.
+- Two full Neon Auth setups now need maintaining independently: two places email verification and password-reset templates are configured, two sets of credentials to rotate, two dashboards to check.
+- As with Customer data (ADR-0001), Neon Auth's `neon_auth.*` user record for an Applicant is not extensible — profile fields (education, work history, skills, Documents) live in Careers' own tables, referencing the Neon Auth user id, never written into `neon_auth.*` directly.
