@@ -13,6 +13,7 @@ import {
 import { customerSignUpSchema, signUpFormValues } from "@/lib/customer/sign-up-schema";
 import { getDatabase } from "@/lib/db";
 import { neonAuth } from "@/lib/neon-auth/server";
+import { botIdFailureMessage, hasValidBotIdCheck } from "@/lib/security/botid";
 
 export type SignUpResult = {
   email?: string;
@@ -22,6 +23,10 @@ export type SignUpResult = {
 };
 
 export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
+  if (!(await hasValidBotIdCheck())) {
+    return { formError: botIdFailureMessage };
+  }
+
   const parsed = customerSignUpSchema.safeParse(signUpFormValues(formData));
 
   if (!parsed.success) {
