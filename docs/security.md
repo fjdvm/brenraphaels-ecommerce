@@ -33,13 +33,13 @@ the database by `lib/customer/verification-resend-store.ts` and covered by
 `__tests__/customer-email-verification.test.ts`. This is independent of BotID
 and the Firewall rule.
 
-## Rate-limit rule (Vercel dashboard, not yet applied)
+## Rate-limit rule (Vercel Firewall, live)
 
-Not verified: when this ticket was implemented the Firewall API for the
-`brenraphaels` project returned 403 for the available credentials, so the rule
-could not be created or read back. It is a dashboard/API setting, not committed
-config. Create it under **Project → Firewall → Rules** during "Production
-go-live":
+The rule exists and is enabled on the `brenraphaels` project. Verified on
+2026-09-27 with `vercel firewall rules inspect
+rule_protect_auth_form_submissions_NFz6MD` and in the dashboard (Project →
+Firewall → Rules). It is a dashboard/API setting, not committed config, so
+recreate it from this table if the project is ever rebuilt:
 
 | Field          | Value                                              |
 | -------------- | -------------------------------------------------- |
@@ -52,11 +52,24 @@ go-live":
 Server actions are `POST`s to the page path, so this covers sign-up, password
 reset, the resend action and password guessing on `/signin`.
 
+## BotID and the proxy
+
+Basic BotID needs no dashboard setting; the code above is all it takes. The
+optional **Vercel BotID Deep Analysis** toggle (Project → Firewall → Rules) does
+not appear on the Hobby plan and is not used. The dashboard's separate **Bot
+Protection** ruleset is a different feature and stays Off.
+
+`withBotId` serves the challenge script under
+`/149e9513-01fa-4fb0-aad4-566afd725d1b/…`. `proxy.ts` must not redirect that
+path for signed-out Visitors, or the script never loads and no form submission
+carries a BotID check. The proxy matcher excludes it, covered by
+`__tests__/proxy-matcher.test.ts`.
+
 ## Go-live checklist
 
-- [ ] Enable BotID (and Deep Analysis if available) for the project in its
-      **Firewall** settings, after a deployment containing this code.
-- [ ] Create the rate-limit rule above and confirm it with `vercel firewall`
-      or the dashboard.
-- [ ] From a deployed preview, submit the sign-up form more than 10 times in a
-      minute and confirm the rule blocks the IP.
+- [x] Rate-limit rule created and verified (see above).
+- [ ] On the deployed site, confirm a signed-out Visitor loads the challenge
+      script (200, JavaScript) and that a real sign-up, password reset and
+      verification resend each succeed.
+- [ ] Submit the sign-up form more than 10 times in a minute and confirm the
+      rule blocks the IP.
