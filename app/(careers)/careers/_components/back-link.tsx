@@ -1,32 +1,22 @@
-"use client";
-
+import Link from "next/link";
 import type { ReactNode } from "react";
-import { useRouter } from "next/navigation";
 
+/** A plain link back to a fixed path, not the browser's history stack: history can
+ * hold pages from outside this app (an emailed link opened in a fresh tab, a search
+ * result), so `router.back()` doesn't reliably return to where the Applicant actually
+ * came from within Careers. */
 export function BackLink({
-  fallbackHref = "/",
+  href,
   className,
   children = "Back",
 }: {
-  fallbackHref?: string;
+  href: string;
   className?: string;
   children?: ReactNode;
 }) {
-  const router = useRouter();
-
   return (
-    <button
-      type="button"
-      onClick={() => {
-        if (window.history.length > 1) {
-          router.back();
-        } else {
-          router.push(fallbackHref);
-        }
-      }}
-      className={className}
-    >
+    <Link href={href} className={className}>
       {children}
-    </button>
+    </Link>
   );
 }

@@ -48,7 +48,7 @@ export default async function CareersPage({ searchParams }: CareersPageProps) {
   return (
     <section className="mx-auto max-w-4xl py-16">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <BackLink fallbackHref="/" className="text-sm text-on-surface-variant underline">
+        <BackLink href="/" className="text-sm text-on-surface-variant underline">
           Back
         </BackLink>
 
