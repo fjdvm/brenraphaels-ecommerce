@@ -30,3 +30,7 @@ Rules that hold throughout:
 - Do not edit files inside another agent's worktree.
 - If `main` moved while you worked, rebase again rather than merging `main` into your branch.
 - Right after merging into the primary checkout (step 5) or removing a worktree (step 7), the editor's TS server and Next's `.next` type cache can lag behind the files that just changed: false "Cannot find module" diagnostics, or a `next build` that fails only inside `.next/types`/`.next/dev/types` against routes that no longer exist. Don't trust either — `rm -rf .next` and rerun `npm run build` (and `npm run lint`) in the primary checkout to get the true result before treating it as a real error.
+
+## Input validation
+
+Every user-facing input field is sanitized, normalized, and validated before it is persisted or used. Build its schema on `lib/validators/fields.ts` (`emailField`, `passwordField`, `nameTextField`, `optionalNameField`, `textField`, `optionalTextField`, `phoneField`) and `lib/validators/sanitize.ts` (`cleanText`, `cleanName`, `cleanEmail`, `cleanPhone`) — never a raw `z.string()`. A field accepts only the characters that belong to it (letters for a name, digits for a phone number, and so on); anything else is rejected with a clear message, not silently stripped. Add a new helper to `lib/validators/` when an existing one doesn't fit rather than inlining ad hoc sanitization.
