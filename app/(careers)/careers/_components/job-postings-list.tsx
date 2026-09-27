@@ -4,19 +4,19 @@ import Link from "next/link";
 import { useState } from "react";
 import type { JobPosting } from "@/lib/careers/job-postings";
 
-export function JobPostingsList({ jobs }: { jobs: JobPosting[] }) {
+export function JobPostingsList({ jobs, isAuthenticated }: { jobs: JobPosting[]; isAuthenticated: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   if (jobs.length === 0) {
     return (
-      <p className="rounded-(--radius-md) border border-outline-variant bg-surface-card px-5 py-8 text-sm text-on-surface-variant">
+      <p className="border border-outline-variant bg-surface-card px-5 py-8 text-sm text-on-surface-variant">
         There are no open Job Postings matching those filters.
       </p>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-(--radius-md) border border-outline-variant bg-surface-card">
+    <div className="overflow-hidden border border-outline-variant bg-surface-card">
       <div className="grid grid-cols-[2fr_1.5fr_1fr_auto] gap-4 border-b border-outline-variant px-5 py-3 text-xs font-semibold tracking-wide text-on-surface-variant uppercase">
         <span>Position</span>
         <span>Location</span>
@@ -70,12 +70,17 @@ export function JobPostingsList({ jobs }: { jobs: JobPosting[] }) {
 
                   <p className="mt-4">Apply by {job.deadline.toLocaleDateString()}</p>
 
-                  <Link
-                    href={`/careers/${job.id}`}
-                    className="mt-4 inline-block font-semibold text-primary underline"
-                  >
-                    View full posting
-                  </Link>
+                  <div className="mt-4 flex flex-wrap items-center gap-4">
+                    <Link
+                      href={isAuthenticated ? "/careers/profile" : "/careers/signin"}
+                      className="bg-primary px-5 py-2 font-semibold text-on-primary"
+                    >
+                      Apply
+                    </Link>
+                    <Link href={`/careers/${job.id}`} className="font-semibold text-primary underline">
+                      View full posting
+                    </Link>
+                  </div>
                 </div>
               </div>
             ) : null}
