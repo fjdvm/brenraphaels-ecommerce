@@ -21,6 +21,17 @@ async function isSignedIn() {
   }
 }
 
+/** Same shell as SessionNav, shown instantly while the session resolves. */
+export function SessionNavFallback({ className }: { className?: string }) {
+  return (
+    <div className={className}>
+      <Link href="/cart" aria-label="Cart" className="hover:text-primary">
+        <ShoppingCart size={20} />
+      </Link>
+    </div>
+  );
+}
+
 export async function SessionNav({ className }: { className?: string }) {
   const signedIn = await isSignedIn();
   return (

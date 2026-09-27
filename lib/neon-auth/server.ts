@@ -1,6 +1,7 @@
 import { createNeonAuth } from "@neondatabase/auth/next/server";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
+import { cache } from "react";
 
 import type { NeonAuth } from "../customer/sign-up";
 import type { VerificationAuth } from "../customer/email-verification";
@@ -107,7 +108,10 @@ export const neonPasswordResetAuth: PasswordResetAuth = {
   },
 };
 
-export async function getVisitorSession(): Promise<VisitorSession> {
+// Memoized per request: the Header's session badge and the layout's Cart sync
+// both need the current session, and each is a network round trip to Neon
+// Auth. `cache()` collapses those into a single call per request.
+export const getVisitorSession = cache(async function getVisitorSession(): Promise<VisitorSession> {
   // Neon Auth swallows Next.js's "dynamic usage" signal and reports no session,
   // so opt in to per-request rendering ourselves before it reads cookies.
   await connection();
@@ -119,7 +123,7 @@ export async function getVisitorSession(): Promise<VisitorSession> {
         fullName: data.user.name ?? "",
       }
     : null;
-}
+});
 
 export async function signOutVisitor() {
   await getNeonAuth().signOut();
