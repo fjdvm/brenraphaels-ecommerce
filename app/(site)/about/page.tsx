@@ -84,52 +84,25 @@ export default function AboutPage() {
             />
           }
         />
-        <EditorialRow
-          className={row}
-          mediaSide="right"
-          text={
-            <div className="space-y-4">
-              <p className={eyebrow}>Where we&apos;re headed</p>
-              <p>
-                Every jar we produce carries not only premium ingredients and
-                rich flavor, but also the story of a family pursuing a shared
-                dream.
-              </p>
-              <p>
-                Today, our vision goes beyond creating premium-quality ube
-                products. We aspire to become a trusted Filipino brand both
-                locally and internationally while helping create employment
-                opportunities, support local communities, and provide better
-                income opportunities for Filipino farmers.
-              </p>
-              <p>
-                At Bren Raphael&apos;s, every jar represents tradition,
-                perseverance, faith, and the belief that great things can grow
-                from humble beginnings.
-              </p>
-            </div>
-          }
-          media={
-            <div className="space-y-6">
-              <section className="border border-outline-variant/50 bg-surface-card p-6">
-                <h2 className="font-serif text-2xl text-primary">
-                  Our Mission
-                </h2>
-                <p className="mt-3">
-                  To deliver high quality, delicious, and innovative ube
-                  products while preserving Filipino Tradition
-                </p>
-              </section>
-              <section className="border border-outline-variant/50 bg-surface-card p-6">
-                <h2 className="font-serif text-2xl text-primary">Our Vision</h2>
-                <p className="mt-3">
-                  To become a trusted brand for premium quality ube products
-                  locally and abroad.
-                </p>
-              </section>
-            </div>
-          }
-        />
+        <div className={`${row} max-w-3xl space-y-4`}>
+          <p className={eyebrow}>Where we&apos;re headed</p>
+          <p>
+            Every jar we produce carries not only premium ingredients and rich
+            flavor, but also the story of a family pursuing a shared dream.
+          </p>
+          <p>
+            Today, our vision goes beyond creating premium-quality ube products.
+            We aspire to become a trusted Filipino brand both locally and
+            internationally while helping create employment opportunities,
+            support local communities, and provide better income opportunities
+            for Filipino farmers.
+          </p>
+          <p>
+            At Bren Raphael&apos;s, every jar represents tradition,
+            perseverance, faith, and the belief that great things can grow from
+            humble beginnings.
+          </p>
+        </div>
       </div>
     </ContentPage>
   );

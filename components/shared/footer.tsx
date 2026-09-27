@@ -44,8 +44,9 @@ export function Footer() {
             Explore
           </h2>
           <div className="mt-4 grid gap-3 text-sm text-white/75">
-            <Link href="/about">Our story</Link>
             <Link href="/journey">Our journey</Link>
+            <Link href="/about">Our story</Link>
+            <Link href="/vision-mission">Our vision and mission</Link>
             <Link href="/faq">FAQ</Link>
             <Link href="/careers">Careers</Link>
           </div>
@@ -63,8 +64,8 @@ export function Footer() {
         </div>
       </div>
       <p className="mx-auto mt-12 max-w-7xl border-t border-white/15 px-5 pt-6 text-xs text-white/60 sm:px-8">
-        © {new Date().getFullYear()} Bren Raphael&apos;s Ube Jam &amp; Halaya. All
-        rights reserved.
+        © {new Date().getFullYear()} Bren Raphael&apos;s Ube Jam &amp; Halaya.
+        All rights reserved.
       </p>
     </footer>
   );
