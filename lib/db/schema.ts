@@ -74,7 +74,8 @@ export const addresses = pgTable(
 );
 
 export const products = pgTable("products", {
-  // The Shopify handle is retained as the stable public URL for the grouped Product.
+  // Derived from the grouped Product's name, not the source Shopify handle,
+  // since several Shopify products (one per weight) become one Product.
   slug: text("slug").primaryKey(),
   name: text("name").notNull(),
   description: text("description").notNull(),

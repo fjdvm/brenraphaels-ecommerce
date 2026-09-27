@@ -2,20 +2,15 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { createCatalogStore } from "@/lib/catalog/catalog";
+import { formatPeso } from "@/lib/catalog/currency";
 import { getDatabase } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-function peso(amountInCentavos: number) {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-  }).format(amountInCentavos / 100);
-}
-
 function priceRange(lowest: number, highest: number) {
-  return lowest === highest ? peso(lowest) : `${peso(lowest)} – ${peso(highest)}`;
+  return lowest === highest
+    ? formatPeso(lowest)
+    : `${formatPeso(lowest)} – ${formatPeso(highest)}`;
 }
 
 export const metadata = {

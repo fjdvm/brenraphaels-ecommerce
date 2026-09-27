@@ -62,13 +62,17 @@ _Avoid_: Payment type
 A GCash reference number, and optionally a screenshot, a Customer submits against their Order as evidence of payment. Staff verify it in CREOMS; this app neither verifies it nor decides whether the Order is `paid`.
 _Avoid_: Payment confirmation, receipt
 
+**Catalog**:
+The collection of Products that any Visitor can browse. It does not include a Cart or Orders.
+_Avoid_: Inventory, storefront
+
 **Product**:
 A flavor or kind the shop sells (e.g. "Ube Halaya Smooth"), with a name, description, and images, offered in one or more Sizes. A weight-only difference is a Size of the same Product; a difference in kind (e.g. 80 vs. 120 mesh Ube Powder) is a separate Product.
-_Avoid_: Item
+_Avoid_: Item, SKU
 
 **Size**:
 A specific purchasable weight of a Product (e.g. 250g, 500g), each with its own price and its own available/sold-out flag, set by staff with no quantity tracked.
-_Avoid_: Variant, SKU
+_Avoid_: Variant, option, SKU
 
 **Cart**:
 The Sizes and quantities a Visitor or Customer intends to buy, held before an Order is placed. A signed-out Visitor's Cart is kept client-side and merges into the Customer's Cart on sign-in. Checkout, and so placing an Order, requires being a Verified, complete Customer.

@@ -2,19 +2,12 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { createCatalogStore } from "@/lib/catalog/catalog";
+import { formatPeso } from "@/lib/catalog/currency";
 import { getDatabase } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 type ProductPageProps = { params: Promise<{ slug: string }> };
-
-function peso(amountInCentavos: number) {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-  }).format(amountInCentavos / 100);
-}
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const product = await createCatalogStore(getDatabase()).findProduct((await params).slug);
@@ -50,7 +43,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <li key={size.label} className="flex items-center justify-between gap-4 py-4">
                   <span className="font-semibold text-on-surface">{size.label}</span>
                   <span className={size.available ? "font-semibold text-primary" : "text-on-surface-variant"}>
-                    {peso(size.priceInCentavos)}
+                    {formatPeso(size.priceInCentavos)}
                     {!size.available ? " · Unavailable" : ""}
                   </span>
                 </li>

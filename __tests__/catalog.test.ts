@@ -1,10 +1,11 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { products, productImages, sizes } from "../lib/db/schema";
 import { createCatalogStore } from "../lib/catalog/catalog";
+import { formatPeso } from "../lib/catalog/currency";
 
 let client: PGlite;
 
@@ -13,7 +14,15 @@ beforeEach(async () => {
   await migrate(drizzle(client), { migrationsFolder: "drizzle" });
 });
 
+afterEach(async () => {
+  await client.close();
+});
+
 describe("Catalog", () => {
+  test("formats a Size price in Philippine pesos", () => {
+    expect(formatPeso(21900)).toBe("₱219");
+  });
+
   test("lists every Product with its image and price range", async () => {
     const database = drizzle(client);
     await database.insert(products).values({
