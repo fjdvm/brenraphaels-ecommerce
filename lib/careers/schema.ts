@@ -1,4 +1,4 @@
-import { integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 // These tables are migrated only against Careers' dedicated Neon database.
 // applicantId is an opaque id from Careers' Neon Auth instance, never a
@@ -32,4 +32,22 @@ export const applicantDocuments = pgTable("applicant_documents", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   applicantId: text("applicant_id").notNull().references(() => applicantProfiles.applicantId, { onDelete: "cascade" }),
   name: text("name").notNull(), contentType: text("content_type").notNull(), size: integer("size").notNull(), blobPathname: text("blob_pathname").notNull().unique(), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** A local read cache of Job Postings owned and pushed by HR-ATS. */
+export const jobPostings = pgTable("job_postings", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  department: text("department").notNull(),
+  description: text("description").notNull(),
+  requirements: text("requirements").notNull(),
+  employmentType: text("employment_type").notNull(),
+  location: text("location").notNull(),
+  deadline: timestamp("deadline", { withTimezone: true }).notNull(),
+  requiredDocuments: jsonb("required_documents").$type<string[]>().notNull(),
+  screeningCriteria: jsonb("screening_criteria").$type<string[]>().notNull(),
+  status: text("status").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });

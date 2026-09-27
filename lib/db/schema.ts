@@ -110,7 +110,6 @@ export const sizes = pgTable(
   },
   (table) => [uniqueIndex("sizes_product_label").on(table.productSlug, table.label)],
 );
-
 /** A Customer has at most one line for each Size in their persisted Cart. */
 export const cartLines = pgTable(
   "cart_lines",
