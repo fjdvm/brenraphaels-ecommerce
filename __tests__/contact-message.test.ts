@@ -60,17 +60,16 @@ describe("Sending the shop a message", () => {
     );
   });
 
-  test("keeps the line breaks of the comment but drops invisible characters", async () => {
+  test("rejects invisible characters in a comment", async () => {
     const mailer = mailerStub();
 
-    await submitContactMessage(
+    const result = await submitContactMessage(
       { ...validInput, comment: "Hello​ there\r\n\r\n\r\n\r\nThanks" },
       { mailer },
     );
 
-    expect(mailer.send).toHaveBeenCalledWith(
-      expect.objectContaining({ comment: "Hello there\n\nThanks" }),
-    );
+    expect(result).toMatchObject({ status: "invalid", fieldErrors: { comment: expect.any(Array) } });
+    expect(mailer.send).not.toHaveBeenCalled();
   });
 
   test.each([

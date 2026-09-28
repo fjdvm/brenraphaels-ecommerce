@@ -1,24 +1,10 @@
 import { z } from "zod";
 
-import { emailField, optionalTextField } from "../validators/fields";
+import { emailField, multilineTextField, optionalTextField } from "../validators/fields";
 
 export const nameMaximumLength = 100;
 export const phoneMaximumLength = 30;
 export const commentMaximumLength = 2_000;
-
-const invisibleCharacters = /[^\P{Cc}\n]|\p{Cf}/gu;
-
-/** Keeps the line breaks people type, but no invisible characters or long runs of blank lines. */
-function cleanComment(value: string) {
-  return value
-    .normalize("NFC")
-    .replace(/\r\n?/g, "\n")
-    .replace(invisibleCharacters, "")
-    .replace(/[^\S\n]+/g, " ")
-    .replace(/ ?\n ?/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
 
 const contactMessageSchema = z.object({
   name: optionalTextField({
@@ -32,16 +18,11 @@ const contactMessageSchema = z.object({
     pattern: /^[+\d\s().-]+$/,
     patternMessage: "Enter a valid phone number",
   }),
-  comment: z
-    .string({ error: "Enter your message" })
-    .max(10_000, `Must be ${commentMaximumLength} characters or fewer`)
-    .transform(cleanComment)
-    .pipe(
-      z
-        .string()
-        .min(1, "Enter your message")
-        .max(commentMaximumLength, `Must be ${commentMaximumLength} characters or fewer`),
-    ),
+  comment: multilineTextField("Enter your message", {
+    max: commentMaximumLength,
+    pattern: /^[\p{L}\p{M}\p{N}\p{P}\p{S}\s]+$/u,
+    patternMessage: "Enter your message",
+  }),
 });
 
 export type ContactMessage = z.output<typeof contactMessageSchema>;

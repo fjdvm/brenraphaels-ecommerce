@@ -5,6 +5,7 @@ import {
   Libre_Caslon_Text,
 } from "next/font/google";
 import "./globals.css";
+import { FeedbackForm } from "@/components/features/feedback/feedback-form";
 
 const libreCaslon = Libre_Caslon_Text({
   variable: "--font-libre-serif",
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         {children}
+        <FeedbackForm />
       </body>
     </html>
   );

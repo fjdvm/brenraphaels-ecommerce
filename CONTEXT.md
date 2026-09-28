@@ -78,6 +78,10 @@ _Avoid_: Variant, option, SKU
 The Sizes and quantities a Visitor or Customer intends to buy, held before an Order is placed. A signed-out Visitor's Cart is kept client-side and merges into the Customer's Cart on sign-in. Checkout, and so placing an Order, requires being a Verified, complete Customer.
 _Avoid_: Basket, bag
 
-**Feedback**:
+**Visitor feedback report**:
+A Visitor's report of a problem or suggestion about the storefront. A report creates an issue for the shop team and does not require an Order.
+_Avoid_: Order feedback, review
+
+**Order feedback**:
 A Customer's optional rating and free text about their experience with a `delivered` Order, given once, not editable afterward. Visible to the Customer on their own Order and to CREOMS, never shown publicly.
 _Avoid_: Review, comment, rating (alone)

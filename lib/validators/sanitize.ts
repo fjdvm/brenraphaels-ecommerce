@@ -1,6 +1,6 @@
 const whitespace = /\s+/g;
 // Control characters plus invisible formatting ones (zero-width spaces, bidi overrides).
-const invisibleCharacters = /[\p{Cc}\p{Cf}]/gu;
+const invisibleCharacters = /[^\P{Cc}\n]|\p{Cf}/gu;
 const phoneSeparators = /[\s().-]/g;
 
 /** Normalises free text: one Unicode form, single spaces, no invisible characters. */
@@ -9,6 +9,16 @@ export function cleanText(value: string) {
     .normalize("NFC")
     .replace(whitespace, " ")
     .replace(invisibleCharacters, "")
+    .trim();
+}
+
+/** Normalises free text while keeping intentional line breaks. */
+export function cleanMultilineText(value: string) {
+  return value
+    .normalize("NFC")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[^\S\n]+/g, " ")
+    .replace(/ ?\n ?/g, "\n")
     .trim();
 }
 

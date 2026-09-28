@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { cleanEmail, cleanName, cleanPhone, cleanText } from "./sanitize";
+import { cleanEmail, cleanMultilineText, cleanName, cleanPhone, cleanText } from "./sanitize";
 
 /** Stops absurdly large input before it is sanitised; specific limits follow. */
-const maximumRawLength = 1_000;
+const maximumRawLength = 10_000;
 
 export const emailMaximumLength = 256;
 export const passwordMaximumLength = 128;
@@ -81,6 +81,29 @@ export function optionalTextField(rules: {
         .string()
         .max(rules.max, `Must be ${rules.max} characters or fewer`)
         .refine((value) => value === "" || rules.pattern.test(value), rules.patternMessage),
+    );
+}
+
+/** Free text that retains line breaks, for messages and longer descriptions. */
+export function multilineTextField(
+  label: string,
+  rules: { min?: number; max: number; optional?: boolean; pattern: RegExp; patternMessage: string },
+) {
+  const minimum = rules.min ?? 1;
+  return z
+    .string({ error: rules.optional ? undefined : `${label} is required` })
+    .max(maximumRawLength, `Must be ${rules.max} characters or fewer`)
+    .nullish()
+    .refine(
+      (value) => value == null || value === "" || rules.pattern.test(value),
+      rules.patternMessage,
+    )
+    .transform((value) => cleanMultilineText(value ?? ""))
+    .pipe(
+      z
+        .string()
+        .refine((value) => rules.optional || value.length >= minimum, `${label} is required`)
+        .max(rules.max, `Must be ${rules.max} characters or fewer`)
     );
 }
 
