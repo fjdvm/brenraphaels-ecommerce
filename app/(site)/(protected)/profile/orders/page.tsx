@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AccountEmptyState } from "@/components/features/customer/account-empty-state";
+import { CancelOrderForm } from "@/components/features/orders/cancel-order-form";
 import { OrderFeedbackForm } from "@/components/features/orders/order-feedback-form";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { formatPeso } from "@/lib/catalog/currency";
@@ -72,6 +73,9 @@ export default async function OrdersPage() {
                   <p className="mt-1 whitespace-pre-wrap text-sm text-on-surface">{feedbackByOrder.get(order.id)?.comment}</p>
                 </section>
               ) : <OrderFeedbackForm orderId={order.id} />
+            ) : null}
+            {order.status !== "dispatched" && order.status !== "delivered" && order.status !== "cancelled" ? (
+              <CancelOrderForm orderId={order.id} />
             ) : null}
           </article>
         ))}

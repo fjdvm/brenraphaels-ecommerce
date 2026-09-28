@@ -6,14 +6,16 @@ import { z } from "zod";
 
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
+import { sendOrderCancelledEmail } from "@/lib/email/order-cancelled-email";
 import {
   OrderFeedbackAlreadySubmittedError,
   OrderFeedbackNotAvailableError,
   createOrderFeedbackStore,
 } from "@/lib/orders/feedback";
 import { orderFeedbackInput } from "@/lib/orders/feedback-input";
-import { createOrderStore } from "@/lib/orders/orders";
+import { createOrderStore, OrderTransitionError, type Order } from "@/lib/orders/orders";
 import { gcashReferenceNumberField, uploadPaymentProofScreenshot } from "@/lib/orders/payment-proof";
+import { positiveIntegerField } from "@/lib/validators/fields";
 
 export type PaymentProofState = {
   message?: string;
@@ -26,7 +28,50 @@ export type OrderFeedbackState = {
   submitted?: boolean;
 };
 
+export type OrderCancellationState = {
+  cancelled?: boolean;
+  emailWarning?: string;
+  message?: string;
+};
+
 const paymentProofInput = z.object({ gcashReferenceNumber: gcashReferenceNumberField });
+const cancellationInput = z.object({ orderId: positiveIntegerField("Order ID") });
+
+/** Cancels a Customer-owned Order when its status is still before dispatch. */
+export async function cancelOrder(
+  _previousState: OrderCancellationState,
+  formData: FormData,
+): Promise<OrderCancellationState> {
+  void _previousState;
+  const parsed = cancellationInput.safeParse({ orderId: formData.get("orderId") });
+  if (!parsed.success) return { message: "We couldn't cancel this Order. Please try again." };
+
+  const customer = await requireCustomer();
+  let order: Order;
+  try {
+    order = await createOrderStore(getDatabase()).cancel(customer.userId, parsed.data.orderId);
+  } catch (error) {
+    if (error instanceof OrderTransitionError) {
+      return { message: "This Order can no longer be cancelled." };
+    }
+    console.error("Cancelling Order failed", error);
+    return { message: "We couldn't cancel this Order. Please try again." };
+  }
+
+  try {
+    await sendOrderCancelledEmail(customer.email, order);
+  } catch (error) {
+    console.error("Order-cancelled email could not be sent", error);
+    revalidatePath("/profile/orders");
+    return {
+      cancelled: true,
+      emailWarning: "Your Order was cancelled, but we couldn't send its confirmation email.",
+    };
+  }
+
+  revalidatePath("/profile/orders");
+  return { cancelled: true };
+}
 
 /** Bound to an Order id (`submitPaymentProof.bind(null, order.id)`) before use as a Form Action. */
 export async function submitPaymentProof(

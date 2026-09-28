@@ -157,6 +157,33 @@ describe("Order", () => {
     await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ id: dispatched.id, status: "dispatched" }, { id: placed.id, status: "cancelled" }]);
   });
 
+  test("allows a Customer to cancel only their own Order before dispatch", async () => {
+    const database = drizzle(client);
+    const cart = createCartStore(database);
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const store = createOrderStore(database);
+    const order = await store.place("customer-1", {
+      fulfillmentMethod: "pickup",
+      paymentMethod: "cash-on-delivery",
+    });
+
+    await expect(store.cancel("customer-1", order.id)).resolves.toMatchObject({
+      id: order.id,
+      status: "cancelled",
+    });
+    await expect(store.cancel("another-customer", order.id)).rejects.toThrow("Order was not found.");
+
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const dispatched = await store.place("customer-1", {
+      fulfillmentMethod: "pickup",
+      paymentMethod: "cash-on-delivery",
+    });
+    await store.advance(dispatched.id, { status: "preparing" });
+    await store.advance(dispatched.id, { status: "dispatched" });
+
+    await expect(store.cancel("customer-1", dispatched.id)).rejects.toThrow("not a legal transition");
+  });
+
   test("places a Pickup Cash on Delivery Order, snapshots its Cart, and empties the Cart", async () => {
     const database = drizzle(client);
     const cart = createCartStore(database);

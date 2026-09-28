@@ -21,6 +21,14 @@ export const orderStatuses = [
 ] as const;
 export type OrderStatus = (typeof orderStatuses)[number];
 
+/** The requested status does not follow the Order lifecycle. */
+export class OrderTransitionError extends Error {
+  constructor(nextStatus: OrderStatus, currentStatus: OrderStatus) {
+    super(`\"${nextStatus}\" is not a legal transition from \"${currentStatus}\".`);
+    this.name = "OrderTransitionError";
+  }
+}
+
 export type OrderLine = {
   productName: string;
   sizeLabel: string;
@@ -83,6 +91,7 @@ export type OrderStore = {
     orderId: number,
     input: { status: OrderStatus; deliveryFeeInCentavos?: number },
   ): Promise<Order>;
+  cancel(customerId: string, orderId: number): Promise<Order>;
   customerEmailForOrder(orderId: number): Promise<string | undefined>;
   submitPaymentProof(
     customerId: string,
@@ -205,7 +214,7 @@ export function createOrderStore<
     };
     const currentStatus = persistedOrder.status as OrderStatus;
     if (!permittedNextStatuses[currentStatus].includes(input.status)) {
-      throw new Error(`\"${input.status}\" is not a legal transition from \"${currentStatus}\".`);
+      throw new OrderTransitionError(input.status, currentStatus);
     }
     if (
       input.deliveryFeeInCentavos !== undefined
@@ -235,6 +244,17 @@ export function createOrderStore<
     if (!updatedOrder) throw new Error("Order status changed before it could be advanced.");
 
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
+  }
+
+  /** Cancels an Order only when it belongs to the Customer and the state machine permits it. */
+  async function cancel(customerId: string, orderId: number): Promise<Order> {
+    const [persistedOrder] = await db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(eq(orders.id, orderId), eq(orders.customerId, customerId)));
+    if (!persistedOrder) throw new Error("Order was not found.");
+
+    return advance(persistedOrder.id, { status: "cancelled" });
   }
 
   /**
@@ -369,5 +389,5 @@ export function createOrderStore<
     });
   }
 
-  return { place, listForCustomer, advance, customerEmailForOrder, submitPaymentProof };
+  return { place, listForCustomer, advance, cancel, customerEmailForOrder, submitPaymentProof };
 }

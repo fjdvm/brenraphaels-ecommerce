@@ -1,22 +1,31 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-const { createOrderFeedbackStore, getDatabase, revalidatePath, requireCustomer, submit } = vi.hoisted(() => ({
+const { cancel, createOrderFeedbackStore, createOrderStore, getDatabase, revalidatePath, requireCustomer, sendOrderCancelledEmail, submit } = vi.hoisted(() => ({
+  cancel: vi.fn(),
   createOrderFeedbackStore: vi.fn(),
+  createOrderStore: vi.fn(() => ({ cancel })),
   getDatabase: vi.fn(),
   revalidatePath: vi.fn(),
   requireCustomer: vi.fn(),
+  sendOrderCancelledEmail: vi.fn(),
   submit: vi.fn(),
 }));
 
 vi.mock("@/lib/customer/current-visitor", () => ({ requireCustomer }));
 vi.mock("@/lib/db", () => ({ getDatabase }));
+vi.mock("@/lib/email/order-cancelled-email", () => ({ sendOrderCancelledEmail }));
 vi.mock("@/lib/orders/feedback", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/orders/feedback")>()),
   createOrderFeedbackStore,
 }));
+vi.mock("@/lib/orders/orders", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/orders/orders")>()),
+  createOrderStore,
+}));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { submitOrderFeedback } from "@/app/(site)/(protected)/profile/orders/actions";
+import { cancelOrder, submitOrderFeedback } from "@/app/(site)/(protected)/profile/orders/actions";
+import { OrderTransitionError } from "@/lib/orders/orders";
 
 function feedbackFormData() {
   const formData = new FormData();
@@ -26,12 +35,21 @@ function feedbackFormData() {
   return formData;
 }
 
-describe("Order Feedback action", () => {
+function cancellationFormData(orderId = "12") {
+  const formData = new FormData();
+  formData.set("orderId", orderId);
+  return formData;
+}
+
+describe("Order actions", () => {
   beforeEach(() => {
     createOrderFeedbackStore.mockReset().mockReturnValue({ submit });
+    createOrderStore.mockReset().mockReturnValue({ cancel });
+    cancel.mockReset().mockResolvedValue({ id: 12, status: "cancelled" });
     getDatabase.mockReset();
     revalidatePath.mockReset();
-    requireCustomer.mockReset().mockResolvedValue({ userId: "customer-1" });
+    requireCustomer.mockReset().mockResolvedValue({ userId: "customer-1", email: "jane@example.com" });
+    sendOrderCancelledEmail.mockReset().mockResolvedValue(undefined);
     submit.mockReset();
   });
 
@@ -73,5 +91,56 @@ describe("Order Feedback action", () => {
     });
     expect(requireCustomer).not.toHaveBeenCalled();
     expect(submit).not.toHaveBeenCalled();
+  });
+
+  test("cancels the Customer's Order, sends confirmation, and refreshes the order history", async () => {
+    await expect(cancelOrder({}, cancellationFormData())).resolves.toEqual({ cancelled: true });
+
+    expect(cancel).toHaveBeenCalledWith("customer-1", 12);
+    expect(sendOrderCancelledEmail).toHaveBeenCalledWith(
+      "jane@example.com",
+      expect.objectContaining({ id: 12, status: "cancelled" }),
+    );
+    expect(revalidatePath).toHaveBeenCalledWith("/profile/orders");
+  });
+
+  test("returns a message when the Order cannot be cancelled", async () => {
+    cancel.mockRejectedValueOnce(new OrderTransitionError("cancelled", "dispatched"));
+
+    await expect(cancelOrder({}, cancellationFormData())).resolves.toEqual({
+      message: "This Order can no longer be cancelled.",
+    });
+    expect(sendOrderCancelledEmail).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  test("returns a message instead of failing when cancellation cannot be saved", async () => {
+    cancel.mockRejectedValueOnce(new Error("database unavailable"));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(cancelOrder({}, cancellationFormData())).resolves.toEqual({
+      message: "We couldn't cancel this Order. Please try again.",
+    });
+    expect(sendOrderCancelledEmail).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  test("keeps a cancelled Order cancelled if its confirmation email cannot be sent", async () => {
+    sendOrderCancelledEmail.mockRejectedValueOnce(new Error("Brevo down"));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(cancelOrder({}, cancellationFormData())).resolves.toEqual({
+      cancelled: true,
+      emailWarning: "Your Order was cancelled, but we couldn't send its confirmation email.",
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/profile/orders");
+  });
+
+  test("rejects a malformed Order id without attempting cancellation", async () => {
+    await expect(cancelOrder({}, cancellationFormData("12.5"))).resolves.toEqual({
+      message: "We couldn't cancel this Order. Please try again.",
+    });
+    expect(requireCustomer).not.toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
   });
 });
