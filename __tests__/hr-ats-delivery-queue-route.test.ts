@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test, vi } from "vitest";
+import { ZodError } from "zod";
 
 const { handleCallback, deliverApplicationEvent, parseApplicationDeliveryEvent, createHrAtsApiClient } = vi.hoisted(() => ({
   handleCallback: vi.fn((handler: unknown, options: unknown) => ({ handler, options })),
@@ -55,5 +56,9 @@ describe("POST /api/queues/hr-ats-delivery (thin adapter)", () => {
   test("backs off with a retry instead of acknowledging at or under the threshold", () => {
     expect(registeredRetry()(new Error("transient"), { deliveryCount: 1 })).toEqual({ afterSeconds: expect.any(Number) });
     expect(registeredRetry()(new Error("transient"), { deliveryCount: 10 })).not.toEqual({ acknowledge: true });
+  });
+
+  test("acknowledges a malformed poison message immediately instead of burning the full retry budget", () => {
+    expect(registeredRetry()(new ZodError([]), { deliveryCount: 1 })).toEqual({ acknowledge: true });
   });
 });

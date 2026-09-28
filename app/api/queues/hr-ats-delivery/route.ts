@@ -1,4 +1,5 @@
 import { handleCallback } from "@vercel/queue";
+import { ZodError } from "zod";
 
 import {
   createHrAtsApiClient,
@@ -16,6 +17,13 @@ export const POST = handleCallback(
   },
   {
     retry: (error, metadata) => {
+      if (error instanceof ZodError) {
+        console.error("HR-ATS delivery dropped a malformed message; it can never succeed", {
+          messageId: metadata.messageId,
+          error,
+        });
+        return { acknowledge: true };
+      }
       if (metadata.deliveryCount > HR_ATS_DELIVERY_MAX_ATTEMPTS) {
         console.error("HR-ATS delivery permanently failed after repeated retries", {
           messageId: metadata.messageId,
