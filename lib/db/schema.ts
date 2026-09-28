@@ -185,6 +185,18 @@ export const orderDeliveryAddresses = pgTable("order_delivery_addresses", {
   country: text("country").notNull(),
 });
 
+/** A Customer's one-time, private response to a delivered Order. */
+export const orderFeedback = pgTable("order_feedback", {
+  orderId: integer("order_id")
+    .primaryKey()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  rating: integer("rating").notNull(),
+  comment: text("comment").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 /** One row per IP address, holding its most recent submission times so the window truly rolls. */
 export const feedbackRateLimits = pgTable("feedback_rate_limits", {
   ipAddress: text("ip_address").primaryKey(),

@@ -164,6 +164,23 @@ export const confirmPasswordField = z
   .string({ error: "Confirm your password" })
   .max(passwordMaximumLength, `Must be ${passwordMaximumLength} characters or fewer`);
 
+/** A positive whole-number form field, rejecting decimals and non-numeric input. */
+export function positiveIntegerField(
+  label: string,
+  rules: { min?: number; max?: number; message?: string } = {},
+) {
+  const minimum = rules.min ?? 1;
+  const maximum = rules.max ?? Number.MAX_SAFE_INTEGER;
+  const message = rules.message ?? `Enter a valid ${label.toLowerCase()}`;
+
+  return z
+    .string({ error: `${label} is required` })
+    .max(maximumRawLength, message)
+    .regex(/^[1-9][0-9]*$/, message)
+    .transform(Number)
+    .pipe(z.number().int().min(minimum, message).max(maximum, message));
+}
+
 type PasswordPair = { password: string; confirmPassword: string };
 
 /** Adds the "both password boxes match" rule to a schema that has the pair. */

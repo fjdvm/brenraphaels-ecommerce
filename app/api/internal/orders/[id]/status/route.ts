@@ -1,5 +1,6 @@
 import { getDatabase } from "@/lib/db";
 import { sendOrderConfirmedEmail } from "@/lib/email/order-confirmed-email";
+import { sendOrderDeliveredEmail } from "@/lib/email/order-delivered-email";
 import { sendOrderPaidEmail } from "@/lib/email/order-paid-email";
 import { verifyInternalOrderStatusUpdate } from "@/lib/orders/internal-status";
 import { createOrderStore, type Order, type OrderStore } from "@/lib/orders/orders";
@@ -45,6 +46,9 @@ export async function POST(
     }
     if (order.status === "paid") {
       await notifyCustomer(orderStore, order, "paid", sendOrderPaidEmail);
+    }
+    if (order.status === "delivered") {
+      await notifyCustomer(orderStore, order, "delivered", sendOrderDeliveredEmail);
     }
     return Response.json(order);
   } catch {

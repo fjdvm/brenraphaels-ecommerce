@@ -6,12 +6,24 @@ import { z } from "zod";
 
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
+import {
+  OrderFeedbackAlreadySubmittedError,
+  OrderFeedbackNotAvailableError,
+  createOrderFeedbackStore,
+} from "@/lib/orders/feedback";
+import { orderFeedbackInput } from "@/lib/orders/feedback-input";
 import { createOrderStore } from "@/lib/orders/orders";
 import { gcashReferenceNumberField, uploadPaymentProofScreenshot } from "@/lib/orders/payment-proof";
 
 export type PaymentProofState = {
   message?: string;
   fieldErrors?: Record<string, string[] | undefined>;
+};
+
+export type OrderFeedbackState = {
+  fieldErrors?: Record<string, string[] | undefined>;
+  message?: string;
+  submitted?: boolean;
 };
 
 const paymentProofInput = z.object({ gcashReferenceNumber: gcashReferenceNumberField });
@@ -60,4 +72,31 @@ export async function submitPaymentProof(
 
   revalidatePath("/profile/orders");
   return { message: "Payment proof submitted. We'll email you once it's verified." };
+}
+
+/** Accepts one Customer-owned feedback response for a delivered Order. */
+export async function submitOrderFeedback(
+  _previousState: OrderFeedbackState,
+  formData: FormData,
+): Promise<OrderFeedbackState> {
+  const parsed = orderFeedbackInput.safeParse({
+    orderId: formData.get("orderId"),
+    rating: formData.get("rating"),
+    comment: formData.get("comment"),
+  });
+  if (!parsed.success) return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
+
+  const customer = await requireCustomer();
+  try {
+    await createOrderFeedbackStore(getDatabase()).submit(customer.userId, parsed.data);
+  } catch (error) {
+    if (error instanceof OrderFeedbackNotAvailableError || error instanceof OrderFeedbackAlreadySubmittedError) {
+      return { message: error.message };
+    }
+    console.error("Saving Order Feedback failed", error);
+    return { message: "We couldn't save your Feedback. Please try again." };
+  }
+
+  revalidatePath("/profile/orders");
+  return { submitted: true };
 }

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { AccountEmptyState } from "@/components/features/customer/account-empty-state";
+import { OrderFeedbackForm } from "@/components/features/orders/order-feedback-form";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { formatPeso } from "@/lib/catalog/currency";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
+import { createOrderFeedbackStore } from "@/lib/orders/feedback";
 import { createOrderStore } from "@/lib/orders/orders";
 
 export const metadata: Metadata = { title: "My orders" };
@@ -13,6 +15,11 @@ export const dynamic = "force-dynamic";
 export default async function OrdersPage() {
   const customer = await requireCustomer();
   const orders = await createOrderStore(getDatabase()).listForCustomer(customer.userId);
+  const feedbackStore = createOrderFeedbackStore(getDatabase());
+  const feedbackByOrder = new Map(await Promise.all(orders.map(async (order) => [
+    order.id,
+    await feedbackStore.forOrder(customer.userId, order.id),
+  ] as const)));
   if (orders.length === 0) {
     return (
       <AccountEmptyState
@@ -56,6 +63,15 @@ export default async function OrdersPage() {
                 GCash reference {order.paymentProof.gcashReferenceNumber} submitted.
                 {order.status === "awaiting payment" ? " We'll email you once it's verified." : null}
               </p>
+            ) : null}
+            {order.status === "delivered" ? (
+              feedbackByOrder.get(order.id) ? (
+                <section className="mt-5 rounded-md border border-outline-variant/60 bg-surface-container p-4">
+                  <h4 className="font-semibold text-primary">Your Feedback</h4>
+                  <p className="mt-2 text-sm text-on-surface">Order feedback score: {feedbackByOrder.get(order.id)?.rating} / 5</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-on-surface">{feedbackByOrder.get(order.id)?.comment}</p>
+                </section>
+              ) : <OrderFeedbackForm orderId={order.id} />
             ) : null}
           </article>
         ))}
