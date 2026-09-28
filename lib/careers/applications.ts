@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import type { ApplicantDocumentStore } from "./documents";
+import type { ApplicationDeliveryEvent } from "./hr-ats-delivery";
 import type { JobPostingStore } from "./job-postings";
 import type { ApplicantProfile, ApplicantProfileStore } from "./profile";
 import { applications } from "./schema";
@@ -90,6 +91,7 @@ type SubmissionDependencies = {
   applications: ApplicationStore;
   makeReferenceNumber(): string;
   sendConfirmationEmail(recipient: string, application: { referenceNumber: string; jobTitle: string }): Promise<void>;
+  enqueueDelivery(event: ApplicationDeliveryEvent): Promise<void>;
 };
 
 export async function submitApplication(input: { jobPostingId: string; documentIds: number[]; consent: boolean }, dependencies: SubmissionDependencies) {
@@ -112,6 +114,7 @@ export async function submitApplication(input: { jobPostingId: string; documentI
   if (selectedDocuments.some((document) => !document)) throw new Error("Select a Document from your Applicant profile.");
 
   const referenceNumber = dependencies.makeReferenceNumber();
+  const consentedAt = new Date();
   try {
     await dependencies.applications.insert({
       applicantId: dependencies.identity.userId,
@@ -120,11 +123,23 @@ export async function submitApplication(input: { jobPostingId: string; documentI
       status: "Received",
       profileSnapshot: profile,
       documentsSnapshot: selectedDocuments as ApplicationDocument[],
-      consentedAt: new Date(),
+      consentedAt,
     });
   } catch (error) {
     if (isUniqueViolation(error, "applications_applicant_posting_unique")) throw new Error("You have already applied to this Job Posting.");
     throw error;
+  }
+  try {
+    await dependencies.enqueueDelivery({
+      type: "application.submitted",
+      referenceNumber,
+      jobPostingId: posting.id,
+      profileSnapshot: profile,
+      documentsSnapshot: selectedDocuments as ApplicationDocument[],
+      consentedAt: consentedAt.toISOString(),
+    });
+  } catch (error) {
+    console.error("Could not enqueue Application for HR-ATS delivery", error);
   }
   try {
     await dependencies.sendConfirmationEmail(dependencies.identity.email, { referenceNumber, jobTitle: posting.title });
@@ -134,9 +149,19 @@ export async function submitApplication(input: { jobPostingId: string; documentI
   }
 }
 
-export async function withdrawApplication(referenceNumber: string, store: ApplicationStore, applicantId: string) {
+export async function withdrawApplication(
+  referenceNumber: string,
+  store: ApplicationStore,
+  applicantId: string,
+  enqueueDelivery: (event: ApplicationDeliveryEvent) => Promise<void>,
+) {
   const status = await store.withdraw(referenceNumber, applicantId);
   if (!status) throw new Error("Application not found.");
   if (status !== "Withdrawn") throw new Error("This Application has reached a final status and cannot be withdrawn.");
+  try {
+    await enqueueDelivery({ type: "application.withdrawn", referenceNumber });
+  } catch (error) {
+    console.error("Could not enqueue Application withdrawal for HR-ATS delivery", error);
+  }
   return { status };
 }
