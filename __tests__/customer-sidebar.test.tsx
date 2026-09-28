@@ -1,12 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, test, vi } from "vitest";
-
-vi.mock("@/app/actions", () => ({ signOut: async () => {} }));
+import { describe, expect, test } from "vitest";
 
 import { CustomerSidebarNavList } from "../components/features/customer/customer-sidebar";
 
 describe("The Customer sidebar navigation", () => {
-  test("links to every Customer destination, marks only the current route, and keeps sign-out behind its confirmation button", () => {
+  test("links to every Customer destination and marks only the current route", () => {
     const markup = renderToStaticMarkup(
       <CustomerSidebarNavList pathname="/profile/orders" />,
     );
@@ -19,6 +17,6 @@ describe("The Customer sidebar navigation", () => {
     expect(markup).toContain('href="/profile/settings"');
     expect(markup).toMatch(/<a(?=[^>]*href="\/profile\/orders")(?=[^>]*aria-current="page")/);
     expect(markup.match(/aria-current="page"/g)).toHaveLength(1);
-    expect(markup).toMatch(/<button[^>]*type="button"[^>]*>Sign out<\/button>/);
+    expect(markup).not.toContain("Sign out");
   });
 });

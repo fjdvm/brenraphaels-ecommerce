@@ -12,8 +12,6 @@ import {
   Store,
 } from "lucide-react";
 
-import { signOut } from "@/app/actions";
-import { SignOutButton } from "@/components/shared/sign-out-button";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -86,12 +84,6 @@ export function CustomerSidebarNavList({
           </li>
         );
       })}
-      <li className="mt-auto pt-1">
-        <SignOutButton
-          action={signOut}
-          className="w-full rounded-md px-4 py-3 text-left text-sm text-on-surface-variant transition-colors hover:bg-primary-fixed/60"
-        />
-      </li>
     </ul>
   );
 }
