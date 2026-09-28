@@ -104,4 +104,27 @@ describe("Job Posting sync", () => {
     await expect(store.listOpen()).resolves.toEqual([]);
     await expect(store.findOpen("ats-456")).resolves.toBeUndefined();
   });
+
+  test("findById still returns a closed or expired Job Posting, unlike findOpen", async () => {
+    const store = createJobPostingStore(drizzle(client));
+    const posting = {
+      id: "ats-789",
+      title: "Line Cook",
+      department: "Kitchen",
+      description: "Prep and cook heritage dishes.",
+      requirements: "Line experience.",
+      employmentType: "Full-time",
+      location: "Makati",
+      deadline: "2000-01-01T00:00:00.000Z",
+      requiredDocuments: ["Resume"],
+      screeningCriteria: ["Line experience"],
+      status: "open" as const,
+    };
+
+    await store.applyEvent({ event: "job_posting.created", data: posting });
+
+    await expect(store.findOpen("ats-789")).resolves.toBeUndefined();
+    await expect(store.findById("ats-789")).resolves.toMatchObject({ id: "ats-789", deadline: new Date("2000-01-01T00:00:00.000Z") });
+    await expect(store.findById("ats-missing")).resolves.toBeUndefined();
+  });
 });

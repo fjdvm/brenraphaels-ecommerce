@@ -31,6 +31,7 @@ export type JobPostingStore = {
   listOpen(filters?: JobPostingFilters): Promise<JobPosting[]>;
   listOpenFilterOptions(): Promise<JobPostingFilterOptions>;
   findOpen(id: string): Promise<JobPosting | undefined>;
+  findById(id: string): Promise<JobPosting | undefined>;
 };
 
 export type JobPostingFilters = {
@@ -114,6 +115,12 @@ export function createJobPostingStore<
         .select()
         .from(jobPostings)
         .where(and(eq(jobPostings.id, id), ...openPostingConditions()));
+      return posting && asJobPosting(posting);
+    },
+
+    /** Looks up a Job Posting regardless of its open/closed/filled status, e.g. to check its deadline for the Frozen rule (ADR-0005). */
+    async findById(id) {
+      const [posting] = await db.select().from(jobPostings).where(eq(jobPostings.id, id)).limit(1);
       return posting && asJobPosting(posting);
     },
   };

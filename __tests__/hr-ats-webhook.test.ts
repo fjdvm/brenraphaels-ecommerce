@@ -2,13 +2,15 @@ import crypto from "node:crypto";
 
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-const { syncJobPostingWebhook } = vi.hoisted(() => ({
+const { syncJobPostingWebhook, syncApplicationStatusWebhook } = vi.hoisted(() => ({
   syncJobPostingWebhook: vi.fn(),
+  syncApplicationStatusWebhook: vi.fn(),
 }));
 
 vi.mock("../lib/careers/hr-ats-webhook", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/careers/hr-ats-webhook")>()),
   syncJobPostingWebhook,
+  syncApplicationStatusWebhook,
 }));
 
 let post: (request: Request) => Promise<Response>;
@@ -57,6 +59,17 @@ describe("POST /api/webhooks/hr-ats", () => {
     expect(syncJobPostingWebhook).toHaveBeenCalledWith(event);
   });
 
+  it("accepts a valid signed Application-status-change event, verified the same way as a Job Posting event", async () => {
+    const event = {
+      event: "application.status_changed",
+      data: { referenceNumber: "BR-20260928-0001", status: "Interviewing" },
+    };
+    const body = JSON.stringify(event);
+
+    expect((await post(signedRequest(body))).status).toBe(204);
+    expect(syncApplicationStatusWebhook).toHaveBeenCalledWith(event);
+  });
+
   it("rejects an unsigned or invalid request", async () => {
     expect((await post(signedRequest("{}", "sha256=invalid"))).status).toBe(400);
     expect((await post(new Request("https://shop.example.test/api/webhooks/hr-ats", { method: "POST", body: "{}" }))).status).toBe(400);
@@ -64,5 +77,9 @@ describe("POST /api/webhooks/hr-ats", () => {
 
   it("rejects a signed event with an invalid Job Posting payload", async () => {
     expect((await post(signedRequest(JSON.stringify({ event: "job_posting.closed", data: { id: "ats-1" } })))).status).toBe(400);
+  });
+
+  it("rejects a signed event with an invalid Application-status-change payload", async () => {
+    expect((await post(signedRequest(JSON.stringify({ event: "application.status_changed", data: { referenceNumber: "" } })))).status).toBe(400);
   });
 });

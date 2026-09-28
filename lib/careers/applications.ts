@@ -26,6 +26,10 @@ export type ApplicationStore = {
   insert(application: Omit<Application, "createdAt" | "updatedAt">): Promise<void>;
   listForApplicant(applicantId: string): Promise<Application[]>;
   withdraw(referenceNumber: string, applicantId: string): Promise<ApplicationStatus | undefined>;
+  /** Mirrors an HR-ATS Application-status change into the local read-model (ADR-0005). */
+  updateStatus(referenceNumber: string, status: ApplicationStatus): Promise<boolean>;
+  /** Updates the profile snapshot only while the Application is still `Received`, i.e. not yet Frozen by a status change. */
+  updateProfileSnapshotIfReceived(referenceNumber: string, profileSnapshot: ApplicantProfile): Promise<boolean>;
 };
 
 const finalApplicationStatuses = new Set(["Hired", "Declined", "Expired", "Rejected", "Withdrawn"]);
@@ -78,6 +82,22 @@ export function createApplicationStore<TQueryResult extends PgQueryResultHKT, TS
       if (!canWithdrawApplication(application.status)) return application.status;
       await db.update(applications).set({ status: "Withdrawn", updatedAt: new Date() }).where(eq(applications.id, application.id));
       return "Withdrawn";
+    },
+    async updateStatus(referenceNumber, status) {
+      const updated = await db
+        .update(applications)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(applications.referenceNumber, referenceNumber))
+        .returning({ id: applications.id });
+      return updated.length > 0;
+    },
+    async updateProfileSnapshotIfReceived(referenceNumber, profileSnapshot) {
+      const updated = await db
+        .update(applications)
+        .set({ profileSnapshot, updatedAt: new Date() })
+        .where(and(eq(applications.referenceNumber, referenceNumber), eq(applications.status, "Received")))
+        .returning({ id: applications.id });
+      return updated.length > 0;
     },
   };
 }
@@ -146,6 +166,26 @@ export async function submitApplication(input: { jobPostingId: string; documentI
     return { referenceNumber, confirmationEmailSent: true };
   } catch {
     return { referenceNumber, confirmationEmailSent: false };
+  }
+}
+
+/** An Application is Frozen once HR-ATS marks its status past `Received`, or its Job Posting's deadline passes, whichever happens first (ADR-0005). */
+export function isApplicationFrozen(status: ApplicationStatus, jobPostingDeadline: Date, now: Date = new Date()) {
+  return status !== "Received" || jobPostingDeadline <= now;
+}
+
+type ProfileSyncDependencies = {
+  applications: Pick<ApplicationStore, "listForApplicant" | "updateProfileSnapshotIfReceived">;
+  postings: Pick<JobPostingStore, "findById">;
+};
+
+/** Carries a base-profile edit into every one of the Applicant's still-unfrozen Application snapshots; Frozen Applications are left untouched. */
+export async function syncApplicationProfileSnapshots(applicantId: string, profile: ApplicantProfile, dependencies: ProfileSyncDependencies) {
+  const applicantApplications = await dependencies.applications.listForApplicant(applicantId);
+  for (const application of applicantApplications) {
+    const posting = application.status === "Received" ? await dependencies.postings.findById(application.jobPostingId) : undefined;
+    if (!posting || isApplicationFrozen(application.status, posting.deadline)) continue;
+    await dependencies.applications.updateProfileSnapshotIfReceived(application.referenceNumber, profile);
   }
 }
 

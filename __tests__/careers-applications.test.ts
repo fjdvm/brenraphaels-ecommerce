@@ -2,7 +2,13 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { createApplicationStore, submitApplication, withdrawApplication } from "../lib/careers/applications";
+import {
+  createApplicationStore,
+  isApplicationFrozen,
+  submitApplication,
+  syncApplicationProfileSnapshots,
+  withdrawApplication,
+} from "../lib/careers/applications";
 
 let client: PGlite;
 
@@ -122,5 +128,112 @@ describe("Application submission", () => {
     await expect(submitApplication({ jobPostingId: "ats-1", documentIds: [7], consent: true }, input)).resolves.toEqual({ referenceNumber: "BR-20260928-0001", confirmationEmailSent: true });
     expect((await client.query("select reference_number, status from applications")).rows).toEqual([{ reference_number: "BR-20260928-0001", status: "Received" }]);
     expect(input.sendConfirmationEmail).toHaveBeenCalled();
+  });
+});
+
+describe("Application status webhook sync", () => {
+  test("mirrors an HR-ATS status change into the local read-model by Reference number", async () => {
+    const input = dependencies();
+    await submitApplication({ jobPostingId: "ats-1", documentIds: [7], consent: true }, input);
+
+    await expect(input.applications.updateStatus("BR-20260928-0001", "Interviewing")).resolves.toBe(true);
+    expect((await client.query("select status from applications")).rows).toEqual([{ status: "Interviewing" }]);
+
+    await expect(input.applications.updateStatus("BR-does-not-exist", "Interviewing")).resolves.toBe(false);
+  });
+});
+
+describe("Application isApplicationFrozen", () => {
+  const future = new Date("2030-01-01T00:00:00.000Z");
+  const past = new Date("2000-01-01T00:00:00.000Z");
+
+  test("is unfrozen only while still Received and before the Job Posting's deadline", () => {
+    expect(isApplicationFrozen("Received", future)).toBe(false);
+  });
+
+  test("freezes the instant HR-ATS marks the status past Received", () => {
+    expect(isApplicationFrozen("Interviewing", future)).toBe(true);
+  });
+
+  test("freezes the instant the Job Posting's deadline passes, even while still Received", () => {
+    expect(isApplicationFrozen("Received", past)).toBe(true);
+  });
+});
+
+describe("Applicant profile edits and the Frozen rule", () => {
+  test("updates an unfrozen Application's snapshot in the window before either freeze trigger fires", async () => {
+    const input = dependencies();
+    await submitApplication({ jobPostingId: "ats-1", documentIds: [7], consent: true }, input);
+    const editedProfile = { ...profile, summary: "Updated after submitting" };
+
+    await syncApplicationProfileSnapshots("applicant-1", editedProfile, {
+      applications: input.applications,
+      postings: { findById: vi.fn().mockResolvedValue({ id: "ats-1", deadline: new Date("2030-01-01T00:00:00.000Z") }) },
+    });
+
+    expect((await client.query("select profile_snapshot from applications")).rows).toEqual([{ profile_snapshot: editedProfile }]);
+  });
+
+  test("leaves a Frozen Application's snapshot unchanged once HR-ATS marks its status past Received", async () => {
+    const input = dependencies();
+    await submitApplication({ jobPostingId: "ats-1", documentIds: [7], consent: true }, input);
+    await input.applications.updateStatus("BR-20260928-0001", "Interviewing");
+    const findById = vi.fn().mockResolvedValue({ id: "ats-1", deadline: new Date("2030-01-01T00:00:00.000Z") });
+
+    await syncApplicationProfileSnapshots("applicant-1", { ...profile, summary: "Should not apply" }, {
+      applications: input.applications,
+      postings: { findById },
+    });
+
+    expect((await client.query("select profile_snapshot from applications")).rows).toEqual([{ profile_snapshot: profile }]);
+    expect(findById).not.toHaveBeenCalled();
+  });
+
+  test("leaves a Frozen Application's snapshot unchanged once its Job Posting's deadline has passed", async () => {
+    const input = dependencies();
+    await submitApplication({ jobPostingId: "ats-1", documentIds: [7], consent: true }, input);
+
+    await syncApplicationProfileSnapshots("applicant-1", { ...profile, summary: "Should not apply" }, {
+      applications: input.applications,
+      postings: { findById: vi.fn().mockResolvedValue({ id: "ats-1", deadline: new Date("2000-01-01T00:00:00.000Z") }) },
+    });
+
+    expect((await client.query("select profile_snapshot from applications")).rows).toEqual([{ profile_snapshot: profile }]);
+  });
+
+  test("still applies the edit to another still-unfrozen Application and does not touch other Applicants' Applications", async () => {
+    const input = dependencies();
+    await submitApplication({ jobPostingId: "ats-1", documentIds: [7], consent: true }, input);
+    await input.applications.insert({
+      applicantId: "applicant-1",
+      jobPostingId: "ats-2",
+      referenceNumber: "BR-20260928-0002",
+      status: "Received",
+      profileSnapshot: profile,
+      documentsSnapshot: [],
+      consentedAt: new Date(),
+    });
+    await input.applications.insert({
+      applicantId: "another-applicant",
+      jobPostingId: "ats-1",
+      referenceNumber: "BR-20260928-0003",
+      status: "Received",
+      profileSnapshot: profile,
+      documentsSnapshot: [],
+      consentedAt: new Date(),
+    });
+    await input.applications.updateStatus("BR-20260928-0001", "Interviewing");
+    const editedProfile = { ...profile, summary: "Updated after submitting" };
+
+    await syncApplicationProfileSnapshots("applicant-1", editedProfile, {
+      applications: input.applications,
+      postings: { findById: vi.fn().mockResolvedValue({ id: "ats-2", deadline: new Date("2030-01-01T00:00:00.000Z") }) },
+    });
+
+    expect((await client.query("select reference_number, profile_snapshot from applications order by reference_number")).rows).toEqual([
+      { reference_number: "BR-20260928-0001", profile_snapshot: profile },
+      { reference_number: "BR-20260928-0002", profile_snapshot: editedProfile },
+      { reference_number: "BR-20260928-0003", profile_snapshot: profile },
+    ]);
   });
 });

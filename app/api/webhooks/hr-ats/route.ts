@@ -1,5 +1,6 @@
 import {
-  parseJobPostingWebhook,
+  parseHrAtsWebhookEvent,
+  syncApplicationStatusWebhook,
   syncJobPostingWebhook,
   verifyHrAtsWebhook,
 } from "../../../../lib/careers/hr-ats-webhook";
@@ -11,15 +12,19 @@ export async function POST(request: Request) {
 
   let event;
   try {
-    event = parseJobPostingWebhook(verifyHrAtsWebhook(rawBody, request.headers));
+    event = parseHrAtsWebhookEvent(verifyHrAtsWebhook(rawBody, request.headers));
   } catch {
     return Response.json({ error: "Invalid webhook request" }, { status: 400 });
   }
 
   try {
-    await syncJobPostingWebhook(event);
+    if (event.event === "application.status_changed") {
+      await syncApplicationStatusWebhook(event);
+    } else {
+      await syncJobPostingWebhook(event);
+    }
   } catch {
-    return Response.json({ error: "Unable to sync Job Posting" }, { status: 500 });
+    return Response.json({ error: "Unable to sync HR-ATS update" }, { status: 500 });
   }
 
   return new Response(null, { status: 204 });

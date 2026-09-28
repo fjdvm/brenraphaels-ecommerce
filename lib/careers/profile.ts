@@ -40,5 +40,6 @@ export function createApplicantProfileStore<TQueryResult extends PgQueryResultHK
 export async function saveApplicantProfile(input: ApplicantProfileInput, dependencies: { identity: { userId: string; email: string }; store: ApplicantProfileStore }) {
   const profile = applicantProfileSchema.parse(input);
   await dependencies.store.save({ ...profile, applicantId: dependencies.identity.userId, email: dependencies.identity.email.toLowerCase() });
+  return profile;
 }
 export async function hasApplicantProfile<TQueryResult extends PgQueryResultHKT, TSchema extends Record<string, unknown>>(applicantId: string, db: PgDatabase<TQueryResult, TSchema>) { const [profile] = await db.select({ id: applicantProfiles.applicantId }).from(applicantProfiles).where(eq(applicantProfiles.applicantId, applicantId)).limit(1); return Boolean(profile); }

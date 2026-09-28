@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import { z } from "zod";
 
+import { createApplicationStore } from "./applications";
 import { getCareersDatabase } from "./db";
 import { createJobPostingStore, type JobPostingEvent } from "./job-postings";
 
@@ -23,6 +24,20 @@ const jobPostingEvent = z.object({
   event: z.enum(["job_posting.created", "job_posting.updated", "job_posting.closed"]),
   data: jobPostingData,
 });
+
+const applicationStatusEvent = z.object({
+  event: z.literal("application.status_changed"),
+  data: z.object({
+    referenceNumber: z.string().min(1),
+    status: z.string().min(1),
+  }),
+});
+
+export type ApplicationStatusEvent = z.infer<typeof applicationStatusEvent>;
+
+const hrAtsWebhookEvent = z.union([jobPostingEvent, applicationStatusEvent]);
+
+export type HrAtsWebhookEvent = z.infer<typeof hrAtsWebhookEvent>;
 
 function signatureFor(rawBody: string, secret: string) {
   return crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
@@ -47,12 +62,17 @@ export function verifyHrAtsWebhook(rawBody: string, headers: Headers): unknown {
   }
 }
 
-/** Parses a signed webhook payload before any database mutation is attempted. */
-export function parseJobPostingWebhook(payload: unknown): JobPostingEvent {
-  return jobPostingEvent.parse(payload);
+/** Parses a signed webhook payload, either a Job-Posting sync or an Application-status change, before any database mutation is attempted. */
+export function parseHrAtsWebhookEvent(payload: unknown): HrAtsWebhookEvent {
+  return hrAtsWebhookEvent.parse(payload);
 }
 
 /** Applies valid HR-ATS Job Posting updates to the local careers cache. */
 export async function syncJobPostingWebhook(event: JobPostingEvent) {
   await createJobPostingStore(getCareersDatabase()).applyEvent(event);
+}
+
+/** Mirrors an HR-ATS Application-status change into the local read-model the Applicant's dashboard renders from. */
+export async function syncApplicationStatusWebhook(event: ApplicationStatusEvent) {
+  await createApplicationStore(getCareersDatabase()).updateStatus(event.data.referenceNumber, event.data.status);
 }
