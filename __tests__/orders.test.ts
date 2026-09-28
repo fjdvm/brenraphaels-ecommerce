@@ -45,6 +45,72 @@ async function firstSizeId() {
 }
 
 describe("Order", () => {
+  test("advances an Order one legal status at a time", async () => {
+    const database = drizzle(client);
+    const cart = createCartStore(database);
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const store = createOrderStore(database);
+    const placed = await store.place("customer-1", {
+      fulfillmentMethod: "delivery",
+      paymentMethod: "gcash",
+    });
+    expect(placed.status).toBe("placed");
+
+    await expect(store.advance(placed.id, { status: "confirmed", deliveryFeeInCentavos: 8000 })).resolves.toMatchObject({
+      status: "confirmed",
+      deliveryFeeInCentavos: 8000,
+    });
+    await expect(store.advance(placed.id, { status: "awaiting payment" })).resolves.toMatchObject({
+      status: "awaiting payment",
+    });
+    await expect(store.advance(placed.id, { status: "paid" })).resolves.toMatchObject({ status: "paid" });
+    await expect(store.advance(placed.id, { status: "preparing" })).resolves.toMatchObject({ status: "preparing" });
+    await expect(store.advance(placed.id, { status: "dispatched" })).resolves.toMatchObject({ status: "dispatched" });
+    await expect(store.advance(placed.id, { status: "delivered" })).resolves.toMatchObject({ status: "delivered" });
+  });
+
+  test("does not add a Delivery fee to a Pickup Order", async () => {
+    const database = drizzle(client);
+    const cart = createCartStore(database);
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const placed = await createOrderStore(database).place("customer-1", {
+      fulfillmentMethod: "pickup",
+      paymentMethod: "cash-on-delivery",
+    });
+
+    await expect(createOrderStore(database).advance(placed.id, {
+      status: "preparing",
+      deliveryFeeInCentavos: 8000,
+    })).rejects.toThrow("confirming a Delivery Order");
+  });
+
+  test("only accepts the next status or cancellation before dispatch", async () => {
+    const database = drizzle(client);
+    const cart = createCartStore(database);
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const store = createOrderStore(database);
+    const placed = await store.place("customer-1", {
+      fulfillmentMethod: "pickup",
+      paymentMethod: "cash-on-delivery",
+    });
+
+    await expect(store.advance(placed.id, { status: "awaiting payment" })).rejects.toThrow("not a legal transition");
+    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ id: placed.id, status: "confirmed" }]);
+    await expect(store.advance(placed.id, { status: "cancelled" })).resolves.toMatchObject({ status: "cancelled" });
+    await expect(store.advance(placed.id, { status: "confirmed" })).rejects.toThrow("not a legal transition");
+
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const dispatched = await store.place("customer-1", {
+      fulfillmentMethod: "pickup",
+      paymentMethod: "cash-on-delivery",
+    });
+    await store.advance(dispatched.id, { status: "preparing" });
+    await store.advance(dispatched.id, { status: "dispatched" });
+
+    await expect(store.advance(dispatched.id, { status: "cancelled" })).rejects.toThrow("not a legal transition");
+    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ id: dispatched.id, status: "dispatched" }, { id: placed.id, status: "cancelled" }]);
+  });
+
   test("places a Pickup Cash on Delivery Order, snapshots its Cart, and empties the Cart", async () => {
     const database = drizzle(client);
     const cart = createCartStore(database);

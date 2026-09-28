@@ -33,12 +33,16 @@ export default async function OrdersPage() {
             </div>
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
               <div><dt className="font-semibold text-on-surface-variant">Fulfillment</dt><dd className="mt-1 capitalize text-primary">{order.fulfillmentMethod}</dd></div>
-              <div><dt className="font-semibold text-on-surface-variant">Payment</dt><dd className="mt-1 text-primary">Cash on Delivery</dd></div>
+              <div><dt className="font-semibold text-on-surface-variant">Payment</dt><dd className="mt-1 text-primary">{order.paymentMethod === "gcash" ? "GCash" : "Cash on Delivery"}</dd></div>
             </dl>
             <ul className="mt-5 divide-y divide-outline-variant/60 border-y border-outline-variant/60">
               {order.lines.map((line) => <li key={`${order.id}-${line.productName}-${line.sizeLabel}`} className="flex justify-between gap-4 py-3 text-sm"><span>{line.productName} · {line.sizeLabel} × {line.quantity}</span><span className="font-semibold">{formatPeso(line.priceInCentavos * line.quantity)}</span></li>)}
             </ul>
-            <p className="mt-4 text-right font-bold text-primary">Total: {formatPeso(order.subtotalInCentavos)}</p>
+            <dl className="mt-4 space-y-1 text-right text-sm text-on-surface-variant">
+              <div><dt className="inline">Subtotal: </dt><dd className="inline">{formatPeso(order.subtotalInCentavos)}</dd></div>
+              {order.deliveryFeeInCentavos !== null && <div><dt className="inline">Delivery fee: </dt><dd className="inline">{formatPeso(order.deliveryFeeInCentavos)}</dd></div>}
+            </dl>
+            <p className="mt-1 text-right font-bold text-primary">Total: {formatPeso(order.subtotalInCentavos + (order.deliveryFeeInCentavos ?? 0))}</p>
           </article>
         ))}
       </div>

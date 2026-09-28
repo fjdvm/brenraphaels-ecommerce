@@ -1,11 +1,11 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { orderLines, orders } from "../db/schema";
 import { createCartStore } from "./cart";
 
-export const fulfillmentMethods = ["pickup"] as const;
-export const paymentMethods = ["cash-on-delivery"] as const;
+export const fulfillmentMethods = ["pickup", "delivery"] as const;
+export const paymentMethods = ["cash-on-delivery", "gcash"] as const;
 
 export type FulfillmentMethod = (typeof fulfillmentMethods)[number];
 export type PaymentMethod = (typeof paymentMethods)[number];
@@ -46,6 +46,10 @@ export type OrderStore = {
     input: { fulfillmentMethod: FulfillmentMethod; paymentMethod: PaymentMethod },
   ): Promise<Order>;
   listForCustomer(customerId: string): Promise<Order[]>;
+  advance(
+    orderId: number,
+    input: { status: OrderStatus; deliveryFeeInCentavos?: number },
+  ): Promise<Order>;
 };
 
 export type OrderMailer = {
@@ -114,6 +118,55 @@ export function createOrderStore<
     );
   }
 
+  async function advance(
+    orderId: number,
+    input: { status: OrderStatus; deliveryFeeInCentavos?: number },
+  ): Promise<Order> {
+    const [persistedOrder] = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, orderId));
+    if (!persistedOrder) throw new Error("Order was not found.");
+
+    const permittedNextStatuses: Record<OrderStatus, readonly OrderStatus[]> = {
+      placed: ["confirmed", "cancelled"],
+      confirmed: persistedOrder.paymentMethod === "gcash"
+        ? ["awaiting payment", "cancelled"]
+        : ["preparing", "cancelled"],
+      "awaiting payment": ["paid", "cancelled"],
+      paid: ["preparing", "cancelled"],
+      preparing: ["dispatched", "cancelled"],
+      dispatched: ["delivered"],
+      delivered: [],
+      cancelled: [],
+    };
+    const currentStatus = persistedOrder.status as OrderStatus;
+    if (!permittedNextStatuses[currentStatus].includes(input.status)) {
+      throw new Error(`\"${input.status}\" is not a legal transition from \"${currentStatus}\".`);
+    }
+    if (
+      input.deliveryFeeInCentavos !== undefined
+      && (input.status !== "confirmed" || persistedOrder.fulfillmentMethod !== "delivery")
+    ) {
+      throw new Error("A Delivery fee can only be set when confirming a Delivery Order.");
+    }
+
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({
+        status: input.status,
+        ...(input.deliveryFeeInCentavos === undefined
+          ? {}
+          : { deliveryFeeInCentavos: input.deliveryFeeInCentavos }),
+      })
+      // Keep a concurrent update from overwriting a status that was just advanced.
+      .where(and(eq(orders.id, orderId), eq(orders.status, currentStatus)))
+      .returning();
+    if (!updatedOrder) throw new Error("Order status changed before it could be advanced.");
+
+    return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
+  }
+
   async function place(
     customerId: string,
     input: { fulfillmentMethod: FulfillmentMethod; paymentMethod: PaymentMethod },
@@ -134,7 +187,8 @@ export function createOrderStore<
           customerId,
           fulfillmentMethod: input.fulfillmentMethod,
           paymentMethod: input.paymentMethod,
-          status: "confirmed",
+          // A human has to quote Delivery before it is confirmed; Pickup has no such step.
+          status: input.fulfillmentMethod === "delivery" ? "placed" : "confirmed",
           subtotalInCentavos: cart.subtotalInCentavos,
           deliveryFeeInCentavos: null,
         })
@@ -161,5 +215,5 @@ export function createOrderStore<
     });
   }
 
-  return { place, listForCustomer };
+  return { place, listForCustomer, advance };
 }
