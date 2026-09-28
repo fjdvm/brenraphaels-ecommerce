@@ -1,12 +1,13 @@
 "use client";
 
 import { MessageSquarePlus } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { feedbackReportSchema } from "@/lib/feedback/report";
 import { feedbackClientEnvironment } from "@/lib/feedback/client-environment";
+import { useFeedbackButtonTheme } from "./use-feedback-button-theme";
 
 type Fields = {
   title: string;
@@ -30,6 +31,8 @@ function FieldError({ message }: { message?: string }) {
 
 /** Lets any visitor report a problem without exposing the GitHub credential. */
 export function FeedbackForm() {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const hasDarkBackground = useFeedbackButtonTheme(buttonRef);
   const [open, setOpen] = useState(false);
   const [fields, setFields] = useState<Fields>(emptyFields);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
@@ -75,9 +78,10 @@ export function FeedbackForm() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 bg-primary px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={`fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${hasDarkBackground ? "bg-white text-primary hover:bg-primary-fixed" : "bg-primary text-white hover:bg-primary-container"}`}
       >
         <MessageSquarePlus size={18} aria-hidden="true" />
         Feedback

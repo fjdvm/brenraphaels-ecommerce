@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <div className="grid min-h-screen flex-1 lg:grid-cols-2">
-      <aside className="flex flex-col justify-between gap-10 bg-tertiary px-5 py-6 text-white sm:px-8 lg:sticky lg:top-0 lg:h-screen lg:px-14 lg:py-12">
+      <aside data-theme="dark" className="flex flex-col justify-between gap-10 bg-tertiary px-5 py-6 text-white sm:px-8 lg:sticky lg:top-0 lg:h-screen lg:px-14 lg:py-12">
         <Link
           href="/"
           aria-label="Back to the Bren Raphael's home page"

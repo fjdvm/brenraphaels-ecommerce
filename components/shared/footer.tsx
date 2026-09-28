@@ -5,7 +5,7 @@ import { address, socialLinks, tagline } from "@/lib/site/store-info";
 
 export function Footer() {
   return (
-    <footer className="mt-auto bg-tertiary py-14 text-white">
+    <footer data-theme="dark" className="mt-auto bg-tertiary py-14 text-white">
       <div className="mx-auto grid max-w-7xl gap-10 px-5 sm:grid-cols-3 sm:px-8">
         <div>
           <div className="flex items-center gap-3">

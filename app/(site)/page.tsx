@@ -139,7 +139,7 @@ export default async function Home({ searchParams }: HomeProps) {
           sizes="100vw"
           className="object-cover"
         />
-        <div aria-hidden className="absolute inset-0 bg-on-primary-fixed/65" />
+        <div data-theme="dark" aria-hidden className="absolute inset-0 bg-on-primary-fixed/65" />
         <div className="relative max-w-3xl space-y-7">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-fixed-dim">
             {tagline}
