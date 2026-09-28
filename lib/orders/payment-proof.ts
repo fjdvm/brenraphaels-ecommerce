@@ -1,4 +1,5 @@
 import { textField } from "../validators/fields";
+import { cleanFileName } from "../validators/sanitize";
 
 export const gcashReferenceNumberField = textField("GCash reference number", {
   min: 6,
@@ -35,7 +36,7 @@ export async function uploadPaymentProofScreenshot(
   },
 ): Promise<string> {
   validatePaymentProofScreenshot(file);
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+  const safeName = cleanFileName(file.name);
   const blob = await dependencies.put(`payment-proofs/${dependencies.orderId}/${safeName}`, file, {
     access: "private",
     addRandomSuffix: true,

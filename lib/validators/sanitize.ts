@@ -39,3 +39,10 @@ export function cleanEmail(value: string) {
 export function cleanPhone(value: string) {
   return cleanText(value).replace(phoneSeparators, "");
 }
+
+const unsafeFileNameCharacters = /[^a-zA-Z0-9._-]/g;
+
+/** Reduces an uploaded file's name to characters safe for a storage pathname. */
+export function cleanFileName(value: string) {
+  return cleanText(value).replace(unsafeFileNameCharacters, "-");
+}

@@ -2,9 +2,25 @@ import { getDatabase } from "@/lib/db";
 import { sendOrderConfirmedEmail } from "@/lib/email/order-confirmed-email";
 import { sendOrderPaidEmail } from "@/lib/email/order-paid-email";
 import { verifyInternalOrderStatusUpdate } from "@/lib/orders/internal-status";
-import { createOrderStore } from "@/lib/orders/orders";
+import { createOrderStore, type Order, type OrderStore } from "@/lib/orders/orders";
 
 export const runtime = "nodejs";
+
+/** A failed or slow status-change email must never fail the status update itself. */
+async function notifyCustomer(
+  orderStore: OrderStore,
+  order: Order,
+  label: string,
+  send: (recipient: string, order: Order) => Promise<void>,
+) {
+  const recipient = await orderStore.customerEmailForOrder(order.id);
+  if (!recipient) return;
+  try {
+    await send(recipient, order);
+  } catch (error) {
+    console.error(`Order-${label} email could not be sent`, error);
+  }
+}
 
 export async function POST(
   request: Request,
@@ -25,24 +41,10 @@ export async function POST(
       && order.fulfillmentMethod === "delivery"
       && order.deliveryFeeInCentavos !== null
     ) {
-      const recipient = await orderStore.customerEmailForOrder(order.id);
-      if (recipient) {
-        try {
-          await sendOrderConfirmedEmail(recipient, order);
-        } catch (error) {
-          console.error("Order-confirmed email could not be sent", error);
-        }
-      }
+      await notifyCustomer(orderStore, order, "confirmed", sendOrderConfirmedEmail);
     }
     if (order.status === "paid") {
-      const recipient = await orderStore.customerEmailForOrder(order.id);
-      if (recipient) {
-        try {
-          await sendOrderPaidEmail(recipient, order);
-        } catch (error) {
-          console.error("Order-paid email could not be sent", error);
-        }
-      }
+      await notifyCustomer(orderStore, order, "paid", sendOrderPaidEmail);
     }
     return Response.json(order);
   } catch {
