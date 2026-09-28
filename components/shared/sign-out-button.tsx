@@ -10,6 +10,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 function ConfirmButton() {
   const { pending } = useFormStatus();
@@ -21,7 +22,13 @@ function ConfirmButton() {
 }
 
 /** Asks before signing out; only the confirm button submits `action`. */
-export function SignOutButton({ action }: { action: () => Promise<void> }) {
+export function SignOutButton({
+  action,
+  className,
+}: {
+  action: () => Promise<void>;
+  className?: string;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -29,7 +36,10 @@ export function SignOutButton({ action }: { action: () => Promise<void> }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="font-semibold hover:text-primary hover:underline hover:underline-offset-4"
+        className={cn(
+          "font-semibold hover:text-primary hover:underline hover:underline-offset-4",
+          className,
+        )}
       >
         Sign out
       </button>

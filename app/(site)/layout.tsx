@@ -2,24 +2,18 @@ import { Suspense } from "react";
 
 import { Footer } from "@/components/shared/footer";
 import { CartSessionSync } from "@/components/features/orders/cart-session-sync";
+import { CustomerSidebar } from "@/components/features/customer/customer-sidebar";
 import { Header } from "@/components/shared/header";
 import { SessionNav, SessionNavFallback } from "@/components/shared/session-nav";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 
-/** Resolves the session only inside its own boundary, so it never blocks the page. */
-async function CartSync() {
+export default async function SiteLayout({ children }: LayoutProps<"/">) {
   const visitor = await currentVisitor();
-  return (
-    <CartSessionSync customerId={visitor.state === "customer" ? visitor.customer.userId : undefined} />
-  );
-}
+  const customerId = visitor.state === "customer" ? visitor.customer.userId : undefined;
 
-export default function SiteLayout({ children }: LayoutProps<"/">) {
   return (
     <>
-      <Suspense fallback={null}>
-        <CartSync />
-      </Suspense>
+      <CartSessionSync customerId={customerId} />
       <Header
         desktopSession={
           <Suspense
@@ -40,7 +34,16 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
           </Suspense>
         }
       />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1">
+        {visitor.state === "customer" ? (
+          <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl gap-8 px-5 py-10 sm:px-8 sm:py-14 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:gap-12">
+            <Suspense fallback={null}>
+              <CustomerSidebar />
+            </Suspense>
+            <div className="min-w-0">{children}</div>
+          </div>
+        ) : children}
+      </main>
       <Footer />
     </>
   );

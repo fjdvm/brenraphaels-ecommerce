@@ -3,52 +3,62 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bell,
   ChevronDown,
-  CircleUserRound,
-  Mail,
   MapPin,
   Package,
   Settings,
+  ShoppingCart,
+  Store,
 } from "lucide-react";
+
+import { signOut } from "@/app/actions";
+import { SignOutButton } from "@/components/shared/sign-out-button";
 import { cn } from "@/lib/utils";
 
 const items = [
-  { href: "/profile", label: "My details", icon: CircleUserRound },
-  { href: "/profile/addresses", label: "My address book", icon: MapPin },
+  { href: "/products", label: "Shop", icon: Store },
   { href: "/profile/orders", label: "My orders", icon: Package },
-  { href: "/profile/newsletter", label: "My newsletters", icon: Mail },
+  { href: "/cart", label: "My cart", icon: ShoppingCart },
+  { href: "/profile/addresses", label: "Addresses", icon: MapPin },
+  { href: "/profile/notifications", label: "Notifications", icon: Bell },
   { href: "/profile/settings", label: "Account settings", icon: Settings },
 ];
 
-export function AccountNavigation() {
+export function CustomerSidebar() {
   const pathname = usePathname();
-  const activeItem = items.find((item) => item.href === pathname) ?? items[0];
+  const activeItem = items.find((item) => item.href === pathname);
+  const ActiveIcon = activeItem?.icon;
+
   return (
-    <>
+    <aside className="min-w-0">
       <details className="group rounded-md border border-outline-variant/60 bg-surface-card lg:hidden">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-primary">
           <span className="flex items-center gap-2">
-            <activeItem.icon aria-hidden="true" className="size-5" />
-            {activeItem.label}
+            {ActiveIcon ? <ActiveIcon aria-hidden="true" className="size-5" /> : null}
+            {activeItem?.label ?? "Customer navigation"}
           </span>
           <ChevronDown
             aria-hidden="true"
             className="size-5 transition-transform group-open:rotate-180"
           />
         </summary>
-        <NavList
+        <CustomerSidebarNavList
           pathname={pathname}
           className="border-t border-outline-variant/60 p-2"
         />
       </details>
-      <nav aria-label="Account" className="hidden lg:block">
-        <NavList pathname={pathname} className="space-y-1" />
+      <nav aria-label="Customer" className="hidden lg:block">
+        <CustomerSidebarNavList
+          pathname={pathname}
+          className="flex min-h-[calc(100vh-11rem)] flex-col gap-1"
+        />
       </nav>
-    </>
+    </aside>
   );
 }
 
-function NavList({
+export function CustomerSidebarNavList({
   className,
   pathname,
 }: {
@@ -76,6 +86,12 @@ function NavList({
           </li>
         );
       })}
+      <li className="mt-auto pt-1">
+        <SignOutButton
+          action={signOut}
+          className="w-full rounded-md px-4 py-3 text-left text-sm text-on-surface-variant transition-colors hover:bg-primary-fixed/60"
+        />
+      </li>
     </ul>
   );
 }
