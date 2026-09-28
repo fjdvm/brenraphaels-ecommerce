@@ -4,7 +4,7 @@ import { Footer } from "@/components/shared/footer";
 import { CartSessionSync } from "@/components/features/orders/cart-session-sync";
 import { CustomerSidebar } from "@/components/features/customer/customer-sidebar";
 import { Header } from "@/components/shared/header";
-import { SessionNav, SessionNavFallback } from "@/components/shared/session-nav";
+import { SessionNav } from "@/components/shared/session-nav";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 
 export default async function SiteLayout({ children }: LayoutProps<"/">) {
@@ -16,22 +16,16 @@ export default async function SiteLayout({ children }: LayoutProps<"/">) {
       <CartSessionSync customerId={customerId} />
       <Header
         desktopSession={
-          <Suspense
-            fallback={
-              <SessionNavFallback className="hidden items-center gap-5 text-sm font-semibold text-on-surface-variant md:flex" />
-            }
-          >
-            <SessionNav className="hidden items-center gap-5 text-sm font-semibold text-on-surface-variant md:flex" />
-          </Suspense>
+          <SessionNav
+            visitor={visitor}
+            className="hidden items-center gap-5 text-sm font-semibold text-on-surface-variant md:flex"
+          />
         }
         mobileSession={
-          <Suspense
-            fallback={
-              <SessionNavFallback className="flex flex-col gap-3 border-t border-outline-variant/60 pt-3 text-sm font-semibold text-on-surface" />
-            }
-          >
-            <SessionNav className="flex flex-col gap-3 border-t border-outline-variant/60 pt-3 text-sm font-semibold text-on-surface" />
-          </Suspense>
+          <SessionNav
+            visitor={visitor}
+            className="flex flex-col gap-3 border-t border-outline-variant/60 pt-3 text-sm font-semibold text-on-surface"
+          />
         }
       />
       <main className="flex-1">
