@@ -42,7 +42,11 @@ export default async function OrdersPage() {
               <div><dt className="inline">Subtotal: </dt><dd className="inline">{formatPeso(order.subtotalInCentavos)}</dd></div>
               {order.deliveryFeeInCentavos !== null && <div><dt className="inline">Delivery fee: </dt><dd className="inline">{formatPeso(order.deliveryFeeInCentavos)}</dd></div>}
             </dl>
-            <p className="mt-1 text-right font-bold text-primary">Total: {formatPeso(order.subtotalInCentavos + (order.deliveryFeeInCentavos ?? 0))}</p>
+            {order.fulfillmentMethod === "delivery" && order.deliveryFeeInCentavos === null ? (
+              <p className="mt-1 text-right font-bold text-secondary">Total pending Delivery fee confirmation</p>
+            ) : (
+              <p className="mt-1 text-right font-bold text-primary">Total: {formatPeso(order.subtotalInCentavos + (order.deliveryFeeInCentavos ?? 0))}</p>
+            )}
           </article>
         ))}
       </div>

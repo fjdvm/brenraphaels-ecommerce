@@ -164,3 +164,17 @@ export const orderLines = pgTable("order_lines", {
   priceInCentavos: integer("price_in_centavos").notNull(),
   quantity: integer("quantity").notNull(),
 });
+
+/** Immutable delivery destination copied from the Customer's chosen Address. */
+export const orderDeliveryAddresses = pgTable("order_delivery_addresses", {
+  orderId: integer("order_id")
+    .primaryKey()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  label: text("label").notNull(),
+  street: text("street").notNull(),
+  barangay: text("barangay").notNull(),
+  city: text("city").notNull(),
+  province: text("province").notNull(),
+  postalCode: text("postal_code").notNull(),
+  country: text("country").notNull(),
+});

@@ -27,7 +27,7 @@ export class LastCustomerAddressError extends Error {
 }
 
 export type AddressStore = {
-  add(userId: string, input: z.output<typeof customerAddressSchema>): Promise<void>;
+  add(userId: string, input: z.output<typeof customerAddressSchema>): Promise<number>;
   update(
     userId: string,
     addressId: number,
@@ -43,12 +43,13 @@ export function createAddressStore<
 >(db: PgDatabase<TQueryResult, TSchema>): AddressStore {
   return {
     async add(userId, input) {
-      await db.insert(addresses).values({
+      const [address] = await db.insert(addresses).values({
         customerId: userId,
         ...input,
         country: "Philippines",
         isDefault: false,
-      });
+      }).returning({ id: addresses.id });
+      return address.id;
     },
     async update(userId, addressId, input) {
       const updated = await db
@@ -118,7 +119,7 @@ export async function addCustomerAddress(
   input: CustomerAddressInput,
   dependencies: { userId: string; addressStore: AddressStore },
 ) {
-  await dependencies.addressStore.add(
+  return dependencies.addressStore.add(
     dependencies.userId,
     customerAddressSchema.parse(input),
   );

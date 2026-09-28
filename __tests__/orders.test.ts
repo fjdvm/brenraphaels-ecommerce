@@ -45,17 +45,63 @@ async function firstSizeId() {
 }
 
 describe("Order", () => {
+  test("places a Delivery Order with an immutable copy of its chosen Address", async () => {
+    const database = drizzle(client);
+    await client.query(`
+      insert into addresses (customer_id, label, street, barangay, city, province, postal_code, country, is_default)
+      values ('customer-1', 'Home', '1 First Street', 'Barangay One', 'Quezon City', 'Metro Manila', '1100', 'Philippines', true)
+    `);
+    const address = await client.query<{ id: number }>("select id from addresses where customer_id = 'customer-1'");
+    const cart = createCartStore(database);
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+
+    const order = await createOrderStore(database).place("customer-1", {
+      fulfillmentMethod: "delivery",
+      paymentMethod: "cash-on-delivery",
+      addressId: address.rows[0].id,
+    });
+
+    expect(order).toMatchObject({
+      status: "placed",
+      deliveryAddress: {
+        label: "Home",
+        street: "1 First Street",
+        barangay: "Barangay One",
+        city: "Quezon City",
+        province: "Metro Manila",
+        postalCode: "1100",
+        country: "Philippines",
+      },
+    });
+
+    await client.query("update addresses set street = '99 Changed Street' where id = $1", [address.rows[0].id]);
+    await client.query("delete from addresses where id = $1", [address.rows[0].id]);
+
+    await expect(createOrderStore(database).listForCustomer("customer-1")).resolves.toMatchObject([
+      { id: order.id, deliveryAddress: { street: "1 First Street" } },
+    ]);
+  });
+
   test("advances an Order one legal status at a time", async () => {
     const database = drizzle(client);
+    await client.query(`
+      insert into addresses (customer_id, label, street, barangay, city, province, postal_code, country, is_default)
+      values ('customer-1', 'Home', '1 First Street', 'Barangay One', 'Quezon City', 'Metro Manila', '1100', 'Philippines', true)
+    `);
+    const address = await client.query<{ id: number }>("select id from addresses where customer_id = 'customer-1'");
     const cart = createCartStore(database);
     await cart.addSize("customer-1", await firstSizeId(), 1);
     const store = createOrderStore(database);
     const placed = await store.place("customer-1", {
       fulfillmentMethod: "delivery",
       paymentMethod: "gcash",
+      addressId: address.rows[0].id,
     });
     expect(placed.status).toBe("placed");
 
+    await expect(store.advance(placed.id, { status: "confirmed" })).rejects.toThrow(
+      "A confirmed Delivery Order must include its Delivery fee.",
+    );
     await expect(store.advance(placed.id, { status: "confirmed", deliveryFeeInCentavos: 8000 })).resolves.toMatchObject({
       status: "confirmed",
       deliveryFeeInCentavos: 8000,

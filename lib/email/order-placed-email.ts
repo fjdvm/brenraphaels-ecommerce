@@ -2,7 +2,7 @@ import type { Order } from "../orders/orders";
 import { formatPeso } from "../catalog/currency";
 import { createBrevoTransport, requiredEnvironment } from "./brevo-transport";
 
-/** Sends the Customer the confirmation for a successfully placed Order. */
+/** Sends the Customer confirmation that their Order was placed. */
 export async function sendOrderPlacedEmail(recipient: string, order: Order) {
   const { transport, sender } = createBrevoTransport();
   const lines = order.lines.map((line) => (
@@ -11,17 +11,19 @@ export async function sendOrderPlacedEmail(recipient: string, order: Order) {
 
   await transport.sendMail({
     from: sender,
-    subject: `Order #${order.id} confirmed`,
+    subject: `Order #${order.id} ${order.fulfillmentMethod === "delivery" ? "placed" : "confirmed"}`,
     text: [
       "Thank you for your order from Bren Raphael's.",
       "",
-      "Your Pickup order is confirmed. Please pay cash when you collect it.",
+      order.fulfillmentMethod === "delivery"
+        ? "Your Delivery Order is placed. We will confirm your Delivery fee and updated total soon."
+        : "Your Pickup Order is confirmed. Please pay cash when you collect it.",
       "",
       "Your items:",
       ...lines,
       "",
       `Subtotal: ${formatPeso(order.subtotalInCentavos)}`,
-      "Delivery fee: None (Pickup)",
+      order.fulfillmentMethod === "delivery" ? "Delivery fee: To be confirmed" : "Delivery fee: None (Pickup)",
       "",
       `View your order: ${requiredEnvironment("NEXT_PUBLIC_SITE_URL")}/profile/orders`,
     ].join("\n"),
