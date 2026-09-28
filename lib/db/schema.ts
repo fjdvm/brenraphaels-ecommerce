@@ -179,9 +179,8 @@ export const orderDeliveryAddresses = pgTable("order_delivery_addresses", {
   country: text("country").notNull(),
 });
 
-/** One row per IP address; the window resets once it is older than the rate limit's span. */
+/** One row per IP address, holding its most recent submission times so the window truly rolls. */
 export const feedbackRateLimits = pgTable("feedback_rate_limits", {
   ipAddress: text("ip_address").primaryKey(),
-  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
-  submissionCount: integer("submission_count").notNull(),
+  submissionTimes: timestamp("submission_times", { withTimezone: true }).array().notNull(),
 });

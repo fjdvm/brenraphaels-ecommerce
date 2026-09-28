@@ -8,7 +8,7 @@ import { createFeedbackRateLimiter } from "@/lib/feedback/rate-limit";
 import { feedbackIssueBody, feedbackReportSchema } from "@/lib/feedback/report";
 
 const feedbackSuccessResponse = { success: true };
-export const feedbackRateLimitedMessage = "You've sent a few reports already — please wait a bit before sending another.";
+const feedbackRateLimitedMessage = "You've sent a few reports already — please wait a bit before sending another.";
 
 function fieldErrors(error: z.ZodError) {
   return z.flattenError(error).fieldErrors;

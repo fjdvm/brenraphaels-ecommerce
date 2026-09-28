@@ -59,6 +59,7 @@ beforeEach(async () => {
 afterEach(async () => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  vi.useRealTimers();
   sessions.storefront.mockReset();
   sessions.applicant.mockReset();
   sessions.storefront.mockResolvedValue(null);
@@ -231,6 +232,30 @@ describe("POST /api/feedback rate limiting", () => {
     const response = await POST(request(validReport, defaultUserAgent, "203.0.113.20"));
 
     expect(response.status).toBe(201);
+    expect(github).toHaveBeenCalledTimes(6);
+  });
+
+  test("frees a slot as each old submission ages out, instead of resetting all at once", async () => {
+    const github = stubGithub();
+    const start = new Date("2026-09-28T10:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(start);
+
+    for (let submission = 0; submission < 5; submission += 1) {
+      vi.setSystemTime(new Date(start.getTime() + submission * 60_000));
+      const response = await POST(request(validReport));
+      expect(response.status).toBe(201);
+    }
+
+    // Still within 30 minutes of the first submission: the window has not rolled yet.
+    vi.setSystemTime(new Date(start.getTime() + 29 * 60_000));
+    const stillLimited = await POST(request(validReport));
+    expect(stillLimited.status).toBe(429);
+
+    // Just past 30 minutes after the first submission, only it ages out, freeing one slot.
+    vi.setSystemTime(new Date(start.getTime() + 30 * 60_000 + 1_000));
+    const allowedAgain = await POST(request(validReport));
+    expect(allowedAgain.status).toBe(201);
     expect(github).toHaveBeenCalledTimes(6);
   });
 });

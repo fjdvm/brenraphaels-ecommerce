@@ -1,5 +1,5 @@
 {
-  "id": "7473d5dd-49dd-4c3a-9a5f-7d856232043d",
+  "id": "4c8d2671-5fd3-4daa-8f21-1710e35fdba0",
   "prevId": "e95f6ba0-d083-4376-9cd8-91a0f814b206",
   "version": "7",
   "dialect": "postgresql",
@@ -412,15 +412,9 @@
           "primaryKey": true,
           "notNull": true
         },
-        "window_start": {
-          "name": "window_start",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "submission_count": {
-          "name": "submission_count",
-          "type": "integer",
+        "submission_times": {
+          "name": "submission_times",
+          "type": "timestamp with time zone[]",
           "primaryKey": false,
           "notNull": true
         }

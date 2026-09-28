@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { feedbackRateLimits } from "../db/schema";
@@ -10,7 +10,10 @@ export type FeedbackRateLimiter = {
   recordAttempt(ipAddress: string, now: Date): Promise<"allowed" | "rate-limited">;
 };
 
-/** One row per IP; a submission after the window has elapsed starts a fresh window. */
+/**
+ * Keeps each IP's recent submission times so the window genuinely rolls: an old
+ * submission ages out on its own instead of the whole window resetting together.
+ */
 export function createFeedbackRateLimiter<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
@@ -18,19 +21,29 @@ export function createFeedbackRateLimiter<
   return {
     async recordAttempt(ipAddress, now) {
       const cutoff = new Date(now.getTime() - feedbackRateLimitWindowMs);
-      const [result] = await db
-        .insert(feedbackRateLimits)
-        .values({ ipAddress, windowStart: now, submissionCount: 1 })
-        .onConflictDoUpdate({
-          target: feedbackRateLimits.ipAddress,
-          set: {
-            windowStart: sql`case when ${feedbackRateLimits.windowStart} < ${cutoff} then ${now} else ${feedbackRateLimits.windowStart} end`,
-            submissionCount: sql`case when ${feedbackRateLimits.windowStart} < ${cutoff} then 1 else ${feedbackRateLimits.submissionCount} + 1 end`,
-          },
-        })
-        .returning({ submissionCount: feedbackRateLimits.submissionCount });
 
-      return result.submissionCount > feedbackRateLimitMax ? "rate-limited" : "allowed";
+      return db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select({ submissionTimes: feedbackRateLimits.submissionTimes })
+          .from(feedbackRateLimits)
+          .where(eq(feedbackRateLimits.ipAddress, ipAddress))
+          .for("update");
+
+        const recentSubmissions = (existing?.submissionTimes ?? []).filter((time) => time > cutoff);
+        if (recentSubmissions.length >= feedbackRateLimitMax) {
+          return "rate-limited" as const;
+        }
+
+        await tx
+          .insert(feedbackRateLimits)
+          .values({ ipAddress, submissionTimes: [...recentSubmissions, now] })
+          .onConflictDoUpdate({
+            target: feedbackRateLimits.ipAddress,
+            set: { submissionTimes: [...recentSubmissions, now] },
+          });
+
+        return "allowed" as const;
+      });
     },
   };
 }
