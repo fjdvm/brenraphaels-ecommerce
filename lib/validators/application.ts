@@ -11,7 +11,7 @@ const opaqueIdField = (label: string) => textField(label, {
 });
 
 export const jobPostingIdField = opaqueIdField("Job Posting");
-export const applicationReferenceNumberField = opaqueIdField("Application");
+export const applicationReferenceNumberField = opaqueIdField("Reference number");
 export const applicationConsentField = textField("Data-privacy consent", {
   min: 3,
   max: 3,

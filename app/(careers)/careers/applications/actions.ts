@@ -11,6 +11,12 @@ export async function withdrawApplicationAction(formData: FormData) {
   const applicant = await careersSession();
   const referenceNumber = applicationReferenceNumberField.safeParse(formData.get("referenceNumber"));
   if (!applicant || !referenceNumber.success) return;
-  await withdrawApplication(referenceNumber.data, createApplicationStore(getCareersDatabase()), applicant.userId);
-  revalidatePath("/careers/applications");
+  try {
+    await withdrawApplication(referenceNumber.data, createApplicationStore(getCareersDatabase()), applicant.userId);
+  } catch {
+    // The dashboard only offers Withdraw while the Application is still withdrawable; a status
+    // change racing this submission is the only way this rejects, so just re-render the current state.
+  } finally {
+    revalidatePath("/careers/applications");
+  }
 }

@@ -29,6 +29,17 @@ export type ApplicationStore = {
 
 const finalApplicationStatuses = new Set(["Hired", "Declined", "Expired", "Rejected", "Withdrawn"]);
 
+function isUniqueViolation(error: unknown, constraintName: string) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "23505" &&
+    "constraint_name" in error &&
+    (error as { constraint_name?: unknown }).constraint_name === constraintName
+  );
+}
+
 export function canWithdrawApplication(status: ApplicationStatus) {
   return !finalApplicationStatuses.has(status);
 }
@@ -101,15 +112,20 @@ export async function submitApplication(input: { jobPostingId: string; documentI
   if (selectedDocuments.some((document) => !document)) throw new Error("Select a Document from your Applicant profile.");
 
   const referenceNumber = dependencies.makeReferenceNumber();
-  await dependencies.applications.insert({
-    applicantId: dependencies.identity.userId,
-    jobPostingId: posting.id,
-    referenceNumber,
-    status: "Received",
-    profileSnapshot: profile,
-    documentsSnapshot: selectedDocuments as ApplicationDocument[],
-    consentedAt: new Date(),
-  });
+  try {
+    await dependencies.applications.insert({
+      applicantId: dependencies.identity.userId,
+      jobPostingId: posting.id,
+      referenceNumber,
+      status: "Received",
+      profileSnapshot: profile,
+      documentsSnapshot: selectedDocuments as ApplicationDocument[],
+      consentedAt: new Date(),
+    });
+  } catch (error) {
+    if (isUniqueViolation(error, "applications_applicant_posting_unique")) throw new Error("You have already applied to this Job Posting.");
+    throw error;
+  }
   try {
     await dependencies.sendConfirmationEmail(dependencies.identity.email, { referenceNumber, jobTitle: posting.title });
     return { referenceNumber, confirmationEmailSent: true };
