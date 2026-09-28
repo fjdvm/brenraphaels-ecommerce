@@ -2,8 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Menu, X } from "lucide-react";
+
+const headerSignOutPaths = new Set(["/", "/about", "/faq", "/contact"]);
+
+export function shouldShowHeaderSignOut(pathname: string) {
+  return headerSignOutPaths.has(pathname);
+}
 
 const aboutLinks = [
   { href: "/journey", label: "Our Journey" },
@@ -87,12 +94,16 @@ function AboutMenu({ label, items }: { label: string; items: NavLink[] }) {
 
 export function Header({
   desktopSession,
+  headerSignOut,
   mobileSession,
 }: {
   desktopSession: ReactNode;
+  headerSignOut?: ReactNode;
   mobileSession: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const showHeaderSignOut = shouldShowHeaderSignOut(pathname);
   return (
     <header className="sticky top-0 z-20 border-b border-outline-variant/60 bg-surface">
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8">
@@ -132,7 +143,10 @@ export function Header({
             ),
           )}
         </nav>
-        {desktopSession}
+        <div className="hidden items-center gap-5 text-sm font-semibold text-on-surface-variant md:flex">
+          {desktopSession}
+          {showHeaderSignOut ? headerSignOut : null}
+        </div>
         <button
           type="button"
           className="p-2 text-primary md:hidden"
@@ -174,6 +188,7 @@ export function Header({
             ),
           )}
           {mobileSession}
+          {showHeaderSignOut ? headerSignOut : null}
         </nav>
       )}
     </header>

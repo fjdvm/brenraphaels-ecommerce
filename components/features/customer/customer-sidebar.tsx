@@ -89,7 +89,7 @@ export function CustomerSidebarNavList({
       <li className="mt-8">
         <SignOutButton
           action={signOut}
-          className="w-full rounded-md px-4 py-3 text-left text-sm text-error hover:bg-error-container hover:text-error hover:no-underline"
+          className="w-full rounded-md px-4 py-3 text-left text-sm text-error transition-colors hover:bg-error-container hover:text-error hover:no-underline"
         />
       </li>
     </ul>

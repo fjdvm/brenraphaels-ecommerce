@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { ShoppingCart, User } from "lucide-react";
 
-import { signOut } from "@/app/actions";
-import { SignOutButton } from "@/components/shared/sign-out-button";
 import type { Visitor } from "@/lib/customer/visitor";
 
 export function SessionNav({ className, visitor }: { className?: string; visitor: Visitor }) {
@@ -16,7 +14,6 @@ export function SessionNav({ className, visitor }: { className?: string; visitor
           <Link href="/profile" aria-label="Profile" className="hover:text-primary">
             <User size={20} />
           </Link>
-          <SignOutButton action={signOut} />
         </>
       ) : visitor.state === "signed-out" ? (
         <Link

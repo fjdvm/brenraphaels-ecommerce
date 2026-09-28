@@ -20,5 +20,6 @@ describe("The Customer sidebar navigation", () => {
     expect(markup).toMatch(/<a(?=[^>]*href="\/profile\/orders")(?=[^>]*aria-current="page")/);
     expect(markup.match(/aria-current="page"/g)).toHaveLength(1);
     expect(markup).toContain("Sign out");
+    expect(markup).toContain("hover:bg-error-container");
   });
 });

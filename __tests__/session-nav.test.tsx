@@ -30,7 +30,7 @@ describe("Session navigation", () => {
     expect(markup).not.toContain("Sign out");
   });
 
-  test("keeps profile and sign-out access for a Visitor who needs details", async () => {
+  test("keeps profile access for a Visitor who needs details", async () => {
     const markup = renderToStaticMarkup(
       <SessionNav
         visitor={{
@@ -44,7 +44,7 @@ describe("Session navigation", () => {
 
     expect(markup).toContain('href="/cart"');
     expect(markup).toContain('href="/profile"');
-    expect(markup).toContain("Sign out");
+    expect(markup).not.toContain("Sign out");
   });
 
   test("keeps the Cart for a signed-out Visitor", async () => {

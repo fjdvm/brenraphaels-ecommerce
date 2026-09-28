@@ -3,6 +3,8 @@ import { CartSessionSync } from "@/components/features/orders/cart-session-sync"
 import { CustomerSidebarShell } from "@/components/features/customer/customer-sidebar-shell";
 import { Header } from "@/components/shared/header";
 import { SessionNav } from "@/components/shared/session-nav";
+import { SignOutButton } from "@/components/shared/sign-out-button";
+import { signOut } from "@/app/actions";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 
 export default async function SiteLayout({ children }: LayoutProps<"/">) {
@@ -16,8 +18,11 @@ export default async function SiteLayout({ children }: LayoutProps<"/">) {
         desktopSession={
           <SessionNav
             visitor={visitor}
-            className="hidden items-center gap-5 text-sm font-semibold text-on-surface-variant md:flex"
+            className="flex items-center gap-5"
           />
+        }
+        headerSignOut={
+          visitor.state !== "signed-out" ? <SignOutButton action={signOut} /> : null
         }
         mobileSession={
           <SessionNav
