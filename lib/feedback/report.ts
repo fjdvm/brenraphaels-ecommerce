@@ -1,13 +1,16 @@
 import { z } from "zod";
 
-import { multilineTextField, textField, urlField } from "../validators/fields";
+import { multilineTextField, optionalTextField, textField, urlField } from "../validators/fields";
 
 export const feedbackTitleMaximumLength = 120;
 export const feedbackDescriptionMaximumLength = 2_000;
 const feedbackEnvironmentValueMaximumLength = 1_000;
+const feedbackHoneypotMaximumLength = 1_000;
 
 const feedbackTextPattern = /^[\p{L}\p{M}\p{N}\p{P}\p{S}\s]+$/u;
 const feedbackTextPatternMessage = "Enter text without invisible characters";
+// A hidden bot trap: real visitors never see or fill this field, so any content is accepted as-is.
+const honeypotPattern = /^[\s\S]*$/;
 
 export const feedbackReportSchema = z.object({
   title: textField("Title", {
@@ -49,6 +52,12 @@ export const feedbackReportSchema = z.object({
       pattern: feedbackTextPattern,
       patternMessage: feedbackTextPatternMessage,
     })).max(10, "Include at most 10 console errors"),
+  }),
+  // Left blank by real visitors; a filled value marks the submission as automated.
+  honeypot: optionalTextField({
+    max: feedbackHoneypotMaximumLength,
+    pattern: honeypotPattern,
+    patternMessage: "Enter a valid value",
   }),
 });
 

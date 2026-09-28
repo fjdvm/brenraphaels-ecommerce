@@ -71,6 +71,13 @@
       "when": 1790570780848,
       "tag": "0009_blue_blue_shield",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790575727274,
+      "tag": "0010_mean_scourge",
+      "breakpoints": true
     }
   ]
 }

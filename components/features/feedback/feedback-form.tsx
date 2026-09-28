@@ -15,6 +15,7 @@ type Fields = {
   stepsToReproduce: string;
   expectedResult: string;
   actualResult: string;
+  honeypot: string;
 };
 
 const emptyFields: Fields = {
@@ -23,6 +24,7 @@ const emptyFields: Fields = {
   stepsToReproduce: "",
   expectedResult: "",
   actualResult: "",
+  honeypot: "",
 };
 
 function FieldError({ message }: { message?: string }) {
@@ -37,6 +39,7 @@ export function FeedbackForm() {
   const [fields, setFields] = useState<Fields>(emptyFields);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
   const [message, setMessage] = useState<string>();
+  const [rateLimited, setRateLimited] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   function update(name: keyof Fields, value: string) {
@@ -46,6 +49,7 @@ export function FeedbackForm() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(undefined);
+    setRateLimited(false);
     const parsed = feedbackReportSchema.safeParse({ ...fields, environment: feedbackClientEnvironment() });
     if (!parsed.success) {
       setFieldErrors(parsed.error.flatten().fieldErrors);
@@ -60,9 +64,10 @@ export function FeedbackForm() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(parsed.data),
       });
-      const result: { message?: string; fieldErrors?: Record<string, string[] | undefined> } = await response.json();
+      const result: { message?: string; fieldErrors?: Record<string, string[] | undefined>; rateLimited?: boolean } = await response.json();
       if (!response.ok) {
         if (result.fieldErrors) setFieldErrors(result.fieldErrors);
+        setRateLimited(Boolean(result.rateLimited));
         setMessage(result.message ?? "We couldn't submit your feedback. Please try again.");
         return;
       }
@@ -92,6 +97,18 @@ export function FeedbackForm() {
           Tell us what went wrong or what we could improve.
         </DialogDescription>
         <form onSubmit={submit} className="mt-6 grid gap-4">
+          <div aria-hidden="true" className="absolute h-px w-px overflow-hidden whitespace-nowrap border-0 p-0 [clip:rect(0,0,0,0)]">
+            <label htmlFor="feedback-website">Website</label>
+            <input
+              id="feedback-website"
+              name="website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={fields.honeypot}
+              onChange={(event) => update("honeypot", event.target.value)}
+            />
+          </div>
           <label className="grid gap-1.5 text-sm font-semibold text-on-surface" htmlFor="feedback-title">
             Title
             <input id="feedback-title" maxLength={120} value={fields.title} onChange={(event) => update("title", event.target.value)} className="h-11 border border-input bg-white px-3 text-base outline-none focus:ring-2 focus:ring-ring" aria-invalid={Boolean(fieldErrors.title)} />
@@ -117,7 +134,11 @@ export function FeedbackForm() {
             <textarea id="feedback-actual" rows={3} maxLength={2_000} value={fields.actualResult} onChange={(event) => update("actualResult", event.target.value)} className="w-full border border-input bg-white px-3 py-2 text-base outline-none focus:ring-2 focus:ring-ring" aria-invalid={Boolean(fieldErrors.actualResult)} />
             <FieldError message={fieldErrors.actualResult?.[0]} />
           </label>
-          {message && <p role="status" className="text-sm text-on-surface-variant">{message}</p>}
+          {message && (
+            <p role="status" className={`text-sm ${rateLimited ? "font-semibold text-amber-700" : "text-on-surface-variant"}`}>
+              {message}
+            </p>
+          )}
           <Button type="submit" disabled={submitting} className="justify-self-end">
             {submitting ? "Submitting…" : "Submit feedback"}
           </Button>

@@ -178,3 +178,10 @@ export const orderDeliveryAddresses = pgTable("order_delivery_addresses", {
   postalCode: text("postal_code").notNull(),
   country: text("country").notNull(),
 });
+
+/** One row per IP address; the window resets once it is older than the rate limit's span. */
+export const feedbackRateLimits = pgTable("feedback_rate_limits", {
+  ipAddress: text("ip_address").primaryKey(),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+  submissionCount: integer("submission_count").notNull(),
+});

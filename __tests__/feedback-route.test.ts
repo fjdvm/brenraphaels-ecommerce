@@ -1,12 +1,17 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
+import { migrate } from "drizzle-orm/pglite/migrator";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const sessions = vi.hoisted(() => ({
   storefront: vi.fn(),
   applicant: vi.fn(),
 }));
+const database = vi.hoisted(() => ({ getDatabase: vi.fn() }));
 
 vi.mock("@/lib/neon-auth/server", () => ({ getVisitorSession: sessions.storefront }));
 vi.mock("@/lib/careers/auth", () => ({ careersSession: sessions.applicant }));
+vi.mock("@/lib/db", () => ({ getDatabase: database.getDatabase }));
 
 import { POST } from "../app/api/feedback/route";
 
@@ -25,21 +30,41 @@ const validReport = {
   },
 };
 
-function request(body: unknown, userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36") {
+const defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36";
+
+function request(body: unknown, userAgent = defaultUserAgent, ip = "203.0.113.10") {
   return new Request("http://localhost/api/feedback", {
     method: "POST",
-    headers: { "content-type": "application/json", "user-agent": userAgent },
+    headers: { "content-type": "application/json", "user-agent": userAgent, "x-forwarded-for": ip },
     body: JSON.stringify(body),
   });
 }
 
-afterEach(() => {
+function stubGithub() {
+  vi.stubEnv("GITHUB_FEEDBACK_TOKEN", "test-token");
+  vi.stubEnv("GITHUB_FEEDBACK_REPOSITORY", "owner/repository");
+  const github = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
+  vi.stubGlobal("fetch", github);
+  return github;
+}
+
+let client: PGlite;
+
+beforeEach(async () => {
+  client = new PGlite();
+  await migrate(drizzle(client), { migrationsFolder: "drizzle" });
+  database.getDatabase.mockReturnValue(drizzle(client));
+});
+
+afterEach(async () => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   sessions.storefront.mockReset();
   sessions.applicant.mockReset();
   sessions.storefront.mockResolvedValue(null);
   sessions.applicant.mockResolvedValue(null);
+  database.getDatabase.mockReset();
+  await client.close();
 });
 
 describe("POST /api/feedback", () => {
@@ -166,6 +191,58 @@ describe("POST /api/feedback", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({ fieldErrors: { [field]: expect.any(Array) } });
+    expect(github).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/feedback rate limiting", () => {
+  test("allows five successive submissions from the same IP", async () => {
+    const github = stubGithub();
+
+    for (let submission = 0; submission < 5; submission += 1) {
+      const response = await POST(request(validReport));
+      expect(response.status).toBe(201);
+    }
+    expect(github).toHaveBeenCalledTimes(5);
+  });
+
+  test("rejects a sixth submission from the same IP within the window", async () => {
+    const github = stubGithub();
+
+    for (let submission = 0; submission < 5; submission += 1) {
+      await POST(request(validReport));
+    }
+    github.mockClear();
+
+    const response = await POST(request(validReport));
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toMatchObject({ rateLimited: true });
+    expect(github).not.toHaveBeenCalled();
+  });
+
+  test("does not rate-limit submissions from a different IP address", async () => {
+    const github = stubGithub();
+
+    for (let submission = 0; submission < 5; submission += 1) {
+      await POST(request(validReport, defaultUserAgent, "203.0.113.10"));
+    }
+
+    const response = await POST(request(validReport, defaultUserAgent, "203.0.113.20"));
+
+    expect(response.status).toBe(201);
+    expect(github).toHaveBeenCalledTimes(6);
+  });
+});
+
+describe("POST /api/feedback honeypot", () => {
+  test("drops a submission with a filled honeypot without creating an issue", async () => {
+    const github = stubGithub();
+
+    const response = await POST(request({ ...validReport, honeypot: "I am a bot" }));
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({ success: true });
     expect(github).not.toHaveBeenCalled();
   });
 });
