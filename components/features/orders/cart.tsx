@@ -126,7 +126,7 @@ export function CartView({ customerHasCart, initialCart }: { customerHasCart: bo
             <span>{formatPeso(cart.subtotalInCentavos)}</span>
           </div>
           <div className="mt-6 flex justify-end">
-            <Link href={customerHasCart ? "/checkout" : "/signin?next=%2Fcheckout"} className="bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-container">
+            <Link href="/checkout" className="bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-container">
               Checkout
             </Link>
           </div>

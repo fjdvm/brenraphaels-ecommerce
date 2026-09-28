@@ -1,10 +1,10 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { customers, products, sizes } from "../lib/db/schema";
-import { createOrderStore } from "../lib/orders/orders";
+import { createOrderStore, placeOrderAndNotify } from "../lib/orders/orders";
 import { createCartStore } from "../lib/orders/cart";
 
 let client: PGlite;
@@ -97,6 +97,27 @@ describe("Order", () => {
         status: "confirmed",
         lines: [expect.objectContaining({ productName: "Ube Jam", sizeLabel: "250g", quantity: 1 })],
       }),
+    ]);
+  });
+
+  test("places the Order and empties the Cart even when the confirmation email fails", async () => {
+    const database = drizzle(client);
+    const cart = createCartStore(database);
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const mailer = { send: vi.fn().mockRejectedValue(new Error("Brevo down")) };
+
+    const order = await placeOrderAndNotify(
+      "customer-1",
+      "jane@example.com",
+      { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" },
+      { orderStore: createOrderStore(database), mailer },
+    );
+
+    expect(order).toMatchObject({ status: "confirmed" });
+    expect(mailer.send).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: order.id }));
+    await expect(cart.get("customer-1")).resolves.toMatchObject({ lines: [], subtotalInCentavos: 0 });
+    await expect(createOrderStore(database).listForCustomer("customer-1")).resolves.toMatchObject([
+      { id: order.id, status: "confirmed" },
     ]);
   });
 });

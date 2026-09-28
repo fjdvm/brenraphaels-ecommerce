@@ -10,6 +10,7 @@ import {
   fulfillmentMethods,
   paymentMethods,
   createOrderStore,
+  placeOrderAndNotify,
 } from "@/lib/orders/orders";
 
 const checkoutInput = z.object({
@@ -20,8 +21,10 @@ const checkoutInput = z.object({
 export async function placeOrder(input: unknown) {
   const customer = await requireCustomer();
   const parsed = checkoutInput.parse(input);
-  const order = await createOrderStore(getDatabase()).place(customer.userId, parsed);
-  await sendOrderPlacedEmail(customer.email, order);
+  const order = await placeOrderAndNotify(customer.userId, customer.email, parsed, {
+    orderStore: createOrderStore(getDatabase()),
+    mailer: { send: sendOrderPlacedEmail },
+  });
   revalidatePath("/cart");
   revalidatePath("/profile/orders");
   return { orderId: order.id };

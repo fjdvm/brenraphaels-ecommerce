@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { placeOrder } from "@/app/(site)/(protected)/checkout/actions";
 import { formatPeso } from "@/lib/catalog/currency";
 import type { Cart } from "@/lib/orders/cart";
+import { fulfillmentMethods, paymentMethods } from "@/lib/orders/orders";
 import { Button } from "@/components/ui/button";
 
 export function CheckoutView({ cart }: { cart: Cart }) {
@@ -19,8 +20,8 @@ export function CheckoutView({ cart }: { cart: Cart }) {
     startTransition(async () => {
       try {
         await placeOrder({
-          fulfillmentMethod: "pickup",
-          paymentMethod: "cash-on-delivery",
+          fulfillmentMethod: fulfillmentMethods[0],
+          paymentMethod: paymentMethods[0],
         });
         router.push("/profile/orders");
       } catch (error) {

@@ -26,6 +26,8 @@ export type CartStore = {
   addSize(customerId: string, sizeId: number, quantity: number): Promise<Cart>;
   updateLine(customerId: string, lineId: number, quantity: number): Promise<Cart>;
   removeLine(customerId: string, lineId: number): Promise<Cart>;
+  /** Empties the Cart, e.g. once its lines have been snapshotted onto a placed Order. */
+  clear(customerId: string): Promise<void>;
   mergeVisitorCart(
     customerId: string,
     visitorCartId: string,
@@ -110,6 +112,10 @@ export function createCartStore<
     return get(customerId);
   }
 
+  async function clear(customerId: string): Promise<void> {
+    await db.delete(cartLines).where(eq(cartLines.customerId, customerId));
+  }
+
   async function mergeVisitorCart(
     customerId: string,
     visitorCartId: string,
@@ -147,5 +153,5 @@ export function createCartStore<
     return get(customerId);
   }
 
-  return { get, addSize, updateLine, removeLine, mergeVisitorCart };
+  return { get, addSize, updateLine, removeLine, clear, mergeVisitorCart };
 }

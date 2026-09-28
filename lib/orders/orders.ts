@@ -1,7 +1,7 @@
 import { asc, desc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { cartLines, orderLines, orders } from "../db/schema";
+import { orderLines, orders } from "../db/schema";
 import { createCartStore } from "./cart";
 
 export const fulfillmentMethods = ["pickup"] as const;
@@ -34,7 +34,8 @@ export type Order = {
   paymentMethod: PaymentMethod;
   status: OrderStatus;
   subtotalInCentavos: number;
-  deliveryFeeInCentavos: null;
+  // Pickup Orders never have one; Delivery Orders get theirs once staff quote it.
+  deliveryFeeInCentavos: number | null;
   createdAt: Date;
   lines: OrderLine[];
 };
@@ -46,6 +47,30 @@ export type OrderStore = {
   ): Promise<Order>;
   listForCustomer(customerId: string): Promise<Order[]>;
 };
+
+export type OrderMailer = {
+  send(recipientEmail: string, order: Order): Promise<void>;
+};
+
+/**
+ * Places the Order and then notifies the Customer. The Order is already
+ * persisted and the Cart already emptied by the time the email is sent, so a
+ * failed or slow confirmation email must not be reported as a failed checkout.
+ */
+export async function placeOrderAndNotify(
+  customerId: string,
+  recipientEmail: string,
+  input: { fulfillmentMethod: FulfillmentMethod; paymentMethod: PaymentMethod },
+  dependencies: { orderStore: OrderStore; mailer: OrderMailer },
+): Promise<Order> {
+  const order = await dependencies.orderStore.place(customerId, input);
+  try {
+    await dependencies.mailer.send(recipientEmail, order);
+  } catch (error) {
+    console.error("Order-placed email could not be sent", error);
+  }
+  return order;
+}
 
 export function createOrderStore<
   TQueryResult extends PgQueryResultHKT,
@@ -64,6 +89,19 @@ export function createOrderStore<
       .orderBy(asc(orderLines.id));
   }
 
+  function toOrder(row: typeof orders.$inferSelect, lines: OrderLine[]): Order {
+    return {
+      id: row.id,
+      fulfillmentMethod: row.fulfillmentMethod as FulfillmentMethod,
+      paymentMethod: row.paymentMethod as PaymentMethod,
+      status: row.status as OrderStatus,
+      subtotalInCentavos: row.subtotalInCentavos,
+      deliveryFeeInCentavos: row.deliveryFeeInCentavos,
+      createdAt: row.createdAt,
+      lines,
+    };
+  }
+
   async function listForCustomer(customerId: string): Promise<Order[]> {
     const persistedOrders = await db
       .select()
@@ -71,16 +109,9 @@ export function createOrderStore<
       .where(eq(orders.customerId, customerId))
       .orderBy(desc(orders.createdAt), desc(orders.id));
 
-    return Promise.all(persistedOrders.map(async (order) => ({
-      id: order.id,
-      fulfillmentMethod: order.fulfillmentMethod as FulfillmentMethod,
-      paymentMethod: order.paymentMethod as PaymentMethod,
-      status: order.status as OrderStatus,
-      subtotalInCentavos: order.subtotalInCentavos,
-      deliveryFeeInCentavos: null,
-      createdAt: order.createdAt,
-      lines: await linesForOrder(order.id),
-    })));
+    return Promise.all(
+      persistedOrders.map(async (order) => toOrder(order, await linesForOrder(order.id))),
+    );
   }
 
   async function place(
@@ -88,7 +119,8 @@ export function createOrderStore<
     input: { fulfillmentMethod: FulfillmentMethod; paymentMethod: PaymentMethod },
   ): Promise<Order> {
     return db.transaction(async (transaction) => {
-      const cart = await createCartStore(transaction).get(customerId);
+      const transactionalCart = createCartStore(transaction);
+      const cart = await transactionalCart.get(customerId);
       if (cart.lines.length === 0) {
         throw new Error("Your Cart is empty.");
       }
@@ -115,23 +147,17 @@ export function createOrderStore<
         priceInCentavos: line.priceInCentavos,
         quantity: line.quantity,
       })));
-      await transaction.delete(cartLines).where(eq(cartLines.customerId, customerId));
+      await transactionalCart.clear(customerId);
 
-      return {
-        id: order.id,
-        fulfillmentMethod: input.fulfillmentMethod,
-        paymentMethod: input.paymentMethod,
-        status: "confirmed",
-        subtotalInCentavos: order.subtotalInCentavos,
-        deliveryFeeInCentavos: null,
-        createdAt: order.createdAt,
-        lines: cart.lines.map(({ productName, sizeLabel, priceInCentavos, quantity }) => ({
-          productName,
-          sizeLabel,
-          priceInCentavos,
-          quantity,
-        })),
-      };
+      // Built from the Cart lines already in hand, not re-queried: `linesForOrder`
+      // is bound to the outer `db`, and querying it from inside this still-open
+      // transaction (PGlite has a single underlying connection) would deadlock.
+      return toOrder(order, cart.lines.map(({ productName, sizeLabel, priceInCentavos, quantity }) => ({
+        productName,
+        sizeLabel,
+        priceInCentavos,
+        quantity,
+      })));
     });
   }
 

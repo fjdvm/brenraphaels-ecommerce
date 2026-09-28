@@ -1,6 +1,6 @@
 import type { Order } from "../orders/orders";
 import { formatPeso } from "../catalog/currency";
-import { createBrevoTransport } from "./brevo-transport";
+import { createBrevoTransport, requiredEnvironment } from "./brevo-transport";
 
 /** Sends the Customer the confirmation for a successfully placed Order. */
 export async function sendOrderPlacedEmail(recipient: string, order: Order) {
@@ -23,7 +23,7 @@ export async function sendOrderPlacedEmail(recipient: string, order: Order) {
       `Subtotal: ${formatPeso(order.subtotalInCentavos)}`,
       "Delivery fee: None (Pickup)",
       "",
-      `View your order: ${process.env.NEXT_PUBLIC_SITE_URL ?? "https://brenraphaels.com"}/profile/orders`,
+      `View your order: ${requiredEnvironment("NEXT_PUBLIC_SITE_URL")}/profile/orders`,
     ].join("\n"),
     to: recipient,
   });
