@@ -21,7 +21,7 @@ export default async function JobPostingPage({ params }: JobPostingPageProps) {
       <h1 className="mt-3 font-serif text-5xl leading-tight text-primary">{posting.title}</h1>
       <p className="mt-4 text-lg text-on-surface-variant">{posting.employmentType} · Apply by {posting.deadline.toLocaleDateString()}</p>
       <Link
-        href={applicant ? "/careers/profile" : "/careers/signin"}
+        href={applicant ? `/careers/${posting.id}/apply` : "/careers/signin"}
         className="mt-6 inline-block bg-primary px-6 py-3 font-semibold text-on-primary"
       >
         Apply

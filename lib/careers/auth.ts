@@ -59,5 +59,5 @@ export const careersApplicantAuth: ApplicantAuth = {
   async resetPassword(input) { const result = await careersAuth().resetPassword(input); if (!result.error) return "reset"; if (result.error.code === "INVALID_TOKEN" || result.error.code === "TOKEN_EXPIRED") return "invalid"; throw new Error(result.error.message); },
 };
 
-export async function careersSession() { await connection(); const { data } = await careersAuth().getSession(); return data?.user ? { userId: data.user.id, email: data.user.email, fullName: data.user.name ?? "" } : null; }
+export async function careersSession() { await connection(); const { data } = await careersAuth().getSession(); return data?.user ? { userId: data.user.id, email: data.user.email, fullName: data.user.name ?? "", verified: data.user.emailVerified } : null; }
 export async function verifyApplicantEmail(token: string) { const baseUrl = process.env.CAREERS_NEON_AUTH_BASE_URL; const siteUrl = process.env.NEXT_PUBLIC_SITE_URL; if (!baseUrl || !siteUrl) throw new Error("CAREERS_NEON_AUTH_BASE_URL and NEXT_PUBLIC_SITE_URL are required."); const cookieStore = await cookies(); return verifyEmailWithNeon({ baseUrl, token, origin: new URL(siteUrl).origin, setCookie: (cookie) => cookieStore.set(cookie.name, cookie.value, { ...cookie.options, path: "/careers" }) }); }

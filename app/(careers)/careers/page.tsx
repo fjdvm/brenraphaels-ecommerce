@@ -54,9 +54,10 @@ export default async function CareersPage({ searchParams }: CareersPageProps) {
 
         <div className="flex gap-4">
           {applicant ? (
-            <Link className="bg-primary px-5 py-3 font-semibold text-on-primary" href="/careers/profile">
-              Your profile
-            </Link>
+            <>
+              <Link className="bg-primary px-5 py-3 font-semibold text-on-primary" href="/careers/profile">Your profile</Link>
+              <Link className="px-5 py-3 font-semibold text-primary underline" href="/careers/applications">Your Applications</Link>
+            </>
           ) : (
             <>
               <Link className="bg-primary px-5 py-3 font-semibold text-on-primary" href="/careers/signup">

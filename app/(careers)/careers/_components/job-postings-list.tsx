@@ -72,7 +72,7 @@ export function JobPostingsList({ jobs, isAuthenticated }: { jobs: JobPosting[];
 
                   <div className="mt-4 flex flex-wrap items-center gap-4">
                     <Link
-                      href={isAuthenticated ? "/careers/profile" : "/careers/signin"}
+                      href={isAuthenticated ? `/careers/${job.id}/apply` : "/careers/signin"}
                       className="bg-primary px-5 py-2 font-semibold text-on-primary"
                     >
                       Apply

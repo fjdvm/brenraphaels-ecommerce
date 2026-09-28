@@ -15,6 +15,20 @@
       "when": 1790529607461,
       "tag": "0001_careful_vector",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790586795401,
+      "tag": "0002_aberrant_whizzer",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790586816220,
+      "tag": "0003_premium_marrow",
+      "breakpoints": true
     }
   ]
 }

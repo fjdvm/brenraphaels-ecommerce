@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
 
 // These tables are migrated only against Careers' dedicated Neon database.
 // applicantId is an opaque id from Careers' Neon Auth instance, never a
@@ -51,3 +51,19 @@ export const jobPostings = pgTable("job_postings", {
     .defaultNow()
     .notNull(),
 });
+
+/** A local, immutable-at-submission record sent to HR-ATS asynchronously later. */
+export const applications = pgTable("applications", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  applicantId: text("applicant_id").notNull().references(() => applicantProfiles.applicantId, { onDelete: "cascade" }),
+  jobPostingId: text("job_posting_id").notNull(),
+  referenceNumber: text("reference_number").notNull().unique(),
+  status: text("status").notNull(),
+  profileSnapshot: jsonb("profile_snapshot").$type<unknown>().notNull(),
+  documentsSnapshot: jsonb("documents_snapshot").$type<unknown>().notNull(),
+  consentedAt: timestamp("consented_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  unique("applications_applicant_posting_unique").on(table.applicantId, table.jobPostingId),
+]);
