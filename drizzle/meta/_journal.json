@@ -57,6 +57,13 @@
       "when": 1790516370394,
       "tag": "0007_careful_roulette",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790560297706,
+      "tag": "0008_noisy_multiple_man",
+      "breakpoints": true
     }
   ]
 }

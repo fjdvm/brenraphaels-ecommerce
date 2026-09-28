@@ -136,3 +136,31 @@ export const cartMerges = pgTable("cart_merges", {
     .defaultNow()
     .notNull(),
 });
+
+export const orders = pgTable("orders", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  customerId: text("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "restrict" }),
+  fulfillmentMethod: text("fulfillment_method").notNull(),
+  paymentMethod: text("payment_method").notNull(),
+  status: text("status").notNull(),
+  subtotalInCentavos: integer("subtotal_in_centavos").notNull(),
+  // Pickup Orders never have a Delivery fee; delivery fees are added by CREOMS.
+  deliveryFeeInCentavos: integer("delivery_fee_in_centavos"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+/** Immutable line-item copies, retained even if the catalog changes later. */
+export const orderLines = pgTable("order_lines", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  orderId: integer("order_id")
+    .notNull()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  productName: text("product_name").notNull(),
+  sizeLabel: text("size_label").notNull(),
+  priceInCentavos: integer("price_in_centavos").notNull(),
+  quantity: integer("quantity").notNull(),
+});
