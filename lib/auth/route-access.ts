@@ -24,7 +24,7 @@ export const signedOutPaths = new Set([
 
 export const signInPath = "/signin";
 export const completeProfilePath = "/complete-profile";
-export const profilePath = "/profile";
+export const profilePath = "/profile/settings";
 /** Home with the welcome modal, where a newly Verified Customer lands. */
 export const welcomePath = "/?welcome=1";
 

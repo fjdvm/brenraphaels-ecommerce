@@ -102,7 +102,7 @@ describe("The complete-profile form", () => {
     session = jane;
     await becomeCompleteCustomer();
 
-    await expect(requireVisitorNeedingDetails()).rejects.toThrow("REDIRECT /profile");
+    await expect(requireVisitorNeedingDetails()).rejects.toThrow("REDIRECT /profile/settings");
   });
 
   test("redirects a signed-out Visitor to sign in", async () => {
