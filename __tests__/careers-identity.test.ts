@@ -23,7 +23,7 @@ describe("Applicant identity", () => {
   test("creates an Applicant login and sends that Applicant a verification email", async () => {
     const auth = authStub();
 
-    await expect(signUpApplicant({ firstName: "jane", middleName: "quinn", lastName: "doe", email: "JANE@example.com", password: "Password123!" }, { auth })).resolves.toEqual({ email: "jane@example.com" });
+    await expect(signUpApplicant({ firstName: "jane", middleName: "quinn", lastName: "doe", email: "JANE@example.com", password: "Password123!", confirmPassword: "Password123!" }, { auth })).resolves.toEqual({ status: "sent", email: "jane@example.com" });
     expect(auth.createLogin).toHaveBeenCalledWith({ name: "Jane Quinn Doe", email: "jane@example.com", password: "Password123!" });
     expect(auth.sendVerificationEmail).toHaveBeenCalledWith("jane@example.com");
   });
@@ -31,14 +31,21 @@ describe("Applicant identity", () => {
   test("composes the name without a middle name when none is given", async () => {
     const auth = authStub();
 
-    await signUpApplicant({ firstName: "jane", middleName: "", lastName: "doe", email: "jane@example.com", password: "Password123!" }, { auth });
+    await signUpApplicant({ firstName: "jane", middleName: "", lastName: "doe", email: "jane@example.com", password: "Password123!", confirmPassword: "Password123!" }, { auth });
     expect(auth.createLogin).toHaveBeenCalledWith({ name: "Jane Doe", email: "jane@example.com", password: "Password123!" });
   });
 
   test("rejects a name containing characters that aren't part of a name", async () => {
     const auth = authStub();
 
-    await expect(signUpApplicant({ firstName: "Jane123", middleName: "", lastName: "Doe", email: "jane@example.com", password: "Password123!" }, { auth })).rejects.toThrow();
+    await expect(signUpApplicant({ firstName: "Jane123", middleName: "", lastName: "Doe", email: "jane@example.com", password: "Password123!", confirmPassword: "Password123!" }, { auth })).resolves.toMatchObject({ status: "invalid-input" });
+    expect(auth.createLogin).not.toHaveBeenCalled();
+  });
+
+  test("rejects sign-up when the confirm-password box does not match", async () => {
+    const auth = authStub();
+
+    await expect(signUpApplicant({ firstName: "Jane", middleName: "", lastName: "Doe", email: "jane@example.com", password: "Password123!", confirmPassword: "Different123!" }, { auth })).resolves.toMatchObject({ status: "invalid-input", fieldErrors: { confirmPassword: ["Passwords do not match"] } });
     expect(auth.createLogin).not.toHaveBeenCalled();
   });
 
