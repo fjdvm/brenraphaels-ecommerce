@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+const sessions = vi.hoisted(() => ({
+  storefront: vi.fn(),
+  applicant: vi.fn(),
+}));
+
+vi.mock("@/lib/neon-auth/server", () => ({ getVisitorSession: sessions.storefront }));
+vi.mock("@/lib/careers/auth", () => ({ careersSession: sessions.applicant }));
+
 import { POST } from "../app/api/feedback/route";
 
 const validReport = {
@@ -8,12 +16,19 @@ const validReport = {
   stepsToReproduce: "1. Open a product\n2. Scroll to the price",
   expectedResult: "The price is easy to read.",
   actualResult: "The price has low contrast.",
+  environment: {
+    pageUrl: "https://shop.example/products/ube-jam",
+    screenSize: "1440 × 900",
+    viewportSize: "1280 × 720",
+    timestamp: "2026-09-28T10:20:30.000Z",
+    consoleErrors: ["Failed to load product image"],
+  },
 };
 
-function request(body: unknown) {
+function request(body: unknown, userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36") {
   return new Request("http://localhost/api/feedback", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "user-agent": userAgent },
     body: JSON.stringify(body),
   });
 }
@@ -21,12 +36,18 @@ function request(body: unknown) {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  sessions.storefront.mockReset();
+  sessions.applicant.mockReset();
+  sessions.storefront.mockResolvedValue(null);
+  sessions.applicant.mockResolvedValue(null);
 });
 
 describe("POST /api/feedback", () => {
   test("creates a labelled GitHub issue from a valid report", async () => {
     vi.stubEnv("GITHUB_FEEDBACK_TOKEN", "test-token");
     vi.stubEnv("GITHUB_FEEDBACK_REPOSITORY", "owner/repository");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "abc123");
     const github = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
     vi.stubGlobal("fetch", github);
 
@@ -41,18 +62,15 @@ describe("POST /api/feedback", () => {
           authorization: "Bearer test-token",
           "content-type": "application/json",
         }),
-        body: JSON.stringify({
-          title: validReport.title,
-          body: [
-            validReport.description,
-            "## Steps to reproduce\n\n1. Open a product\n2. Scroll to the price",
-            "## Expected result\n\nThe price is easy to read.",
-            "## Actual result\n\nThe price has low contrast.",
-          ].join("\n\n"),
-          labels: ["feedback"],
-        }),
+        body: expect.any(String),
       }),
     );
+    const body = JSON.parse(github.mock.calls[0][1].body).body;
+    expect(body).toContain("<summary>Environment</summary>");
+    expect(body).toContain("| Browser | Chrome 140.0.0.0 |");
+    expect(body).toContain("| OS | macOS 14.6 |");
+    expect(body).toContain("| Signed-in identity | anonymous |");
+    expect(body).toContain("| App version | abc123 |");
   });
 
   test("accepts a description at its 2,000-character limit", async () => {
@@ -65,6 +83,47 @@ describe("POST /api/feedback", () => {
 
     expect(response.status).toBe(201);
     expect(github).toHaveBeenCalledOnce();
+  });
+
+  test("records the authenticated storefront user identifier", async () => {
+    vi.stubEnv("GITHUB_FEEDBACK_TOKEN", "test-token");
+    vi.stubEnv("GITHUB_FEEDBACK_REPOSITORY", "owner/repository");
+    sessions.storefront.mockResolvedValue({ userId: "storefront-user", email: "private@example.com", fullName: "Private Person" });
+    const github = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
+    vi.stubGlobal("fetch", github);
+
+    await POST(request(validReport));
+
+    expect(JSON.parse(github.mock.calls[0][1].body).body).toContain("| Signed-in identity | storefront-user |");
+    expect(JSON.parse(github.mock.calls[0][1].body).body).not.toContain("private@example.com");
+    expect(sessions.applicant).not.toHaveBeenCalled();
+  });
+
+  test("records the authenticated applicant identifier when no storefront session exists", async () => {
+    vi.stubEnv("GITHUB_FEEDBACK_TOKEN", "test-token");
+    vi.stubEnv("GITHUB_FEEDBACK_REPOSITORY", "owner/repository");
+    sessions.storefront.mockResolvedValue(null);
+    sessions.applicant.mockResolvedValue({ userId: "applicant-user", email: "private@example.com", fullName: "Private Person" });
+    const github = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
+    vi.stubGlobal("fetch", github);
+
+    await POST(request(validReport));
+
+    expect(JSON.parse(github.mock.calls[0][1].body).body).toContain("| Signed-in identity | applicant-user |");
+  });
+
+  test("ignores a forged client identity", async () => {
+    vi.stubEnv("GITHUB_FEEDBACK_TOKEN", "test-token");
+    vi.stubEnv("GITHUB_FEEDBACK_REPOSITORY", "owner/repository");
+    sessions.storefront.mockResolvedValue({ userId: "storefront-user", email: "private@example.com", fullName: "Private Person" });
+    const github = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
+    vi.stubGlobal("fetch", github);
+
+    await POST(request({ ...validReport, identity: "forged-admin" }));
+
+    const body = JSON.parse(github.mock.calls[0][1].body).body;
+    expect(body).toContain("| Signed-in identity | storefront-user |");
+    expect(body).not.toContain("forged-admin");
   });
 
   test("preserves consecutive blank lines in the GitHub issue body", async () => {

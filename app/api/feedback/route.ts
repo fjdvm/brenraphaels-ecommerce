@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { feedbackEnvironment } from "@/lib/feedback/environment";
+import { resolveFeedbackIdentity } from "@/lib/feedback/identity";
 import { feedbackIssueBody, feedbackReportSchema } from "@/lib/feedback/report";
 
 function fieldErrors(error: z.ZodError) {
@@ -37,7 +39,10 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         title: parsed.data.title,
-        body: feedbackIssueBody(parsed.data),
+        body: feedbackIssueBody(
+          parsed.data,
+          await feedbackEnvironment(parsed.data, request.headers.get("user-agent"), resolveFeedbackIdentity),
+        ),
         labels: ["feedback"],
       }),
     });

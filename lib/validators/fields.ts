@@ -107,6 +107,21 @@ export function multilineTextField(
     );
 }
 
+/** A browser URL captured with a report. It must be an absolute http(s) URL. */
+export function urlField(label: string, maximumLength: number) {
+  return z
+    .string({ error: `${label} is required` })
+    .max(maximumRawLength, `Must be ${maximumLength} characters or fewer`)
+    .transform(cleanText)
+    .pipe(
+      z
+        .string()
+        .max(maximumLength, `Must be ${maximumLength} characters or fewer`)
+        .url(`Enter a valid ${label.toLowerCase()}`)
+        .refine((value) => /^https?:\/\//i.test(value), `Enter a valid ${label.toLowerCase()}`),
+    );
+}
+
 /** Optional name input, with the same casing rules as required name fields. */
 export function optionalNameField(rules: {
   max: number;

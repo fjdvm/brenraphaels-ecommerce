@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { feedbackReportSchema } from "@/lib/feedback/report";
+import { feedbackClientEnvironment } from "@/lib/feedback/client-environment";
 
 type Fields = {
   title: string;
@@ -42,7 +43,7 @@ export function FeedbackForm() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(undefined);
-    const parsed = feedbackReportSchema.safeParse(fields);
+    const parsed = feedbackReportSchema.safeParse({ ...fields, environment: feedbackClientEnvironment() });
     if (!parsed.success) {
       setFieldErrors(parsed.error.flatten().fieldErrors);
       return;
