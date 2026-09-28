@@ -232,4 +232,58 @@ describe("Order", () => {
       { id: order.id, status: "confirmed" },
     ]);
   });
+
+  test("submits payment proof for a confirmed GCash Order and moves it to awaiting payment", async () => {
+    const database = drizzle(client);
+    const cart = createCartStore(database);
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const store = createOrderStore(database);
+    const placed = await store.place("customer-1", {
+      fulfillmentMethod: "pickup",
+      paymentMethod: "gcash",
+    });
+    expect(placed.status).toBe("confirmed");
+
+    const updated = await store.submitPaymentProof("customer-1", placed.id, {
+      gcashReferenceNumber: "1234567890",
+      screenshotPathname: "payment-proofs/1/receipt.png",
+    });
+
+    expect(updated).toMatchObject({
+      status: "awaiting payment",
+      paymentProof: {
+        gcashReferenceNumber: "1234567890",
+        screenshotPathname: "payment-proofs/1/receipt.png",
+      },
+    });
+    await expect(store.advance(placed.id, { status: "paid" })).resolves.toMatchObject({ status: "paid" });
+  });
+
+  test("only accepts payment proof for a confirmed GCash Order belonging to the Customer", async () => {
+    const database = drizzle(client);
+    const cart = createCartStore(database);
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const store = createOrderStore(database);
+    const codOrder = await store.place("customer-1", {
+      fulfillmentMethod: "pickup",
+      paymentMethod: "cash-on-delivery",
+    });
+    await expect(store.submitPaymentProof("customer-1", codOrder.id, {
+      gcashReferenceNumber: "1234567890",
+    })).rejects.toThrow("can only be submitted for a GCash Order");
+
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const gcashOrder = await store.place("customer-1", {
+      fulfillmentMethod: "pickup",
+      paymentMethod: "gcash",
+    });
+    await expect(store.submitPaymentProof("someone-else", gcashOrder.id, {
+      gcashReferenceNumber: "1234567890",
+    })).rejects.toThrow("was not found");
+
+    await store.submitPaymentProof("customer-1", gcashOrder.id, { gcashReferenceNumber: "1234567890" });
+    await expect(store.submitPaymentProof("customer-1", gcashOrder.id, {
+      gcashReferenceNumber: "0987654321",
+    })).rejects.toThrow("can only be submitted once");
+  });
 });

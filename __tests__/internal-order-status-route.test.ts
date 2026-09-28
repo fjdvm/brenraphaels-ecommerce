@@ -1,15 +1,24 @@
 import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 
-const { advance, createOrderStore, customerEmailForOrder, getDatabase, sendOrderConfirmedEmail } = vi.hoisted(() => ({
+const {
+  advance,
+  createOrderStore,
+  customerEmailForOrder,
+  getDatabase,
+  sendOrderConfirmedEmail,
+  sendOrderPaidEmail,
+} = vi.hoisted(() => ({
   advance: vi.fn(),
   createOrderStore: vi.fn(() => ({ advance, customerEmailForOrder })),
   customerEmailForOrder: vi.fn(),
   getDatabase: vi.fn(),
   sendOrderConfirmedEmail: vi.fn(),
+  sendOrderPaidEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ getDatabase }));
 vi.mock("@/lib/email/order-confirmed-email", () => ({ sendOrderConfirmedEmail }));
+vi.mock("@/lib/email/order-paid-email", () => ({ sendOrderPaidEmail }));
 vi.mock("@/lib/orders/orders", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/orders/orders")>()),
   createOrderStore,
@@ -32,6 +41,7 @@ beforeEach(() => {
   });
   customerEmailForOrder.mockReset().mockResolvedValue("jane@example.com");
   sendOrderConfirmedEmail.mockReset().mockResolvedValue(undefined);
+  sendOrderPaidEmail.mockReset().mockResolvedValue(undefined);
   createOrderStore.mockClear();
   getDatabase.mockClear();
 });
@@ -59,6 +69,26 @@ describe("POST /api/internal/orders/[id]/status", () => {
       deliveryFeeInCentavos: 8000,
       subtotalInCentavos: 21900,
     }));
+  });
+
+  test("emails the Customer once staff mark a GCash Order paid", async () => {
+    advance.mockResolvedValue({
+      id: 12,
+      status: "paid",
+      fulfillmentMethod: "pickup",
+      deliveryFeeInCentavos: null,
+      subtotalInCentavos: 21900,
+    });
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "paid" }),
+      headers: { "Authorization": "Bearer test-secret", "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    expect((await post(request, context)).status).toBe(200);
+    expect(customerEmailForOrder).toHaveBeenCalledWith(12);
+    expect(sendOrderPaidEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12, status: "paid" }));
+    expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
   });
 
   test("rejects a missing or invalid shared secret before advancing the Order", async () => {

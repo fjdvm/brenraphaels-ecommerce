@@ -39,6 +39,13 @@ export type DeliveryAddress = {
   country: string;
 };
 
+/** A GCash reference number, and optionally a screenshot, submitted as evidence of payment. */
+export type PaymentProof = {
+  gcashReferenceNumber: string;
+  screenshotPathname: string | null;
+  submittedAt: Date;
+};
+
 export type Order = {
   id: number;
   fulfillmentMethod: FulfillmentMethod;
@@ -50,6 +57,8 @@ export type Order = {
   createdAt: Date;
   lines: OrderLine[];
   deliveryAddress: DeliveryAddress | null;
+  // Only ever set for a GCash Order, once the Customer submits it.
+  paymentProof: PaymentProof | null;
 };
 
 export type PlaceOrderInput = {
@@ -57,6 +66,11 @@ export type PlaceOrderInput = {
   paymentMethod: PaymentMethod;
   /** Required for Delivery and ignored for Pickup. */
   addressId?: number;
+};
+
+export type SubmitPaymentProofInput = {
+  gcashReferenceNumber: string;
+  screenshotPathname?: string;
 };
 
 export type OrderStore = {
@@ -70,6 +84,11 @@ export type OrderStore = {
     input: { status: OrderStatus; deliveryFeeInCentavos?: number },
   ): Promise<Order>;
   customerEmailForOrder(orderId: number): Promise<string | undefined>;
+  submitPaymentProof(
+    customerId: string,
+    orderId: number,
+    input: SubmitPaymentProofInput,
+  ): Promise<Order>;
 };
 
 export type OrderMailer = {
@@ -140,6 +159,13 @@ export function createOrderStore<
       createdAt: row.createdAt,
       lines,
       deliveryAddress: await deliveryAddressForOrder(row.id),
+      paymentProof: row.gcashReferenceNumber === null || row.paymentProofSubmittedAt === null
+        ? null
+        : {
+          gcashReferenceNumber: row.gcashReferenceNumber,
+          screenshotPathname: row.paymentProofScreenshotPathname,
+          submittedAt: row.paymentProofSubmittedAt,
+        },
     };
   }
 
@@ -207,6 +233,44 @@ export function createOrderStore<
       .where(and(eq(orders.id, orderId), eq(orders.status, currentStatus)))
       .returning();
     if (!updatedOrder) throw new Error("Order status changed before it could be advanced.");
+
+    return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
+  }
+
+  /**
+   * Records the Customer's GCash reference number (and optional screenshot)
+   * and moves the Order from `confirmed` to `awaiting payment`. Staff verify
+   * it and mark the Order `paid` later, via the internal endpoint.
+   */
+  async function submitPaymentProof(
+    customerId: string,
+    orderId: number,
+    input: SubmitPaymentProofInput,
+  ): Promise<Order> {
+    const [persistedOrder] = await db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.id, orderId), eq(orders.customerId, customerId)));
+    if (!persistedOrder) throw new Error("Order was not found.");
+    if (persistedOrder.paymentMethod !== "gcash") {
+      throw new Error("Payment proof can only be submitted for a GCash Order.");
+    }
+    if (persistedOrder.status !== "confirmed") {
+      throw new Error("Payment proof can only be submitted once for a confirmed Order.");
+    }
+
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({
+        status: "awaiting payment",
+        gcashReferenceNumber: input.gcashReferenceNumber,
+        paymentProofScreenshotPathname: input.screenshotPathname ?? null,
+        paymentProofSubmittedAt: new Date(),
+      })
+      // Keep a concurrent submission from overwriting one that just landed.
+      .where(and(eq(orders.id, orderId), eq(orders.status, "confirmed")))
+      .returning();
+    if (!updatedOrder) throw new Error("Order status changed before payment proof could be submitted.");
 
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
   }
@@ -294,6 +358,7 @@ export function createOrderStore<
         deliveryFeeInCentavos: order.deliveryFeeInCentavos,
         createdAt: order.createdAt,
         deliveryAddress,
+        paymentProof: null,
         lines: cart.lines.map(({ productName, sizeLabel, priceInCentavos, quantity }) => ({
           productName,
           sizeLabel,
@@ -304,5 +369,5 @@ export function createOrderStore<
     });
   }
 
-  return { place, listForCustomer, advance, customerEmailForOrder };
+  return { place, listForCustomer, advance, customerEmailForOrder, submitPaymentProof };
 }

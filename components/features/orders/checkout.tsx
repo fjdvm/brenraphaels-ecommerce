@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { formatPeso } from "@/lib/catalog/currency";
 import type { CustomerAddress } from "@/lib/customer/visitor";
 import type { Cart } from "@/lib/orders/cart";
+import type { PaymentMethod } from "@/lib/orders/orders";
 
 const initialAddressState: CheckoutAddressState = {};
 
@@ -43,6 +44,7 @@ export function CheckoutView({
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string>();
   const [fulfillmentMethod, setFulfillmentMethod] = useState<"pickup" | "delivery">("pickup");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash-on-delivery");
   const [addressId, setAddressId] = useState<number | undefined>(
     addresses.find((address) => address.isDefault)?.id ?? addresses[0]?.id,
   );
@@ -53,7 +55,7 @@ export function CheckoutView({
       try {
         await placeOrder({
           fulfillmentMethod,
-          paymentMethod: "cash-on-delivery",
+          paymentMethod,
           addressId,
         });
         router.push("/profile/orders");
@@ -97,15 +99,25 @@ export function CheckoutView({
                 <Choice checked={fulfillmentMethod === "delivery"} description="Have your Order delivered to one of your saved Addresses." label="Delivery" name="fulfillment" onChange={() => setFulfillmentMethod("delivery")} value="delivery" />
               </fieldset>
               {fulfillmentMethod === "delivery" ? <DeliveryAddressChoice addresses={addresses} addressId={addressId} onAddressIdChange={setAddressId} provinces={provinces} /> : null}
-              <dl className="mt-4 rounded-md border border-outline-variant/60 p-5">
-                <dt className="text-sm font-semibold text-on-surface-variant">Payment method</dt>
-                <dd className="mt-1 font-semibold text-primary">Cash on Delivery</dd>
-                <p className="mt-1 text-sm text-on-surface-variant">
-                  {fulfillmentMethod === "pickup"
-                    ? "Pay cash when you collect your Order."
-                    : "Pay cash when your Order is delivered."}
-                </p>
-              </dl>
+              <fieldset className="mt-4 space-y-3 rounded-md border border-outline-variant/60 p-5">
+                <legend className="font-semibold text-on-surface">Payment method</legend>
+                <Choice
+                  checked={paymentMethod === "cash-on-delivery"}
+                  description={fulfillmentMethod === "pickup" ? "Pay cash when you collect your Order." : "Pay cash when your Order is delivered."}
+                  label="Cash on Delivery"
+                  name="payment"
+                  onChange={() => setPaymentMethod("cash-on-delivery")}
+                  value="cash-on-delivery"
+                />
+                <Choice
+                  checked={paymentMethod === "gcash"}
+                  description="Once your Order is confirmed, submit your GCash reference number from order-history."
+                  label="GCash"
+                  name="payment"
+                  onChange={() => setPaymentMethod("gcash")}
+                  value="gcash"
+                />
+              </fieldset>
             </section>
           </div>
           {message && <p role="alert" className="mt-6 font-semibold text-secondary">{message}</p>}

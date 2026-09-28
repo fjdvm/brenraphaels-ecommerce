@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AccountEmptyState } from "@/components/features/customer/account-empty-state";
+import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { formatPeso } from "@/lib/catalog/currency";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
@@ -47,6 +48,15 @@ export default async function OrdersPage() {
             ) : (
               <p className="mt-1 text-right font-bold text-primary">Total: {formatPeso(order.subtotalInCentavos + (order.deliveryFeeInCentavos ?? 0))}</p>
             )}
+            {order.paymentMethod === "gcash" && order.status === "confirmed" ? (
+              <PaymentProofForm orderId={order.id} />
+            ) : null}
+            {order.paymentProof ? (
+              <p className="mt-4 text-sm text-on-surface-variant">
+                GCash reference {order.paymentProof.gcashReferenceNumber} submitted.
+                {order.status === "awaiting payment" ? " We'll email you once it's verified." : null}
+              </p>
+            ) : null}
           </article>
         ))}
       </div>

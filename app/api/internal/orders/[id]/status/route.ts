@@ -1,5 +1,6 @@
 import { getDatabase } from "@/lib/db";
 import { sendOrderConfirmedEmail } from "@/lib/email/order-confirmed-email";
+import { sendOrderPaidEmail } from "@/lib/email/order-paid-email";
 import { verifyInternalOrderStatusUpdate } from "@/lib/orders/internal-status";
 import { createOrderStore } from "@/lib/orders/orders";
 
@@ -30,6 +31,16 @@ export async function POST(
           await sendOrderConfirmedEmail(recipient, order);
         } catch (error) {
           console.error("Order-confirmed email could not be sent", error);
+        }
+      }
+    }
+    if (order.status === "paid") {
+      const recipient = await orderStore.customerEmailForOrder(order.id);
+      if (recipient) {
+        try {
+          await sendOrderPaidEmail(recipient, order);
+        } catch (error) {
+          console.error("Order-paid email could not be sent", error);
         }
       }
     }
