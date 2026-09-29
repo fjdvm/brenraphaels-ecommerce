@@ -26,10 +26,12 @@ async function SessionNavAsync({ className }: { className: string }) {
   return <SessionNav visitor={visitor} className={className} />;
 }
 
+/** Mirrors SessionNav's cart icon plus profile-icon/"Sign in" slot so the header doesn't reflow once resolved. */
 function SessionNavFallback({ className }: { className: string }) {
   return (
-    <div className={className}>
-      <Skeleton className="size-5 rounded-full" />
+    <div className={className} aria-hidden="true">
+      <Skeleton className="size-5 shrink-0 rounded-full" />
+      <Skeleton className="h-4 w-14" />
     </div>
   );
 }
