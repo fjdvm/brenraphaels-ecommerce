@@ -13,6 +13,7 @@ describe("The Customer sidebar navigation", () => {
 
     expect(markup).toContain('href="/products"');
     expect(markup).toContain('href="/profile/orders"');
+    expect(markup).toContain('href="/support"');
     expect(markup).toContain('href="/cart"');
     expect(markup).toContain('href="/profile/addresses"');
     expect(markup).toContain('href="/profile/notifications"');

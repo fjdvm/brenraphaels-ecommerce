@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { cleanEmail, cleanMultilineText, cleanName, cleanPhone, cleanText } from "./sanitize";
+import { cleanEmail, cleanMultilineText, cleanName, cleanPhone, cleanText, hasInvisibleCharacters } from "./sanitize";
 
 /** Stops absurdly large input before it is sanitised; specific limits follow. */
 const maximumRawLength = 10_000;
@@ -21,11 +21,15 @@ export const emailField = z
 
 export function textField(
   label: string,
-  rules: { min: number; max: number; pattern: RegExp; patternMessage: string },
+  rules: { min: number; max: number; pattern: RegExp; patternMessage: string; rejectInvisible?: boolean },
 ) {
   return z
     .string({ error: `${label} is required` })
     .max(maximumRawLength, `Must be ${rules.max} characters or fewer`)
+    .refine(
+      (value) => !rules.rejectInvisible || !hasInvisibleCharacters(value),
+      "Enter text without invisible characters",
+    )
     .transform(cleanText)
     .pipe(
       z
@@ -205,6 +209,25 @@ export function positiveIntegerField(
     .regex(/^[1-9][0-9]*$/, message)
     .transform(Number)
     .pipe(z.number().int().min(minimum, message).max(maximum, message));
+}
+
+/** Optional positive whole-number field: absent, null, or blank becomes undefined. */
+export function optionalPositiveIntegerField(
+  label: string,
+  rules: { min?: number; max?: number; message?: string } = {},
+) {
+  const minimum = rules.min ?? 1;
+  const maximum = rules.max ?? Number.MAX_SAFE_INTEGER;
+  const message = rules.message ?? `Enter a valid ${label.toLowerCase()}`;
+  const required = positiveIntegerField(label, rules);
+  return z.union([
+    required,
+    z.number().int(message).min(minimum, message).max(maximum, message),
+    z.literal(""),
+    z.null(),
+  ], { error: message }).optional().transform((value) =>
+    value === "" || value == null ? undefined : value,
+  );
 }
 
 type PasswordPair = { password: string; confirmPassword: string };

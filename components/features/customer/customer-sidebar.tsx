@@ -10,6 +10,7 @@ import {
   Settings,
   ShoppingCart,
   Store,
+  MessageCircleQuestion,
 } from "lucide-react";
 
 import { signOut } from "@/app/actions";
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 const items = [
   { href: "/products", label: "Shop", icon: Store },
   { href: "/profile/orders", label: "My orders", icon: Package },
+  { href: "/support", label: "Support", icon: MessageCircleQuestion },
   { href: "/cart", label: "My cart", icon: ShoppingCart },
   { href: "/profile/addresses", label: "Addresses", icon: MapPin },
   { href: "/profile/notifications", label: "Notifications", icon: Bell },

@@ -1,0 +1,65 @@
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+const { createTicketStore, getDatabase, open, revalidatePath, requireCustomer } = vi.hoisted(() => ({
+  createTicketStore: vi.fn(() => ({ open })),
+  getDatabase: vi.fn(),
+  open: vi.fn(),
+  revalidatePath: vi.fn(),
+  requireCustomer: vi.fn(),
+}));
+
+vi.mock("@/lib/customer/current-visitor", () => ({ requireCustomer }));
+vi.mock("@/lib/db", () => ({ getDatabase }));
+vi.mock("@/lib/support/tickets", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/support/tickets")>()),
+  createTicketStore,
+}));
+vi.mock("next/cache", () => ({ revalidatePath }));
+
+import { createTicket } from "@/app/(site)/(protected)/support/actions";
+
+function ticketFormData() {
+  const formData = new FormData();
+  formData.set("subject", "My Delivery has not arrived");
+  formData.set("category", "Delivery Issue");
+  formData.set("orderId", "12");
+  formData.set("body", "It was expected yesterday.");
+  return formData;
+}
+
+describe("Ticket actions", () => {
+  beforeEach(() => {
+    createTicketStore.mockReset().mockReturnValue({ open });
+    getDatabase.mockReset();
+    open.mockReset().mockResolvedValue({ id: 1 });
+    revalidatePath.mockReset();
+    requireCustomer.mockReset().mockResolvedValue({ userId: "customer-1" });
+  });
+
+  test("opens a Customer Ticket and refreshes Support", async () => {
+    await expect(createTicket({}, ticketFormData())).resolves.toEqual({ created: true });
+
+    expect(open).toHaveBeenCalledWith("customer-1", {
+      subject: "My Delivery has not arrived",
+      category: "Delivery Issue",
+      orderId: 12,
+      body: "It was expected yesterday.",
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/support");
+  });
+
+  test("returns validation errors before authenticating or opening a Ticket", async () => {
+    const formData = ticketFormData();
+    formData.set("category", "Unknown");
+    formData.set("orderId", "12.5");
+
+    await expect(createTicket({}, formData)).resolves.toEqual({
+      fieldErrors: {
+        category: ["Choose a valid category"],
+        orderId: ["Enter a valid order id"],
+      },
+    });
+    expect(requireCustomer).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+  });
+});

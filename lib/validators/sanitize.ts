@@ -1,6 +1,7 @@
 const whitespace = /\s+/g;
 // Control characters plus invisible formatting ones (zero-width spaces, bidi overrides).
 const invisibleCharacters = /[^\P{Cc}\n]|\p{Cf}/gu;
+const invisibleCharacter = /[^\P{Cc}\n]|\p{Cf}/u;
 const phoneSeparators = /[\s().-]/g;
 
 /** Normalises free text: one Unicode form, single spaces, no invisible characters. */
@@ -10,6 +11,11 @@ export function cleanText(value: string) {
     .replace(whitespace, " ")
     .replace(invisibleCharacters, "")
     .trim();
+}
+
+/** Whether input contains a control or invisible formatting character we reject rather than strip. */
+export function hasInvisibleCharacters(value: string) {
+  return invisibleCharacter.test(value);
 }
 
 /** Normalises free text while keeping intentional line breaks. */

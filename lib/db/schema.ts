@@ -197,6 +197,34 @@ export const orderFeedback = pgTable("order_feedback", {
     .notNull(),
 });
 
+/** A Customer-owned Support request, optionally about one of their Orders. */
+export const tickets = pgTable("tickets", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  customerId: text("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "restrict" }),
+  subject: text("subject").notNull(),
+  category: text("category").notNull(),
+  orderId: integer("order_id").references(() => orders.id, { onDelete: "restrict" }),
+  status: text("status").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+/** An immutable entry in a Ticket's Customer-and-staff message thread. */
+export const ticketMessages = pgTable("ticket_messages", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  ticketId: integer("ticket_id")
+    .notNull()
+    .references(() => tickets.id, { onDelete: "cascade" }),
+  sender: text("sender").notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 /** One row per IP address, holding its most recent submission times so the window truly rolls. */
 export const feedbackRateLimits = pgTable("feedback_rate_limits", {
   ipAddress: text("ip_address").primaryKey(),
