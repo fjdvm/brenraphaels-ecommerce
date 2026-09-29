@@ -5,7 +5,8 @@ import { z } from "zod";
 
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
-import { createTicketStore, ticketInput } from "@/lib/support/tickets";
+import { sendTicketCreatedEmail } from "@/lib/email/ticket-created-email";
+import { createTicketStore, openTicketAndNotify, ticketInput } from "@/lib/support/tickets";
 import { ticketMessageInput } from "@/lib/support/ticket-message";
 import { positiveIntegerField } from "@/lib/validators/fields";
 
@@ -43,7 +44,10 @@ export async function createTicket(
 
   const customer = await requireCustomer();
   try {
-    await createTicketStore(getDatabase()).open(customer.userId, parsed.data);
+    await openTicketAndNotify(customer.userId, customer.email, parsed.data, {
+      ticketStore: createTicketStore(getDatabase()),
+      mailer: { send: sendTicketCreatedEmail },
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "Order was not found.") {
       return { fieldErrors: { orderId: ["Choose one of your Orders"] } };

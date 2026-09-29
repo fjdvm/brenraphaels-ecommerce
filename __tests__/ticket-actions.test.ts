@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { addMessage, close, createTicketStore, getDatabase, open, reopen, revalidatePath, requireCustomer } = vi.hoisted(() => ({
+const { sendTicketCreatedEmail, addMessage, close, createTicketStore, getDatabase, open, reopen, revalidatePath, requireCustomer } = vi.hoisted(() => ({
+  sendTicketCreatedEmail: vi.fn(),
   addMessage: vi.fn(),
   close: vi.fn(),
   createTicketStore: vi.fn(() => ({ addMessage, close, open, reopen })),
@@ -12,6 +13,7 @@ const { addMessage, close, createTicketStore, getDatabase, open, reopen, revalid
 }));
 
 vi.mock("@/lib/customer/current-visitor", () => ({ requireCustomer }));
+vi.mock("@/lib/email/ticket-created-email", () => ({ sendTicketCreatedEmail }));
 vi.mock("@/lib/db", () => ({ getDatabase }));
 vi.mock("@/lib/support/tickets", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/support/tickets")>()),
@@ -39,7 +41,8 @@ describe("Ticket actions", () => {
     open.mockReset().mockResolvedValue({ id: 1 });
     reopen.mockReset().mockResolvedValue({ id: 12, status: "open" });
     revalidatePath.mockReset();
-    requireCustomer.mockReset().mockResolvedValue({ userId: "customer-1" });
+    sendTicketCreatedEmail.mockReset().mockResolvedValue(undefined);
+    requireCustomer.mockReset().mockResolvedValue({ userId: "customer-1", email: "jane@example.com" });
   });
 
   test("opens a Customer Ticket and refreshes Support", async () => {
@@ -52,6 +55,12 @@ describe("Ticket actions", () => {
       body: "It was expected yesterday.",
     });
     expect(revalidatePath).toHaveBeenCalledWith("/support");
+  });
+
+  test("sends the Ticket-created email to the Customer's account address", async () => {
+    await createTicket({}, ticketFormData());
+
+    expect(sendTicketCreatedEmail).toHaveBeenCalledWith("jane@example.com", { id: 1 });
   });
 
   test("returns validation errors before authenticating or opening a Ticket", async () => {

@@ -1,10 +1,10 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { customers, orders } from "../lib/db/schema";
-import { createTicketStore } from "../lib/support/tickets";
+import { createTicketStore, openTicketAndNotify } from "../lib/support/tickets";
 
 let client: PGlite;
 
@@ -159,5 +159,36 @@ describe("Ticket store", () => {
       category: "Other",
       body: "",
     })).rejects.toThrow("Message is required");
+  });
+});
+
+describe("openTicketAndNotify", () => {
+  const input = { subject: "Where is my Order", category: "Order Issue", body: "Please help." } as const;
+
+  test("emails the Customer the opened Ticket", async () => {
+    const database = drizzle(client);
+    const mailer = { send: vi.fn().mockResolvedValue(undefined) };
+
+    const ticket = await openTicketAndNotify("customer-1", "jane@example.com", input, {
+      ticketStore: createTicketStore(database),
+      mailer,
+    });
+
+    expect(mailer.send).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: ticket.id, subject: "Where is my Order" }));
+  });
+
+  test("still opens the Ticket when the email cannot be sent", async () => {
+    const database = drizzle(client);
+    const mailer = { send: vi.fn().mockRejectedValue(new Error("Brevo down")) };
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const ticket = await openTicketAndNotify("customer-1", "jane@example.com", input, {
+      ticketStore: createTicketStore(database),
+      mailer,
+    });
+
+    expect(mailer.send).toHaveBeenCalled();
+    consoleError.mockRestore();
+    await expect(createTicketStore(database).listForCustomer("customer-1")).resolves.toMatchObject([{ id: ticket.id }]);
   });
 });

@@ -57,6 +57,30 @@ export type TicketStore = {
   reopen(ticketId: number, customerId: string): Promise<Ticket>;
 };
 
+export type TicketMailer = {
+  send(recipientEmail: string, ticket: Ticket): Promise<void>;
+};
+
+/**
+ * Opens the Ticket and then notifies the Customer. The Ticket is already
+ * persisted by the time the email is sent, so a failed confirmation email must
+ * not be reported as a failed Ticket.
+ */
+export async function openTicketAndNotify(
+  customerId: string,
+  recipientEmail: string,
+  input: OpenTicketInput,
+  dependencies: { ticketStore: TicketStore; mailer: TicketMailer },
+): Promise<Ticket> {
+  const ticket = await dependencies.ticketStore.open(customerId, input);
+  try {
+    await dependencies.mailer.send(recipientEmail, ticket);
+  } catch (error) {
+    console.error("Ticket-created email could not be sent", error);
+  }
+  return ticket;
+}
+
 /** Stores and retrieves Tickets only through their owning Customer. */
 export function createTicketStore<
   TQueryResult extends PgQueryResultHKT,
