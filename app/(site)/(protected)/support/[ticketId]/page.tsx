@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
+import { TicketDetailSkeleton } from "@/components/features/support/skeletons";
 import { TicketThread } from "@/components/features/support/ticket-thread";
 import { Button } from "@/components/ui/button";
 import { closeTicket, reopenTicket } from "@/app/(site)/(protected)/support/actions";
@@ -13,8 +15,8 @@ import { positiveIntegerField } from "@/lib/validators/fields";
 export const metadata: Metadata = { title: "Support Ticket" };
 export const dynamic = "force-dynamic";
 
-/** Shows one Customer-owned Ticket and its Message thread. */
-export default async function TicketDetailPage({ params }: PageProps<"/support/[ticketId]">) {
+/** Streams in one Customer-owned Ticket and its Message thread. */
+async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]">["params"] }) {
   const { ticketId: ticketIdParam } = await params;
   const ticketId = positiveIntegerField("Ticket ID").safeParse(ticketIdParam);
   if (!ticketId.success) notFound();
@@ -35,8 +37,7 @@ export default async function TicketDetailPage({ params }: PageProps<"/support/[
   }
 
   return (
-    <section>
-      <Link className="text-sm font-semibold text-primary underline" href="/support">Back to Support</Link>
+    <>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm text-on-surface-variant">{ticket.category}</p>
@@ -56,6 +57,18 @@ export default async function TicketDetailPage({ params }: PageProps<"/support/[
         </div>
       </div>
       <TicketThread ticketId={ticket.id} messages={ticket.messages} />
+    </>
+  );
+}
+
+/** Renders the back link instantly; the Ticket streams in behind a skeleton. */
+export default function TicketDetailPage({ params }: PageProps<"/support/[ticketId]">) {
+  return (
+    <section>
+      <Link className="text-sm font-semibold text-primary underline" href="/support">Back to Support</Link>
+      <Suspense fallback={<TicketDetailSkeleton />}>
+        <TicketDetail params={params} />
+      </Suspense>
     </section>
   );
 }
