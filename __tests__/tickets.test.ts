@@ -319,3 +319,32 @@ describe("Ticket store realtime publishing", () => {
     error.mockRestore();
   });
 });
+
+describe("Ticket store realtime publishing under load", () => {
+  test("publishes each Message it inserted even when two are sent at once", async () => {
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const store = createTicketStore(drizzle(client), { publish });
+    const opened = await store.open("customer-1", { subject: "Two tabs", category: "Other", body: "Opening." });
+    publish.mockClear();
+
+    await Promise.all([
+      store.addMessage(opened.id, "customer-1", { body: "From tab one" }),
+      store.addMessage(opened.id, "customer-1", { body: "From tab two" }),
+    ]);
+
+    const published = publish.mock.calls.map(([event]) => event.message.body).sort();
+    expect(published).toEqual(["From tab one", "From tab two"]);
+  });
+
+  test("does not wait on a publisher that never answers", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const store = createTicketStore(drizzle(client), { publish: () => new Promise(() => undefined) });
+
+    await expect(
+      store.open("customer-1", { subject: "Slow", category: "Other", body: "Opening." }),
+    ).resolves.toMatchObject({ subject: "Slow" });
+
+    expect(error).toHaveBeenCalledWith("Ticket event could not be published", expect.any(Error));
+    error.mockRestore();
+  });
+});

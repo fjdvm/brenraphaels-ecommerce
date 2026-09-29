@@ -31,6 +31,8 @@ export type TicketStatusState = {
   reopened?: boolean;
 };
 
+const ticketStore = () => createTicketStore(getDatabase(), { publish: publishTicketEvent });
+
 const attachmentUnavailable = "Image uploads aren't available right now. Send your Message without one, or try again later.";
 
 /** Reads the optional single image from the form; `error` is a clear message for the form. */
@@ -83,7 +85,7 @@ export async function createTicket(
       customer.userId,
       customer.email,
       parsed.data,
-      { ticketStore: createTicketStore(getDatabase(), { publish: publishTicketEvent }), mailer: { send: sendTicketCreatedEmail } },
+      { ticketStore: ticketStore(), mailer: { send: sendTicketCreatedEmail } },
       file ? (ticketId) => uploadAttachment(file, ticketId) : undefined,
     );
   } catch (error) {
@@ -124,7 +126,7 @@ export async function sendMessage(
 
   const customer = await requireCustomer();
   try {
-    const store = createTicketStore(getDatabase(), { publish: publishTicketEvent });
+    const store = ticketStore();
     if (!(await store.get(ticketId, customer.userId))) throw new Error("Ticket was not found.");
     const attachmentPathname = attachment.file ? await uploadAttachment(attachment.file, ticketId) : undefined;
     await store.addMessage(ticketId, customer.userId, parsed.data, attachmentPathname);

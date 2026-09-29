@@ -20,22 +20,20 @@ export function TicketThread({ ticketId, messages: savedMessages }: { ticketId: 
   const [liveMessages, setLiveMessages] = useState<TicketMessage[]>([]);
   const messages = useMemo(() => {
     const savedIds = new Set(savedMessages.map((saved) => saved.id));
-    return [...savedMessages, ...liveMessages.filter((live) => !savedIds.has(live.id))];
+    return [...savedMessages, ...liveMessages.filter((live) => !savedIds.has(live.id)).sort((a, b) => a.id - b.id)];
   }, [savedMessages, liveMessages]);
 
   useEffect(() => {
     const events = new EventSource(`/api/support/tickets/${ticketId}/events`);
-    let interrupted = false;
-    events.onopen = () => {
-      // Messages sent while the stream was down were never pushed, so reload the saved thread.
-      if (interrupted) router.refresh();
-      interrupted = false;
-    };
-    events.onerror = () => {
-      interrupted = true;
-    };
+    // Events are not replayed, so whatever was sent before this stream (re)connected is reloaded from the saved thread.
+    events.onopen = () => router.refresh();
     events.onmessage = (event) => {
-      const payload = JSON.parse(event.data) as TicketEventPayload;
+      let payload: TicketEventPayload;
+      try {
+        payload = JSON.parse(event.data) as TicketEventPayload;
+      } catch {
+        return;
+      }
       const live: TicketMessage = { ...payload.message, createdAt: new Date(payload.message.createdAt) };
       setLiveMessages((current) => (current.some((existing) => existing.id === live.id) ? current : [...current, live]));
       // The header status and the Close/Reopen control come from the saved Ticket.
