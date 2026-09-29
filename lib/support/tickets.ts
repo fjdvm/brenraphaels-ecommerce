@@ -53,6 +53,8 @@ export type TicketStore = {
   listForCustomer(customerId: string): Promise<Ticket[]>;
   get(ticketId: number, customerId: string): Promise<Ticket | undefined>;
   addMessage(ticketId: number, customerId: string, input: { body: unknown }): Promise<Ticket>;
+  close(ticketId: number, customerId: string): Promise<Ticket>;
+  reopen(ticketId: number, customerId: string): Promise<Ticket>;
 };
 
 /** Stores and retrieves Tickets only through their owning Customer. */
@@ -134,5 +136,19 @@ export function createTicketStore<
     return (await get(ticketId, customerId))!;
   }
 
-  return { open, listForCustomer, get, addMessage };
+  async function close(ticketId: number, customerId: string): Promise<Ticket> {
+    const ticket = await get(ticketId, customerId);
+    if (!ticket) throw new Error("Ticket was not found.");
+    await db.update(tickets).set({ status: "closed" }).where(and(eq(tickets.id, ticketId), eq(tickets.customerId, customerId)));
+    return (await get(ticketId, customerId))!;
+  }
+
+  async function reopen(ticketId: number, customerId: string): Promise<Ticket> {
+    const ticket = await get(ticketId, customerId);
+    if (!ticket) throw new Error("Ticket was not found.");
+    await db.update(tickets).set({ status: "open" }).where(and(eq(tickets.id, ticketId), eq(tickets.customerId, customerId)));
+    return (await get(ticketId, customerId))!;
+  }
+
+  return { open, listForCustomer, get, addMessage, close, reopen };
 }

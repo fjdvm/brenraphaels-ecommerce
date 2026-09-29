@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { TicketThread } from "@/components/features/support/ticket-thread";
+import { Button } from "@/components/ui/button";
+import { closeTicket, reopenTicket } from "@/app/(site)/(protected)/support/actions";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { createTicketStore } from "@/lib/support/tickets";
@@ -20,6 +22,17 @@ export default async function TicketDetailPage({ params }: PageProps<"/support/[
   const customer = await requireCustomer();
   const ticket = await createTicketStore(getDatabase()).get(ticketId.data, customer.userId);
   if (!ticket) notFound();
+  const currentTicketId = ticket.id;
+
+  async function close() {
+    "use server";
+    await closeTicket(currentTicketId);
+  }
+
+  async function reopen() {
+    "use server";
+    await reopenTicket(currentTicketId);
+  }
 
   return (
     <section>
@@ -29,7 +42,18 @@ export default async function TicketDetailPage({ params }: PageProps<"/support/[
           <p className="text-sm text-on-surface-variant">{ticket.category}</p>
           <h2 className="font-serif text-3xl text-primary">{ticket.subject}</h2>
         </div>
-        <span className="rounded-full bg-primary-fixed px-3 py-1 text-sm font-semibold text-primary">{ticket.status}</span>
+        <div className="flex items-center gap-3">
+          <span className="rounded-full bg-primary-fixed px-3 py-1 text-sm font-semibold text-primary">{ticket.status}</span>
+          {ticket.status === "open" ? (
+            <form action={close}>
+              <Button type="submit" variant="outline">Close Ticket</Button>
+            </form>
+          ) : ticket.status === "closed" || ticket.status === "resolved" ? (
+            <form action={reopen}>
+              <Button type="submit">Reopen Ticket</Button>
+            </form>
+          ) : null}
+        </div>
       </div>
       <TicketThread ticketId={ticket.id} messages={ticket.messages} />
     </section>

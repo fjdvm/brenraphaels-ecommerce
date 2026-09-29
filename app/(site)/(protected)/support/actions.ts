@@ -21,6 +21,12 @@ export type SendMessageState = {
   sent?: boolean;
 };
 
+export type TicketStatusState = {
+  closed?: boolean;
+  message?: string;
+  reopened?: boolean;
+};
+
 /** Opens a Ticket for the signed-in Customer, then refreshes their Support list. */
 export async function createTicket(
   _previousState: CreateTicketState,
@@ -75,5 +81,50 @@ export async function sendMessage(
   }
 
   revalidatePath(`/support/${ticketId}`);
+  revalidatePath("/support");
   return { sent: true };
+}
+
+/** Closes a Customer-owned Ticket and refreshes its detail and list entries. */
+export async function closeTicket(ticketId: number): Promise<TicketStatusState> {
+  if (!positiveIntegerField("Ticket ID").safeParse(String(ticketId)).success) {
+    return { message: "We couldn't close this Ticket. Please try again." };
+  }
+
+  const customer = await requireCustomer();
+  try {
+    await createTicketStore(getDatabase()).close(ticketId, customer.userId);
+  } catch (error) {
+    if (error instanceof Error && error.message === "Ticket was not found.") {
+      return { message: "This Ticket is no longer available." };
+    }
+    console.error("Closing Ticket failed", error);
+    return { message: "We couldn't close this Ticket. Please try again." };
+  }
+
+  revalidatePath(`/support/${ticketId}`);
+  revalidatePath("/support");
+  return { closed: true };
+}
+
+/** Reopens a Customer-owned Ticket and refreshes its detail and list entries. */
+export async function reopenTicket(ticketId: number): Promise<TicketStatusState> {
+  if (!positiveIntegerField("Ticket ID").safeParse(String(ticketId)).success) {
+    return { message: "We couldn't reopen this Ticket. Please try again." };
+  }
+
+  const customer = await requireCustomer();
+  try {
+    await createTicketStore(getDatabase()).reopen(ticketId, customer.userId);
+  } catch (error) {
+    if (error instanceof Error && error.message === "Ticket was not found.") {
+      return { message: "This Ticket is no longer available." };
+    }
+    console.error("Reopening Ticket failed", error);
+    return { message: "We couldn't reopen this Ticket. Please try again." };
+  }
+
+  revalidatePath(`/support/${ticketId}`);
+  revalidatePath("/support");
+  return { reopened: true };
 }

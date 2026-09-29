@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { addMessage, createTicketStore, getDatabase, open, revalidatePath, requireCustomer } = vi.hoisted(() => ({
+const { addMessage, close, createTicketStore, getDatabase, open, reopen, revalidatePath, requireCustomer } = vi.hoisted(() => ({
   addMessage: vi.fn(),
-  createTicketStore: vi.fn(() => ({ addMessage, open })),
+  close: vi.fn(),
+  createTicketStore: vi.fn(() => ({ addMessage, close, open, reopen })),
   getDatabase: vi.fn(),
   open: vi.fn(),
+  reopen: vi.fn(),
   revalidatePath: vi.fn(),
   requireCustomer: vi.fn(),
 }));
@@ -17,7 +19,7 @@ vi.mock("@/lib/support/tickets", async (importOriginal) => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { createTicket, sendMessage } from "@/app/(site)/(protected)/support/actions";
+import { closeTicket, createTicket, reopenTicket, sendMessage } from "@/app/(site)/(protected)/support/actions";
 
 function ticketFormData() {
   const formData = new FormData();
@@ -30,10 +32,12 @@ function ticketFormData() {
 
 describe("Ticket actions", () => {
   beforeEach(() => {
-    createTicketStore.mockReset().mockReturnValue({ addMessage, open });
+    createTicketStore.mockReset().mockReturnValue({ addMessage, close, open, reopen });
     addMessage.mockReset().mockResolvedValue({ id: 12 });
+    close.mockReset().mockResolvedValue({ id: 12, status: "closed" });
     getDatabase.mockReset();
     open.mockReset().mockResolvedValue({ id: 1 });
+    reopen.mockReset().mockResolvedValue({ id: 12, status: "open" });
     revalidatePath.mockReset();
     requireCustomer.mockReset().mockResolvedValue({ userId: "customer-1" });
   });
@@ -87,5 +91,21 @@ describe("Ticket actions", () => {
 
     expect(requireCustomer).not.toHaveBeenCalled();
     expect(addMessage).not.toHaveBeenCalled();
+  });
+
+  test("closes a Customer-owned Ticket and refreshes its detail and Support list", async () => {
+    await expect(closeTicket(12)).resolves.toEqual({ closed: true });
+
+    expect(close).toHaveBeenCalledWith(12, "customer-1");
+    expect(revalidatePath).toHaveBeenCalledWith("/support/12");
+    expect(revalidatePath).toHaveBeenCalledWith("/support");
+  });
+
+  test("reopens a Customer-owned Ticket and refreshes its detail and Support list", async () => {
+    await expect(reopenTicket(12)).resolves.toEqual({ reopened: true });
+
+    expect(reopen).toHaveBeenCalledWith(12, "customer-1");
+    expect(revalidatePath).toHaveBeenCalledWith("/support/12");
+    expect(revalidatePath).toHaveBeenCalledWith("/support");
   });
 });

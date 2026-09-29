@@ -107,6 +107,21 @@ describe("Ticket store", () => {
     })).rejects.toThrow("Ticket was not found.");
   });
 
+  test("lets a Customer close and reopen their Ticket", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await store.open("customer-1", {
+      subject: "My delivery issue is resolved",
+      category: "Delivery Issue",
+      body: "It arrived today.",
+    });
+
+    await expect(store.close(ticket.id, "customer-1")).resolves.toMatchObject({ status: "closed" });
+    await expect(store.get(ticket.id, "customer-1")).resolves.toMatchObject({ status: "closed" });
+    await expect(store.reopen(ticket.id, "customer-1")).resolves.toMatchObject({ status: "open" });
+    await expect(store.close(ticket.id, "customer-2")).rejects.toThrow("Ticket was not found.");
+    await expect(store.reopen(ticket.id, "customer-2")).rejects.toThrow("Ticket was not found.");
+  });
+
   test("rejects an unowned Order link and invalid Category, Subject, or opening Message", async () => {
     const database = drizzle(client);
     const [otherOrder] = await database.insert(orders).values({
