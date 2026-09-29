@@ -39,7 +39,6 @@ export function TicketThread({ ticketId, messages }: { ticketId: number; message
       }
     }
 
-    formRef.current?.reset();
     setMessage(undefined);
     addOptimisticMessage({
       id: -Date.now(),
@@ -53,6 +52,8 @@ export function TicketThread({ ticketId, messages }: { ticketId: number; message
     if (state.message) setMessage(state.message);
     const fieldError = state.fieldErrors?.body?.[0] ?? state.fieldErrors?.attachment?.[0];
     if (fieldError) setMessage(fieldError);
+    // Keep the Customer's text in the form when the server rejected the Message.
+    if (state.sent) formRef.current?.reset();
   }
 
   return (
