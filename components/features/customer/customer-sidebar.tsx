@@ -31,7 +31,7 @@ export function CustomerSidebar() {
   const ActiveIcon = activeItem?.icon;
 
   return (
-    <aside className="min-w-0">
+    <aside className="min-w-0 lg:w-[13.5rem] lg:mr-12">
       <details className="group rounded-md border border-outline-variant/60 bg-surface-card lg:hidden">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-primary">
           <span className="flex items-center gap-2">

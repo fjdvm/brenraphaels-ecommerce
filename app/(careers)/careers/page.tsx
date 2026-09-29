@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { careersSession } from "@/lib/careers/auth";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
@@ -8,6 +9,7 @@ import { BackLink } from "./_components/back-link";
 import { FilterForm } from "./_components/filter-form";
 import { JobPostingsList } from "./_components/job-postings-list";
 import { SubmitButton } from "./_components/submit-button";
+import { CareersListSkeleton } from "./_components/skeletons";
 
 type CareersPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -30,7 +32,7 @@ function Filter({ label, name, options, selected }: {
   );
 }
 
-export default async function CareersPage({ searchParams }: CareersPageProps) {
+async function CareersPageContent({ searchParams }: CareersPageProps) {
   const query = await searchParams;
   const filters = {
     department: parseJobFilter(query.department),
@@ -45,37 +47,24 @@ export default async function CareersPage({ searchParams }: CareersPageProps) {
   ]);
 
   return (
-    <section className="mx-auto max-w-4xl py-16">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <BackLink href="/" className="text-sm text-on-surface-variant underline">
-          Back
-        </BackLink>
-
-        <div className="flex gap-4">
-          {applicant ? (
-            <>
-              <Link className="bg-primary px-5 py-3 font-semibold text-on-primary" href="/careers/profile">Your profile</Link>
-              <Link className="px-5 py-3 font-semibold text-primary underline" href="/careers/applications">Your Applications</Link>
-            </>
-          ) : (
-            <>
-              <Link className="bg-primary px-5 py-3 font-semibold text-on-primary" href="/careers/signup">
-                Become an Applicant
-              </Link>
-              <Link className="px-5 py-3 font-semibold text-primary underline" href="/careers/signin">
-                Sign in
-              </Link>
-            </>
-          )}
-        </div>
+    <>
+      <div className="flex gap-4">
+        {applicant ? (
+          <>
+            <Link className="bg-primary px-5 py-3 font-semibold text-on-primary" href="/careers/profile">Your profile</Link>
+            <Link className="px-5 py-3 font-semibold text-primary underline" href="/careers/applications">Your Applications</Link>
+          </>
+        ) : (
+          <>
+            <Link className="bg-primary px-5 py-3 font-semibold text-on-primary" href="/careers/signup">
+              Become an Applicant
+            </Link>
+            <Link className="px-5 py-3 font-semibold text-primary underline" href="/careers/signin">
+              Sign in
+            </Link>
+          </>
+        )}
       </div>
-
-      <p className="mt-8 font-serif text-lg text-primary">Bren Raphael&apos;s</p>
-      <h1 className="mt-2 font-serif text-6xl text-primary sm:text-7xl">Career</h1>
-      <p className="mt-5 max-w-xl text-on-surface-variant">
-        Join our small-batch kitchen team and help us bring Bren Raphael&apos;s Ube Jam &amp; Halaya
-        to more homes.
-      </p>
 
       <FilterForm className="mt-10 grid gap-4 border border-outline-variant bg-surface-card p-5 sm:grid-cols-4">
         <Filter label="Department" name="department" options={options.departments} selected={filters.department} />
@@ -90,6 +79,29 @@ export default async function CareersPage({ searchParams }: CareersPageProps) {
       <div className="mt-8">
         <JobPostingsList jobs={postings} isAuthenticated={Boolean(applicant)} />
       </div>
+    </>
+  );
+}
+
+export default function CareersPage(props: CareersPageProps) {
+  return (
+    <section className="mx-auto max-w-4xl py-16">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <BackLink href="/" className="text-sm text-on-surface-variant underline">
+          Back
+        </BackLink>
+      </div>
+
+      <p className="mt-8 font-serif text-lg text-primary">Bren Raphael&apos;s</p>
+      <h1 className="mt-2 font-serif text-6xl text-primary sm:text-7xl">Career</h1>
+      <p className="mt-5 max-w-xl text-on-surface-variant">
+        Join our small-batch kitchen team and help us bring Bren Raphael&apos;s Ube Jam &amp; Halaya
+        to more homes.
+      </p>
+
+      <Suspense fallback={<CareersListSkeleton />}>
+        <CareersPageContent {...props} />
+      </Suspense>
     </section>
   );
 }

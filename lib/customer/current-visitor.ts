@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import {
   completeProfilePath,
@@ -12,12 +13,14 @@ import { getVisitorSession } from "@/lib/neon-auth/server";
 import { classifyVisitor } from "./visitor";
 import { createVisitorStore } from "./visitor-store";
 
-export async function currentVisitor() {
+// Memoized per request: once navigation shell rendering is split into several
+// independent Suspense slots, each would otherwise redo this DB-backed lookup.
+export const currentVisitor = cache(async function currentVisitor() {
   const session = await getVisitorSession();
   return classifyVisitor(session, {
     visitorStore: createVisitorStore(getDatabase()),
   });
-}
+});
 
 async function redirectToSignIn(): Promise<never> {
   const path = (await headers()).get(returnPathHeader);

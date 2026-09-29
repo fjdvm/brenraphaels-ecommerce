@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { careersSession } from "@/lib/careers/auth";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { jobPostingIdField } from "@/lib/validators/application";
+import { CareersDetailSkeleton } from "../_components/skeletons";
 
 type JobPostingPageProps = { params: Promise<{ id: string }> };
 
-export default async function JobPostingPage({ params }: JobPostingPageProps) {
+async function JobPostingPageContent({ params }: JobPostingPageProps) {
   const id = jobPostingIdField.safeParse((await params).id);
   if (!id.success) notFound();
   const [posting, applicant] = await Promise.all([
@@ -33,5 +35,13 @@ export default async function JobPostingPage({ params }: JobPostingPageProps) {
       <section className="mt-8"><h2 className="font-serif text-2xl text-primary">Requirements</h2><p className="mt-3 whitespace-pre-line leading-7 text-on-surface-variant">{posting.requirements}</p></section>
       <section className="mt-8"><h2 className="font-serif text-2xl text-primary">Required Documents</h2><ul className="mt-3 list-disc pl-5 text-on-surface-variant">{posting.requiredDocuments.map((document) => <li key={document}>{document}</li>)}</ul></section>
     </article>
+  );
+}
+
+export default function JobPostingPage(props: JobPostingPageProps) {
+  return (
+    <Suspense fallback={<CareersDetailSkeleton />}>
+      <JobPostingPageContent {...props} />
+    </Suspense>
   );
 }

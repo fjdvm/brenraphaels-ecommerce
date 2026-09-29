@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { ProductDetails } from "@/components/features/catalog/product-details";
 import { ProductGallery } from "@/components/features/catalog/product-gallery";
 import { AddToCart } from "@/components/features/orders/add-to-cart";
+import { Skeleton } from "@/components/ui/skeleton";
 import { createCatalogStore } from "@/lib/catalog/catalog";
 import { formatPeso } from "@/lib/catalog/currency";
 import { parseProductDescription } from "@/lib/catalog/description";
@@ -13,7 +15,24 @@ export const dynamic = "force-dynamic";
 
 type ProductPageProps = { params: Promise<{ slug: string }> };
 
-export default async function ProductPage({ params }: ProductPageProps) {
+/** Skeleton shown immediately while the product and session resolve. */
+function ProductPageSkeleton() {
+  return (
+    <div className="bg-surface">
+      <section className="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:px-8 lg:grid-cols-2 lg:py-20" aria-hidden="true">
+        <Skeleton className="aspect-square w-full" />
+        <div className="lg:pt-4">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="mt-3 h-12 w-3/4" />
+          <Skeleton className="mt-10 h-40 w-full" />
+          <Skeleton className="mt-6 h-12 w-full" />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+async function ProductPageContent({ params }: ProductPageProps) {
   const product = await createCatalogStore(getDatabase()).findProduct((await params).slug);
   if (!product) notFound();
   const visitor = await currentVisitor();
@@ -62,5 +81,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function ProductPage(props: ProductPageProps) {
+  return (
+    <Suspense fallback={<ProductPageSkeleton />}>
+      <ProductPageContent {...props} />
+    </Suspense>
   );
 }

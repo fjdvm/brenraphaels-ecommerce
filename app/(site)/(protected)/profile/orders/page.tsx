@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AccountEmptyState } from "@/components/features/customer/account-empty-state";
 import { CancelOrderForm } from "@/components/features/orders/cancel-order-form";
 import { OrderFeedbackForm } from "@/components/features/orders/order-feedback-form";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatPeso } from "@/lib/catalog/currency";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
@@ -13,7 +15,20 @@ export const metadata: Metadata = { title: "My orders" };
 
 export const dynamic = "force-dynamic";
 
-export default async function OrdersPage() {
+/** Skeleton shown immediately while orders and feedback resolve. */
+function OrdersPageSkeleton() {
+  return (
+    <section aria-hidden="true">
+      <Skeleton className="h-9 w-40" />
+      <div className="mt-6 space-y-5">
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    </section>
+  );
+}
+
+async function OrdersPageContent() {
   const customer = await requireCustomer();
   const orders = await createOrderStore(getDatabase()).listForCustomer(customer.userId);
   const feedbackStore = createOrderFeedbackStore(getDatabase());
@@ -81,5 +96,13 @@ export default async function OrdersPage() {
         ))}
       </div>
     </section>
+  );
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={<OrdersPageSkeleton />}>
+      <OrdersPageContent />
+    </Suspense>
   );
 }

@@ -1,31 +1,28 @@
 "use client";
 
-import { Suspense, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
-import { CustomerSidebar } from "@/components/features/customer/customer-sidebar";
 import { shouldShowCustomerSidebar } from "@/components/features/customer/customer-sidebar-routes";
 
 export { shouldShowCustomerSidebar } from "@/components/features/customer/customer-sidebar-routes";
 
 export function CustomerSidebarShell({
   children,
-  isCustomer,
+  sidebar,
 }: {
   children: ReactNode;
-  isCustomer: boolean;
+  sidebar: ReactNode;
 }) {
   const pathname = usePathname();
 
-  if (!isCustomer || !shouldShowCustomerSidebar(pathname)) {
+  if (!shouldShowCustomerSidebar(pathname)) {
     return children;
   }
 
   return (
-    <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl gap-8 px-5 py-10 sm:px-8 sm:py-14 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:gap-12">
-      <Suspense fallback={null}>
-        <CustomerSidebar />
-      </Suspense>
+    <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl gap-8 px-5 py-10 sm:px-8 sm:py-14 lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-0">
+      <div>{sidebar}</div>
       <div className="min-w-0">{children}</div>
     </div>
   );
