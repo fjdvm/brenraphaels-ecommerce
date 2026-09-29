@@ -6,7 +6,14 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Menu, X } from "lucide-react";
 
-const headerSignOutPaths = new Set(["/", "/about", "/faq", "/contact"]);
+const headerSignOutPaths = new Set([
+  "/",
+  "/about",
+  "/journey",
+  "/vision-mission",
+  "/faq",
+  "/contact",
+]);
 
 export function shouldShowHeaderSignOut(pathname: string) {
   return headerSignOutPaths.has(pathname);

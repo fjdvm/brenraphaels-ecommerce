@@ -4,12 +4,9 @@ import { Suspense, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
 import { CustomerSidebar } from "@/components/features/customer/customer-sidebar";
+import { shouldShowCustomerSidebar } from "@/components/features/customer/customer-sidebar-routes";
 
-const sidebarlessPaths = new Set(["/", "/about", "/faq", "/contact"]);
-
-export function shouldShowCustomerSidebar(pathname: string) {
-  return !sidebarlessPaths.has(pathname);
-}
+export { shouldShowCustomerSidebar } from "@/components/features/customer/customer-sidebar-routes";
 
 export function CustomerSidebarShell({
   children,

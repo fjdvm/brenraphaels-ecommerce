@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { shouldShowCustomerSidebar } from "../components/features/customer/customer-sidebar-shell";
+import { shouldShowCustomerSidebar } from "../components/features/customer/customer-sidebar-routes";
 
 describe("Customer sidebar shell", () => {
-  test.each(["/", "/about", "/faq", "/contact"])(
+  test.each(["/", "/about", "/journey", "/vision-mission", "/faq", "/contact"])(
     "hides the sidebar on %s",
     (pathname) => {
       expect(shouldShowCustomerSidebar(pathname)).toBe(false);
