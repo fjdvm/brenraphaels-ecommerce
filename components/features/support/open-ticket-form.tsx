@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { Check } from "lucide-react";
+import { useActionState, useState } from "react";
 
 import { createTicket, type CreateTicketState } from "@/app/(site)/(protected)/support/actions";
 import { Button } from "@/components/ui/button";
@@ -13,10 +14,38 @@ const initialState: CreateTicketState = {};
 
 /** Lets a Customer open one Support Ticket, optionally linked to one of their Orders. */
 export function OpenTicketForm({ orders }: { orders: { id: number }[] }) {
+  // Remounting the form is what clears its submitted state for "Submit another".
+  const [formKey, setFormKey] = useState(0);
+  return <TicketForm key={formKey} onSubmitAnother={() => setFormKey((key) => key + 1)} orders={orders} />;
+}
+
+function TicketSubmitted({ onSubmitAnother }: { onSubmitAnother: () => void }) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-md border border-outline-variant/60 bg-surface-card px-6 py-12 text-center shadow-[0_24px_48px_-24px_rgba(69,33,117,0.35)]"
+      role="status"
+    >
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-primary-fixed/70 to-transparent" />
+      <div className="relative">
+        <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-primary-fixed ring-8 ring-primary-fixed/40">
+          <span className="flex size-12 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/30">
+            <Check aria-hidden className="size-6" strokeWidth={3} />
+          </span>
+        </span>
+        <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Support</p>
+        <h2 className="mt-2 font-serif text-3xl text-primary">Your Ticket is submitted</h2>
+        <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-on-surface-variant">
+          Thank you for reaching out. Follow the conversation under Your Tickets, and we&apos;ll reply there.
+        </p>
+        <Button className="mt-8" onClick={onSubmitAnother} size="lg" type="button">Submit another</Button>
+      </div>
+    </div>
+  );
+}
+
+function TicketForm({ orders, onSubmitAnother }: { orders: { id: number }[]; onSubmitAnother: () => void }) {
   const [state, action, pending] = useActionState(createTicket, initialState);
-  if (state.created) {
-    return <p className="rounded-md bg-secondary-container p-4 text-sm font-semibold text-secondary" role="status">Your Ticket is open.</p>;
-  }
+  if (state.created) return <TicketSubmitted onSubmitAnother={onSubmitAnother} />;
 
   return (
     <form action={action} className="rounded-md border border-outline-variant/60 bg-surface-card p-5">
