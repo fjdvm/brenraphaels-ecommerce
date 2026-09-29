@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { OpenTicketForm } from "@/components/features/support/open-ticket-form";
 import { requireCustomer } from "@/lib/customer/current-visitor";
@@ -30,12 +31,14 @@ export default async function SupportPage() {
           ) : (
             <ul className="mt-4 space-y-3">
               {tickets.map((ticket) => (
-                <li key={ticket.id} className="rounded-md border border-outline-variant/60 bg-surface-card p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h4 className="font-semibold text-primary">{ticket.subject}</h4>
-                    <span className="rounded-full bg-primary-fixed px-3 py-1 text-sm font-semibold text-primary">{ticket.status}</span>
-                  </div>
-                  <p className="mt-2 text-sm text-on-surface-variant">{ticket.category}</p>
+                <li key={ticket.id}>
+                  <Link className="block rounded-md border border-outline-variant/60 bg-surface-card p-5 transition-colors hover:bg-primary-fixed" href={`/support/${ticket.id}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h4 className="font-semibold text-primary">{ticket.subject}</h4>
+                      <span className="rounded-full bg-primary-fixed px-3 py-1 text-sm font-semibold text-primary">{ticket.status}</span>
+                    </div>
+                    <p className="mt-2 text-sm text-on-surface-variant">{ticket.category}</p>
+                  </Link>
                 </li>
               ))}
             </ul>

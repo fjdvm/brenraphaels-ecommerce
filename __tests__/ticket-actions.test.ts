@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { createTicketStore, getDatabase, open, revalidatePath, requireCustomer } = vi.hoisted(() => ({
-  createTicketStore: vi.fn(() => ({ open })),
+const { addMessage, createTicketStore, getDatabase, open, revalidatePath, requireCustomer } = vi.hoisted(() => ({
+  addMessage: vi.fn(),
+  createTicketStore: vi.fn(() => ({ addMessage, open })),
   getDatabase: vi.fn(),
   open: vi.fn(),
   revalidatePath: vi.fn(),
@@ -16,7 +17,7 @@ vi.mock("@/lib/support/tickets", async (importOriginal) => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { createTicket } from "@/app/(site)/(protected)/support/actions";
+import { createTicket, sendMessage } from "@/app/(site)/(protected)/support/actions";
 
 function ticketFormData() {
   const formData = new FormData();
@@ -29,7 +30,8 @@ function ticketFormData() {
 
 describe("Ticket actions", () => {
   beforeEach(() => {
-    createTicketStore.mockReset().mockReturnValue({ open });
+    createTicketStore.mockReset().mockReturnValue({ addMessage, open });
+    addMessage.mockReset().mockResolvedValue({ id: 12 });
     getDatabase.mockReset();
     open.mockReset().mockResolvedValue({ id: 1 });
     revalidatePath.mockReset();
@@ -61,5 +63,29 @@ describe("Ticket actions", () => {
     });
     expect(requireCustomer).not.toHaveBeenCalled();
     expect(open).not.toHaveBeenCalled();
+  });
+
+  test("adds a Customer Message and refreshes the Ticket detail", async () => {
+    const formData = new FormData();
+    formData.set("body", "Could you please share an update?");
+
+    await expect(sendMessage(12, {}, formData)).resolves.toEqual({ sent: true });
+
+    expect(addMessage).toHaveBeenCalledWith(12, "customer-1", {
+      body: "Could you please share an update?",
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/support/12");
+  });
+
+  test("rejects a malformed Ticket id before authenticating or adding a Message", async () => {
+    const formData = new FormData();
+    formData.set("body", "Could you please share an update?");
+
+    await expect(sendMessage(12.5, {}, formData)).resolves.toEqual({
+      message: "We couldn't send your Message. Please try again.",
+    });
+
+    expect(requireCustomer).not.toHaveBeenCalled();
+    expect(addMessage).not.toHaveBeenCalled();
   });
 });

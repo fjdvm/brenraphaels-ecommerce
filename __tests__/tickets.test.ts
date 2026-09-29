@@ -86,6 +86,27 @@ describe("Ticket store", () => {
     await expect(store.get(ticket.id, "customer-2")).resolves.toBeUndefined();
   });
 
+  test("adds Customer Messages in chronological order only to an owned Ticket", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await store.open("customer-1", {
+      subject: "Where is my Order?",
+      category: "Delivery Issue",
+      body: "It has not arrived yet.",
+    });
+
+    const updated = await store.addMessage(ticket.id, "customer-1", {
+      body: "Please let me know when it will arrive.",
+    });
+
+    expect(updated.messages.map(({ body }) => body)).toEqual([
+      "It has not arrived yet.",
+      "Please let me know when it will arrive.",
+    ]);
+    await expect(store.addMessage(ticket.id, "customer-2", {
+      body: "This must not be added.",
+    })).rejects.toThrow("Ticket was not found.");
+  });
+
   test("rejects an unowned Order link and invalid Category, Subject, or opening Message", async () => {
     const database = drizzle(client);
     const [otherOrder] = await database.insert(orders).values({

@@ -3,7 +3,8 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 import { orders, ticketMessages, tickets } from "../db/schema";
-import { multilineTextField, optionalPositiveIntegerField, textField } from "../validators/fields";
+import { optionalPositiveIntegerField, textField } from "../validators/fields";
+import { ticketMessageInput } from "./ticket-message";
 
 export const ticketCategories = [
   "Order Issue",
@@ -28,11 +29,7 @@ export const ticketInput = z.object({
   }),
   category: z.enum(ticketCategories, { error: "Choose a valid category" }),
   orderId: optionalPositiveIntegerField("Order ID"),
-  body: multilineTextField("Message", {
-    max: 2_000,
-    pattern: ticketTextPattern,
-    patternMessage: "Enter a message without invisible characters",
-  }),
+  body: ticketMessageInput.shape.body,
 });
 
 export type OpenTicketInput = z.input<typeof ticketInput>;
@@ -55,6 +52,7 @@ export type TicketStore = {
   open(customerId: string, input: OpenTicketInput): Promise<Ticket>;
   listForCustomer(customerId: string): Promise<Ticket[]>;
   get(ticketId: number, customerId: string): Promise<Ticket | undefined>;
+  addMessage(ticketId: number, customerId: string, input: { body: unknown }): Promise<Ticket>;
 };
 
 /** Stores and retrieves Tickets only through their owning Customer. */
@@ -128,5 +126,13 @@ export function createTicketStore<
     return (await get(ticket.id, customerId))!;
   }
 
-  return { open, listForCustomer, get };
+  async function addMessage(ticketId: number, customerId: string, input: { body: unknown }): Promise<Ticket> {
+    const parsed = ticketMessageInput.parse(input).body;
+    const ticket = await get(ticketId, customerId);
+    if (!ticket) throw new Error("Ticket was not found.");
+    await db.insert(ticketMessages).values({ ticketId, sender: "customer", body: parsed });
+    return (await get(ticketId, customerId))!;
+  }
+
+  return { open, listForCustomer, get, addMessage };
 }
