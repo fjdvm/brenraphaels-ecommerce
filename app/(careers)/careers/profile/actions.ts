@@ -2,6 +2,7 @@
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { careersSession } from "@/lib/careers/auth";
 import { createApplicationStore, syncApplicationProfileSnapshots } from "@/lib/careers/applications";
 import { getCareersDatabase } from "@/lib/careers/db";
@@ -9,6 +10,85 @@ import { createApplicantDocumentStore, uploadApplicantDocument } from "@/lib/car
 import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { createApplicantProfileStore, saveApplicantProfile } from "@/lib/careers/profile";
 function entries(formData: FormData, key: string) { return formData.getAll(key).map((value) => String(value)); }
-export type ApplicantProfileActionState = { message?: string };
-export async function submitApplicantProfile(_previous: ApplicantProfileActionState, formData: FormData): Promise<ApplicantProfileActionState> { const identity = await careersSession(); if (!identity) return { message: "Please sign in to save your profile." }; const schools = entries(formData, "school"); const employers = entries(formData, "employer"); try { const profile = await saveApplicantProfile({ fullName: String(formData.get("fullName") ?? ""), phone: String(formData.get("phone") ?? ""), location: String(formData.get("location") ?? ""), summary: String(formData.get("summary") ?? ""), skills: String(formData.get("skills") ?? ""), education: schools.flatMap((school, index) => school ? [{ school, qualification: entries(formData, "qualification")[index] ?? "", fieldOfStudy: entries(formData, "fieldOfStudy")[index] ?? "", startedOn: entries(formData, "educationStartedOn")[index] ?? "", completedOn: entries(formData, "completedOn")[index] ?? "" }] : []), workHistory: employers.flatMap((employer, index) => employer ? [{ employer, title: entries(formData, "title")[index] ?? "", startedOn: entries(formData, "workStartedOn")[index] ?? "", endedOn: entries(formData, "endedOn")[index] ?? "", description: entries(formData, "description")[index] ?? "" }] : []) }, { identity, store: createApplicantProfileStore(getCareersDatabase()) }); try { await syncApplicationProfileSnapshots(identity.userId, profile, { applications: createApplicationStore(getCareersDatabase()), postings: createJobPostingStore(getCareersDatabase()) }); } catch (error) { console.error("Could not sync the profile edit into unfrozen Applications", error); } revalidatePath("/careers/profile"); revalidatePath("/careers/complete-profile"); revalidatePath("/careers/applications"); } catch (error) { console.error("Saving Applicant profile failed", error); return { message: "We couldn't save your profile. Check the required fields and try again." }; } redirect("/careers/profile"); }
+export type ApplicantProfileActionState = {
+  message?: string;
+  fieldErrors?: Record<string, string>;
+  /** What was typed, so a rejected form keeps it instead of being reset. */
+  values?: { fullName: string; phone: string; location: string; summary: string; skills: string; education: Array<Record<string, string>>; workHistory: Array<Record<string, string>> };
+};
+
+/** Rows the Applicant left completely empty are ignored; a partly filled row is validated in full. */
+function filledRows<T extends Record<string, string>>(rows: T[]) {
+  return rows.flatMap((row, index) => (Object.values(row).some((value) => value.trim() !== "") ? [{ row, index }] : []));
+}
+
+/** Keys each problem by the field's input id (`fullName`, `education-0-school`), first message wins. */
+function fieldErrorsFrom(error: z.ZodError, originalIndexes: { education: number[]; workHistory: number[] }) {
+  const fieldErrors: Record<string, string> = {};
+  for (const issue of error.issues) {
+    const path = issue.path.map(String);
+    const section = path[0] === "education" || path[0] === "workHistory" ? path[0] : null;
+    const key = section ? [section, originalIndexes[section][Number(path[1])] ?? path[1], ...path.slice(2)].join("-") : path.join("-") || "form";
+    fieldErrors[key] ??= issue.message;
+  }
+  return fieldErrors;
+}
+
+export async function submitApplicantProfile(_previous: ApplicantProfileActionState, formData: FormData): Promise<ApplicantProfileActionState> {
+  const identity = await careersSession();
+  if (!identity) return { message: "Please sign in to save your profile." };
+  const schools = entries(formData, "school");
+  const employers = entries(formData, "employer");
+  const allEducation = schools.map((school, index) => ({
+    school,
+    qualification: entries(formData, "qualification")[index] ?? "",
+    fieldOfStudy: entries(formData, "fieldOfStudy")[index] ?? "",
+    startedOn: entries(formData, "educationStartedOn")[index] ?? "",
+    completedOn: entries(formData, "completedOn")[index] ?? "",
+  }));
+  const educationRows = filledRows(allEducation);
+  const allWorkHistory = employers.map((employer, index) => ({
+    employer,
+    title: entries(formData, "title")[index] ?? "",
+    startedOn: entries(formData, "workStartedOn")[index] ?? "",
+    endedOn: entries(formData, "endedOn")[index] ?? "",
+    description: entries(formData, "description")[index] ?? "",
+  }));
+  const workHistoryRows = filledRows(allWorkHistory);
+  const values = {
+    fullName: String(formData.get("fullName") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+    location: String(formData.get("location") ?? ""),
+    summary: String(formData.get("summary") ?? ""),
+    skills: String(formData.get("skills") ?? ""),
+    education: allEducation,
+    workHistory: allWorkHistory,
+  };
+  try {
+    const profile = await saveApplicantProfile({
+      ...values,
+      education: educationRows.map(({ row }) => row),
+      workHistory: workHistoryRows.map(({ row }) => row),
+    }, { identity, store: createApplicantProfileStore(getCareersDatabase()) });
+    try {
+      await syncApplicationProfileSnapshots(identity.userId, profile, { applications: createApplicationStore(getCareersDatabase()), postings: createJobPostingStore(getCareersDatabase()) });
+    } catch (error) {
+      console.error("Could not sync the profile edit into unfrozen Applications", error);
+    }
+    revalidatePath("/careers/profile");
+    revalidatePath("/careers/complete-profile");
+    revalidatePath("/careers/applications");
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return {
+        message: "Check the highlighted fields.",
+        values,
+        fieldErrors: fieldErrorsFrom(error, { education: educationRows.map(({ index }) => index), workHistory: workHistoryRows.map(({ index }) => index) }),
+      };
+    }
+    console.error("Saving Applicant profile failed", error);
+    return { message: "We couldn't save your profile. Try again.", values };
+  }
+  redirect("/careers/profile");
+}
 export async function submitApplicantDocument(_previous: ApplicantProfileActionState, formData: FormData): Promise<ApplicantProfileActionState> { const identity = await careersSession(); const file = formData.get("document"); if (!identity || !(file instanceof File)) return { message: "Choose a Document to upload." }; const token = process.env.CAREERS_BLOB_READ_WRITE_TOKEN; if (!token) return { message: "Document uploads are not configured yet." }; try { await uploadApplicantDocument(file, { applicantId: identity.userId, store: createApplicantDocumentStore(getCareersDatabase()), put: (pathname, body, options) => put(pathname, body, { ...options, token }) }); revalidatePath("/careers/profile"); return { message: "Document uploaded." }; } catch (error) { return { message: error instanceof Error ? error.message : "We couldn't upload that Document." }; } }

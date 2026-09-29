@@ -3,6 +3,7 @@ import Link from "next/link";
 import { careersSession } from "@/lib/careers/auth";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { getCareersDatabase } from "@/lib/careers/db";
+import { parseJobFilter } from "@/lib/validators/careers";
 import { BackLink } from "./_components/back-link";
 import { FilterForm } from "./_components/filter-form";
 import { JobPostingsList } from "./_components/job-postings-list";
@@ -11,10 +12,6 @@ import { SubmitButton } from "./_components/submit-button";
 type CareersPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-function singleSearchParameter(parameter: string | string[] | undefined) {
-  return typeof parameter === "string" ? parameter : undefined;
-}
 
 function Filter({ label, name, options, selected }: {
   label: string;
@@ -36,9 +33,9 @@ function Filter({ label, name, options, selected }: {
 export default async function CareersPage({ searchParams }: CareersPageProps) {
   const query = await searchParams;
   const filters = {
-    department: singleSearchParameter(query.department),
-    employmentType: singleSearchParameter(query.employmentType),
-    location: singleSearchParameter(query.location),
+    department: parseJobFilter(query.department),
+    employmentType: parseJobFilter(query.employmentType),
+    location: parseJobFilter(query.location),
   };
   const store = createJobPostingStore(getCareersDatabase());
   const [postings, options, applicant] = await Promise.all([

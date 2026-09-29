@@ -53,7 +53,7 @@ describe("Applicant identity", () => {
     const auth = authStub({ signIn: vi.fn().mockResolvedValue("unverified") });
 
     await expect(signInApplicant({ email: "jane@example.com", password: "password123" }, { auth })).resolves.toEqual({ status: "unverified", email: "jane@example.com" });
-    await expect(signInApplicant({ email: "not-an-email", password: "" }, { auth })).resolves.toEqual({ status: "invalid", message: "Enter a valid email and password." });
+    await expect(signInApplicant({ email: "not-an-email", password: "" }, { auth })).resolves.toEqual({ status: "invalid", message: "Check the highlighted fields.", fieldErrors: { email: ["Enter a valid email address"], password: ["Enter your password"] } });
   });
 
   test("does not reveal whether an Applicant exists in password reset", async () => {

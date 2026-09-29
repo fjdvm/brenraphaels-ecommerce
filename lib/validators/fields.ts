@@ -65,6 +65,32 @@ export function phoneField(
     .pipe(z.string().regex(rules.pattern, rules.patternMessage));
 }
 
+/** Optional phone number: absent, null or blank all become an empty string. */
+export function optionalPhoneField(rules: { pattern: RegExp; patternMessage: string }) {
+  return z
+    .string()
+    .max(maximumRawLength, rules.patternMessage)
+    .nullish()
+    .transform((value) => cleanPhone(value ?? ""))
+    .pipe(z.string().refine((value) => value === "" || rules.pattern.test(value), rules.patternMessage));
+}
+
+/** An optional `YYYY-MM` month (what `<input type="month">` submits) that is not in the future. */
+export function optionalMonthField(label: string) {
+  const message = `Enter a valid ${label.toLowerCase()} (month and year)`;
+  return z
+    .string()
+    .max(maximumRawLength, message)
+    .nullish()
+    .transform((value) => cleanText(value ?? ""))
+    .pipe(
+      z
+        .string()
+        .refine((value) => value === "" || /^(19|20)[0-9]{2}-(0[1-9]|1[0-2])$/.test(value), message)
+        .refine((value) => value === "" || value <= new Date().toISOString().slice(0, 7), `${label} cannot be in the future`),
+    );
+}
+
 /** Optional free text: absent, null or blank all become an empty string. */
 export function optionalTextField(rules: {
   max: number;

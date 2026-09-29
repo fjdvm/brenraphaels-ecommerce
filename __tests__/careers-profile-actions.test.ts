@@ -37,6 +37,8 @@ vi.mock("@vercel/blob", () => ({ put: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 
+import { z } from "zod";
+
 import { submitApplicantProfile } from "@/app/(careers)/careers/profile/actions";
 
 describe("Applicant profile action", () => {
@@ -103,5 +105,23 @@ describe("Applicant profile action", () => {
 
     await expect(submitApplicantProfile({}, formData)).resolves.toBeUndefined();
     expect(saveApplicantProfile).toHaveBeenCalled();
+  });
+
+  test("returns field errors keyed by the original row and keeps what was typed", async () => {
+    careersSession.mockResolvedValue({ userId: "applicant-1", email: "jane@example.com" });
+    createApplicantProfileStore.mockReturnValue("profile-store");
+    saveApplicantProfile.mockRejectedValue(new z.ZodError([
+      { code: "custom", path: ["education", 0, "qualification"], message: "Qualification is required" },
+      { code: "custom", path: ["fullName"], message: "Full name is required" },
+    ]));
+    const formData = new FormData();
+    for (const [key, value] of [["fullName", ""], ["school", ""], ["qualification", ""], ["school", "UP"], ["qualification", ""]]) formData.append(key, value);
+
+    const state = await submitApplicantProfile({}, formData);
+
+    // The first, fully blank row is skipped, so the filtered index 0 is the second row on screen.
+    expect(state.fieldErrors).toEqual({ fullName: "Full name is required", "education-1-qualification": "Qualification is required" });
+    expect(state.values?.education).toHaveLength(2);
+    expect(saveApplicantProfile).toHaveBeenCalledWith(expect.objectContaining({ education: [expect.objectContaining({ school: "UP" })] }), expect.anything());
   });
 });

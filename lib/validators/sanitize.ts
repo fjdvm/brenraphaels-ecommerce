@@ -46,3 +46,18 @@ const unsafeFileNameCharacters = /[^a-zA-Z0-9._-]/g;
 export function cleanFileName(value: string) {
   return cleanText(value).replace(unsafeFileNameCharacters, "-");
 }
+
+/** Normalises a comma-separated list: trimmed items, no blanks, no case-insensitive duplicates. */
+export function cleanList(value: string) {
+  const seen = new Set<string>();
+  return cleanText(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => {
+      const key = item.toLocaleLowerCase();
+      if (!item || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join(", ");
+}

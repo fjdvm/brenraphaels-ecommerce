@@ -2,15 +2,57 @@ import { asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
+import {
+  applicantFullNameField,
+  applicantLocationField,
+  applicantPhoneField,
+  applicantSkillsField,
+  applicantSummaryField,
+  employerField,
+  fieldOfStudyField,
+  jobTitleField,
+  monthField,
+  qualificationField,
+  schoolField,
+  workDescriptionField,
+} from "../validators/careers";
+
 import { applicantEducation, applicantProfiles, applicantWorkHistory } from "./schema";
 
-const optionalText = z.string().trim().max(2_000).optional().transform((value) => value || null);
-const education = z.object({ school: z.string().trim().min(1).max(200), qualification: z.string().trim().min(1).max(200), fieldOfStudy: optionalText, startedOn: z.string().max(20).optional().transform((value) => value || null), completedOn: z.string().max(20).optional().transform((value) => value || null) });
-const workHistory = z.object({ employer: z.string().trim().min(1).max(200), title: z.string().trim().min(1).max(200), startedOn: z.string().max(20).optional().transform((value) => value || null), endedOn: z.string().max(20).optional().transform((value) => value || null), description: optionalText });
+const monthsInOrder = (start: string | null, end: string | null) => !start || !end || start <= end;
+const education = z
+  .object({
+    school: schoolField,
+    qualification: qualificationField,
+    fieldOfStudy: fieldOfStudyField,
+    startedOn: monthField("Start date"),
+    completedOn: monthField("Completion date"),
+  })
+  .refine((value) => monthsInOrder(value.startedOn, value.completedOn), {
+    message: "Completion date can't be before the start date",
+    path: ["completedOn"],
+  });
+const workHistory = z
+  .object({
+    employer: employerField,
+    title: jobTitleField,
+    startedOn: monthField("Start date"),
+    endedOn: monthField("End date"),
+    description: workDescriptionField,
+  })
+  .refine((value) => monthsInOrder(value.startedOn, value.endedOn), {
+    message: "End date can't be before the start date",
+    path: ["endedOn"],
+  });
 
 export const applicantProfileSchema = z.object({
-  fullName: z.string().trim().min(1, "Enter your name").max(200), phone: optionalText, location: optionalText, summary: optionalText,
-  skills: z.string().trim().max(2_000).default(""), education: z.array(education).max(20).default([]), workHistory: z.array(workHistory).max(30).default([]),
+  fullName: applicantFullNameField,
+  phone: applicantPhoneField,
+  location: applicantLocationField,
+  summary: applicantSummaryField,
+  skills: applicantSkillsField,
+  education: z.array(education).max(20, "Add up to 20 education entries").default([]),
+  workHistory: z.array(workHistory).max(30, "Add up to 30 work history entries").default([]),
 });
 export type ApplicantProfileInput = z.input<typeof applicantProfileSchema>;
 export type ApplicantProfile = z.output<typeof applicantProfileSchema>;

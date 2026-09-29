@@ -4,12 +4,15 @@ import { notFound } from "next/navigation";
 import { careersSession } from "@/lib/careers/auth";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { getCareersDatabase } from "@/lib/careers/db";
+import { jobPostingIdField } from "@/lib/validators/application";
 
 type JobPostingPageProps = { params: Promise<{ id: string }> };
 
 export default async function JobPostingPage({ params }: JobPostingPageProps) {
+  const id = jobPostingIdField.safeParse((await params).id);
+  if (!id.success) notFound();
   const [posting, applicant] = await Promise.all([
-    createJobPostingStore(getCareersDatabase()).findOpen((await params).id),
+    createJobPostingStore(getCareersDatabase()).findOpen(id.data),
     careersSession(),
   ]);
   if (!posting) notFound();

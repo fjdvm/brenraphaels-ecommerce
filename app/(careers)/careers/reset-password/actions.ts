@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { careersApplicantAuth } from "@/lib/careers/auth";
 import { resetApplicantPassword } from "@/lib/careers/identity";
-export type ApplicantResetPasswordState = { message?: string };
+export type ApplicantResetPasswordState = { message?: string; fieldErrors?: Record<string, string[] | undefined> };
 
 export async function submitApplicantResetPassword(
   _previous: ApplicantResetPasswordState,
@@ -17,10 +17,7 @@ export async function submitApplicantResetPassword(
     { auth: careersApplicantAuth },
   );
   if (result.status === "reset") redirect("/careers/signin");
-  return {
-    message:
-      result.status === "invalid-password"
-        ? "Check your new password and confirmation."
-        : "This reset link is invalid or has expired.",
-  };
+  if (result.status === "invalid-password") return { message: "Check the highlighted fields.", fieldErrors: result.fieldErrors };
+  if (result.status === "failed") return { message: "We couldn't reset your password. Please try again." };
+  return { message: "This reset link is invalid or has expired." };
 }
