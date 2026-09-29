@@ -48,23 +48,16 @@ async function CareersPageContent({ searchParams }: CareersPageProps) {
 
   return (
     <>
-      <div className="flex gap-4">
-        {applicant ? (
-          <>
-            <Link className="bg-primary px-5 py-3 font-semibold text-on-primary" href="/careers/profile">Your profile</Link>
-            <Link className="px-5 py-3 font-semibold text-primary underline" href="/careers/applications">Your Applications</Link>
-          </>
-        ) : (
-          <>
-            <Link className="bg-primary px-5 py-3 font-semibold text-on-primary" href="/careers/signup">
-              Become an Applicant
-            </Link>
-            <Link className="px-5 py-3 font-semibold text-primary underline" href="/careers/signin">
-              Sign in
-            </Link>
-          </>
-        )}
-      </div>
+      {applicant ? null : (
+        <div className="flex gap-4">
+          <Link className="bg-primary px-5 py-3 font-semibold text-on-primary" href="/careers/signup">
+            Become an Applicant
+          </Link>
+          <Link className="px-5 py-3 font-semibold text-primary underline" href="/careers/signin">
+            Sign in
+          </Link>
+        </div>
+      )}
 
       <FilterForm className="mt-10 grid gap-4 border border-outline-variant bg-surface-card p-5 sm:grid-cols-4">
         <Filter label="Department" name="department" options={options.departments} selected={filters.department} />
@@ -85,7 +78,7 @@ async function CareersPageContent({ searchParams }: CareersPageProps) {
 
 export default function CareersPage(props: CareersPageProps) {
   return (
-    <section className="mx-auto max-w-4xl py-16">
+    <section className="mx-auto max-w-4xl py-10">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <BackLink href="/" className="text-sm text-on-surface-variant underline">
           Back
