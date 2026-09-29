@@ -49,6 +49,11 @@ export function OpenTicketForm({ orders }: { orders: { id: number }[] }) {
           <textarea aria-invalid={Boolean(state.fieldErrors?.body)} className="mt-1 min-h-32 w-full border border-input bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-ring" id="ticket-message" maxLength={2_000} name="body" required />
           <FieldError message={state.fieldErrors?.body?.[0]} />
         </div>
+        <div>
+          <Label htmlFor="ticket-attachment">Image <span className="font-normal">(optional, JPEG or PNG up to 5 MB)</span></Label>
+          <Input accept="image/jpeg,image/png" aria-invalid={Boolean(state.fieldErrors?.attachment)} id="ticket-attachment" name="attachment" type="file" />
+          <FieldError message={state.fieldErrors?.attachment?.[0]} />
+        </div>
       </div>
       {state.message ? <p className="mt-4 text-sm text-red-700" role="alert">{state.message}</p> : null}
       <Button className="mt-5" disabled={pending} type="submit">{pending ? "Opening…" : "Open Ticket"}</Button>

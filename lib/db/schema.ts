@@ -220,6 +220,8 @@ export const ticketMessages = pgTable("ticket_messages", {
     .references(() => tickets.id, { onDelete: "cascade" }),
   sender: text("sender").notNull(),
   body: text("body").notNull(),
+  /** Blob pathname of the optional image, never a public URL. */
+  attachmentPathname: text("attachment_pathname"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

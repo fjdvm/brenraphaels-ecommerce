@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { sendTicketCreatedEmail, addMessage, close, createTicketStore, getDatabase, open, reopen, revalidatePath, requireCustomer } = vi.hoisted(() => ({
+const { put, get, sendTicketCreatedEmail, addMessage, close, createTicketStore, getDatabase, open, reopen, revalidatePath, requireCustomer } = vi.hoisted(() => ({
+  put: vi.fn(),
+  get: vi.fn(),
   sendTicketCreatedEmail: vi.fn(),
   addMessage: vi.fn(),
   close: vi.fn(),
-  createTicketStore: vi.fn(() => ({ addMessage, close, open, reopen })),
+  createTicketStore: vi.fn(() => ({ addMessage, close, get, open, reopen })),
   getDatabase: vi.fn(),
   open: vi.fn(),
   reopen: vi.fn(),
@@ -19,6 +21,7 @@ vi.mock("@/lib/support/tickets", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/support/tickets")>()),
   createTicketStore,
 }));
+vi.mock("@vercel/blob", () => ({ put }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
 import { closeTicket, createTicket, reopenTicket, sendMessage } from "@/app/(site)/(protected)/support/actions";
@@ -34,7 +37,10 @@ function ticketFormData() {
 
 describe("Ticket actions", () => {
   beforeEach(() => {
-    createTicketStore.mockReset().mockReturnValue({ addMessage, close, open, reopen });
+    createTicketStore.mockReset().mockReturnValue({ addMessage, close, get, open, reopen });
+    get.mockReset().mockResolvedValue({ id: 12 });
+    put.mockReset().mockResolvedValue({ pathname: "ticket-attachments/12/photo-abc.png" });
+    process.env.ORDERS_BLOB_READ_WRITE_TOKEN = "test-token";
     addMessage.mockReset().mockResolvedValue({ id: 12 });
     close.mockReset().mockResolvedValue({ id: 12, status: "closed" });
     getDatabase.mockReset();
@@ -53,7 +59,7 @@ describe("Ticket actions", () => {
       category: "Delivery Issue",
       orderId: 12,
       body: "It was expected yesterday.",
-    });
+    }, undefined);
     expect(revalidatePath).toHaveBeenCalledWith("/support");
   });
 
@@ -86,7 +92,7 @@ describe("Ticket actions", () => {
 
     expect(addMessage).toHaveBeenCalledWith(12, "customer-1", {
       body: "Could you please share an update?",
-    });
+    }, undefined);
     expect(revalidatePath).toHaveBeenCalledWith("/support/12");
   });
 
@@ -116,5 +122,60 @@ describe("Ticket actions", () => {
     expect(reopen).toHaveBeenCalledWith(12, "customer-1");
     expect(revalidatePath).toHaveBeenCalledWith("/support/12");
     expect(revalidatePath).toHaveBeenCalledWith("/support");
+  });
+
+  test("rejects an invalid image on the create form without opening a Ticket", async () => {
+    const formData = ticketFormData();
+    formData.set("attachment", new File([new Uint8Array(4)], "notes.pdf", { type: "application/pdf" }));
+
+    await expect(createTicket({}, formData)).resolves.toEqual({
+      fieldErrors: { attachment: ["Attach a JPEG or PNG image."] },
+    });
+    expect(open).not.toHaveBeenCalled();
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  test("uploads the create-form image under the new Ticket via the store", async () => {
+    open.mockImplementation(async (_customerId, _input, attach) => {
+      await expect(attach(33)).resolves.toBe("ticket-attachments/12/photo-abc.png");
+      return { id: 33 };
+    });
+    const formData = ticketFormData();
+    formData.set("attachment", new File([new Uint8Array(4)], "photo.png", { type: "image/png" }));
+
+    await expect(createTicket({}, formData)).resolves.toEqual({ created: true });
+    expect(put).toHaveBeenCalledWith("ticket-attachments/33/photo.png", expect.any(File), {
+      access: "private",
+      addRandomSuffix: true,
+      token: "test-token",
+    });
+  });
+
+  test("ignores an empty file input on the create form", async () => {
+    const formData = ticketFormData();
+    formData.set("attachment", new File([], "", { type: "application/octet-stream" }));
+
+    await expect(createTicket({}, formData)).resolves.toEqual({ created: true });
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  test("rejects an oversized reply image and stores nothing", async () => {
+    const formData = new FormData();
+    formData.set("body", "See attached.");
+    formData.set("attachment", new File([new Uint8Array(5 * 1024 * 1024 + 1)], "big.png", { type: "image/png" }));
+
+    await expect(sendMessage(12, {}, formData)).resolves.toEqual({
+      fieldErrors: { attachment: ["Images must be 5 MB or smaller."] },
+    });
+    expect(addMessage).not.toHaveBeenCalled();
+  });
+
+  test("sends a reply with the uploaded image pathname", async () => {
+    const formData = new FormData();
+    formData.set("body", "See attached.");
+    formData.set("attachment", new File([new Uint8Array(4)], "photo.png", { type: "image/png" }));
+
+    await expect(sendMessage(12, {}, formData)).resolves.toEqual({ sent: true });
+    expect(addMessage).toHaveBeenCalledWith(12, "customer-1", { body: "See attached." }, "ticket-attachments/12/photo-abc.png");
   });
 });

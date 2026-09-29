@@ -37,6 +37,7 @@ export type TicketMessage = {
   id: number;
   sender: "customer" | "staff";
   body: string;
+  attachmentPathname: string | null;
   createdAt: Date;
 };
 export type Ticket = {
@@ -49,10 +50,17 @@ export type Ticket = {
   messages: TicketMessage[];
 };
 export type TicketStore = {
-  open(customerId: string, input: OpenTicketInput): Promise<Ticket>;
+  /** `attach` uploads the opening Message's image once the Ticket id exists and returns its Blob pathname. */
+  open(customerId: string, input: OpenTicketInput, attach?: (ticketId: number) => Promise<string>): Promise<Ticket>;
   listForCustomer(customerId: string): Promise<Ticket[]>;
   get(ticketId: number, customerId: string): Promise<Ticket | undefined>;
-  addMessage(ticketId: number, customerId: string, input: { body: unknown }): Promise<Ticket>;
+  addMessage(
+    ticketId: number,
+    customerId: string,
+    input: { body: unknown },
+    attachmentPathname?: string,
+  ): Promise<Ticket>;
+  getAttachmentPathname(messageId: number, customerId: string): Promise<string | undefined>;
   close(ticketId: number, customerId: string): Promise<Ticket>;
   reopen(ticketId: number, customerId: string): Promise<Ticket>;
 };
@@ -71,8 +79,9 @@ export async function openTicketAndNotify(
   recipientEmail: string,
   input: OpenTicketInput,
   dependencies: { ticketStore: TicketStore; mailer: TicketMailer },
+  attach?: (ticketId: number) => Promise<string>,
 ): Promise<Ticket> {
-  const ticket = await dependencies.ticketStore.open(customerId, input);
+  const ticket = await dependencies.ticketStore.open(customerId, input, attach);
   try {
     await dependencies.mailer.send(recipientEmail, ticket);
   } catch (error) {
@@ -92,6 +101,7 @@ export function createTicketStore<
         id: ticketMessages.id,
         sender: ticketMessages.sender,
         body: ticketMessages.body,
+        attachmentPathname: ticketMessages.attachmentPathname,
         createdAt: ticketMessages.createdAt,
       })
       .from(ticketMessages)
@@ -129,7 +139,11 @@ export function createTicketStore<
     return Promise.all(persistedTickets.map(toTicket));
   }
 
-  async function open(customerId: string, input: OpenTicketInput): Promise<Ticket> {
+  async function open(
+    customerId: string,
+    input: OpenTicketInput,
+    attach?: (ticketId: number) => Promise<string>,
+  ): Promise<Ticket> {
     const parsed = ticketInput.parse(input);
     if (parsed.orderId !== undefined) {
       const [order] = await db
@@ -148,15 +162,29 @@ export function createTicketStore<
         status: "open",
       })
       .returning();
-    await db.insert(ticketMessages).values({ ticketId: ticket.id, sender: "customer", body: parsed.body });
+    let attachmentPathname: string | undefined;
+    try {
+      attachmentPathname = await attach?.(ticket.id);
+    } catch (error) {
+      await db.delete(tickets).where(eq(tickets.id, ticket.id));
+      throw error;
+    }
+    await db
+      .insert(ticketMessages)
+      .values({ ticketId: ticket.id, sender: "customer", body: parsed.body, attachmentPathname });
     return (await get(ticket.id, customerId))!;
   }
 
-  async function addMessage(ticketId: number, customerId: string, input: { body: unknown }): Promise<Ticket> {
+  async function addMessage(
+    ticketId: number,
+    customerId: string,
+    input: { body: unknown },
+    attachmentPathname?: string,
+  ): Promise<Ticket> {
     const parsed = ticketMessageInput.parse(input).body;
     const ticket = await get(ticketId, customerId);
     if (!ticket) throw new Error("Ticket was not found.");
-    await db.insert(ticketMessages).values({ ticketId, sender: "customer", body: parsed });
+    await db.insert(ticketMessages).values({ ticketId, sender: "customer", body: parsed, attachmentPathname });
     return (await get(ticketId, customerId))!;
   }
 
@@ -174,5 +202,14 @@ export function createTicketStore<
     return (await get(ticketId, customerId))!;
   }
 
-  return { open, listForCustomer, get, addMessage, close, reopen };
+  async function getAttachmentPathname(messageId: number, customerId: string): Promise<string | undefined> {
+    const [row] = await db
+      .select({ attachmentPathname: ticketMessages.attachmentPathname })
+      .from(ticketMessages)
+      .innerJoin(tickets, eq(tickets.id, ticketMessages.ticketId))
+      .where(and(eq(ticketMessages.id, messageId), eq(tickets.customerId, customerId)));
+    return row?.attachmentPathname ?? undefined;
+  }
+
+  return { open, listForCustomer, get, addMessage, getAttachmentPathname, close, reopen };
 }

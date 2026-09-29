@@ -107,6 +107,65 @@ describe("Ticket store", () => {
     })).rejects.toThrow("Ticket was not found.");
   });
 
+  test("persists an attachment pathname on the opening Message, uploading under the new Ticket", async () => {
+    const store = createTicketStore(drizzle(client));
+    const upload = vi.fn(async (ticketId: number) => `ticket-attachments/${ticketId}/photo-abc.png`);
+
+    const ticket = await store.open(
+      "customer-1",
+      { subject: "Damaged item", category: "Order Issue", body: "See the photo." },
+      upload,
+    );
+
+    expect(upload).toHaveBeenCalledWith(ticket.id);
+    expect(ticket.messages[0].attachmentPathname).toBe(`ticket-attachments/${ticket.id}/photo-abc.png`);
+    const reread = await store.get(ticket.id, "customer-1");
+    expect(reread?.messages[0].attachmentPathname).toBe(`ticket-attachments/${ticket.id}/photo-abc.png`);
+  });
+
+  test("removes the Ticket when the opening attachment upload fails", async () => {
+    const store = createTicketStore(drizzle(client));
+
+    await expect(
+      store.open(
+        "customer-1",
+        { subject: "Damaged item", category: "Order Issue", body: "See the photo." },
+        async () => {
+          throw new Error("upload failed");
+        },
+      ),
+    ).rejects.toThrow("upload failed");
+    await expect(store.listForCustomer("customer-1")).resolves.toEqual([]);
+  });
+
+  test("persists an attachment pathname on a reply and leaves other Messages without one", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await store.open("customer-1", { subject: "Damaged item", category: "Order Issue", body: "Hello." });
+
+    const updated = await store.addMessage(
+      ticket.id,
+      "customer-1",
+      { body: "Here is the photo." },
+      `ticket-attachments/${ticket.id}/photo-abc.jpg`,
+    );
+
+    expect(updated.messages.map(({ attachmentPathname }) => attachmentPathname)).toEqual([
+      null,
+      `ticket-attachments/${ticket.id}/photo-abc.jpg`,
+    ]);
+  });
+
+  test("only reveals an attachment pathname to the owning Customer", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await store.open("customer-1", { subject: "Damaged item", category: "Order Issue", body: "Hello." });
+    const updated = await store.addMessage(ticket.id, "customer-1", { body: "Photo." }, "ticket-attachments/1/p.png");
+    const messageId = updated.messages[1].id;
+
+    await expect(store.getAttachmentPathname(messageId, "customer-1")).resolves.toBe("ticket-attachments/1/p.png");
+    await expect(store.getAttachmentPathname(messageId, "customer-2")).resolves.toBeUndefined();
+    await expect(store.getAttachmentPathname(updated.messages[0].id, "customer-1")).resolves.toBeUndefined();
+  });
+
   test("lets a Customer close and reopen their Ticket", async () => {
     const store = createTicketStore(drizzle(client));
     const ticket = await store.open("customer-1", {
