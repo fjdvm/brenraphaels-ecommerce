@@ -2,7 +2,7 @@
 
 The online shop where people buy Bren Raphael's Ube Jam & Halaya. This context covers how people become Customers, prove they own their email, keep their personal details, browse products, place and pay for Orders, and give Feedback. This context is Customer-facing only: it has no staff or admin UI, and it shares no data, accounts, or vocabulary with the [Careers](./app/(careers)/CONTEXT.md) context living alongside it in this same app — see [Context Map](./CONTEXT-MAP.md). A Customer and an Applicant are unrelated identities, even for the same person.
 
-CREOMS (Customer Relationship & E-commerce Ordering Management System) is a separate application, with its own database and its own auth, built later. It manages Orders from the staff side (quoting delivery fees, verifying payment, advancing status). This app and CREOMS integrate over an API/webhook, not a shared database — this app owns and remains the source of truth for Order data.
+CREOMS (Customer Relationship & E-commerce Ordering Management System) is a separate application, built later. It manages Orders from the staff side (quoting delivery fees, verifying payment, advancing status) and, once built, answers Support Tickets from the staff side. For Orders, this app and CREOMS integrate over an API/webhook, not a shared database — this app owns and remains the source of truth for Order data (see [ADR-0003](./docs/adr/0003-ecommerce-and-creoms-integrate-over-api-not-shared-database.md)). Support Tickets are the exception: this app and CREOMS share one Neon database for Ticket data, with this app as the sole owner of that schema and its migrations (see [ADR-0007](./docs/adr/0007-support-tickets-integrate-via-shared-database.md)). Either way, CREOMS's own staff sign in through a separate service (br-auth-service), not Neon Auth, so staff identity never lives in this app's database.
 
 ## Language
 
@@ -85,3 +85,21 @@ _Avoid_: Order feedback, review
 **Order feedback**:
 A Customer's optional rating and free text about their experience with a `delivered` Order, given once, not editable afterward. Visible to the Customer on their own Order and to CREOMS, never shown publicly.
 _Avoid_: Review, comment, rating (alone)
+
+### Support
+
+**Ticket**:
+A Customer's request for help: a Subject, a Category, and a thread of Messages, shown to the Customer as a chat. The Customer who opened it may close or reopen it themselves; staff answer it from CREOMS once built. A Ticket may optionally reference one of the Customer's own Orders.
+_Avoid_: Support request, case, conversation (alone)
+
+**Category**:
+One of a fixed list a Ticket is filed under at creation, chosen by the Customer: Order Issue, Payment Issue, Delivery Issue, Product Question, Account, or Other. Used by staff to triage.
+_Avoid_: Type, tag
+
+**Subject**:
+The short, free-text summary line a Customer gives their Ticket, distinct from its Category.
+_Avoid_: Title, headline
+
+**Message**:
+One entry in a Ticket's thread, sent by the Customer or by staff, permanent once sent — never edited or deleted. A Message may carry one image attachment.
+_Avoid_: Follow-up, reply, comment

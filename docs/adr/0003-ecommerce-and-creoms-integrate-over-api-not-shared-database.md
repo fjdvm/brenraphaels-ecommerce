@@ -9,3 +9,5 @@ Orders will eventually be managed from the staff side by CREOMS (Customer Relati
 - Until CREOMS exists, Order status and Delivery fee are advanced by calling this app's internal endpoint by hand (or scripted), not by editing the database directly, so the same validated transition logic applies from day one.
 - The internal endpoint's authentication (a shared secret) is a placeholder; when CREOMS is built, its calls need a real auth story (e.g. a scoped service credential), and the shared secret should be retired then.
 - Feedback, like Orders, lives only in this app's database; CREOMS reads it the same way, over the API, not via direct DB access.
+
+**Note**: this boundary covers Orders (and Feedback) specifically. Support Tickets take the opposite approach — see [ADR-0007](./0007-support-tickets-integrate-via-shared-database.md).
