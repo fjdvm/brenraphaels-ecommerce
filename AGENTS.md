@@ -34,3 +34,7 @@ Rules that hold throughout:
 ## Input validation
 
 Every user-facing input field is sanitized, normalized, and validated before it is persisted or used. Build its schema on `lib/validators/fields.ts` (`emailField`, `passwordField`, `nameTextField`, `optionalNameField`, `textField`, `optionalTextField`, `phoneField`) and `lib/validators/sanitize.ts` (`cleanText`, `cleanName`, `cleanEmail`, `cleanPhone`) — never a raw `z.string()`. A field accepts only the characters that belong to it (letters for a name, digits for a phone number, and so on); anything else is rejected with a clear message, not silently stripped. Add a new helper to `lib/validators/` when an existing one doesn't fit rather than inlining ad hoc sanitization.
+
+## Instant navigation
+
+Navigating to a page must feel instant, even while its data is still loading. A page never blocks the whole route on data: render the static shell (headings, back links, layout) immediately and put everything that awaits data (session, database, fields, lists, forms) in an async component behind `<Suspense>` with a skeleton fallback built from `components/ui/skeleton.tsx`, sized to match the real content so nothing shifts when it resolves. Every dynamic route also gets a `loading.tsx` with the same skeleton, so Next can partially prefetch it and switch to it on click. Reuse one skeleton component for both the `loading.tsx` and the `<Suspense>` fallback. A new page is not done until it navigates instantly. See `app/(site)/(protected)/support/` for the pattern.
