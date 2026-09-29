@@ -60,7 +60,7 @@ export async function POST(request: Request) {
           parsed.data,
           await feedbackEnvironment(parsed.data, request.headers.get("user-agent"), resolveFeedbackIdentity),
         ),
-        labels: ["feedback"],
+        labels: [parsed.data.type],
       }),
     });
     if (!response.ok) {

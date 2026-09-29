@@ -5,11 +5,12 @@ import { useRef, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { feedbackReportSchema } from "@/lib/feedback/report";
+import { feedbackReportSchema, type FeedbackType } from "@/lib/feedback/report";
 import { feedbackClientEnvironment } from "@/lib/feedback/client-environment";
 import { useFeedbackButtonTheme } from "./use-feedback-button-theme";
 
 type Fields = {
+  type: FeedbackType | "";
   title: string;
   description: string;
   stepsToReproduce: string;
@@ -19,6 +20,7 @@ type Fields = {
 };
 
 const emptyFields: Fields = {
+  type: "",
   title: "",
   description: "",
   stepsToReproduce: "",
@@ -26,6 +28,11 @@ const emptyFields: Fields = {
   actualResult: "",
   honeypot: "",
 };
+
+const feedbackTypeOptions: { value: FeedbackType; label: string }[] = [
+  { value: "bug", label: "Bug" },
+  { value: "suggestion", label: "Suggestion" },
+];
 
 function FieldError({ message }: { message?: string }) {
   return message ? <p className="mt-1 text-sm text-red-700">{message}</p> : null;
@@ -42,7 +49,7 @@ export function FeedbackForm() {
   const [rateLimited, setRateLimited] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  function update(name: keyof Fields, value: string) {
+  function update<Name extends keyof Fields>(name: Name, value: Fields[Name]) {
     setFields((current) => ({ ...current, [name]: value }));
   }
 
@@ -109,6 +116,25 @@ export function FeedbackForm() {
               onChange={(event) => update("honeypot", event.target.value)}
             />
           </div>
+          <fieldset className="grid gap-1.5">
+            <legend className="text-sm font-semibold text-on-surface">Type</legend>
+            <div className="mt-1.5 flex gap-2">
+              {feedbackTypeOptions.map((option) => (
+                <label key={option.value} className="flex h-11 flex-1 cursor-pointer items-center justify-center border border-input bg-white text-sm font-semibold has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-white has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
+                  <input
+                    type="radio"
+                    name="feedback-type"
+                    value={option.value}
+                    checked={fields.type === option.value}
+                    onChange={() => update("type", option.value)}
+                    className="sr-only"
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+            <FieldError message={fieldErrors.type?.[0]} />
+          </fieldset>
           <label className="grid gap-1.5 text-sm font-semibold text-on-surface" htmlFor="feedback-title">
             Title
             <input id="feedback-title" maxLength={120} value={fields.title} onChange={(event) => update("title", event.target.value)} className="h-11 border border-input bg-white px-3 text-base outline-none focus:ring-2 focus:ring-ring" aria-invalid={Boolean(fieldErrors.title)} />

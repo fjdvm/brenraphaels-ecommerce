@@ -12,7 +12,11 @@ const feedbackTextPatternMessage = "Enter text without invisible characters";
 // A hidden bot trap: real visitors never see or fill this field, so any content is accepted as-is.
 const honeypotPattern = /^[\s\S]*$/;
 
+export const feedbackTypes = ["bug", "suggestion"] as const;
+export type FeedbackType = (typeof feedbackTypes)[number];
+
 export const feedbackReportSchema = z.object({
+  type: z.enum(feedbackTypes, { error: "Choose whether this is a bug or a suggestion" }),
   title: textField("Title", {
     min: 1,
     max: feedbackTitleMaximumLength,

@@ -16,6 +16,7 @@ vi.mock("@/lib/db", () => ({ getDatabase: database.getDatabase }));
 import { POST } from "../app/api/feedback/route";
 
 const validReport = {
+  type: "bug",
   title: "The product page is hard to read",
   description: "The price text blends into the background.\nPlease increase the contrast.",
   stepsToReproduce: "1. Open a product\n2. Scroll to the price",
@@ -97,6 +98,28 @@ describe("POST /api/feedback", () => {
     expect(body).toContain("| OS | macOS 14.6 |");
     expect(body).toContain("| Signed-in identity | anonymous |");
     expect(body).toContain("| App version | abc123 |");
+  });
+
+  test.each([
+    ["bug", "bug"],
+    ["suggestion", "suggestion"],
+  ])("labels a %s report with the %s label only", async (type, label) => {
+    const github = stubGithub();
+
+    const response = await POST(request({ ...validReport, type }));
+
+    expect(response.status).toBe(201);
+    expect(JSON.parse(github.mock.calls[0][1].body).labels).toEqual([label]);
+  });
+
+  test("rejects a report without a valid type", async () => {
+    const github = stubGithub();
+
+    const response = await POST(request({ ...validReport, type: "praise" }));
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).fieldErrors.type).toBeDefined();
+    expect(github).not.toHaveBeenCalled();
   });
 
   test("accepts a description at its 2,000-character limit", async () => {
