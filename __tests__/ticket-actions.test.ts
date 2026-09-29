@@ -159,6 +159,14 @@ describe("Ticket actions", () => {
     expect(put).not.toHaveBeenCalled();
   });
 
+  test("ignores an empty file input that arrives with a filename", async () => {
+    const formData = ticketFormData();
+    formData.set("attachment", new File([], "undefined", { type: "" }));
+
+    await expect(createTicket({}, formData)).resolves.toEqual({ created: true });
+    expect(put).not.toHaveBeenCalled();
+  });
+
   test("rejects an oversized reply image and stores nothing", async () => {
     const formData = new FormData();
     formData.set("body", "See attached.");

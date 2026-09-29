@@ -35,10 +35,13 @@ const ticketStore = () => createTicketStore(getDatabase(), { publish: publishTic
 
 const attachmentUnavailable = "Image uploads aren't available right now. Send your Message without one, or try again later.";
 
-/** Reads the optional single image from the form; `error` is a clear message for the form. */
+/**
+ * Reads the optional single image from the form; `error` is a clear message for the form.
+ * An untouched file input can arrive as a zero-byte File with a non-empty name, so an empty File means no image.
+ */
 function readAttachment(formData: FormData): { file?: File; error?: string } {
   const value = formData.get("attachment");
-  if (!(value instanceof File) || (value.size === 0 && value.name === "")) return {};
+  if (!(value instanceof File) || value.size === 0) return {};
   try {
     validateTicketAttachment(value);
   } catch (error) {
