@@ -6,6 +6,7 @@ import { useActionState } from "react";
 import { PasswordInput } from "@/components/ui/password-input";
 import { submitApplicantSignUp } from "./actions";
 import { BackLink } from "../_components/back-link";
+import { SubmitButton } from "../_components/submit-button";
 
 function FieldError({ errors }: { errors?: string[] }) {
   return errors?.[0] ? (
@@ -16,7 +17,7 @@ function FieldError({ errors }: { errors?: string[] }) {
 }
 
 export default function ApplicantSignUpPage() {
-  const [state, action, pending] = useActionState(submitApplicantSignUp, {});
+  const [state, action] = useActionState(submitApplicantSignUp, {});
   const fieldErrors = state.fieldErrors ?? {};
   return (
     <section className="mx-auto max-w-md py-16">
@@ -51,9 +52,9 @@ export default function ApplicantSignUpPage() {
           className="rounded"
         />
         <FieldError errors={fieldErrors.confirmPassword} />
-        <button disabled={pending} className="rounded bg-primary p-3 font-semibold text-on-primary">
+        <SubmitButton pendingLabel="Creating your account…" className="rounded bg-primary p-3 font-semibold text-on-primary">
           Create Applicant account
-        </button>
+        </SubmitButton>
       </form>
       {state.message ? (
         <p className="mt-4 text-sm" role="alert">

@@ -4,7 +4,9 @@ import { careersSession } from "@/lib/careers/auth";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { BackLink } from "./_components/back-link";
+import { FilterForm } from "./_components/filter-form";
 import { JobPostingsList } from "./_components/job-postings-list";
+import { SubmitButton } from "./_components/submit-button";
 
 type CareersPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -78,15 +80,15 @@ export default async function CareersPage({ searchParams }: CareersPageProps) {
         to more homes.
       </p>
 
-      <form className="mt-10 grid gap-4 border border-outline-variant bg-surface-card p-5 sm:grid-cols-4">
+      <FilterForm className="mt-10 grid gap-4 border border-outline-variant bg-surface-card p-5 sm:grid-cols-4">
         <Filter label="Department" name="department" options={options.departments} selected={filters.department} />
         <Filter label="Employment type" name="employmentType" options={options.employmentTypes} selected={filters.employmentType} />
         <Filter label="Location" name="location" options={options.locations} selected={filters.location} />
         <div className="flex items-end gap-3">
-          <button className="bg-primary px-4 py-2 font-semibold text-on-primary">Filter roles</button>
+          <SubmitButton pendingLabel="Filtering…" className="bg-primary px-4 py-2 font-semibold text-on-primary">Filter roles</SubmitButton>
           <Link href="/careers" className="px-2 py-2 font-semibold text-primary underline">Clear</Link>
         </div>
-      </form>
+      </FilterForm>
 
       <div className="mt-8">
         <JobPostingsList jobs={postings} isAuthenticated={Boolean(applicant)} />

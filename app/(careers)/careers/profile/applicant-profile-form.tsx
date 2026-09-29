@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 
 import type { ApplicantProfile } from "@/lib/careers/profile";
 
+import { SubmitButton } from "../_components/submit-button";
 import { submitApplicantDocument, submitApplicantProfile } from "./actions";
 
 type Document = { id: number; name: string; contentType: string; size: number };
@@ -43,8 +44,8 @@ function WorkHistoryFields({ item, index, remove }: { item?: WorkHistory; index:
 }
 
 export function ApplicantProfileForm({ heading, fullName, profile, documents = [] }: { heading: string; fullName: string; profile?: ApplicantProfile; documents?: Document[] }) {
-  const [profileState, profileAction, saving] = useActionState(submitApplicantProfile, {});
-  const [documentState, documentAction, uploading] = useActionState(submitApplicantDocument, {});
+  const [profileState, profileAction] = useActionState(submitApplicantProfile, {});
+  const [documentState, documentAction] = useActionState(submitApplicantDocument, {});
   const [education, setEducation] = useState<Array<Education | undefined>>(profile?.education ?? []);
   const [workHistory, setWorkHistory] = useState<Array<WorkHistory | undefined>>(profile?.workHistory ?? []);
 
@@ -63,14 +64,14 @@ export function ApplicantProfileForm({ heading, fullName, profile, documents = [
       <h2 className="mt-4 font-serif text-2xl text-primary">Work history</h2>
       {workHistory.map((item, index) => <WorkHistoryFields key={index} item={item} index={index} remove={() => setWorkHistory((items) => items.filter((_, itemIndex) => itemIndex !== index))} />)}
       {workHistory.length < 30 ? <button type="button" onClick={() => setWorkHistory((items) => [...items, undefined])} className="justify-self-start font-semibold text-primary underline">Add work history</button> : null}
-      <button disabled={saving} className="rounded bg-primary p-3 font-semibold text-on-primary">Save profile</button>
+      <SubmitButton pendingLabel="Saving profile…" className="rounded bg-primary p-3 font-semibold text-on-primary">Save profile</SubmitButton>
     </form>
     {profileState.message ? <p className="mt-3 text-sm" role="alert">{profileState.message}</p> : null}
     {profile ? <section className="mt-12">
       <h2 className="font-serif text-2xl text-primary">Documents</h2>
       <form action={documentAction} className="mt-4 flex gap-3">
         <input required name="document" type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png" />
-        <button disabled={uploading} className="rounded bg-primary px-4 py-2 font-semibold text-on-primary">Upload Document</button>
+        <SubmitButton pendingLabel="Uploading…" className="rounded bg-primary px-4 py-2 font-semibold text-on-primary">Upload Document</SubmitButton>
       </form>
       {documentState.message ? <p className="mt-3 text-sm" role="alert">{documentState.message}</p> : null}
       <ul className="mt-4 list-disc pl-5">{documents.map((document) => <li key={document.id}>{document.name}</li>)}</ul>
