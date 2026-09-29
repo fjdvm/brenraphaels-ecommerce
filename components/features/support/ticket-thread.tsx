@@ -1,19 +1,49 @@
 "use client";
 
-import { useOptimistic, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useOptimistic, useRef, useState } from "react";
 
 import { sendMessage } from "@/app/(site)/(protected)/support/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { TicketMessage } from "@/lib/support/tickets";
+import type { TicketEventPayload } from "@/lib/support/ticket-events";
 import { validateTicketAttachment } from "@/lib/support/ticket-attachment";
 import { ticketMessageInput } from "@/lib/support/ticket-message";
 
 type OptimisticMessage = TicketMessage & { pending?: boolean };
 
-/** Renders a Ticket's thread and appends Customer Messages before the server responds. */
-export function TicketThread({ ticketId, messages }: { ticketId: number; messages: TicketMessage[] }) {
+/** Renders a Ticket's thread, appends Customer Messages before the server responds, and shows Messages sent from other tabs live. */
+export function TicketThread({ ticketId, messages: savedMessages }: { ticketId: number; messages: TicketMessage[] }) {
+  const router = useRouter();
+  const [liveMessages, setLiveMessages] = useState<TicketMessage[]>([]);
+  const messages = useMemo(() => {
+    const savedIds = new Set(savedMessages.map((saved) => saved.id));
+    return [...savedMessages, ...liveMessages.filter((live) => !savedIds.has(live.id))];
+  }, [savedMessages, liveMessages]);
+
+  useEffect(() => {
+    const events = new EventSource(`/api/support/tickets/${ticketId}/events`);
+    let interrupted = false;
+    events.onopen = () => {
+      // Messages sent while the stream was down were never pushed, so reload the saved thread.
+      if (interrupted) router.refresh();
+      interrupted = false;
+    };
+    events.onerror = () => {
+      interrupted = true;
+    };
+    events.onmessage = (event) => {
+      const payload = JSON.parse(event.data) as TicketEventPayload;
+      const live: TicketMessage = { ...payload.message, createdAt: new Date(payload.message.createdAt) };
+      setLiveMessages((current) => (current.some((existing) => existing.id === live.id) ? current : [...current, live]));
+      // The header status and the Close/Reopen control come from the saved Ticket.
+      router.refresh();
+    };
+    return () => events.close();
+  }, [ticketId, router]);
+
   const formRef = useRef<HTMLFormElement>(null);
   const [message, setMessage] = useState<string>();
   const [optimisticMessages, addOptimisticMessage] = useOptimistic<OptimisticMessage[], OptimisticMessage>(

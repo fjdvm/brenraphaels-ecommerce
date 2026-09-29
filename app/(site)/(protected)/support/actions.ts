@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { sendTicketCreatedEmail } from "@/lib/email/ticket-created-email";
+import { publishTicketEvent } from "@/lib/support/ticket-events";
 import { createTicketStore, openTicketAndNotify, ticketInput } from "@/lib/support/tickets";
 import { ticketMessageInput } from "@/lib/support/ticket-message";
 import { uploadTicketAttachment, validateTicketAttachment } from "@/lib/support/ticket-attachment";
@@ -82,7 +83,7 @@ export async function createTicket(
       customer.userId,
       customer.email,
       parsed.data,
-      { ticketStore: createTicketStore(getDatabase()), mailer: { send: sendTicketCreatedEmail } },
+      { ticketStore: createTicketStore(getDatabase(), { publish: publishTicketEvent }), mailer: { send: sendTicketCreatedEmail } },
       file ? (ticketId) => uploadAttachment(file, ticketId) : undefined,
     );
   } catch (error) {
@@ -123,7 +124,7 @@ export async function sendMessage(
 
   const customer = await requireCustomer();
   try {
-    const store = createTicketStore(getDatabase());
+    const store = createTicketStore(getDatabase(), { publish: publishTicketEvent });
     if (!(await store.get(ticketId, customer.userId))) throw new Error("Ticket was not found.");
     const attachmentPathname = attachment.file ? await uploadAttachment(attachment.file, ticketId) : undefined;
     await store.addMessage(ticketId, customer.userId, parsed.data, attachmentPathname);

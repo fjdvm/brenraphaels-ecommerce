@@ -65,6 +65,14 @@ export type TicketStore = {
   reopen(ticketId: number, customerId: string): Promise<Ticket>;
 };
 
+/** What the store announces after persisting; subscribers of the Ticket's channel receive it. */
+export type TicketEvent = {
+  type: "ticket-opened" | "message-added";
+  ticket: Ticket;
+  message: TicketMessage;
+};
+export type TicketPublisher = (event: TicketEvent) => Promise<void>;
+
 export type TicketMailer = {
   send(recipientEmail: string, ticket: Ticket): Promise<void>;
 };
@@ -94,7 +102,19 @@ export async function openTicketAndNotify(
 export function createTicketStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
->(db: PgDatabase<TQueryResult, TSchema>): TicketStore {
+>(
+  db: PgDatabase<TQueryResult, TSchema>,
+  dependencies: { publish?: TicketPublisher } = {},
+): TicketStore {
+  /** The Ticket is already persisted, so a failed publish must not fail the write; other tabs catch up on reload. */
+  async function publish(event: TicketEvent) {
+    try {
+      await dependencies.publish?.(event);
+    } catch (error) {
+      console.error("Ticket event could not be published", error);
+    }
+  }
+
   async function messagesForTicket(ticketId: number): Promise<TicketMessage[]> {
     const messages = await db
       .select({
@@ -172,7 +192,9 @@ export function createTicketStore<
     await db
       .insert(ticketMessages)
       .values({ ticketId: ticket.id, sender: "customer", body: parsed.body, attachmentPathname });
-    return (await get(ticket.id, customerId))!;
+    const opened = (await get(ticket.id, customerId))!;
+    await publish({ type: "ticket-opened", ticket: opened, message: opened.messages.at(-1)! });
+    return opened;
   }
 
   async function addMessage(
@@ -185,7 +207,9 @@ export function createTicketStore<
     const ticket = await get(ticketId, customerId);
     if (!ticket) throw new Error("Ticket was not found.");
     await db.insert(ticketMessages).values({ ticketId, sender: "customer", body: parsed, attachmentPathname });
-    return (await get(ticketId, customerId))!;
+    const updated = (await get(ticketId, customerId))!;
+    await publish({ type: "message-added", ticket: updated, message: updated.messages.at(-1)! });
+    return updated;
   }
 
   async function close(ticketId: number, customerId: string): Promise<Ticket> {

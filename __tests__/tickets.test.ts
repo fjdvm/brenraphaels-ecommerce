@@ -251,3 +251,71 @@ describe("openTicketAndNotify", () => {
     await expect(createTicketStore(database).listForCustomer("customer-1")).resolves.toMatchObject([{ id: ticket.id }]);
   });
 });
+
+describe("Ticket store realtime publishing", () => {
+  test("publishes the new Ticket and its opening Message when a Ticket is opened", async () => {
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const store = createTicketStore(drizzle(client), { publish });
+
+    const ticket = await store.open("customer-1", {
+      subject: "Where is my Order?",
+      category: "Order Issue",
+      body: "It has been a week.",
+    });
+
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith({ type: "ticket-opened", ticket, message: ticket.messages[0] });
+  });
+
+  test("publishes the added Message and updated Ticket", async () => {
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const store = createTicketStore(drizzle(client), { publish });
+    const opened = await store.open("customer-1", {
+      subject: "Where is my Order?",
+      category: "Order Issue",
+      body: "It has been a week.",
+    });
+    publish.mockClear();
+
+    const updated = await store.addMessage(opened.id, "customer-1", { body: "Any update?" });
+
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith({
+      type: "message-added",
+      ticket: updated,
+      message: updated.messages[1],
+    });
+  });
+
+  test("does not publish when the Message is rejected", async () => {
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const store = createTicketStore(drizzle(client), { publish });
+    const opened = await store.open("customer-1", {
+      subject: "Where is my Order?",
+      category: "Order Issue",
+      body: "It has been a week.",
+    });
+    publish.mockClear();
+
+    await expect(store.addMessage(opened.id, "customer-2", { body: "Not mine" })).rejects.toThrow();
+    await expect(store.addMessage(opened.id, "customer-1", { body: "" })).rejects.toThrow();
+
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  test("still saves the Message when publishing fails", async () => {
+    const publish = vi.fn().mockRejectedValue(new Error("redis down"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const store = createTicketStore(drizzle(client), { publish });
+    const opened = await store.open("customer-1", {
+      subject: "Where is my Order?",
+      category: "Order Issue",
+      body: "It has been a week.",
+    });
+
+    const updated = await store.addMessage(opened.id, "customer-1", { body: "Any update?" });
+
+    expect(updated.messages.map((message) => message.body)).toEqual(["It has been a week.", "Any update?"]);
+    error.mockRestore();
+  });
+});
