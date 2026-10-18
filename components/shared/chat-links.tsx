@@ -8,10 +8,10 @@ const icons: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   "Chat on Instagram": InstagramIcon,
 };
 
-/** Floating shortcuts to message the shop on Messenger or Instagram. */
+/** Floating shortcuts to message the shop on Messenger or Instagram, stacked above the Feedback button. */
 export function ChatLinks() {
   return (
-    <div className="fixed bottom-5 right-5 z-30 flex flex-col items-end gap-3">
+    <div className="fixed bottom-[5.25rem] right-5 z-30 flex flex-col items-end gap-3">
       {chatLinks.map(({ label, href }) => {
         const Icon = icons[label];
         return (
