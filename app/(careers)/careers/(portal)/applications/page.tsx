@@ -101,7 +101,7 @@ export default function ApplicationsPage() {
 
       <section id="how-hiring-works" className="mx-auto w-full max-w-[1440px] px-5 pb-[100px] sm:px-10">
         <h2 className="font-serif text-[22px] leading-[1.3] text-primary">How hiring works</h2>
-        <ol className="mt-6 grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <ol className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, index) => (
             <li key={step.title} className="flex flex-col items-start gap-3 rounded-[40px] bg-surface-soft p-[30px]">
               <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-primary text-[13px] font-medium tracking-[0.35px] text-white">
