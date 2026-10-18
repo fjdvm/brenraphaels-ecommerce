@@ -36,7 +36,7 @@ export default function SupportLayout({ children }: { children: ReactNode }) {
   return (
     <section className="flex w-full flex-col gap-[30px] px-5 pb-[100px] pt-6 sm:px-10">
       <div className="-mb-3">
-        <BackButton fallbackHref="/profile/orders" />
+        <BackButton href="/profile/orders" />
       </div>
       <PageHeading
         aside={
