@@ -48,6 +48,7 @@ export function CheckoutView({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string>();
+  const [confirming, setConfirming] = useState(false);
   const [fulfillmentMethod, setFulfillmentMethod] = useState<"pickup" | "delivery">("pickup");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash-on-delivery");
   const [addressId, setAddressId] = useState<number | undefined>(
@@ -65,11 +66,13 @@ export function CheckoutView({
         });
         router.push("/profile/orders");
       } catch (error) {
+        setConfirming(false);
         setMessage(error instanceof Error ? error.message : "We couldn't place your Order. Please try again.");
       }
     });
   }
 
+  const selectedAddress = addresses.find((address) => address.id === addressId);
   const deliveryBlocked = fulfillmentMethod === "delivery" && !addressId;
 
   if (cart.lines.length === 0) {
@@ -187,13 +190,13 @@ export function CheckoutView({
           <Button
             className="w-full"
             disabled={isPending || cart.lines.some((line) => !line.available) || deliveryBlocked}
-            onClick={submitOrder}
+            onClick={() => setConfirming(true)}
             size="pill-lg"
             type="button"
             variant="pill"
           >
-            {isPending ? "Placing Order…" : "Place order"}
-            {isPending ? null : <ArrowRight aria-hidden className="size-5" />}
+            Place order
+            <ArrowRight aria-hidden className="size-5" />
           </Button>
           <Button asChild variant="link" size="link-sm" className="self-start">
             <Link href="/cart">Edit cart</Link>
@@ -201,6 +204,51 @@ export function CheckoutView({
           <p className="text-xs tracking-wide text-muted">You can cancel your order anytime until it&apos;s dispatched.</p>
         </aside>
       </div>
+      <Dialog open={confirming} onOpenChange={(open) => { if (!isPending) setConfirming(open); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogTitle className="font-serif text-3xl leading-tight text-primary">Confirm your order</DialogTitle>
+          <DialogDescription className="mt-2 text-body">Please check everything below, then confirm to place your order.</DialogDescription>
+          <ul className="mt-6 flex flex-col gap-4">
+            {cart.lines.map((line) => (
+              <li key={line.id} className="flex items-center gap-4 tracking-wide">
+                <CartThumbnail url={line.imageUrl} size={64} />
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5 leading-normal">
+                  <p className="text-sm font-medium text-ink">{line.productName}</p>
+                  <p className="text-xs text-muted">{line.sizeLabel} × {line.quantity}</p>
+                </div>
+                <p className="text-sm font-medium text-ink">{formatPeso(line.priceInCentavos * line.quantity)}</p>
+              </li>
+            ))}
+          </ul>
+          <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 border-t border-line pt-6 text-sm tracking-wide">
+            <dt className="text-muted">{fulfillmentMethod === "delivery" ? "Delivery to" : "Pickup at"}</dt>
+            <dd className="text-right text-ink">
+              {fulfillmentMethod === "delivery" && selectedAddress
+                ? `${selectedAddress.street}, ${selectedAddress.barangay}, ${selectedAddress.city}, ${selectedAddress.province} ${selectedAddress.postalCode}`
+                : "Antipolo store"}
+            </dd>
+            <dt className="text-muted">Payment</dt>
+            <dd className="text-right text-ink">{paymentMethod === "gcash" ? "GCash" : "Cash on Delivery"}</dd>
+            <dt className="text-muted">Subtotal</dt>
+            <dd className="text-right text-ink">{formatPeso(cart.subtotalInCentavos)}</dd>
+            <dt className="font-medium text-ink">Total</dt>
+            <dd className="text-right font-serif text-[22px] leading-[1.3] text-primary">
+              {formatPeso(cart.subtotalInCentavos)}{fulfillmentMethod === "delivery" ? " + delivery" : ""}
+            </dd>
+          </dl>
+          {fulfillmentMethod === "delivery" ? (
+            <p className="mt-4 text-xs leading-normal tracking-wide text-body">The delivery fee will be confirmed by our team before your order is dispatched.</p>
+          ) : null}
+          <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button type="button" variant="pill-outline" size="pill-sm" disabled={isPending} onClick={() => setConfirming(false)}>
+              Back to edit
+            </Button>
+            <Button type="button" variant="pill" size="pill-sm" disabled={isPending} onClick={submitOrder}>
+              {isPending ? "Placing Order…" : "Confirm order"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

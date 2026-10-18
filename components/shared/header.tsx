@@ -6,17 +6,11 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Menu, Truck, X } from "lucide-react";
 
-const headerSignOutPaths = new Set([
-  "/",
-  "/about",
-  "/journey",
-  "/vision-mission",
-  "/faq",
-  "/contact",
-]);
+import { shouldShowCustomerSidebar } from "@/components/features/customer/customer-sidebar-routes";
 
+/** The sidebar carries its own sign out, so the header shows one exactly where the sidebar is hidden. */
 export function shouldShowHeaderSignOut(pathname: string) {
-  return headerSignOutPaths.has(pathname);
+  return !shouldShowCustomerSidebar(pathname);
 }
 
 /** Pages that open on a full-bleed photo; their header floats over it until the visitor scrolls. */
