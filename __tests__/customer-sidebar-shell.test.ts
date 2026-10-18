@@ -14,6 +14,9 @@ describe("Customer sidebar shell", () => {
     "/products/ube-halaya-smooth",
     "/cart",
     "/checkout",
+    "/support",
+    "/support/12",
+    "/support/new",
   ])(
     "hides the sidebar on %s",
     (pathname) => {
@@ -21,7 +24,7 @@ describe("Customer sidebar shell", () => {
     },
   );
 
-  test.each(["/support", "/profile/orders", "/profile/addresses"])(
+  test.each(["/profile/orders", "/profile/addresses", "/profile/settings"])(
     "keeps the sidebar on %s",
     (pathname) => {
       expect(shouldShowCustomerSidebar(pathname)).toBe(true);

@@ -1,18 +1,20 @@
-import { Card } from "@/components/ui/card";
+import type { ReactNode } from "react";
+
+/** The white card an account page shows when the Customer has nothing to list yet. */
 export function AccountEmptyState({
   description,
   title,
+  children,
 }: {
   description: string;
   title: string;
+  children?: ReactNode;
 }) {
   return (
-    <Card className="p-6 shadow-sm sm:p-10">
-      <h2 className="font-serif text-3xl text-primary">{title}</h2>
-      <p className="mt-3 max-w-xl text-on-surface-variant">{description}</p>
-      <p className="mt-8 border-t border-outline-variant/60 pt-5 text-sm text-on-surface-variant">
-        This part of your account is being prepared.
-      </p>
-    </Card>
+    <div className="flex flex-col items-start gap-3 rounded-[40px] border border-line bg-white p-8 sm:p-10">
+      <h2 className="font-serif text-[28px] leading-[1.25] text-primary">{title}</h2>
+      <p className="max-w-xl leading-[1.6] tracking-[0.35px] text-body">{description}</p>
+      {children}
+    </div>
   );
 }

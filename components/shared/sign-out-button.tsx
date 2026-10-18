@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
@@ -25,9 +25,11 @@ function ConfirmButton() {
 export function SignOutButton({
   action,
   className,
+  icon,
 }: {
   action: () => Promise<void>;
   className?: string;
+  icon?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -41,6 +43,7 @@ export function SignOutButton({
           className,
         )}
       >
+        {icon}
         Sign out
       </button>
       <Dialog open={open} onOpenChange={setOpen}>

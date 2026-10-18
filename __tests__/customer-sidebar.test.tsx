@@ -11,16 +11,14 @@ describe("The Customer sidebar navigation", () => {
       <CustomerSidebarNavList pathname="/profile/orders" />,
     );
 
-    expect(markup).toContain('href="/products"');
     expect(markup).toContain('href="/profile/orders"');
     expect(markup).toContain('href="/support"');
-    expect(markup).toContain('href="/cart"');
     expect(markup).toContain('href="/profile/addresses"');
     expect(markup).toContain('href="/profile/notifications"');
     expect(markup).toContain('href="/profile/settings"');
     expect(markup).toMatch(/<a(?=[^>]*href="\/profile\/orders")(?=[^>]*aria-current="page")/);
     expect(markup.match(/aria-current="page"/g)).toHaveLength(1);
     expect(markup).toContain("Sign out");
-    expect(markup).toContain("hover:bg-error-container");
+    expect(markup).not.toContain('href="/cart"');
   });
 });

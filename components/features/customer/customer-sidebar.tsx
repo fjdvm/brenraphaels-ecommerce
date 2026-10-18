@@ -5,56 +5,62 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   ChevronDown,
+  LogOut,
   MapPin,
+  MessageCircle,
   Package,
-  Settings,
-  ShoppingCart,
-  Store,
-  MessageCircleQuestion,
+  SlidersHorizontal,
 } from "lucide-react";
 
 import { signOut } from "@/app/actions";
 import { SignOutButton } from "@/components/shared/sign-out-button";
+import { initialsOf } from "@/lib/customer/initials";
 import { cn } from "@/lib/utils";
 
 const items = [
-  { href: "/products", label: "Shop", icon: Store },
   { href: "/profile/orders", label: "My orders", icon: Package },
-  { href: "/support", label: "Support", icon: MessageCircleQuestion },
-  { href: "/cart", label: "My cart", icon: ShoppingCart },
+  { href: "/support", label: "Support", icon: MessageCircle },
   { href: "/profile/addresses", label: "Addresses", icon: MapPin },
   { href: "/profile/notifications", label: "Notifications", icon: Bell },
-  { href: "/profile/settings", label: "Account settings", icon: Settings },
+  { href: "/profile/settings", label: "Account settings", icon: SlidersHorizontal },
 ];
 
-export function CustomerSidebar() {
+const navItemClass =
+  "flex w-full items-center gap-3 rounded-full px-[18px] py-[13px] text-[15px] leading-[1.4] tracking-[0.35px] text-body transition-colors hover:bg-lavender-soft hover:text-primary";
+
+export function CustomerSidebar({ fullName, email }: { fullName: string; email: string }) {
   const pathname = usePathname();
   const activeItem = items.find((item) => item.href === pathname);
   const ActiveIcon = activeItem?.icon;
 
   return (
-    <aside className="min-w-0 lg:w-[13.5rem] lg:mr-12">
-      <details className="group rounded-md border border-outline-variant/60 bg-surface-card lg:hidden">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-primary">
+    <aside className="min-w-0 lg:w-[280px] lg:shrink-0">
+      <details className="group rounded-[28px] border border-line bg-white lg:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-3.5 font-medium text-primary">
           <span className="flex items-center gap-2">
             {ActiveIcon ? <ActiveIcon aria-hidden="true" className="size-5" /> : null}
-            {activeItem?.label ?? "Customer navigation"}
+            {activeItem?.label ?? "My account"}
           </span>
-          <ChevronDown
-            aria-hidden="true"
-            className="size-5 transition-transform group-open:rotate-180"
-          />
+          <ChevronDown aria-hidden="true" className="size-5 transition-transform group-open:rotate-180" />
         </summary>
-        <CustomerSidebarNavList
-          pathname={pathname}
-          className="border-t border-outline-variant/60 p-2"
-        />
+        <div className="border-t border-line p-3">
+          <CustomerSidebarNavList pathname={pathname} />
+        </div>
       </details>
-      <nav aria-label="Customer" className="hidden lg:block">
-        <CustomerSidebarNavList
-          pathname={pathname}
-          className="flex min-h-[calc(100vh-11rem)] flex-col gap-1"
-        />
+      <nav aria-label="Customer" className="hidden flex-col gap-1.5 lg:flex">
+        <div className="mb-1.5 flex items-center gap-3.5 rounded-[40px] bg-lavender-soft p-[22px]">
+          <span
+            aria-hidden
+            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-medium tracking-[0.35px] text-white"
+          >
+            {initialsOf(fullName)}
+          </span>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <p className="truncate font-serif text-lg leading-[1.35] text-primary">{fullName}</p>
+            <p className="truncate text-xs tracking-[0.35px] text-muted">{email}</p>
+          </div>
+        </div>
+        <CustomerSidebarNavList pathname={pathname} />
       </nav>
     </aside>
   );
@@ -68,7 +74,7 @@ export function CustomerSidebarNavList({
   pathname: string;
 }) {
   return (
-    <ul className={className}>
+    <ul className={cn("flex flex-col gap-1.5", className)}>
       {items.map((item) => {
         const active = item.href === pathname;
         const Icon = item.icon;
@@ -76,22 +82,21 @@ export function CustomerSidebarNavList({
           <li key={item.href}>
             <Link
               aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-4 py-3 text-sm font-semibold text-on-surface-variant transition-colors hover:bg-primary-fixed/60 hover:text-primary",
-                active && "bg-primary-fixed text-primary",
-              )}
+              className={cn(navItemClass, active && "bg-lavender font-medium text-primary")}
               href={item.href}
             >
-              <Icon aria-hidden="true" className="size-5" />
+              <Icon aria-hidden="true" className="size-5" strokeWidth={1.5} />
               {item.label}
             </Link>
           </li>
         );
       })}
-      <li className="mt-8">
+      <li aria-hidden className="my-1.5 h-px bg-line" />
+      <li>
         <SignOutButton
           action={signOut}
-          className="w-full rounded-md px-4 py-3 text-left text-sm text-error transition-colors hover:bg-error-container hover:text-error hover:no-underline"
+          className={cn(navItemClass, "justify-start font-normal hover:no-underline")}
+          icon={<LogOut aria-hidden="true" className="size-5" strokeWidth={1.5} />}
         />
       </li>
     </ul>

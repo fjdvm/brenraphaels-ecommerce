@@ -8,10 +8,11 @@ const sidebarlessPaths = new Set([
   "/products",
   "/cart",
   "/checkout",
+  "/support",
 ]);
 
-/** Storefront pages are full width; the sidebar belongs to the Customer's account pages. */
-const sidebarlessPrefixes = ["/products/"];
+/** Storefront and Support pages are full width; the sidebar belongs to the Customer's account pages. */
+const sidebarlessPrefixes = ["/products/", "/support/"];
 
 export function shouldShowCustomerSidebar(pathname: string) {
   return !sidebarlessPaths.has(pathname)

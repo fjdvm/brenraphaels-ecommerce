@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { ChatLinks } from "@/components/shared/chat-links";
 import { Footer } from "@/components/shared/footer";
 import { CartSessionSync } from "@/components/features/orders/cart-session-sync";
+import { CustomerSidebarSkeleton } from "@/components/features/customer/skeletons";
 import { CustomerSidebarShell } from "@/components/features/customer/customer-sidebar-shell";
 import { CustomerSidebar } from "@/components/features/customer/customer-sidebar";
 import { Header } from "@/components/shared/header";
@@ -45,7 +46,9 @@ async function HeaderSignOutAsync() {
 
 async function CustomerSidebarGate() {
   const visitor = await currentVisitor();
-  return visitor.state === "customer" ? <CustomerSidebar /> : null;
+  return visitor.state === "customer" ? (
+    <CustomerSidebar fullName={visitor.customer.fullName} email={visitor.customer.email} />
+  ) : null;
 }
 
 export default function SiteLayout({ children }: LayoutProps<"/">) {
@@ -74,7 +77,7 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
       <main className="flex-1">
         <CustomerSidebarShell
           sidebar={
-            <Suspense fallback={null}>
+            <Suspense fallback={<CustomerSidebarSkeleton />}>
               <CustomerSidebarGate />
             </Suspense>
           }

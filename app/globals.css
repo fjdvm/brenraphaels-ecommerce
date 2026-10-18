@@ -34,6 +34,8 @@
   --ink: #2b1b45;
   --muted: #7d7590;
   --body: #4b4458;
+  --accent: #c9a8f0;
+  --surface-soft: #f3f0f6;
   --lavender: #e9ddfb;
   --lavender-soft: #f4eefc;
   --warning: #a86a12;
@@ -83,6 +85,8 @@
   --color-on-tertiary-container: var(--on-tertiary-container);
   --color-tertiary-fixed-dim: var(--tertiary-fixed-dim);
   --color-outline-variant: var(--outline-variant);
+  --color-accent: var(--accent);
+  --color-surface-soft: var(--surface-soft);
   --color-line: var(--line);
   --color-ink: var(--ink);
   --color-muted: var(--muted);

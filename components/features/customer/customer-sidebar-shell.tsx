@@ -21,9 +21,9 @@ export function CustomerSidebarShell({
   }
 
   return (
-    <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl gap-8 px-5 py-10 sm:px-8 sm:py-14 lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-0">
-      <div>{sidebar}</div>
-      <div className="min-w-0">{children}</div>
+    <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1440px] flex-col gap-8 px-5 pb-[100px] pt-8 sm:px-10 lg:flex-row lg:gap-[60px] lg:pt-[50px]">
+      <div className="lg:shrink-0">{sidebar}</div>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }
