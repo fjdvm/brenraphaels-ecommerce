@@ -39,7 +39,7 @@ vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 
 import { z } from "zod";
 
-import { submitApplicantProfile } from "@/app/(careers)/careers/profile/actions";
+import { submitApplicantProfile } from "@/app/(careers)/careers/(portal)/profile/actions";
 
 describe("Applicant profile action", () => {
   beforeEach(() => {

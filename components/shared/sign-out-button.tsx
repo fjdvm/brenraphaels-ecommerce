@@ -26,10 +26,13 @@ export function SignOutButton({
   action,
   className,
   icon,
+  iconOnly = false,
 }: {
   action: () => Promise<void>;
   className?: string;
   icon?: ReactNode;
+  /** Hides the "Sign out" text visually (it stays available to screen readers). */
+  iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -44,7 +47,7 @@ export function SignOutButton({
         )}
       >
         {icon}
-        Sign out
+        {iconOnly ? <span className="sr-only">Sign out</span> : "Sign out"}
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="text-center">

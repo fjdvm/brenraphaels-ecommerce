@@ -14,8 +14,8 @@ vi.mock("@/lib/careers/hr-ats-delivery", () => ({ enqueueApplicationDelivery }))
 vi.mock("@/lib/email/application-received-email", () => ({ sendApplicationReceivedEmail }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { submitApplicationAction } from "@/app/(careers)/careers/[id]/apply/actions";
-import { withdrawApplicationAction } from "@/app/(careers)/careers/applications/actions";
+import { submitApplicationAction } from "@/app/(careers)/careers/(portal)/[id]/apply/actions";
+import { withdrawApplicationAction } from "@/app/(careers)/careers/(portal)/applications/actions";
 
 describe("Application action", () => {
   beforeEach(() => vi.resetAllMocks());
