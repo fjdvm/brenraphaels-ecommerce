@@ -271,7 +271,7 @@ export function ApplicantProfileForm({ heading, fullName, profile, documents = [
   const strength = profileStrength({ profile, documentCount: documents.length });
 
   return (
-    <section className="px-5 pb-[100px] pt-[50px] sm:px-10">
+    <section className="mx-auto w-full max-w-[1440px] px-5 pb-[100px] pt-[50px] sm:px-10">
       <div className="flex flex-col gap-4">
         <p className={eyebrowClass}>Careers</p>
         <h1 className="font-serif text-4xl leading-[1.2] text-primary sm:text-[54px]">{heading}</h1>

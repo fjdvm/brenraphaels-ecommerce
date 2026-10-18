@@ -115,7 +115,7 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
 export default function CareersPage(props: CareersPageProps) {
   return (
     <>
-      <section className="px-5 pb-[100px] pt-[60px] sm:px-10">
+      <section className="mx-auto w-full max-w-[1440px] px-5 pb-[100px] pt-[60px] sm:px-10">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_560px]">
           <div className="flex flex-col justify-center gap-7 rounded-[40px] bg-lavender-soft p-8 sm:p-[60px]">
             <div className="flex max-w-[660px] flex-col gap-4">
@@ -136,13 +136,13 @@ export default function CareersPage(props: CareersPageProps) {
         </div>
       </section>
 
-      <section id="open-roles" className="scroll-mt-6 px-5 pb-[100px] pt-20 sm:px-10">
+      <section id="open-roles" className="mx-auto w-full max-w-[1440px] scroll-mt-6 px-5 pb-[100px] pt-20 sm:px-10">
         <Suspense fallback={<CareersListSkeleton />}>
           <OpenRoles {...props} />
         </Suspense>
       </section>
 
-      <section id="life" className="scroll-mt-6 px-5 pb-[100px] pt-20 sm:px-10">
+      <section id="life" className="mx-auto w-full max-w-[1440px] scroll-mt-6 px-5 pb-[100px] pt-20 sm:px-10">
         <div className="flex flex-col gap-4">
           <p className={eyebrowClass}>Life at Bren Raphael&apos;s</p>
           <h2 className="font-serif text-3xl leading-[1.2] text-primary sm:text-[40px]">Why work with us</h2>

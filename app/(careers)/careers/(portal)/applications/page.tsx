@@ -78,7 +78,7 @@ async function ApplicationsList() {
 export default function ApplicationsPage() {
   return (
     <>
-      <section className="px-5 pb-[100px] pt-[50px] sm:px-10">
+      <section className="mx-auto w-full max-w-[1440px] px-5 pb-[100px] pt-[50px] sm:px-10">
         <div className="flex flex-wrap items-end justify-between gap-[30px]">
           <div className="flex flex-col gap-4">
             <p className={eyebrowClass}>Careers</p>
@@ -99,7 +99,7 @@ export default function ApplicationsPage() {
         </div>
       </section>
 
-      <section id="how-hiring-works" className="px-5 pb-[100px] sm:px-10">
+      <section id="how-hiring-works" className="mx-auto w-full max-w-[1440px] px-5 pb-[100px] sm:px-10">
         <h2 className="font-serif text-[22px] leading-[1.3] text-primary">How hiring works</h2>
         <ol className="mt-6 grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, index) => (
