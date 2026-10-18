@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
@@ -38,12 +39,13 @@ function LocationSelect({
   const errorId = `${id}-error`;
   const problem = error ?? (choices.failed ? "We couldn't load the list. Please try again." : undefined);
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id} required>
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id} required className={fieldLabelClass}>
         {label}
       </Label>
       <Select
         id={id}
+        className={fieldClass}
         name={name}
         value={value}
         required

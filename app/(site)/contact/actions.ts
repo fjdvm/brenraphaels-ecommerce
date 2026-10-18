@@ -23,6 +23,7 @@ export async function sendContactMessage(
       name: text(formData, "name"),
       email: text(formData, "email"),
       phone: text(formData, "phone"),
+      topic: text(formData, "topic"),
       comment: text(formData, "comment"),
       website: text(formData, "website"),
     },

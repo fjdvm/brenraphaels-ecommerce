@@ -3,27 +3,23 @@ import { redirect } from "next/navigation";
 
 import { completeProfilePath } from "@/lib/auth/route-access";
 import { AuthShell } from "@/components/shared/auth-shell";
-import { Card } from "@/components/ui/card";
+import { AuthCard } from "@/components/features/auth/auth-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 
-/** Mirrors the Card, heading, and field shape of the sign-in/sign-up forms so nothing jumps once they resolve. */
+/** Mirrors the card, heading, and field shape of the sign-in form so nothing jumps once it resolves. */
 function SignedOutGateFallback() {
   return (
-    <Card className="mx-auto w-full max-w-md p-6 shadow-sm sm:p-8" aria-hidden="true">
-      <div className="mb-7 flex flex-col items-center gap-2">
-        <Skeleton className="h-9 w-32" />
-        <Skeleton className="h-4 w-56" />
+    <AuthCard aria-hidden="true">
+      <div className="flex flex-col gap-2.5">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-10 w-40" />
+        <Skeleton className="h-5 w-64" />
       </div>
-      <div className="space-y-5">
-        <Skeleton className="h-11 w-full" />
-        <Skeleton className="h-11 w-full" />
-        <Skeleton className="h-12 w-full" />
-      </div>
-      <div className="mt-6 flex justify-center">
-        <Skeleton className="h-4 w-40" />
-      </div>
-    </Card>
+      <Skeleton className="h-[77px] w-full" />
+      <Skeleton className="h-[77px] w-full" />
+      <Skeleton className="h-[59px] w-full rounded-full" />
+    </AuthCard>
   );
 }
 

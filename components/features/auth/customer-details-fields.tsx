@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { FormEventHandler } from "react";
 
 import { LocationFields } from "@/components/features/auth/location-fields";
+import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -40,16 +41,17 @@ export function Field({
   const errorId = `${name}-error`;
   const Control = type === "password" ? PasswordInput : Input;
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={name} required={!optional}>
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={name} required={!optional} className={fieldLabelClass}>
         {label}
         {optional ? (
-          <span className="ml-1 font-normal text-on-surface-variant">(optional)</span>
+          <span className="ml-1 font-normal text-muted">(optional)</span>
         ) : null}
       </Label>
       <Control
         id={name}
         name={name}
+        className={fieldClass}
         {...(type === "password" ? {} : { type })}
         autoComplete={autoComplete}
         maxLength={maxLength}

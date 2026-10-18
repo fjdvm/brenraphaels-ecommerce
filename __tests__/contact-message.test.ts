@@ -30,7 +30,33 @@ describe("Sending the shop a message", () => {
       email: "jane@example.com",
       phone: "0917 123 4567",
       comment: "Do you deliver to Quezon City?",
+      topic: "General inquiry",
     });
+  });
+
+  test("passes on the chosen topic", async () => {
+    const mailer = mailerStub();
+
+    await submitContactMessage({ ...validInput, topic: "Bulk order" }, { mailer });
+
+    expect(mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({ topic: "Bulk order" }),
+    );
+  });
+
+  test("rejects a topic that is not on the list", async () => {
+    const mailer = mailerStub();
+
+    const result = await submitContactMessage(
+      { ...validInput, topic: "Something else" },
+      { mailer },
+    );
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      fieldErrors: { topic: expect.any(Array) },
+    });
+    expect(mailer.send).not.toHaveBeenCalled();
   });
 
   test("needs only an email and a comment", async () => {

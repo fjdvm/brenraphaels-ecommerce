@@ -9,11 +9,12 @@ export async function sendContactMessageEmail(message: ContactMessage) {
   await transport.sendMail({
     from: sender,
     replyTo: { address: message.email, name: message.name },
-    subject: `Contact form: ${message.name || message.email}`,
+    subject: `Contact form (${message.topic}): ${message.name || message.email}`,
     text: [
       `Name: ${message.name || "(not given)"}`,
       `Email: ${message.email}`,
       `Phone: ${message.phone || "(not given)"}`,
+      `Topic: ${message.topic}`,
       "",
       message.comment,
     ].join("\n"),

@@ -1,12 +1,18 @@
 "use client";
 
+import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { z } from "zod";
 
 import { submitSignUp } from "@/app/(auth)/(signed-out)/signup/actions";
+import {
+  AuthCard,
+  AuthError,
+  AuthHeading,
+  authLinkClass,
+} from "@/components/features/auth/auth-card";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   DeliveryFields,
   Field,
@@ -14,9 +20,32 @@ import {
   PreferenceFields,
   type FieldErrors,
 } from "@/components/features/auth/customer-details-fields";
+import { metPasswordRules, passwordRules } from "@/lib/validators/password-rules";
 import { signUpFormValues, signUpSteps } from "@/lib/customer/sign-up-schema";
 import { emailMaximumLength, passwordMaximumLength } from "@/lib/validators/fields";
 import { cn } from "@/lib/utils";
+
+/** Live checklist of the password rules; each chip turns green once its rule is met. */
+function PasswordRules({ password }: { password: string }) {
+  const met = metPasswordRules(password);
+  return (
+    <ul aria-label="Password rules" className="flex flex-wrap gap-2">
+      {passwordRules.map((rule, index) => (
+        <li
+          key={rule.label}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs tracking-[0.35px]",
+            met[index] ? "bg-success-soft text-success" : "bg-surface-container-low text-muted",
+          )}
+        >
+          <Check aria-hidden className="size-3.5" />
+          {rule.label}
+          <span className="sr-only">{met[index] ? " (met)" : " (not met)"}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 const newTab = { target: "_blank", rel: "noopener noreferrer" } as const;
 
@@ -25,6 +54,7 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [email, setEmail] = useState<string>();
+  const [password, setPassword] = useState("");
   const [formError, setFormError] = useState<string>();
   const [pending, startTransition] = useTransition();
   const lastStep = signUpSteps.length - 1;
@@ -78,44 +108,38 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
 
   if (email) {
     return (
-      <Card className="mx-auto w-full max-w-xl p-8 text-center shadow-sm">
-        <h1 className="font-serif text-4xl text-primary">Check your email</h1>
-        <p className="mt-4 text-on-surface-variant">
+      <AuthCard>
+        <AuthHeading title="Check your email">
           We&apos;ve sent a confirmation link to <strong>{email}</strong>.
           Please use it to verify your email before signing in.
-        </p>
-        <Button asChild className="mt-7">
+        </AuthHeading>
+        <Button asChild variant="pill" size="pill-lg" className="w-full">
           <Link href="/signin">Go to sign in</Link>
         </Button>
-      </Card>
+      </AuthCard>
     );
   }
 
   return (
-    <Card className="mx-auto w-full max-w-lg p-6 shadow-sm sm:p-8">
-      <div className="mb-5">
-        <h1 className="font-serif text-3xl text-primary">Become a Customer</h1>
-        <p className="sr-only" aria-live="polite">
-          Step {step + 1} of {signUpSteps.length}: {signUpSteps[step].title}
-        </p>
-        <ol className="mt-4 flex gap-2" aria-label="Sign-up progress">
-          {signUpSteps.map((candidate, index) => (
-            <li
-              key={candidate.title}
-              aria-current={index === step ? "step" : undefined}
-              className={cn(
-                "h-1.5 flex-1 rounded-full",
-                index <= step ? "bg-primary" : "bg-outline-variant",
-              )}
-            >
-              <span className="sr-only">{candidate.title}</span>
-            </li>
-          ))}
-        </ol>
-      </div>
+    <AuthCard>
+      <AuthHeading
+        eyebrow={`Step ${step + 1} of ${signUpSteps.length} · ${signUpSteps[step].title}`}
+        title="Become a customer"
+      />
+      <ol className="flex gap-2" aria-label="Sign-up progress">
+        {signUpSteps.map((candidate, index) => (
+          <li
+            key={candidate.title}
+            aria-current={index === step ? "step" : undefined}
+            className={cn("h-1 flex-1 rounded-sm", index <= step ? "bg-primary" : "bg-line")}
+          >
+            <span className="sr-only">{candidate.title}</span>
+          </li>
+        ))}
+      </ol>
 
-      <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
-        <div data-step="0" hidden={step !== 0} className="space-y-4">
+      <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-[22px]" noValidate>
+        <div data-step="0" hidden={step !== 0} className="flex flex-col gap-[22px]">
           <NameFields errors={errors} />
           <Field
             name="email"
@@ -133,6 +157,7 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
               autoComplete="new-password"
               maxLength={passwordMaximumLength}
               error={errors.password?.[0]}
+              onInput={(event) => setPassword(event.currentTarget.value)}
             />
             <Field
               name="confirmPassword"
@@ -143,32 +168,25 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
               error={errors.confirmPassword?.[0]}
             />
           </div>
-          <p className="text-sm text-on-surface-variant">
-            Use at least 8 characters, including an uppercase letter, a number and
-            a special character (such as ! or #).
-          </p>
+          <PasswordRules password={password} />
         </div>
 
-        <div data-step="1" hidden={step !== 1} className="space-y-4">
+        <div data-step="1" hidden={step !== 1} className="flex flex-col gap-[22px]">
           <DeliveryFields errors={errors} provinces={provinces} />
         </div>
 
-        <div data-step="2" hidden={step !== 2} className="space-y-5">
+        <div data-step="2" hidden={step !== 2} className="flex flex-col gap-[22px]">
           <PreferenceFields errors={errors} />
         </div>
 
-        {formError ? (
-          <p className="text-sm text-red-700" role="alert">
-            {formError}
-          </p>
-        ) : null}
+        {formError ? <AuthError>{formError}</AuthError> : null}
 
-        <div className="flex gap-3 pt-1">
+        <div className="flex gap-3">
           {step > 0 ? (
             <Button
               type="button"
-              variant="outline"
-              size="lg"
+              variant="pill-outline"
+              size="pill-lg"
               disabled={pending}
               onClick={() => {
                 setErrors({});
@@ -178,26 +196,32 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
               Back
             </Button>
           ) : null}
-          <Button className="flex-1" size="lg" disabled={pending} type="submit">
-            {step < lastStep ? "Next page" : pending ? "Creating your login…" : "Sign up"}
+          <Button variant="pill" size="pill-lg" className="flex-1" disabled={pending} type="submit">
+            {step < lastStep ? "Continue" : pending ? "Creating your login…" : "Sign up"}
+            {pending ? null : <ArrowRight aria-hidden className="size-5" />}
           </Button>
         </div>
       </form>
 
-      <p className="mt-5 text-center text-sm text-on-surface-variant">
-        Already a Customer?{" "}
-        <Link className="font-semibold text-primary underline" href="/signin">
-          Sign in
-        </Link>
-      </p>
-      <p className="mt-3 flex justify-center gap-4 text-xs text-on-surface-variant">
-        <Link className="underline" href="/terms" {...newTab}>
-          Terms of Service
-        </Link>
-        <Link className="underline" href="/privacy" {...newTab}>
-          Privacy Policy
-        </Link>
-      </p>
-    </Card>
+      <div className="flex flex-col items-center gap-2.5 text-center">
+        <p className="text-sm tracking-[0.35px] text-body">
+          Already a customer?{" "}
+          <Link className={authLinkClass} href="/signin">
+            Sign in
+          </Link>
+        </p>
+        <p className="text-xs text-muted">
+          By continuing you agree to our{" "}
+          <Link className="underline" href="/terms" {...newTab}>
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link className="underline" href="/privacy" {...newTab}>
+            Privacy Policy
+          </Link>
+          .
+        </p>
+      </div>
+    </AuthCard>
   );
 }

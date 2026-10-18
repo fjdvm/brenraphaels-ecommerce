@@ -1,12 +1,19 @@
 "use client";
 
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useActionState } from "react";
 
 import { submitSignIn, type SignInFormState } from "@/app/(auth)/(signed-out)/signin/actions";
+import {
+  AuthCard,
+  AuthError,
+  AuthHeading,
+  authLinkClass,
+} from "@/components/features/auth/auth-card";
 import { ResendVerificationForm } from "@/components/features/auth/resend-verification-form";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -22,27 +29,26 @@ export function SignInForm({ next }: { next?: string }) {
 
   if (state.unverifiedEmail) {
     return (
-      <Card className="mx-auto w-full max-w-xl p-8 text-center shadow-sm">
-        <h1 className="font-serif text-4xl text-primary">Confirm your email</h1>
-        <p className="mt-4 text-on-surface-variant" role="alert">
+      <AuthCard>
+        <AuthHeading title="Confirm your email" />
+        <p className="leading-[1.6] tracking-[0.35px] text-body" role="alert">
           You need to confirm <strong>{state.unverifiedEmail}</strong> before you
           can sign in. Use the link we emailed you, or ask for a new one.
         </p>
         <ResendVerificationForm defaultEmail={state.unverifiedEmail} />
-      </Card>
+      </AuthCard>
     );
   }
 
   return (
-    <Card className="mx-auto w-full max-w-md p-6 shadow-sm sm:p-8">
-      <div className="mb-7 text-center">
-        <h1 className="font-serif text-4xl text-primary">Sign in</h1>
-        <p className="mt-2 text-on-surface-variant">Welcome back to Bren Raphael&apos;s.</p>
-      </div>
-      <form action={action} className="space-y-5">
+    <AuthCard>
+      <AuthHeading eyebrow="Welcome back" title="Sign in">
+        Good to see you again at Bren Raphael&apos;s.
+      </AuthHeading>
+      <form action={action} className="flex flex-col gap-[22px]">
         {next ? <input type="hidden" name="next" value={next} /> : null}
-        <div className="space-y-1.5">
-          <Label htmlFor="email" required>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="email" required className={fieldLabelClass}>
             Email address
           </Label>
           <Input
@@ -53,11 +59,13 @@ export function SignInForm({ next }: { next?: string }) {
             autoCapitalize="none"
             spellCheck={false}
             maxLength={emailMaximumLength}
+            placeholder="you@example.com"
+            className={fieldClass}
             required
           />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="password" required>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="password" required className={fieldLabelClass}>
             Password
           </Label>
           <PasswordInput
@@ -65,29 +73,29 @@ export function SignInForm({ next }: { next?: string }) {
             name="password"
             autoComplete="current-password"
             maxLength={passwordMaximumLength}
+            className={fieldClass}
             required
           />
-          <p className="text-right text-sm">
-            <Link className="text-primary underline" href="/forgot-password">
+          <p className="text-right text-sm tracking-[0.35px]">
+            <Link className={authLinkClass} href="/forgot-password">
               Forgot password?
             </Link>
           </p>
         </div>
-        {state.message ? (
-          <p className="text-sm text-red-700" role="alert">
-            {state.message}
-          </p>
-        ) : null}
-        <Button className="w-full" size="lg" disabled={pending} type="submit">
+        {state.message ? <AuthError>{state.message}</AuthError> : null}
+        <Button variant="pill" size="pill-lg" className="w-full" disabled={pending} type="submit">
           {pending ? "Signing in…" : "Sign in"}
+          {pending ? null : <ArrowRight aria-hidden className="size-5" />}
         </Button>
       </form>
-      <p className="mt-6 text-center text-sm text-on-surface-variant">
-        New here?{" "}
-        <Link className="text-primary underline" href="/signup">
-          Become a Customer
-        </Link>
-      </p>
-    </Card>
+      <div className="flex items-center gap-3 text-xs tracking-[0.35px] text-muted">
+        <span aria-hidden className="h-px flex-1 bg-line" />
+        New to Bren Raphael&apos;s?
+        <span aria-hidden className="h-px flex-1 bg-line" />
+      </div>
+      <Button asChild variant="pill-outline" size="pill-lg" className="w-full">
+        <Link href="/signup">Become a customer</Link>
+      </Button>
+    </AuthCard>
   );
 }

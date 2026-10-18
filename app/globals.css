@@ -38,6 +38,8 @@
   --lavender-soft: #f4eefc;
   --warning: #a86a12;
   --warning-soft: #fbf0dc;
+  --success: #2f7d57;
+  --success-soft: #e3f2ea;
   --background: var(--surface);
   --foreground: var(--on-surface);
   --border: var(--outline-variant);
@@ -89,6 +91,8 @@
   --color-lavender-soft: var(--lavender-soft);
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

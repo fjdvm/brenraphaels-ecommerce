@@ -1,11 +1,18 @@
 "use client";
 
+import { ArrowRight, Store } from "lucide-react";
 import Link from "next/link";
 import { useActionState } from "react";
 
 import { submitForgotPassword, type ForgotPasswordFormState } from "@/app/(auth)/(signed-out)/forgot-password/actions";
+import {
+  AuthCard,
+  AuthError,
+  AuthHeading,
+  authLinkClass,
+} from "@/components/features/auth/auth-card";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { emailMaximumLength } from "@/lib/validators/fields";
@@ -20,32 +27,36 @@ export function ForgotPasswordForm() {
 
   if (state.requestedEmail) {
     return (
-      <Card className="mx-auto w-full max-w-md p-6 text-center shadow-sm sm:p-8">
-        <h1 className="font-serif text-4xl text-primary">Check your email</h1>
-        <p className="mt-4 text-on-surface-variant" role="status">
+      <AuthCard>
+        <AuthHeading title="Check your email" />
+        <p className="leading-[1.6] tracking-[0.35px] text-body" role="status">
           If <strong>{state.requestedEmail}</strong> belongs to a Customer,
           we&apos;ve sent a link to reset the password.
         </p>
-        <p className="mt-6 text-sm text-on-surface-variant">
-          <Link className="text-primary underline" href="/signin">
+        <p className="text-center text-sm tracking-[0.35px]">
+          <Link className={authLinkClass} href="/signin">
             Back to sign in
           </Link>
         </p>
-      </Card>
+      </AuthCard>
     );
   }
 
   return (
-    <Card className="mx-auto w-full max-w-md p-6 shadow-sm sm:p-8">
-      <div className="mb-7 text-center">
-        <h1 className="font-serif text-4xl text-primary">Forgot password</h1>
-        <p className="mt-2 text-on-surface-variant">
-          Enter your email and we&apos;ll send you a link to reset it.
-        </p>
-      </div>
-      <form action={action} className="space-y-5">
-        <div className="space-y-1.5">
-          <Label htmlFor="email" required>
+    <AuthCard>
+      <span
+        aria-hidden
+        className="flex size-14 items-center justify-center rounded-full bg-lavender text-primary"
+      >
+        <Store className="size-6" strokeWidth={1.5} />
+      </span>
+      <AuthHeading title="Forgot password">
+        Enter the email you signed up with and we&apos;ll send you a link to
+        reset your password.
+      </AuthHeading>
+      <form action={action} className="flex flex-col gap-[22px]">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="email" required className={fieldLabelClass}>
             Email address
           </Label>
           <Input
@@ -56,24 +67,23 @@ export function ForgotPasswordForm() {
             autoCapitalize="none"
             spellCheck={false}
             maxLength={emailMaximumLength}
+            placeholder="you@example.com"
+            className={fieldClass}
             required
           />
         </div>
-        {state.message ? (
-          <p className="text-sm text-red-700" role="alert">
-            {state.message}
-          </p>
-        ) : null}
-        <Button className="w-full" size="lg" disabled={pending} type="submit">
+        {state.message ? <AuthError>{state.message}</AuthError> : null}
+        <Button variant="pill" size="pill-lg" className="w-full" disabled={pending} type="submit">
           {pending ? "Sending…" : "Send reset link"}
+          {pending ? null : <ArrowRight aria-hidden className="size-5" />}
         </Button>
       </form>
-      <p className="mt-6 text-center text-sm text-on-surface-variant">
+      <p className="text-center text-sm tracking-[0.35px] text-body">
         Remembered it?{" "}
-        <Link className="text-primary underline" href="/signin">
-          Sign in
+        <Link className={authLinkClass} href="/signin">
+          Back to sign in
         </Link>
       </p>
-    </Card>
+    </AuthCard>
   );
 }

@@ -6,6 +6,14 @@ export const nameMaximumLength = 100;
 export const phoneMaximumLength = 30;
 export const commentMaximumLength = 2_000;
 
+export const contactTopics = [
+  "General inquiry",
+  "Order or delivery",
+  "Bulk order",
+  "Feedback",
+] as const;
+export const defaultContactTopic = contactTopics[0];
+
 const contactMessageSchema = z.object({
   name: optionalTextField({
     max: nameMaximumLength,
@@ -18,6 +26,7 @@ const contactMessageSchema = z.object({
     pattern: /^[+\d\s().-]+$/,
     patternMessage: "Enter a valid phone number",
   }),
+  topic: z.enum(contactTopics, { error: "Choose a topic" }),
   comment: multilineTextField("Enter your message", {
     max: commentMaximumLength,
     pattern: /^[\p{L}\p{M}\p{N}\p{P}\p{S}\s]+$/u,
@@ -31,6 +40,7 @@ export type ContactMessageInput = {
   name?: string;
   email?: string;
   phone?: string;
+  topic?: string;
   comment?: string;
   /** A field real visitors never see; only bots fill it in. */
   website?: string;
@@ -59,6 +69,7 @@ export async function submitContactMessage(
     name: input.name,
     email: input.email ?? "",
     phone: input.phone,
+    topic: input.topic || defaultContactTopic,
     comment: input.comment ?? "",
   });
   if (!parsed.success) {
