@@ -1,9 +1,12 @@
-import { ProductsFrame, ProductsGridFallback } from "@/components/features/catalog/products-frame";
+import { ProductsFrame, ProductsGridFallback, ShopToolbarFallback } from "@/components/features/catalog/products-frame";
 
 export default function ProductsLoading() {
   return (
     <ProductsFrame>
-      <ProductsGridFallback />
+      <div className="flex flex-col gap-10">
+        <ShopToolbarFallback />
+        <ProductsGridFallback />
+      </div>
     </ProductsFrame>
   );
 }

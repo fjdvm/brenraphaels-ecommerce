@@ -4,12 +4,18 @@ import type { ReactNode } from "react";
 import { ProductCardSkeleton } from "@/components/features/catalog/product-card";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { PageHeading } from "@/components/ui/page-heading";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const reasons = [
   { icon: Heart, title: "100% real ube", text: "Made from steamed, fresh purple yam — never artificial flavoring." },
   { icon: Star, title: "Small-batch & handmade", text: "Slow-cooked the old-fashioned way, with patience, love and care." },
   { icon: Store, title: "Pickup or delivery", text: "Pick up at our Antipolo store or have it delivered to your door." },
 ];
+
+/** Sized like the loaded chips row so the toolbar doesn't shift. */
+export function ShopToolbarFallback() {
+  return <Skeleton className="h-[44px] w-full rounded-full" aria-hidden="true" />;
+}
 
 export const productsGridClass = "grid gap-x-[30px] gap-y-[60px] sm:grid-cols-2 lg:grid-cols-3";
 
