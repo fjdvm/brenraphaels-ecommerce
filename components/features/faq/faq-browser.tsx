@@ -128,6 +128,7 @@ export function FaqBrowser({ groups }: { groups: FaqGroup[] }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>();
   const visible = useMemo(() => filterFaqGroups(groups, query), [groups, query]);
+  const searching = query.trim() !== "";
   const active = category ?? groups[0]?.heading;
 
   return (
@@ -166,7 +167,7 @@ export function FaqBrowser({ groups }: { groups: FaqGroup[] }) {
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-[60px]" aria-live="polite">
+        <div className="flex min-w-0 flex-1 flex-col gap-[60px]">
           {visible.length === 0 ? (
             <p className="leading-[1.6] tracking-[0.35px] text-body">
               No questions match &ldquo;{query.trim()}&rdquo;. Try another word, or open a
@@ -180,9 +181,9 @@ export function FaqBrowser({ groups }: { groups: FaqGroup[] }) {
                 </h2>
                 {faqs.map((faq) => (
                   <Question
-                    key={faq.question}
+                    key={`${faq.question}-${searching}`}
                     faq={faq}
-                    defaultOpen={faq === groups[0]?.faqs[0]}
+                    defaultOpen={searching || faq === groups[0]?.faqs[0]}
                   />
                 ))}
               </section>
