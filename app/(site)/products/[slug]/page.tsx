@@ -2,7 +2,7 @@ import { CreditCard, Store, Truck } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import { ProductCard } from "@/components/features/catalog/product-card";
+import { ProductCard, priceRange } from "@/components/features/catalog/product-card";
 import { ProductDetails } from "@/components/features/catalog/product-details";
 import { ProductGallery } from "@/components/features/catalog/product-gallery";
 import {
@@ -13,7 +13,6 @@ import {
 import { AddToCart } from "@/components/features/orders/add-to-cart";
 import { createCatalogStore } from "@/lib/catalog/catalog";
 import { parseProductDescription } from "@/lib/catalog/description";
-import { priceRange } from "@/components/features/catalog/product-card";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 
