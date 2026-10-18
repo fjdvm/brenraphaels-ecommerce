@@ -48,15 +48,15 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
   const open = ticket.status === "open";
 
   return (
-    <div className="flex min-h-[600px] flex-col">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-5 py-6 sm:px-8">
-        <div className="flex min-w-0 flex-col gap-2">
-          <Link className="flex w-fit items-center gap-1.5 text-sm font-medium text-primary hover:underline lg:hidden" href="/support">
+    <div className="flex h-full min-h-[600px] flex-col">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-5 py-[22px] sm:px-8">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Link className="flex w-fit items-center gap-1.5 text-sm font-medium text-primary hover:underline" href="/support">
             <ArrowLeft aria-hidden className="size-4" />
             All tickets
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="font-serif text-[28px] leading-[1.25] text-primary">{ticket.subject}</h2>
+            <h2 className="font-serif text-[22px] leading-[1.3] text-primary">{ticket.subject}</h2>
             <span className={open ? "rounded-full bg-lavender px-3 py-1 text-xs font-medium tracking-[0.35px] text-primary" : "rounded-full bg-surface-soft px-3 py-1 text-xs font-medium tracking-[0.35px] text-body"}>
               {open ? "Open" : "Resolved"}
             </span>
@@ -65,7 +65,7 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
             <span>Ticket #{ticket.id} · {categoryLabel(ticket.category)}</span>
             {relatedOrder ? (
               <Link
-                className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1 font-medium text-primary transition-colors hover:bg-lavender-soft"
+                className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-primary transition-colors hover:bg-lavender-soft"
                 href="/profile/orders"
               >
                 <Package aria-hidden className="size-3.5" strokeWidth={1.5} />
@@ -80,7 +80,7 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
           </Button>
         </form>
       </div>
-      <TicketThread messages={ticket.messages} ticketId={ticket.id} />
+      <TicketThread createdAt={ticket.createdAt} messages={ticket.messages} ticketId={ticket.id} />
     </div>
   );
 }

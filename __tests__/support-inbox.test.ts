@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { categoryLabel, filterTickets, ticketPreview, type InboxTicket } from "../lib/support/inbox";
+import { awaitingReply, categoryLabel, filterTickets, ticketPreview, type InboxTicket } from "../lib/support/inbox";
 
 const ticket = (overrides: Partial<InboxTicket>): InboxTicket => ({
   id: 1,
@@ -60,5 +60,15 @@ describe("categoryLabel", () => {
   test("uses sentence case", () => {
     expect(categoryLabel("Payment Issue")).toBe("Payment issue");
     expect(categoryLabel("Other")).toBe("Other");
+  });
+});
+
+describe("awaitingReply", () => {
+  const staff = [{ sender: "staff" as const, body: "Hi", createdAt: new Date() }];
+  test("is true only for an open Ticket that staff answered last", () => {
+    expect(awaitingReply(ticket({ messages: staff }))).toBe(true);
+    expect(awaitingReply(ticket({ messages: staff, status: "closed" }))).toBe(false);
+    expect(awaitingReply(ticket({ messages: [{ sender: "customer", body: "Hi", createdAt: new Date() }] }))).toBe(false);
+    expect(awaitingReply(ticket({}))).toBe(false);
   });
 });

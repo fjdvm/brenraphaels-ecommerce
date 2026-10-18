@@ -15,3 +15,10 @@ const clock = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-dig
 export function formatClock(date: Date) {
   return clock.format(date);
 }
+
+const dayAndClock = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });
+
+/** "Oct 16, 2:20 PM", in the shop's time zone. */
+export function formatDayAndClock(date: Date) {
+  return dayAndClock.format(date);
+}

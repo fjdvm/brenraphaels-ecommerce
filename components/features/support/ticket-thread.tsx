@@ -1,11 +1,11 @@
 "use client";
 
-import { Image as ImageIcon, SendHorizontal } from "lucide-react";
+import { Image as ImageIcon, Paperclip, SendHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useOptimistic, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useOptimistic, useRef, useState } from "react";
 
 import { sendMessage } from "@/app/(site)/(protected)/support/actions";
-import { formatClock } from "@/lib/notifications/relative-time";
+import { formatClock, formatDayAndClock } from "@/lib/notifications/relative-time";
 import type { TicketMessage } from "@/lib/support/tickets";
 import type { TicketEventPayload } from "@/lib/support/ticket-events";
 import { validateTicketAttachment } from "@/lib/support/ticket-attachment";
@@ -17,7 +17,7 @@ type OptimisticMessage = TicketMessage & { pending?: boolean };
 const quickReplies = ["Thank you!", "When will it be ready?", "Can I change to pickup?"];
 
 /** Renders a Ticket's thread, appends Customer Messages before the server responds, and shows Messages sent from other tabs live. */
-export function TicketThread({ ticketId, messages: savedMessages }: { ticketId: number; messages: TicketMessage[] }) {
+export function TicketThread({ ticketId, createdAt, messages: savedMessages }: { ticketId: number; createdAt: Date; messages: TicketMessage[] }) {
   const router = useRouter();
   const [liveMessages, setLiveMessages] = useState<TicketMessage[]>([]);
   const messages = useMemo(() => {
@@ -45,7 +45,7 @@ export function TicketThread({ ticketId, messages: savedMessages }: { ticketId: 
   }, [ticketId, router]);
 
   const formRef = useRef<HTMLFormElement>(null);
-  const threadRef = useRef<HTMLOListElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
   const [message, setMessage] = useState<string>();
   const [draft, setDraft] = useState("");
   const [imageName, setImageName] = useState<string>();
@@ -99,57 +99,74 @@ export function TicketThread({ ticketId, messages: savedMessages }: { ticketId: 
     }
   }
 
+  const firstStaffId = optimisticMessages.find((entry) => entry.sender === "staff")?.id;
+
   return (
     <>
-      <ol aria-label="Message thread" className="flex max-h-[560px] min-h-[320px] flex-1 flex-col gap-5 overflow-y-auto bg-background px-5 py-6 sm:px-8" ref={threadRef}>
-        {optimisticMessages.map((threadMessage) => {
-          const mine = threadMessage.sender === "customer";
-          return (
-            <li
-              className={cn("flex gap-3", mine ? "justify-end" : "items-end", threadMessage.pending && "opacity-60")}
-              key={threadMessage.id}
-            >
-              {mine ? null : (
-                <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-full bg-lavender text-xs font-medium tracking-[0.35px] text-primary">
-                  CC
-                </span>
-              )}
-              <div className={cn("flex max-w-[78%] flex-col gap-1.5", mine ? "items-end" : "items-start")}>
-                {mine ? null : (
-                  <p className="flex items-center gap-2 text-xs font-medium tracking-[0.35px] text-ink">
-                    Customer Care
-                    <span className="rounded-full bg-primary px-2.5 py-0.5 text-[11px] text-white">Staff</span>
-                  </p>
-                )}
-                <div
-                  className={cn(
-                    "whitespace-pre-wrap break-words px-[18px] py-3 leading-[1.6] tracking-[0.35px]",
-                    mine ? "rounded-3xl bg-primary text-white" : "rounded-3xl border border-line bg-white text-ink",
+      <div className="max-h-[60vh] min-h-0 flex-1 overflow-y-auto bg-background lg:max-h-none" ref={threadRef}>
+        <ol aria-label="Message thread" className="flex min-h-full flex-col justify-end gap-[18px] px-5 py-7 sm:px-8">
+          <li className="flex justify-center">
+            <p className="rounded-full bg-surface-soft px-3.5 py-1.5 text-xs tracking-[0.35px] text-muted">
+              Ticket opened · {formatDayAndClock(createdAt)}
+            </p>
+          </li>
+          {optimisticMessages.map((threadMessage) => {
+            const mine = threadMessage.sender === "customer";
+            return (
+              <Fragment key={threadMessage.id}>
+                {threadMessage.id === firstStaffId ? (
+                  <li className="flex justify-center">
+                    <p className="rounded-full bg-surface-soft px-3.5 py-1.5 text-xs tracking-[0.35px] text-muted">
+                      Customer Care joined the conversation
+                    </p>
+                  </li>
+                ) : null}
+                <li className={cn("flex gap-3", mine ? "justify-end" : "items-end", threadMessage.pending && "opacity-60")}>
+                  {mine ? null : (
+                    <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-full bg-lavender text-[13px] font-medium tracking-[0.35px] text-primary">
+                      CC
+                    </span>
                   )}
-                >
-                  {threadMessage.body}
-                  {threadMessage.attachmentPathname ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- streamed from an authenticated route, not optimizable
-                    <img
-                      alt="Attached to this Message"
-                      className="mt-2 max-h-80 rounded-2xl"
-                      src={`/api/support/attachments/${threadMessage.id}`}
-                    />
-                  ) : null}
-                </div>
-                <time className="text-xs tracking-[0.35px] text-muted" dateTime={threadMessage.createdAt.toISOString()}>
-                  {formatClock(threadMessage.createdAt)}
-                </time>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-      <div className="flex flex-col gap-3.5 border-t border-line p-5 sm:px-6">
-        <div className="flex flex-wrap gap-2.5">
+                  <div className={cn("flex min-w-0 max-w-[560px] flex-col gap-1.5", mine ? "items-end" : "items-start")}>
+                    {mine ? null : (
+                      <p className="flex items-center gap-2 text-[13px] font-medium leading-[1.4] tracking-[0.35px] text-ink">
+                        Customer Care
+                        <span className="rounded-full bg-primary px-3 py-1 text-xs text-white">Staff</span>
+                      </p>
+                    )}
+                    <div
+                      className={cn(
+                        "whitespace-pre-wrap break-words px-[18px] py-3 text-base leading-[1.6] tracking-[0.35px]",
+                        mine
+                          ? "rounded-[20px] rounded-br-[6px] bg-primary text-white"
+                          : "rounded-[20px] rounded-bl-[6px] border border-line bg-white text-ink",
+                      )}
+                    >
+                      {threadMessage.body}
+                      {threadMessage.attachmentPathname ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- streamed from an authenticated route, not optimizable
+                        <img
+                          alt="Attached to this Message"
+                          className="mt-2 max-h-80 rounded-[20px]"
+                          src={`/api/support/attachments/${threadMessage.id}`}
+                        />
+                      ) : null}
+                    </div>
+                    <time className="text-xs tracking-[0.35px] text-muted" dateTime={threadMessage.createdAt.toISOString()}>
+                      {formatClock(threadMessage.createdAt)}
+                    </time>
+                  </div>
+                </li>
+              </Fragment>
+            );
+          })}
+        </ol>
+      </div>
+      <div className="flex shrink-0 flex-col gap-2.5 border-t border-line bg-white px-6 pb-5 pt-4">
+        <div className="flex flex-wrap gap-2">
           {quickReplies.map((reply) => (
             <button
-              className="rounded-full border border-line bg-white px-4 py-2 text-xs tracking-[0.35px] text-primary transition-colors hover:bg-lavender-soft"
+              className="rounded-full border border-line px-3.5 py-1.5 text-xs tracking-[0.35px] text-primary transition-colors hover:bg-lavender-soft"
               key={reply}
               onClick={() => setDraft(reply)}
               type="button"
@@ -160,24 +177,29 @@ export function TicketThread({ ticketId, messages: savedMessages }: { ticketId: 
         </div>
         <form action={submit} className="flex flex-col gap-2.5" ref={formRef}>
           <div className="flex items-center gap-2 rounded-full bg-surface-soft p-2">
-            <label
-              className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-primary transition-colors hover:bg-lavender-soft focus-within:ring-2 focus-within:ring-ring"
-              title="Attach an image"
-            >
-              <ImageIcon aria-hidden className="size-[18px]" strokeWidth={1.5} />
-              <span className="sr-only">Attach an image (JPEG or PNG up to 5 MB)</span>
-              <input
-                accept="image/jpeg,image/png"
-                className="sr-only"
-                name="attachment"
-                onChange={(event) => setImageName(event.target.files?.[0]?.name)}
-                type="file"
-              />
-            </label>
+            {[Paperclip, ImageIcon].map((Icon, index) => (
+              <label
+                className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-primary transition-colors hover:bg-lavender-soft focus-within:ring-2 focus-within:ring-ring"
+                htmlFor="ticket-reply-attachment"
+                key={index}
+                title="Attach an image (JPEG or PNG up to 5 MB)"
+              >
+                <Icon aria-hidden className="size-[18px]" strokeWidth={1.5} />
+                {index === 0 ? <span className="sr-only">Attach an image (JPEG or PNG up to 5 MB)</span> : null}
+              </label>
+            ))}
+            <input
+              accept="image/jpeg,image/png"
+              className="sr-only"
+              id="ticket-reply-attachment"
+              name="attachment"
+              onChange={(event) => setImageName(event.target.files?.[0]?.name)}
+              type="file"
+            />
             <label className="min-w-0 flex-1" htmlFor="ticket-reply">
               <span className="sr-only">Write a message</span>
               <textarea
-                className="block max-h-32 min-h-6 w-full resize-none bg-transparent px-1 py-1.5 tracking-[0.35px] text-ink outline-none placeholder:text-muted"
+                className="block max-h-32 min-h-[26px] w-full resize-none bg-transparent px-1 py-0.5 text-base leading-[1.6] tracking-[0.35px] text-ink outline-none placeholder:text-muted"
                 id="ticket-reply"
                 maxLength={2_000}
                 name="body"
@@ -199,15 +221,15 @@ export function TicketThread({ ticketId, messages: savedMessages }: { ticketId: 
               className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-white transition-colors hover:bg-primary-container"
               type="submit"
             >
-              <SendHorizontal aria-hidden className="size-[18px]" strokeWidth={1.5} />
+              <SendHorizontal aria-hidden className="size-5" strokeWidth={1.5} />
             </button>
           </div>
           {imageName ? <p className="px-2 text-xs tracking-[0.35px] text-body">Image: {imageName}</p> : null}
           {message ? <p className="px-2 text-sm text-red-700" role="alert">{message}</p> : null}
-          <p className="px-2 text-xs tracking-[0.35px] text-muted">
-            Images: JPEG or PNG up to 5 MB · Our team replies Mon–Sat, 9:00am – 6:00pm
-          </p>
         </form>
+        <p className="text-xs tracking-[0.35px] text-muted">
+          Images: JPEG or PNG up to 5 MB · Our team replies Mon–Sat, 9:00am – 6:00pm
+        </p>
       </div>
     </>
   );

@@ -31,3 +31,8 @@ export function filterTickets(tickets: InboxTicket[], tab: TicketTab, query: str
     return haystack.includes(needle);
   });
 }
+
+/** An open Ticket whose last Message came from staff is waiting on the Customer. */
+export function awaitingReply(ticket: InboxTicket) {
+  return ticket.status === "open" && ticket.messages.at(-1)?.sender === "staff";
+}

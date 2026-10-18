@@ -41,7 +41,7 @@ export function OpenTicketForm({
   }, [state.created, state.ticketId, router]);
 
   return (
-    <form action={action} className="flex flex-col gap-6 p-6 sm:p-[60px]">
+    <form action={action} className="flex h-full flex-col gap-6 overflow-y-auto p-6 sm:p-[60px]">
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-2">
           <h2 className="font-serif text-4xl leading-[1.2] text-primary sm:text-[44px]">Open a ticket</h2>

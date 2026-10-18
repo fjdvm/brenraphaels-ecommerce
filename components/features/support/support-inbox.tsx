@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { relativeTime } from "@/lib/notifications/relative-time";
-import { categoryLabel, filterTickets, ticketPreview, type InboxTicket, type TicketTab } from "@/lib/support/inbox";
+import { awaitingReply, categoryLabel, filterTickets, ticketPreview, type InboxTicket, type TicketTab } from "@/lib/support/inbox";
 import { cn } from "@/lib/utils";
 
 /** The left column of Support: search, Open/Resolved tabs and the Customer's Tickets. */
@@ -27,13 +27,13 @@ export function SupportInbox({ tickets, now }: { tickets: InboxTicket[]; now: Da
 
   return (
     // On phones the list gives way to the open conversation or form.
-    <div className={cn("flex-col border-line lg:flex lg:border-r", pathname === "/support" ? "flex" : "hidden")}>
-      <div className="flex flex-col gap-4 p-6">
-        <label className="relative block">
+    <div className={cn("min-h-0 flex-col overflow-y-auto border-line lg:flex lg:border-r", pathname === "/support" ? "flex" : "hidden")}>
+      <div className="flex flex-col gap-4 px-6 pb-4 pt-6">
+        <label className="flex items-center gap-2.5 rounded-full bg-surface-soft px-4 py-3 focus-within:ring-2 focus-within:ring-ring">
           <span className="sr-only">Search tickets</span>
-          <Search aria-hidden className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted" strokeWidth={1.5} />
+          <Search aria-hidden className="size-[18px] shrink-0 text-muted" strokeWidth={1.5} />
           <input
-            className="h-11 w-full rounded-full bg-surface-soft pl-11 pr-4 text-sm tracking-[0.35px] text-ink outline-none placeholder:text-muted focus:ring-2 focus:ring-ring"
+            className="w-full min-w-0 bg-transparent text-sm leading-[1.5] tracking-[0.35px] text-ink outline-none placeholder:text-muted"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search tickets"
             type="search"
@@ -100,16 +100,26 @@ export function SupportInbox({ tickets, now }: { tickets: InboxTicket[]; now: Da
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="flex items-baseline justify-between gap-3">
-                    <span className="truncate text-sm font-medium tracking-[0.35px] text-ink">{ticket.subject}</span>
+                    <span className={cn("truncate text-sm leading-[1.5] tracking-[0.35px] text-ink", active && "font-medium")}>{ticket.subject}</span>
                     <time className="shrink-0 text-xs tracking-[0.35px] text-muted" dateTime={preview.at.toISOString()}>
                       {relativeTime(preview.at, now).replace(" ago", "")}
                     </time>
                   </span>
-                  <span className="text-xs font-medium tracking-[0.35px] text-primary">
+                  <span className="text-xs leading-[1.5] tracking-[0.35px] text-primary">
                     {categoryLabel(ticket.category)}
                     {ticket.orderId === null ? "" : ` · Order #${ticket.orderId}`}
                   </span>
-                  {preview.text ? <span className="truncate text-xs tracking-[0.35px] text-muted">{preview.text}</span> : null}
+                  {preview.text ? (
+                    <span className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-xs leading-[1.5] tracking-[0.35px] text-muted">{preview.text}</span>
+                      {awaitingReply(ticket) ? (
+                        <>
+                          <span aria-hidden className="size-2 shrink-0 rounded-full bg-primary" />
+                          <span className="sr-only">New reply</span>
+                        </>
+                      ) : null}
+                    </span>
+                  ) : null}
                 </span>
               </Link>
             </li>

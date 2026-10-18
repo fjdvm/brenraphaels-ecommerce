@@ -19,7 +19,7 @@ export function SupportInboxSkeleton() {
 /** Placeholder for a conversation's header, thread and composer. */
 export function ConversationSkeleton() {
   return (
-    <div aria-hidden="true" className="flex min-h-[600px] flex-col">
+    <div aria-hidden="true" className="flex h-full min-h-[600px] flex-col">
       <div className="flex flex-col gap-2 border-b border-line p-6 sm:px-8">
         <Skeleton className="h-8 w-72 max-w-full" />
         <Skeleton className="h-4 w-56" />

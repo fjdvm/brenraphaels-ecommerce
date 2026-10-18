@@ -2,6 +2,7 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 
+import { BackButton } from "@/components/shared/back-button";
 import { SupportInboxSkeleton } from "@/components/features/support/skeletons";
 import { SupportInbox } from "@/components/features/support/support-inbox";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,10 @@ async function Inbox() {
 /** The static shell of Support: the heading and the two-column panel; the inbox and the right pane stream in. */
 export default function SupportLayout({ children }: { children: ReactNode }) {
   return (
-    <section className="mx-auto flex max-w-[1440px] flex-col gap-[30px] px-5 pb-[100px] pt-10 sm:px-10">
+    <section className="flex w-full flex-col gap-[30px] px-5 pb-[100px] pt-6 sm:px-10">
+      <div className="-mb-3">
+        <BackButton fallbackHref="/profile/orders" />
+      </div>
       <PageHeading
         aside={
           <Button asChild size="pill-lg" variant="pill">
@@ -46,11 +50,11 @@ export default function SupportLayout({ children }: { children: ReactNode }) {
         eyebrow="Customer care"
         title="Support"
       />
-      <div className="grid min-h-[820px] overflow-hidden rounded-[40px] border border-line bg-white lg:grid-cols-[400px_minmax(0,1fr)]">
+      <div className="grid min-h-[640px] grid-rows-[minmax(0,1fr)] overflow-hidden rounded-[40px] border border-line bg-white lg:h-[820px] lg:grid-cols-[400px_minmax(0,1fr)]">
         <Suspense fallback={<SupportInboxSkeleton />}>
           <Inbox />
         </Suspense>
-        <div className="min-w-0">{children}</div>
+        <div className="h-full min-h-0 min-w-0">{children}</div>
       </div>
     </section>
   );
