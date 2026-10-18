@@ -252,7 +252,6 @@ export function Header({
         </nav>
         <div className="hidden items-center justify-end gap-5 text-[15px] md:flex md:w-80">
           {desktopSession}
-          {showHeaderSignOut ? headerSignOut : null}
         </div>
         <div
           className={`ml-auto flex items-center gap-1 md:hidden ${transparent ? "text-white" : "text-primary"}`}

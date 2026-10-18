@@ -1,20 +1,4 @@
-const sidebarlessPaths = new Set([
-  "/",
-  "/about",
-  "/journey",
-  "/vision-mission",
-  "/faq",
-  "/contact",
-  "/products",
-  "/cart",
-  "/checkout",
-  "/support",
-]);
-
-/** Storefront and Support pages are full width; the sidebar belongs to the Customer's account pages. */
-const sidebarlessPrefixes = ["/products/", "/support/"];
-
+/** The sidebar belongs to the Customer's account pages; every other page is full width. */
 export function shouldShowCustomerSidebar(pathname: string) {
-  return !sidebarlessPaths.has(pathname)
-    && !sidebarlessPrefixes.some((prefix) => pathname.startsWith(prefix));
+  return pathname === "/profile" || pathname.startsWith("/profile/");
 }

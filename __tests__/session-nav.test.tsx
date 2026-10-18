@@ -6,7 +6,7 @@ vi.mock("@/app/actions", () => ({ signOut: async () => {} }));
 import { SessionNav } from "../components/shared/session-nav";
 
 describe("Session navigation", () => {
-  test("shows the initials avatar and first name, linking to the profile, for a complete Customer", async () => {
+  test("shows the initials avatar and first name, with the notifications bell and account menu, for a complete Customer", async () => {
     const markup = renderToStaticMarkup(
       <SessionNav
         visitor={{
@@ -26,10 +26,13 @@ describe("Session navigation", () => {
     );
 
     expect(markup).toContain('href="/cart"');
-    expect(markup).toContain('href="/profile"');
+    expect(markup).toContain('href="/profile/notifications"');
     expect(markup).toContain("JD");
     expect(markup).toContain("Jane");
-    expect(markup).not.toContain("Sign out");
+    for (const href of ["/profile/orders", "/support", "/profile/addresses", "/profile/settings"]) {
+      expect(markup).toContain(`href="${href}"`);
+    }
+    expect(markup).toContain("Sign out");
   });
 
   test("keeps profile access for a Visitor who needs details", async () => {

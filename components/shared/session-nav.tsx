@@ -1,6 +1,9 @@
 import Link from "next/link";
-import { ShoppingCart, User } from "lucide-react";
+import { Bell, LogOut, ShoppingCart, User } from "lucide-react";
 
+import { signOut } from "@/app/actions";
+import { AccountMenu, accountMenuItems } from "@/components/shared/account-menu";
+import { SignOutButton } from "@/components/shared/sign-out-button";
 import { initialsOf } from "@/lib/customer/initials";
 import type { Visitor } from "@/lib/customer/visitor";
 
@@ -26,15 +29,33 @@ export function SessionNav({ className, visitor, showCart = true }: { className?
           Sign in
         </Link>
       ) : (
-        <Link href="/profile" className="flex items-center gap-2.5 hover:text-primary">
-          <span
-            aria-hidden
-            className="flex size-9 items-center justify-center rounded-full bg-primary text-[13px] font-medium tracking-[0.35px] text-white"
+        <>
+          <Link
+            href="/profile/notifications"
+            aria-label={showCart ? "Notifications" : undefined}
+            className="flex items-center gap-2.5 hover:text-primary"
           >
-            {initialsOf(visitor.customer.fullName)}
-          </span>
-          <span className="tracking-[0.35px]">{visitor.customer.firstName}</span>
-        </Link>
+            <Bell size={20} />
+            {!showCart && "Notifications"}
+          </Link>
+          {showCart ? (
+            <AccountMenu initials={initialsOf(visitor.customer.fullName)} firstName={visitor.customer.firstName}
+              signOut={
+                <SignOutButton
+                  action={signOut}
+                  icon={<LogOut aria-hidden className="size-[18px]" strokeWidth={1.5} />}
+                  className="flex w-full items-center gap-3 px-5 py-2.5 text-left font-normal hover:bg-surface-container-low hover:no-underline"
+                />
+              }
+            />
+          ) : (
+            accountMenuItems.map(({ href, label }) => (
+              <Link key={href} href={href} className="hover:text-primary">
+                {label}
+              </Link>
+            ))
+          )}
+        </>
       )}
     </div>
   );

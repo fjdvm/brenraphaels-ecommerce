@@ -17,6 +17,9 @@ describe("Customer sidebar shell", () => {
     "/support",
     "/support/12",
     "/support/new",
+    "/returns",
+    "/terms",
+    "/privacy",
   ])(
     "hides the sidebar on %s",
     (pathname) => {
@@ -24,7 +27,7 @@ describe("Customer sidebar shell", () => {
     },
   );
 
-  test.each(["/profile/orders", "/profile/addresses", "/profile/settings"])(
+  test.each(["/profile", "/profile/orders", "/profile/addresses", "/profile/settings"])(
     "keeps the sidebar on %s",
     (pathname) => {
       expect(shouldShowCustomerSidebar(pathname)).toBe(true);
