@@ -31,7 +31,7 @@ export function MediaCard({
     "grid size-[72px] place-items-center rounded-full bg-white text-primary transition hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-[40px] bg-white">
+    <article className="flex h-full flex-col overflow-hidden rounded-[40px] bg-white">
       {playing && id ? (
         <YouTubeVideo id={id} title={title} autoplay />
       ) : (
@@ -66,7 +66,7 @@ export function MediaCard({
           </div>
         </PhotoTile>
       )}
-      <div className="flex flex-col items-start gap-3 px-8 pb-10 pt-[34px] sm:px-10">
+      <div className="flex flex-1 flex-col items-start gap-3 px-8 pb-10 pt-[34px] sm:px-10">
         <p className="text-xs font-medium uppercase leading-normal tracking-[0.15em] text-muted">
           {kicker}
         </p>
@@ -74,11 +74,11 @@ export function MediaCard({
           {headline}
         </h3>
         {playing && id ? null : id ? (
-          <Button type="button" variant="pill" size="pill-sm" onClick={() => setPlaying(true)}>
+          <Button type="button" variant="pill" size="pill-sm" className="mt-auto" onClick={() => setPlaying(true)}>
             Watch the video <ArrowRight aria-hidden className="size-4" />
           </Button>
         ) : (
-          <Button asChild variant="pill" size="pill-sm">
+          <Button asChild variant="pill" size="pill-sm" className="mt-auto">
             <a href={fallbackHref} target="_blank" rel="noopener noreferrer">
               Watch the video <ArrowRight aria-hidden className="size-4" />
             </a>

@@ -82,7 +82,7 @@ export default function JourneyPage() {
       <section className="bg-[#f3f0f6]">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-10 px-5 py-[100px] sm:px-10">
           <SectionHeading eyebrow="On air" title="Media features" />
-          <div className="grid items-start gap-5 lg:grid-cols-2">
+          <div className="grid gap-5 lg:grid-cols-2">
             <MediaCard
               id="dGstTnnsdFo"
               thumbnail="/images/journey/video-dGstTnnsdFo.jpg"
@@ -92,6 +92,8 @@ export default function JourneyPage() {
               fallbackHref={socialLinks[0].href}
             />
             <MediaCard
+              id="1NdE5vCMzPo"
+              thumbnail="/images/home/video-1NdE5vCMzPo.jpg"
               title="DTI: Asenso Pilipino S3 EP1 — Ube World Domination: Mag-asawa, Umasenso Dahil sa Ube"
               kicker="DTI: Asenso Pilipino · S3 EP1"
               headline="Ube World Domination: Mag-asawa, Umasenso Dahil sa Ube"
