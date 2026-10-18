@@ -1,3 +1,4 @@
+import { LogOut } from "lucide-react";
 import { Suspense } from "react";
 
 import { ChatLinks } from "@/components/shared/chat-links";
@@ -40,7 +41,14 @@ function SessionNavFallback({ className, showCart = true }: { className: string;
 
 async function HeaderSignOutAsync() {
   const visitor = await currentVisitor();
-  return visitor.state !== "signed-out" ? <SignOutButton action={signOut} /> : null;
+  return visitor.state !== "signed-out" ? (
+    <SignOutButton
+      action={signOut}
+      iconOnly
+      icon={<LogOut aria-hidden className="size-5" />}
+      className="flex items-center text-ink hover:no-underline"
+    />
+  ) : null;
 }
 
 async function CustomerSidebarGate() {
