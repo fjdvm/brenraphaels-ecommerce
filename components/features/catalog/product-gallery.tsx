@@ -3,30 +3,16 @@
 import Image from "next/image";
 import { useState } from "react";
 
-import { CarouselArrow } from "@/components/shared/carousel-arrow";
-
 type GalleryImage = { url: string; alt: string };
 
-/** A single Product photo at a time, with Previous/Next controls, so extra photos don't add page height. */
+/** One large Product photo with a thumbnail strip to switch between photos. */
 export function ProductGallery({ images }: { images: GalleryImage[] }) {
   const [active, setActive] = useState(0);
   const count = images.length;
 
-  function go(delta: number) {
-    setActive((current) => (current + delta + count) % count);
-  }
-
   return (
-    <div
-      role="group"
-      aria-roledescription="carousel"
-      aria-label="Product photos"
-      onKeyDown={(event) => {
-        if (event.key === "ArrowLeft") go(-1);
-        if (event.key === "ArrowRight") go(1);
-      }}
-    >
-      <div className="relative aspect-square w-full overflow-hidden bg-surface-variant/30">
+    <div role="group" aria-roledescription="carousel" aria-label="Product photos" className="flex flex-col gap-5">
+      <div className="relative aspect-square w-full overflow-hidden rounded-[40px] bg-lavender-soft lg:aspect-auto lg:h-[700px]">
         {images.map((image, index) => (
           <Image
             key={image.url}
@@ -40,19 +26,9 @@ export function ProductGallery({ images }: { images: GalleryImage[] }) {
             style={{ opacity: index === active ? 1 : 0, pointerEvents: index === active ? "auto" : "none" }}
           />
         ))}
-        {count > 1 && (
-          <>
-            <div className="absolute inset-y-0 left-2 flex items-center">
-              <CarouselArrow direction="previous" onClick={() => go(-1)} />
-            </div>
-            <div className="absolute inset-y-0 right-2 flex items-center">
-              <CarouselArrow direction="next" onClick={() => go(1)} />
-            </div>
-          </>
-        )}
       </div>
       {count > 1 && (
-        <div className="mt-3 flex justify-center gap-2">
+        <div className="grid grid-cols-4 gap-3 sm:gap-5">
           {images.map((image, index) => (
             <button
               key={image.url}
@@ -60,8 +36,12 @@ export function ProductGallery({ images }: { images: GalleryImage[] }) {
               aria-label={`Show photo ${index + 1} of ${count}`}
               aria-current={index === active}
               onClick={() => setActive(index)}
-              className={`size-2.5 rounded-full transition ${index === active ? "bg-primary" : "bg-outline-variant"}`}
-            />
+              className={`relative aspect-square overflow-hidden rounded-[24px] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:rounded-[40px] ${
+                index === active ? "ring-2 ring-primary" : "opacity-80 hover:opacity-100"
+              }`}
+            >
+              <Image src={image.url} alt="" fill sizes="12vw" className="object-cover" />
+            </button>
           ))}
         </div>
       )}

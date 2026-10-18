@@ -1,9 +1,9 @@
 "use client";
 
-import { ShoppingCart, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { formatPeso } from "@/lib/catalog/currency";
 import { addProductSizeToCart } from "@/lib/orders/add-product-size";
@@ -63,29 +63,15 @@ export function ProductQuickOrder({
 
   return (
     <>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          aria-label="Add to Cart"
-          title="Add to Cart"
-          onClick={() => start("cart")}
-          disabled={pending}
-          className="grid size-10 place-items-center border border-outline-variant text-primary transition hover:border-primary hover:bg-primary hover:text-on-primary disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <ShoppingCart aria-hidden className="size-4" />
-        </button>
-        <button
-          type="button"
-          aria-label="Buy Now"
-          title="Buy Now"
-          onClick={() => start("buy")}
-          disabled={pending}
-          className="grid size-10 place-items-center bg-primary text-on-primary transition hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Zap aria-hidden className="size-4" />
-        </button>
+      <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+        <Button type="button" variant="pill-outline" size="pill-sm" onClick={() => start("cart")} disabled={pending}>
+          Add to cart
+        </Button>
+        <Button type="button" variant="link" size="link-sm" onClick={() => start("buy")} disabled={pending}>
+          Buy now
+        </Button>
         {message && !open && (
-          <p role="status" className="text-xs font-semibold text-on-surface-variant">
+          <p role="status" className="w-full text-right text-xs font-semibold text-muted">
             {message}
           </p>
         )}
@@ -100,10 +86,10 @@ export function ProductQuickOrder({
                 key={size.id}
                 type="button"
                 onClick={() => setSizeId(size.id)}
-                className={`flex items-center justify-between border px-4 py-3 text-left font-semibold transition ${
+                className={`flex items-center justify-between rounded-[3px] border-2 px-5 py-3.5 text-left font-medium transition ${
                   size.id === sizeId
-                    ? "border-primary bg-primary-fixed text-primary"
-                    : "border-outline-variant text-on-surface hover:border-primary"
+                    ? "border-primary bg-lavender-soft text-ink"
+                    : "border-line text-ink hover:border-primary"
                 }`}
               >
                 <span>{size.label}</span>
@@ -111,17 +97,19 @@ export function ProductQuickOrder({
               </button>
             ))}
           </div>
-          <button
+          <Button
             type="button"
+            variant="pill"
+            size="pill-lg"
+            className="mt-6 w-full"
             onClick={() => {
               const size = availableSizes.find((candidate) => candidate.id === sizeId);
               if (size) commit(size, intent);
             }}
             disabled={pending}
-            className="mt-6 w-full bg-primary px-5 py-3 font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending ? "Adding…" : intent === "buy" ? "Buy Now" : "Add to Cart"}
-          </button>
+          </Button>
           {message && <p role="status" className="mt-3 text-sm font-semibold text-on-surface-variant">{message}</p>}
         </DialogContent>
       </Dialog>

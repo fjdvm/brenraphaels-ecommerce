@@ -1,8 +1,10 @@
 "use client";
 
+import { Minus, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
+import { Button } from "@/components/ui/button";
 import { formatPeso } from "@/lib/catalog/currency";
 import { addProductSizeToCart } from "@/lib/orders/add-product-size";
 import { cartLineQuantityLimit } from "@/lib/orders/quantity";
@@ -53,59 +55,97 @@ export function AddToCart({
     });
   }
 
+  function changeQuantity(next: number) {
+    setQuantity(Math.min(cartLineQuantityLimit, Math.max(1, next)));
+  }
+
   if (availableSizes.length === 0) {
-    return <p className="mt-6 font-semibold text-on-surface-variant">All Sizes are currently unavailable.</p>;
+    return <p className="font-medium text-muted">All Sizes are currently unavailable.</p>;
   }
 
   return (
-    <section className="mt-8 border-t border-outline-variant/60 pt-6" aria-labelledby="add-to-cart-heading">
-      <h2 id="add-to-cart-heading" className="font-serif text-2xl text-primary">Add to Cart</h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto]">
-        <label className="grid gap-1.5 text-sm font-semibold text-on-surface">
-          Size
-          <select
-            value={sizeId}
-            onChange={(event) => setSizeId(Number(event.target.value))}
-            className="border border-outline-variant bg-surface px-3 py-2.5 text-base"
+    <section className="flex flex-col gap-[30px]" aria-labelledby="add-to-cart-heading">
+      <h2 id="add-to-cart-heading" className="sr-only">Add to Cart</h2>
+      <fieldset className="flex flex-col gap-3.5">
+        <legend className="mb-3.5 text-[13px] font-medium tracking-wide text-ink">Size</legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {product.sizes.map((size) => {
+            const selected = size.id === sizeId;
+            return (
+              <label
+                key={size.id}
+                className={`flex flex-col gap-0.5 rounded-[3px] px-6 py-4 transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
+                  !size.available
+                    ? "cursor-not-allowed border border-line bg-surface-container-low opacity-60"
+                    : selected
+                      ? "cursor-pointer border-2 border-primary bg-lavender-soft"
+                      : "cursor-pointer border border-line bg-white hover:border-primary"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="size"
+                  className="sr-only"
+                  checked={selected}
+                  disabled={!size.available}
+                  onChange={() => setSizeId(size.id)}
+                />
+                <span className="text-sm font-medium text-ink">{size.label}</span>
+                <span className="text-xs text-muted">
+                  {formatPeso(size.priceInCentavos)}
+                  {!size.available ? " · Unavailable" : ""}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-4 rounded-full border border-line bg-white px-2 py-1.5">
+          <button
+            type="button"
+            aria-label="Decrease quantity"
+            disabled={quantity <= 1}
+            onClick={() => changeQuantity(quantity - 1)}
+            className="grid size-11 place-items-center rounded-full text-ink transition hover:bg-lavender-soft disabled:opacity-40"
           >
-            {availableSizes.map((size) => (
-              <option key={size.id} value={size.id}>
-                {size.label} · {formatPeso(size.priceInCentavos)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1.5 text-sm font-semibold text-on-surface">
-          Quantity
-          <input
-            type="number"
-            min="1"
-            max={cartLineQuantityLimit}
-            value={quantity}
-            onChange={(event) => setQuantity(Math.min(cartLineQuantityLimit, Math.max(1, Number(event.target.value) || 1)))}
-            className="w-24 border border-outline-variant bg-surface px-3 py-2.5 text-base"
-          />
-        </label>
-      </div>
-      <div className="mt-5 flex flex-wrap gap-3">
-        <button
+            <Minus aria-hidden className="size-5" />
+          </button>
+          <span aria-label="Quantity" className="min-w-4 text-center tracking-wide text-ink">{quantity}</span>
+          <button
+            type="button"
+            aria-label="Increase quantity"
+            disabled={quantity >= cartLineQuantityLimit}
+            onClick={() => changeQuantity(quantity + 1)}
+            className="grid size-11 place-items-center rounded-full text-ink transition hover:bg-lavender-soft disabled:opacity-40"
+          >
+            <Plus aria-hidden className="size-5" />
+          </button>
+        </div>
+        <Button
           type="button"
-          onClick={handleBuyNow}
-          disabled={pending}
-          className="bg-primary px-5 py-3 font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {pending && pendingAction === "buy" ? "Adding…" : "Buy Now"}
-        </button>
-        <button
-          type="button"
+          variant="pill"
+          size="pill-lg"
+          className="min-w-0 flex-1"
           onClick={handleAddToCart}
           disabled={pending}
-          className="border-2 border-primary px-5 py-2.5 font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {pending && pendingAction === "cart" ? "Adding…" : "Add to Cart"}
-        </button>
+          {pending && pendingAction === "cart"
+            ? "Adding…"
+            : `Add to cart — ${formatPeso((selectedSize?.priceInCentavos ?? 0) * quantity)}`}
+        </Button>
       </div>
-      {message && <p role="status" className="mt-3 text-sm font-semibold text-on-surface-variant">{message}</p>}
+      <Button
+        type="button"
+        variant="pill-outline"
+        size="pill-lg"
+        className="w-full"
+        onClick={handleBuyNow}
+        disabled={pending}
+      >
+        {pending && pendingAction === "buy" ? "Adding…" : "Buy now"}
+      </Button>
+      {message && <p role="status" className="-mt-4 text-sm font-medium text-body">{message}</p>}
     </section>
   );
 }

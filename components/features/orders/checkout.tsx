@@ -1,6 +1,8 @@
 "use client";
 
+import { ArrowRight, Check, MapPin, Package, Plus, Store, Truck, Wallet } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState, useTransition } from "react";
 
@@ -14,7 +16,9 @@ import {
   sanitizePostalCodeInput,
   sanitizeStreetInput,
 } from "@/components/features/customer/input-sanitizers";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { PageHeading } from "@/components/ui/page-heading";
 import {
   Dialog,
   DialogContent,
@@ -65,86 +69,215 @@ export function CheckoutView({
     });
   }
 
+  const deliveryBlocked = fulfillmentMethod === "delivery" && !addressId;
+
+  if (cart.lines.length === 0) {
+    return (
+      <section className="mx-auto flex max-w-[1440px] flex-col items-center gap-6 px-5 pb-32 pt-24 text-center sm:px-10 lg:pt-[140px]">
+        <h1 className="font-serif text-4xl leading-[1.2] text-primary sm:text-[54px]">Your cart is empty</h1>
+        <p className="max-w-[420px] leading-relaxed tracking-wide text-body">
+          Add something from our shop before checking out.
+        </p>
+        <Button asChild variant="pill" size="pill-lg">
+          <Link href="/products">
+            Shop our products
+            <ArrowRight aria-hidden className="size-5" />
+          </Link>
+        </Button>
+      </section>
+    );
+  }
+
   return (
-    <section className="mx-auto max-w-4xl px-5 py-12 sm:px-8 lg:py-20">
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">Checkout</p>
-      <h1 className="mt-3 font-serif text-5xl text-primary">Review your Order</h1>
-      {cart.lines.length === 0 ? (
-        <div className="mt-10 border-y border-outline-variant/60 py-10">
-          <p className="text-lg text-on-surface-variant">Your Cart is empty.</p>
-          <Link className="mt-4 inline-block font-semibold text-primary underline underline-offset-4" href="/products">Shop our products</Link>
+    <section className="mx-auto flex max-w-[1440px] flex-col gap-10 px-5 pb-[100px] pt-10 sm:px-10 lg:pt-[60px]">
+      <Breadcrumb crumbs={[{ label: "Home", href: "/" }, { label: "Cart", href: "/cart" }, { label: "Checkout" }]} />
+      <PageHeading eyebrow="Almost there" title="Checkout" aside={<CheckoutSteps />} />
+      <div className="flex flex-col gap-10 lg:flex-row lg:items-start">
+        <div className="flex min-w-0 flex-1 flex-col gap-6">
+          <Panel title="1. How would you like to get your order?">
+            <fieldset className="grid gap-4 sm:grid-cols-2">
+              <legend className="sr-only">Fulfillment method</legend>
+              <Choice
+                checked={fulfillmentMethod === "pickup"}
+                description="Collect your Order. There is no Delivery fee."
+                icon={Store}
+                label="Store pickup"
+                name="fulfillment"
+                onChange={() => setFulfillmentMethod("pickup")}
+                value="pickup"
+              />
+              <Choice
+                checked={fulfillmentMethod === "delivery"}
+                description="Have your Order delivered to one of your saved Addresses."
+                icon={Truck}
+                label="Delivery"
+                name="fulfillment"
+                onChange={() => setFulfillmentMethod("delivery")}
+                value="delivery"
+              />
+            </fieldset>
+          </Panel>
+          {fulfillmentMethod === "delivery" ? (
+            <DeliveryAddressChoice addresses={addresses} addressId={addressId} onAddressIdChange={setAddressId} provinces={provinces} />
+          ) : null}
+          <Panel title={`${fulfillmentMethod === "delivery" ? "3" : "2"}. Payment method`}>
+            <fieldset className="grid gap-4 sm:grid-cols-2">
+              <legend className="sr-only">Payment method</legend>
+              <Choice
+                checked={paymentMethod === "gcash"}
+                description="Once your Order is confirmed, submit your GCash reference number from order-history."
+                icon={Wallet}
+                label="GCash"
+                name="payment"
+                onChange={() => setPaymentMethod("gcash")}
+                value="gcash"
+              />
+              <Choice
+                checked={paymentMethod === "cash-on-delivery"}
+                description={fulfillmentMethod === "pickup" ? "Pay cash when you collect your Order." : "Pay cash when your Order is delivered."}
+                icon={Package}
+                label="Cash on Delivery"
+                name="payment"
+                onChange={() => setPaymentMethod("cash-on-delivery")}
+                value="cash-on-delivery"
+              />
+            </fieldset>
+          </Panel>
         </div>
-      ) : (
-        <>
-          <div className="mt-10 grid gap-8 md:grid-cols-2">
-            <section aria-labelledby="items-heading">
-              <h2 id="items-heading" className="font-serif text-2xl text-primary">Your Cart</h2>
-              <ul className="mt-4 divide-y divide-outline-variant/60 border-y border-outline-variant/60">
-                {cart.lines.map((line) => (
-                  <li key={line.id} className="py-4">
-                    <p className="font-semibold text-primary">{line.productName}</p>
-                    <p className="mt-1 text-sm text-on-surface-variant">{line.sizeLabel} · {line.quantity} × {formatPeso(line.priceInCentavos)}</p>
-                    {!line.available && <p className="mt-1 text-sm font-semibold text-secondary">This Size is currently unavailable.</p>}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-4 flex justify-between font-bold text-primary"><span>Subtotal</span><span>{formatPeso(cart.subtotalInCentavos)}</span></p>
-              {fulfillmentMethod === "delivery" ? <p className="mt-2 text-sm font-semibold text-secondary">Delivery fee and final total will be confirmed after you place your Order.</p> : null}
-            </section>
-            <section aria-labelledby="choices-heading">
-              <h2 id="choices-heading" className="font-serif text-2xl text-primary">Your choices</h2>
-              <fieldset className="mt-4 space-y-3 rounded-md border border-outline-variant/60 p-5">
-                <legend className="font-semibold text-on-surface">Fulfillment method</legend>
-                <Choice checked={fulfillmentMethod === "pickup"} description="Collect your Order. There is no Delivery fee." label="Pickup" name="fulfillment" onChange={() => setFulfillmentMethod("pickup")} value="pickup" />
-                <Choice checked={fulfillmentMethod === "delivery"} description="Have your Order delivered to one of your saved Addresses." label="Delivery" name="fulfillment" onChange={() => setFulfillmentMethod("delivery")} value="delivery" />
-              </fieldset>
-              {fulfillmentMethod === "delivery" ? <DeliveryAddressChoice addresses={addresses} addressId={addressId} onAddressIdChange={setAddressId} provinces={provinces} /> : null}
-              <fieldset className="mt-4 space-y-3 rounded-md border border-outline-variant/60 p-5">
-                <legend className="font-semibold text-on-surface">Payment method</legend>
-                <Choice
-                  checked={paymentMethod === "cash-on-delivery"}
-                  description={fulfillmentMethod === "pickup" ? "Pay cash when you collect your Order." : "Pay cash when your Order is delivered."}
-                  label="Cash on Delivery"
-                  name="payment"
-                  onChange={() => setPaymentMethod("cash-on-delivery")}
-                  value="cash-on-delivery"
-                />
-                <Choice
-                  checked={paymentMethod === "gcash"}
-                  description="Once your Order is confirmed, submit your GCash reference number from order-history."
-                  label="GCash"
-                  name="payment"
-                  onChange={() => setPaymentMethod("gcash")}
-                  value="gcash"
-                />
-              </fieldset>
-            </section>
+        <aside
+          aria-labelledby="checkout-summary-heading"
+          className="flex w-full flex-col gap-[22px] rounded-[40px] border border-line bg-white p-8 sm:p-10 lg:w-[460px] lg:shrink-0"
+        >
+          <h2 id="checkout-summary-heading" className="font-serif text-[28px] leading-tight text-primary">Order summary</h2>
+          <ul className="flex flex-col gap-4">
+            {cart.lines.map((line) => (
+              <li key={line.id} className="flex items-center gap-4 tracking-wide">
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5 leading-normal">
+                  <p className="text-sm font-medium text-ink">{line.productName}</p>
+                  <p className="text-xs text-muted">{line.sizeLabel} × {line.quantity}</p>
+                  {!line.available && <p className="text-xs font-medium text-warning">This Size is currently unavailable.</p>}
+                </div>
+                <p className="text-sm font-medium text-ink">{formatPeso(line.priceInCentavos * line.quantity)}</p>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center justify-between border-t border-line pt-[22px] text-sm tracking-wide text-body">
+            <span>Subtotal</span>
+            <span>{formatPeso(cart.subtotalInCentavos)}</span>
           </div>
-          {message && <p role="alert" className="mt-6 font-semibold text-secondary">{message}</p>}
-          <div className="mt-8 flex flex-wrap gap-4">
-            <Button disabled={isPending || cart.lines.some((line) => !line.available) || (fulfillmentMethod === "delivery" && !addressId)} onClick={submitOrder} size="lg" type="button">
-              {isPending ? "Placing Order…" : "Place Order"}
-            </Button>
-            <Button asChild size="lg" variant="outline"><Link href="/cart">Edit Cart</Link></Button>
+          <div className="flex items-center justify-between text-sm tracking-wide text-body">
+            <span>{fulfillmentMethod === "delivery" ? "Delivery" : "Pickup"}</span>
+            {fulfillmentMethod === "delivery" ? <span className="text-warning">To be confirmed</span> : <span>Free</span>}
           </div>
-        </>
-      )}
+          <div className="flex items-center justify-between border-t border-line pt-[22px]">
+            <span className="text-sm font-medium tracking-wide text-ink">Total</span>
+            <span className="font-serif text-[22px] leading-[1.3] text-primary">
+              {formatPeso(cart.subtotalInCentavos)}{fulfillmentMethod === "delivery" ? " + delivery" : ""}
+            </span>
+          </div>
+          {fulfillmentMethod === "delivery" ? (
+            <p className="flex items-start gap-2.5 rounded-[3px] bg-warning-soft p-4 text-xs leading-normal tracking-wide text-ink">
+              <Truck aria-hidden className="size-[18px] shrink-0 text-warning" />
+              Our team will message you the delivery fee before your order is dispatched.
+            </p>
+          ) : null}
+          {message && <p role="alert" className="text-sm font-medium text-warning">{message}</p>}
+          <Button
+            className="w-full"
+            disabled={isPending || cart.lines.some((line) => !line.available) || deliveryBlocked}
+            onClick={submitOrder}
+            size="pill-lg"
+            type="button"
+            variant="pill"
+          >
+            {isPending ? "Placing Order…" : "Place order"}
+            {isPending ? null : <ArrowRight aria-hidden className="size-5" />}
+          </Button>
+          <Button asChild variant="link" size="link-sm" className="self-start">
+            <Link href="/cart">Edit cart</Link>
+          </Button>
+          <p className="text-xs tracking-wide text-muted">You can cancel your order anytime until it&apos;s dispatched.</p>
+        </aside>
+      </div>
     </section>
   );
 }
 
-function Choice({ checked, description, label, name, onChange, value }: { checked: boolean; description: string; label: string; name: string; onChange: () => void; value: string }) {
-  return <label className="flex cursor-pointer items-start gap-3"><input checked={checked} className="mt-1" name={name} onChange={onChange} type="radio" value={value} /><span><span className="font-semibold text-primary">{label}</span><span className="mt-1 block text-sm text-on-surface-variant">{description}</span></span></label>;
+/** Where the Customer is in the buying journey; checkout is always step two. */
+function CheckoutSteps() {
+  const dot = "grid size-7 place-items-center rounded-full text-[13px] font-medium";
+  return (
+    <ol className="flex items-center gap-3 text-sm font-medium tracking-wide" aria-label="Checkout progress">
+      <li className="flex items-center gap-2 text-ink">
+        <span className={`${dot} bg-primary text-white`}><Check aria-hidden className="size-3.5" /></span>
+        Cart
+      </li>
+      <li aria-hidden className="hidden h-px w-10 bg-line sm:block" />
+      <li aria-current="step" className="flex items-center gap-2 text-ink">
+        <span className={`${dot} bg-primary text-white`}>2</span>
+        Details &amp; payment
+      </li>
+      <li aria-hidden className="hidden h-px w-10 bg-line sm:block" />
+      <li className="hidden items-center gap-2 text-muted sm:flex">
+        <span className={`${dot} bg-surface-container-low text-muted`}>3</span>
+        Confirmation
+      </li>
+    </ol>
+  );
+}
+
+function Panel({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-5 rounded-[40px] border border-line bg-white p-8 sm:p-10">
+      <div className="flex flex-wrap items-center justify-between gap-x-[30px] gap-y-3">
+        <h2 className="font-serif text-[22px] leading-[1.3] text-primary">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+const optionClass = (checked: boolean) =>
+  `flex cursor-pointer items-start gap-4 rounded-[3px] px-6 py-5 transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
+    checked ? "border-2 border-primary bg-lavender-soft" : "border border-line bg-white hover:border-primary"
+  }`;
+
+function RadioDot({ checked }: { checked: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`mt-px size-5 shrink-0 rounded-full bg-white ${checked ? "border-[6px] border-primary" : "border-[1.5px] border-line"}`}
+    />
+  );
+}
+
+function Choice({ checked, description, icon: Icon, label, name, onChange, value }: { checked: boolean; description: string; icon: typeof Store; label: string; name: string; onChange: () => void; value: string }) {
+  return (
+    <label className={optionClass(checked)}>
+      <input checked={checked} className="sr-only" name={name} onChange={onChange} type="radio" value={value} />
+      <RadioDot checked={checked} />
+      <Icon aria-hidden className="size-[22px] shrink-0 text-ink" />
+      <span className="flex min-w-0 flex-1 flex-col gap-1 leading-normal tracking-wide">
+        <span className="text-sm font-medium text-ink">{label}</span>
+        <span className="text-xs text-body">{description}</span>
+      </span>
+    </label>
+  );
 }
 
 function DeliveryAddressChoice({ addresses, addressId, onAddressIdChange, provinces }: { addresses: CustomerAddress[]; addressId?: number; onAddressIdChange: (id: number) => void; provinces: string[] }) {
-  return <div className="mt-4 rounded-md border border-outline-variant/60 p-5">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold text-on-surface">Delivery Address</h3><AddAddressDialog onAddressAdded={onAddressIdChange} provinces={provinces} /></div>
-    {addresses.length === 0 ? <p className="mt-3 text-sm text-secondary">Add an Address before placing a Delivery Order.</p> : <div className="mt-3 space-y-3">
-      {addresses.map((address) => <label className="flex cursor-pointer items-start gap-3" key={address.id}><input checked={address.id === addressId} name="delivery-address" onChange={() => onAddressIdChange(address.id)} type="radio" value={address.id} /><span className="text-sm text-on-surface"><span className="font-semibold">{address.label}{address.isDefault ? " (Default)" : ""}</span><span className="mt-1 block text-on-surface-variant">{address.street}, {address.barangay}, {address.city}, {address.province} {address.postalCode}</span></span></label>)}
-    </div>}
-    <p className="mt-4 text-sm font-semibold text-secondary">Your Delivery fee and final total will be confirmed after placing your Order.</p>
-  </div>;
+  return <Panel title="2. Delivery details" action={<AddAddressDialog onAddressAdded={onAddressIdChange} provinces={provinces} />}>
+    {addresses.length === 0 ? <p className="text-sm text-warning">Add an Address before placing a Delivery Order.</p> : <fieldset className="flex flex-col gap-4">
+      <legend className="sr-only">Delivery Address</legend>
+      {addresses.map((address) => <label className={optionClass(address.id === addressId)} key={address.id}>
+        <input checked={address.id === addressId} className="sr-only" name="delivery-address" onChange={() => onAddressIdChange(address.id)} type="radio" value={address.id} />
+        <RadioDot checked={address.id === addressId} />
+        <MapPin aria-hidden className="size-[22px] shrink-0 text-ink" />
+        <span className="flex min-w-0 flex-1 flex-col gap-1 leading-normal tracking-wide"><span className="text-sm font-medium text-ink">{address.label}{address.isDefault ? " · Default" : ""}</span><span className="text-xs text-body">{address.street}, {address.barangay}, {address.city}, {address.province} {address.postalCode}</span></span>
+      </label>)}
+    </fieldset>}
+  </Panel>;
 }
 
 function AddAddressDialog({ onAddressAdded, provinces }: { onAddressAdded: (id: number) => void; provinces: string[] }) {
@@ -153,5 +286,5 @@ function AddAddressDialog({ onAddressAdded, provinces }: { onAddressAdded: (id: 
   useEffect(() => { if (state.addressId) { onAddressAdded(state.addressId); router.refresh(); } }, [onAddressAdded, router, state.addressId]);
   const streetError = state.fieldErrors?.street?.[0];
   const postalError = state.fieldErrors?.postalCode?.[0];
-  return <Dialog><DialogTrigger asChild><Button type="button" variant="outline">Add an Address</Button></DialogTrigger><DialogContent><DialogTitle className="font-serif text-3xl text-primary">Add an Address</DialogTitle><DialogDescription className="mt-2 text-on-surface-variant">Save a new Address and use it for this Delivery Order.</DialogDescription><form action={action} className="mt-6 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><Label htmlFor="checkout-label" required>Label</Label><select className="mt-1 h-11 w-full border border-input bg-white px-3" defaultValue="Home" id="checkout-label" name="label"><option>Home</option><option>Work</option><option>Other</option></select></div><div className="sm:col-span-2"><Label htmlFor="checkout-street" required>Street address</Label><Input aria-describedby={streetError ? "checkout-street-error" : undefined} aria-invalid={Boolean(streetError)} autoComplete="street-address" id="checkout-street" name="street" onInput={sanitizeStreetInput} required />{streetError ? <p className="mt-1 text-sm text-red-700" id="checkout-street-error" role="alert">{streetError}</p> : null}</div><LocationFields errors={state.fieldErrors ?? {}} idSuffix="-checkout" provinces={provinces} /><div><Label htmlFor="postalCode-checkout" required>Postal code</Label><Input aria-describedby={postalError ? "postalCode-checkout-error" : undefined} aria-invalid={Boolean(postalError)} autoComplete="postal-code" id="postalCode-checkout" inputMode="numeric" maxLength={4} name="postalCode" onInput={sanitizePostalCodeInput} required />{postalError ? <p className="mt-1 text-sm text-red-700" id="postalCode-checkout-error" role="alert">{postalError}</p> : null}</div><p className="text-sm text-on-surface-variant sm:col-span-2">Country: Philippines</p><Button disabled={pending} type="submit">{pending ? "Adding…" : "Add Address"}</Button></form></DialogContent></Dialog>;
+  return <Dialog><DialogTrigger asChild><Button type="button" variant="link" size="link-sm"><Plus aria-hidden className="size-4" />Add an address</Button></DialogTrigger><DialogContent><DialogTitle className="font-serif text-3xl text-primary">Add an Address</DialogTitle><DialogDescription className="mt-2 text-on-surface-variant">Save a new Address and use it for this Delivery Order.</DialogDescription><form action={action} className="mt-6 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><Label htmlFor="checkout-label" required>Label</Label><select className="mt-1 h-11 w-full border border-input bg-white px-3" defaultValue="Home" id="checkout-label" name="label"><option>Home</option><option>Work</option><option>Other</option></select></div><div className="sm:col-span-2"><Label htmlFor="checkout-street" required>Street address</Label><Input aria-describedby={streetError ? "checkout-street-error" : undefined} aria-invalid={Boolean(streetError)} autoComplete="street-address" id="checkout-street" name="street" onInput={sanitizeStreetInput} required />{streetError ? <p className="mt-1 text-sm text-red-700" id="checkout-street-error" role="alert">{streetError}</p> : null}</div><LocationFields errors={state.fieldErrors ?? {}} idSuffix="-checkout" provinces={provinces} /><div><Label htmlFor="postalCode-checkout" required>Postal code</Label><Input aria-describedby={postalError ? "postalCode-checkout-error" : undefined} aria-invalid={Boolean(postalError)} autoComplete="postal-code" id="postalCode-checkout" inputMode="numeric" maxLength={4} name="postalCode" onInput={sanitizePostalCodeInput} required />{postalError ? <p className="mt-1 text-sm text-red-700" id="postalCode-checkout-error" role="alert">{postalError}</p> : null}</div><p className="text-sm text-on-surface-variant sm:col-span-2">Country: Philippines</p><Button disabled={pending} type="submit">{pending ? "Adding…" : "Add Address"}</Button></form></DialogContent></Dialog>;
 }
