@@ -98,6 +98,11 @@ function addressFormValues(formData: FormData) {
   };
 }
 
+/** The "Set as default address" switch posts "on" when it is checked. */
+function wantsDefault(formData: FormData) {
+  return formData.get("isDefault") === "on";
+}
+
 function addressId(formData: FormData) {
   return z.coerce
     .number()
@@ -120,10 +125,9 @@ export async function addAddress(
   }
 
   const customer = await requireCustomer();
-  await addCustomerAddress(parsed.data, {
-    userId: customer.userId,
-    addressStore: createAddressStore(getDatabase()),
-  });
+  const dependencies = { userId: customer.userId, addressStore: createAddressStore(getDatabase()) };
+  const newAddressId = await addCustomerAddress(parsed.data, dependencies);
+  if (wantsDefault(formData)) await setCustomerDefaultAddress(newAddressId, dependencies);
   revalidatePath("/profile", "layout");
   return { message: "Address added." };
 }
@@ -147,10 +151,9 @@ export async function updateAddress(
 
   const customer = await requireCustomer();
   try {
-    await updateCustomerAddress(parsedId.data, parsed.data, {
-      userId: customer.userId,
-      addressStore: createAddressStore(getDatabase()),
-    });
+    const dependencies = { userId: customer.userId, addressStore: createAddressStore(getDatabase()) };
+    await updateCustomerAddress(parsedId.data, parsed.data, dependencies);
+    if (wantsDefault(formData)) await setCustomerDefaultAddress(parsedId.data, dependencies);
   } catch (error) {
     if (error instanceof CustomerAddressNotFoundError) {
       return { message: "Address not found.", failed: true };

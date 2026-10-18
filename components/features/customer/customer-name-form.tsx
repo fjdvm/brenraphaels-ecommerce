@@ -5,9 +5,10 @@ import {
   type ProfileNameState,
   saveCustomerName,
 } from "@/app/(site)/(protected)/profile/actions";
+import { SettingsField } from "@/components/features/customer/settings-card";
 import { Button } from "@/components/ui/button";
+import { fieldClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 const initialState: ProfileNameState = {};
 
@@ -40,22 +41,24 @@ export function CustomerNameForm({
         defaultValue={lastName}
         required
       />
-      <NameField
-        error={state.fieldErrors?.middleName?.[0]}
-        id="middleName"
-        label="Middle name (optional)"
-        defaultValue={middleName ?? ""}
-      />
-      <div className="flex items-end sm:col-start-1">
-        <Button disabled={pending} type="submit">
-          {pending ? "Saving…" : "Save name"}
+      <div className="sm:col-span-2">
+        <NameField
+          error={state.fieldErrors?.middleName?.[0]}
+          id="middleName"
+          label="Middle name (optional)"
+          defaultValue={middleName ?? ""}
+        />
+      </div>
+      <div className="flex items-center justify-end gap-4 sm:col-span-2">
+        {state.saved ? (
+          <p className="mr-auto text-sm text-green-700" role="status">
+            Your name has been saved.
+          </p>
+        ) : null}
+        <Button disabled={pending} size="pill-sm" type="submit" variant="pill">
+          {pending ? "Saving…" : "Save changes"}
         </Button>
       </div>
-      {state.saved ? (
-        <p className="text-sm text-green-700 sm:col-span-2" role="status">
-          Your name has been saved.
-        </p>
-      ) : null}
     </form>
   );
 }
@@ -75,10 +78,7 @@ function NameField({
 }) {
   const errorId = `${id}-error`;
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id} required={required}>
-        {label}
-      </Label>
+    <SettingsField error={error} errorId={errorId} htmlFor={id} label={label} required={required}>
       <Input
         aria-describedby={error ? errorId : undefined}
         aria-invalid={Boolean(error)}
@@ -89,16 +89,12 @@ function NameField({
               ? "family-name"
               : "additional-name"
         }
+        className={fieldClass}
         defaultValue={defaultValue}
         id={id}
         name={id}
         required={required}
       />
-      {error ? (
-        <p className="text-sm text-red-700" id={errorId} role="alert">
-          {error}
-        </p>
-      ) : null}
-    </div>
+    </SettingsField>
   );
 }

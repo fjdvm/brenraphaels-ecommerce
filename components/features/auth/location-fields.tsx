@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Label } from "@/components/ui/label";
@@ -88,11 +88,14 @@ export function LocationFields({
   errors,
   defaults,
   idSuffix,
+  inline = false,
 }: {
   provinces: string[];
   errors: FieldErrors;
   defaults?: { province?: string; city?: string; barangay?: string };
   idSuffix?: string;
+  /** Lays Province, City and Barangay out side by side instead of stacking Barangay below. */
+  inline?: boolean;
 }) {
   const defaultProvince = defaults?.province;
   const defaultCity = defaults?.city;
@@ -177,9 +180,10 @@ export function LocationFields({
     }
   }
 
+  const Wrapper = inline ? "div" : Fragment;
   return (
-    <>
-      <div className="grid gap-4 sm:grid-cols-2">
+    <Wrapper {...(inline ? { className: "grid gap-4 sm:grid-cols-3 sm:col-span-full" } : {})}>
+      <div className={inline ? "contents" : "grid gap-4 sm:grid-cols-2"}>
         <LocationSelect
           name="province"
           label="Province"
@@ -213,6 +217,6 @@ export function LocationFields({
         onChange={setBarangay}
         idSuffix={idSuffix}
       />
-    </>
+    </Wrapper>
   );
 }

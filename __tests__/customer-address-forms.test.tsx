@@ -1,6 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/profile/addresses",
+  useRouter: () => ({ replace: () => {} }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock("@/app/(site)/(protected)/profile/actions", () => ({
   addAddress: async () => ({}),
   makeDefaultAddress: async () => ({}),
@@ -37,6 +42,8 @@ const markup = renderToStaticMarkup(
       },
     ]}
     provinces={["Cebu", "Metro Manila"]}
+    recipient={{ name: "Jane Doe", contactNumber: "09171234567" }}
+    initialEditing={1}
   />,
 );
 
@@ -46,17 +53,32 @@ function attributeValues(attribute: string, tag: string) {
   );
 }
 
-describe("Address management Province, City, and Barangay fields", () => {
-  test("uses cascading dropdowns for every Address editor and the add form", () => {
+describe("Address book", () => {
+  test("lists every saved Address and marks the default", () => {
+    expect(markup).toContain("1 First Street, Loyola Heights, Quezon City, Metro Manila 1108");
+    expect(markup).toContain("2 Second Street, Lahug, Cebu City, Cebu 6000");
+    expect(markup.match(/>Default</g)).toHaveLength(1);
+  });
+
+  test("shows the recipient on each card", () => {
+    expect(markup.match(/Jane Doe · 09171234567/g)).toHaveLength(2);
+  });
+
+  test("offers to make only a non-default Address the default", () => {
+    expect(markup.match(/Set as default</g)).toHaveLength(1);
+  });
+});
+
+describe("Address editor Province, City, and Barangay fields", () => {
+  test("uses cascading dropdowns in the one open form", () => {
     for (const name of ["province", "city", "barangay"]) {
-      expect(markup.match(new RegExp(`<select[^>]*name="${name}"`, "g"))).toHaveLength(3);
+      expect(markup.match(new RegExp(`<select[^>]*name="${name}"`, "g"))).toHaveLength(1);
       expect(markup).not.toMatch(new RegExp(`<input[^>]*name="${name}"`));
     }
   });
 
-  test("preselects each existing Address's Province", () => {
+  test("preselects the edited Address's Province", () => {
     expect(markup).toMatch(/<option value="Metro Manila" selected="">Metro Manila<\/option>/);
-    expect(markup).toMatch(/<option value="Cebu" selected="">Cebu<\/option>/);
   });
 
   test("gives each Province, City, and Barangay control a unique ID with a matching label", () => {
