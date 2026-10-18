@@ -1,8 +1,8 @@
 import { ArrowRight, Heart, Star, User } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { HeroCarousel } from "@/components/features/careers/hero-carousel";
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
 import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
@@ -132,16 +132,7 @@ export default function CareersPage(props: CareersPageProps) {
               <HeroActions />
             </Suspense>
           </div>
-          <div className="relative min-h-[320px] overflow-hidden rounded-[40px] lg:min-h-[560px]">
-            <Image
-              src="/images/careers/team.jpg"
-              alt="The Bren Raphael's team in purple shirts, holding jars of ube jam in the kitchen"
-              fill
-              priority
-              sizes="(min-width: 1024px) 560px, 100vw"
-              className="object-cover object-[55%_center]"
-            />
-          </div>
+          <HeroCarousel />
         </div>
       </section>
 
