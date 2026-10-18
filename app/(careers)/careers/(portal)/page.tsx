@@ -64,7 +64,7 @@ async function HeroActions() {
           <ArrowRight aria-hidden className="size-5" />
         </Link>
       </Button>
-      <Button asChild variant="link" size="pill-lg" className="py-2.5">
+      <Button asChild variant="link" size="pill-lg" className="px-0 py-2.5">
         <Link href="/careers/signin">Applicant sign in</Link>
       </Button>
     </div>
@@ -118,7 +118,7 @@ export default function CareersPage(props: CareersPageProps) {
       <section className="px-5 pb-[100px] pt-[60px] sm:px-10">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_560px]">
           <div className="flex flex-col justify-center gap-7 rounded-[40px] bg-lavender-soft p-8 sm:p-[60px]">
-            <div className="flex flex-col gap-4">
+            <div className="flex max-w-[660px] flex-col gap-4">
               <p className={eyebrowClass}>Careers at Bren Raphael&apos;s</p>
               <h1 className="font-serif text-5xl leading-[1.1] text-primary sm:text-7xl">
                 Join our small-batch kitchen.

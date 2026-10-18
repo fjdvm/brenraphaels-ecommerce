@@ -10,11 +10,11 @@ import { SignOutButton } from "@/components/shared/sign-out-button";
 import { careersSession } from "@/lib/careers/auth";
 
 const headerClass =
-  "flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-line bg-surface px-5 py-5 sm:px-10";
-const brandClass = "flex items-center gap-4 lg:w-[360px]";
-const sideClass = "ml-auto flex items-center justify-end gap-5 lg:w-[360px]";
+  "flex flex-wrap items-center gap-x-6 gap-y-3 whitespace-nowrap border-b border-line bg-surface px-5 py-5 sm:px-10";
+const brandClass = "flex items-center gap-4 lg:min-w-[360px]";
+const sideClass = "ml-auto flex items-center justify-end gap-5 lg:min-w-[360px]";
 const shopLink = (
-  <Link href="/" className="flex items-center gap-1.5 text-xs tracking-[0.35px] text-muted hover:text-primary">
+  <Link href="/" className="flex shrink-0 items-center gap-1.5 text-xs tracking-[0.35px] text-muted hover:text-primary">
     Visit the shop
     <ArrowUpRight aria-hidden className="size-3.5" />
   </Link>

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const guestLinks = [
   { href: "/careers#open-roles", label: "Open roles" },
   { href: "/careers#life", label: "Life at Bren Raphael's" },
+  { href: "/careers/applications#how-hiring-works", label: "How hiring works" },
 ];
 
 const applicantLinks = [
