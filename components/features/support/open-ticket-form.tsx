@@ -1,95 +1,172 @@
 "use client";
 
-import { Check } from "lucide-react";
-import { useActionState, useState } from "react";
+import { ArrowRight, MessageCircle, Package, Store, Truck, Upload, User, Wallet, X } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useState, type ReactNode } from "react";
 
 import { createTicket, type CreateTicketState } from "@/app/(site)/(protected)/support/actions";
 import { Button } from "@/components/ui/button";
+import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { ticketCategories } from "@/lib/support/tickets";
+import { ticketCategories, type TicketCategory } from "@/lib/support/tickets";
 
 const initialState: CreateTicketState = {};
 
-/** Lets a Customer open one Support Ticket, optionally linked to one of their Orders. */
-export function OpenTicketForm({ orders }: { orders: { id: number }[] }) {
-  // Remounting the form is what clears its submitted state for "Submit another".
-  const [formKey, setFormKey] = useState(0);
-  return <TicketForm key={formKey} onSubmitAnother={() => setFormKey((key) => key + 1)} orders={orders} />;
-}
+const categoryChips: Record<TicketCategory, { label: string; icon: ReactNode }> = {
+  "Order Issue": { label: "Order issue", icon: <Package aria-hidden className="size-4" strokeWidth={1.5} /> },
+  "Payment Issue": { label: "Payment", icon: <Wallet aria-hidden className="size-4" strokeWidth={1.5} /> },
+  "Delivery Issue": { label: "Delivery & pickup", icon: <Truck aria-hidden className="size-4" strokeWidth={1.5} /> },
+  "Product Question": { label: "Product", icon: <Store aria-hidden className="size-4" strokeWidth={1.5} /> },
+  Account: { label: "Account", icon: <User aria-hidden className="size-4" strokeWidth={1.5} /> },
+  Other: { label: "Other", icon: <MessageCircle aria-hidden className="size-4" strokeWidth={1.5} /> },
+};
 
-function TicketSubmitted({ onSubmitAnother }: { onSubmitAnother: () => void }) {
-  return (
-    <div
-      className="relative overflow-hidden rounded-md border border-outline-variant/60 bg-surface-card px-6 py-12 text-center shadow-[0_24px_48px_-24px_rgba(69,33,117,0.35)]"
-      role="status"
-    >
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-primary-fixed/70 to-transparent" />
-      <div className="relative">
-        <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-primary-fixed ring-8 ring-primary-fixed/40">
-          <span className="flex size-12 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/30">
-            <Check aria-hidden className="size-6" strokeWidth={3} />
-          </span>
-        </span>
-        <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Support</p>
-        <h2 className="mt-2 font-serif text-3xl text-primary">Your Ticket is submitted</h2>
-        <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-on-surface-variant">
-          Thank you for reaching out. Follow the conversation under Your Tickets, and we&apos;ll reply there.
-        </p>
-        <Button className="mt-8" onClick={onSubmitAnother} size="lg" type="button">Submit another</Button>
-      </div>
-    </div>
-  );
-}
-
-function TicketForm({ orders, onSubmitAnother }: { orders: { id: number }[]; onSubmitAnother: () => void }) {
+/** Lets a Customer open one Support Ticket, optionally linked to one of their Orders, then lands them in its conversation. */
+export function OpenTicketForm({
+  orders,
+  defaultOrderId,
+}: {
+  orders: { id: number; label: string }[];
+  defaultOrderId?: number;
+}) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(createTicket, initialState);
-  if (state.created) return <TicketSubmitted onSubmitAnother={onSubmitAnother} />;
+  const [fileName, setFileName] = useState<string>();
+
+  useEffect(() => {
+    if (state.created && state.ticketId) router.push(`/support/${state.ticketId}`);
+  }, [state.created, state.ticketId, router]);
 
   return (
-    <form action={action} className="rounded-md border border-outline-variant/60 bg-surface-card p-5">
-      <h2 className="font-serif text-2xl text-primary">Open a Ticket</h2>
-      <p className="mt-1 text-sm text-on-surface-variant">Tell us how we can help.</p>
-      <div className="mt-5 grid gap-4">
-        <div>
-          <Label htmlFor="ticket-subject" required>Subject</Label>
-          <Input aria-invalid={Boolean(state.fieldErrors?.subject)} id="ticket-subject" maxLength={160} name="subject" required />
-          <FieldError message={state.fieldErrors?.subject?.[0]} />
+    <form action={action} className="flex flex-col gap-6 p-6 sm:p-[60px]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h2 className="font-serif text-4xl leading-[1.2] text-primary sm:text-[44px]">Open a ticket</h2>
+          <p className="leading-[1.6] tracking-[0.35px] text-body">
+            Tell us what happened — our team usually replies within the day (Mon–Sat).
+          </p>
         </div>
-        <div>
-          <Label htmlFor="ticket-category" required>Category</Label>
-          <Select aria-invalid={Boolean(state.fieldErrors?.category)} defaultValue="" id="ticket-category" name="category" required>
-            <option disabled value="">Choose a category</option>
-            {ticketCategories.map((category) => <option key={category} value={category}>{category}</option>)}
-          </Select>
-          <FieldError message={state.fieldErrors?.category?.[0]} />
-        </div>
-        <div>
-          <Label htmlFor="ticket-order">Related Order <span className="font-normal">(optional)</span></Label>
-          <Select aria-invalid={Boolean(state.fieldErrors?.orderId)} defaultValue="" id="ticket-order" name="orderId">
-            <option value="">No related Order</option>
-            {orders.map((order) => <option key={order.id} value={order.id}>Order #{order.id}</option>)}
-          </Select>
-          <FieldError message={state.fieldErrors?.orderId?.[0]} />
-        </div>
-        <div>
-          <Label htmlFor="ticket-message" required>Message</Label>
-          <textarea aria-invalid={Boolean(state.fieldErrors?.body)} className="mt-1 min-h-32 w-full border border-input bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-ring" id="ticket-message" maxLength={2_000} name="body" required />
-          <FieldError message={state.fieldErrors?.body?.[0]} />
-        </div>
-        <div>
-          <Label htmlFor="ticket-attachment">Image <span className="font-normal">(optional, JPEG or PNG up to 5 MB)</span></Label>
-          <Input accept="image/jpeg,image/png" aria-invalid={Boolean(state.fieldErrors?.attachment)} id="ticket-attachment" name="attachment" type="file" />
-          <FieldError message={state.fieldErrors?.attachment?.[0]} />
-        </div>
+        <Link
+          aria-label="Close"
+          className="flex size-10 shrink-0 items-center justify-center rounded-full border border-line text-ink transition-colors hover:bg-lavender-soft"
+          href="/support"
+        >
+          <X aria-hidden className="size-[18px]" strokeWidth={1.5} />
+        </Link>
       </div>
-      {state.message ? <p className="mt-4 text-sm text-red-700" role="alert">{state.message}</p> : null}
-      <Button className="mt-5" disabled={pending} type="submit">{pending ? "Opening…" : "Open Ticket"}</Button>
+
+      <Field error={state.fieldErrors?.subject?.[0]} id="ticket-subject" label="Subject" required>
+        <Input
+          aria-invalid={Boolean(state.fieldErrors?.subject)}
+          className={fieldClass}
+          id="ticket-subject"
+          maxLength={160}
+          name="subject"
+          placeholder="e.g. Payment not reflecting"
+          required
+        />
+      </Field>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className={`${fieldLabelClass} mb-2`}>
+          Category<span aria-hidden className="ml-0.5 text-red-700">*</span>
+        </legend>
+        <div className="flex flex-wrap gap-2.5">
+          {ticketCategories.map((category, index) => (
+            <label className="cursor-pointer" key={category}>
+              <input className="peer sr-only" name="category" required={index === 0} type="radio" value={category} />
+              <span className="flex items-center gap-2 rounded-full border border-line bg-white px-[18px] py-2.5 text-sm font-medium tracking-[0.35px] text-ink transition-colors peer-checked:border-2 peer-checked:border-primary peer-checked:bg-lavender peer-checked:text-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring">
+                {categoryChips[category].icon}
+                {categoryChips[category].label}
+              </span>
+            </label>
+          ))}
+        </div>
+        {state.fieldErrors?.category?.[0] ? <p className="text-sm text-red-700" role="alert">{state.fieldErrors.category[0]}</p> : null}
+      </fieldset>
+
+      <Field error={state.fieldErrors?.orderId?.[0]} id="ticket-order" label="Related order (optional)">
+        <Select
+          aria-invalid={Boolean(state.fieldErrors?.orderId)}
+          className={fieldClass}
+          defaultValue={defaultOrderId && orders.some((order) => order.id === defaultOrderId) ? String(defaultOrderId) : ""}
+          id="ticket-order"
+          name="orderId"
+        >
+          <option value="">No related order</option>
+          {orders.map((order) => <option key={order.id} value={order.id}>{order.label}</option>)}
+        </Select>
+      </Field>
+
+      <Field error={state.fieldErrors?.body?.[0]} id="ticket-message" label="Message" required>
+        <textarea
+          aria-invalid={Boolean(state.fieldErrors?.body)}
+          className="min-h-32 w-full rounded-[3px] border border-line bg-white px-4 py-3.5 text-sm tracking-[0.35px] outline-none placeholder:text-muted focus:ring-2 focus:ring-ring"
+          id="ticket-message"
+          maxLength={2_000}
+          name="body"
+          placeholder="Describe the issue so we can help faster…"
+          required
+        />
+      </Field>
+
+      <div className="relative flex items-center gap-4 rounded-[3px] border border-dashed border-primary bg-lavender-soft px-6 py-6 focus-within:ring-2 focus-within:ring-ring">
+        <Upload aria-hidden className="size-5 shrink-0 text-primary" strokeWidth={1.5} />
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <Label className="text-sm font-medium tracking-[0.35px] text-primary" htmlFor="ticket-attachment">
+            {fileName ?? "Drop an image or browse"}
+          </Label>
+          <p className="text-xs tracking-[0.35px] text-muted">
+            Optional · JPEG or PNG up to 5 MB — e.g. a GCash receipt or a photo of the product
+          </p>
+        </div>
+        <input
+          accept="image/jpeg,image/png"
+          aria-invalid={Boolean(state.fieldErrors?.attachment)}
+          className="absolute inset-0 size-full cursor-pointer opacity-0"
+          id="ticket-attachment"
+          name="attachment"
+          onChange={(event) => setFileName(event.target.files?.[0]?.name)}
+          type="file"
+        />
+      </div>
+      {state.fieldErrors?.attachment?.[0] ? <p className="-mt-3 text-sm text-red-700" role="alert">{state.fieldErrors.attachment[0]}</p> : null}
+
+      {state.message ? <p className="text-sm text-red-700" role="alert">{state.message}</p> : null}
+      <div className="flex items-center justify-end gap-3">
+        <Button asChild size="link-sm" variant="link">
+          <Link className="px-3 text-lg font-normal" href="/support">Cancel</Link>
+        </Button>
+        <Button disabled={pending || state.created} size="pill-lg" type="submit" variant="pill">
+          {pending || state.created ? "Opening…" : "Open ticket"}
+          <ArrowRight aria-hidden className="size-5" />
+        </Button>
+      </div>
     </form>
   );
 }
 
-function FieldError({ message }: { message?: string }) {
-  return message ? <p className="mt-1 text-sm text-red-700" role="alert">{message}</p> : null;
+function Field({
+  id,
+  label,
+  required,
+  error,
+  children,
+}: {
+  id: string;
+  label: string;
+  required?: boolean;
+  error?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label className={fieldLabelClass} htmlFor={id} required={required}>{label}</Label>
+      {children}
+      {error ? <p className="text-sm text-red-700" role="alert">{error}</p> : null}
+    </div>
+  );
 }

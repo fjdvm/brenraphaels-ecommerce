@@ -14,6 +14,9 @@ describe("Header sign out visibility", () => {
     "/products/ube-jam-smooth",
     "/cart",
     "/checkout",
+    "/support",
+    "/support/12",
+    "/support/new",
   ])(
     "shows on %s",
     (pathname) => {
@@ -21,7 +24,7 @@ describe("Header sign out visibility", () => {
     },
   );
 
-  test.each(["/profile/orders", "/support"])(
+  test.each(["/profile/orders", "/profile/settings"])(
     "does not show on %s",
     (pathname) => {
       expect(shouldShowHeaderSignOut(pathname)).toBe(false);

@@ -15,6 +15,7 @@ import { positiveIntegerField } from "@/lib/validators/fields";
 
 export type CreateTicketState = {
   created?: boolean;
+  ticketId?: number;
   fieldErrors?: Record<string, string[] | undefined>;
   message?: string;
 };
@@ -83,8 +84,9 @@ export async function createTicket(
 
   const customer = await requireCustomer();
   const file = attachment.file;
+  let opened: Awaited<ReturnType<typeof openTicketAndNotify>>;
   try {
-    await openTicketAndNotify(
+    opened = await openTicketAndNotify(
       customer.userId,
       customer.email,
       parsed.data,
@@ -103,7 +105,8 @@ export async function createTicket(
   }
 
   revalidatePath("/support");
-  return { created: true };
+  revalidatePath("/support", "layout");
+  return { created: true, ticketId: opened.id };
 }
 
 /** Appends a Customer Message to one of their Tickets and refreshes its thread. */
@@ -146,6 +149,7 @@ export async function sendMessage(
 
   revalidatePath(`/support/${ticketId}`);
   revalidatePath("/support");
+  revalidatePath("/support", "layout");
   return { sent: true };
 }
 
@@ -168,6 +172,7 @@ export async function closeTicket(ticketId: number): Promise<TicketStatusState> 
 
   revalidatePath(`/support/${ticketId}`);
   revalidatePath("/support");
+  revalidatePath("/support", "layout");
   return { closed: true };
 }
 
@@ -190,5 +195,6 @@ export async function reopenTicket(ticketId: number): Promise<TicketStatusState>
 
   revalidatePath(`/support/${ticketId}`);
   revalidatePath("/support");
+  revalidatePath("/support", "layout");
   return { reopened: true };
 }

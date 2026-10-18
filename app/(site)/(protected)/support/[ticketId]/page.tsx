@@ -1,14 +1,18 @@
+import { Package } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import { TicketDetailSkeleton } from "@/components/features/support/skeletons";
+import { ConversationSkeleton } from "@/components/features/support/skeletons";
 import { TicketThread } from "@/components/features/support/ticket-thread";
 import { Button } from "@/components/ui/button";
 import { closeTicket, reopenTicket } from "@/app/(site)/(protected)/support/actions";
+import { formatPeso } from "@/lib/catalog/currency";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
+import { createOrderStore } from "@/lib/orders/orders";
+import { categoryLabel } from "@/lib/support/inbox";
 import { createTicketStore } from "@/lib/support/tickets";
 import { positiveIntegerField } from "@/lib/validators/fields";
 
@@ -22,9 +26,13 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
   if (!ticketId.success) notFound();
 
   const customer = await requireCustomer();
-  const ticket = await createTicketStore(getDatabase()).get(ticketId.data, customer.userId);
+  const database = getDatabase();
+  const ticket = await createTicketStore(database).get(ticketId.data, customer.userId);
   if (!ticket) notFound();
   const currentTicketId = ticket.id;
+  const relatedOrder = ticket.orderId === null
+    ? undefined
+    : (await createOrderStore(database).listForCustomer(customer.userId)).find((order) => order.id === ticket.orderId);
 
   async function close() {
     "use server";
@@ -36,39 +44,47 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
     await reopenTicket(currentTicketId);
   }
 
+  const open = ticket.status === "open";
+
   return (
-    <>
-      <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm text-on-surface-variant">{ticket.category}</p>
-          <h2 className="font-serif text-3xl text-primary">{ticket.subject}</h2>
+    <div className="flex min-h-[600px] flex-col">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-5 py-6 sm:px-8">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="font-serif text-[28px] leading-[1.25] text-primary">{ticket.subject}</h2>
+            <span className={open ? "rounded-full bg-lavender px-3 py-1 text-xs font-medium tracking-[0.35px] text-primary" : "rounded-full bg-surface-soft px-3 py-1 text-xs font-medium tracking-[0.35px] text-body"}>
+              {open ? "Open" : "Resolved"}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs tracking-[0.35px] text-muted">
+            <span>Ticket #{ticket.id} · {categoryLabel(ticket.category)}</span>
+            {relatedOrder ? (
+              <Link
+                className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1 font-medium text-primary transition-colors hover:bg-lavender-soft"
+                href="/profile/orders"
+              >
+                <Package aria-hidden className="size-3.5" strokeWidth={1.5} />
+                Order #{relatedOrder.id} · {formatPeso(relatedOrder.subtotalInCentavos + (relatedOrder.deliveryFeeInCentavos ?? 0))}
+              </Link>
+            ) : null}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="rounded-full bg-primary-fixed px-3 py-1 text-sm font-semibold text-primary">{ticket.status}</span>
-          {ticket.status === "open" ? (
-            <form action={close}>
-              <Button type="submit" variant="outline">Close Ticket</Button>
-            </form>
-          ) : ticket.status === "closed" || ticket.status === "resolved" ? (
-            <form action={reopen}>
-              <Button type="submit">Reopen Ticket</Button>
-            </form>
-          ) : null}
-        </div>
+        <form action={open ? close : reopen}>
+          <Button size="pill-sm" type="submit" variant="pill-outline">
+            {open ? "Mark as resolved" : "Reopen ticket"}
+          </Button>
+        </form>
       </div>
-      <TicketThread ticketId={ticket.id} messages={ticket.messages} />
-    </>
+      <TicketThread messages={ticket.messages} ticketId={ticket.id} />
+    </div>
   );
 }
 
-/** Renders the back link instantly; the Ticket streams in behind a skeleton. */
+/** The panel's right pane streams in behind a skeleton while the inbox column stays put. */
 export default function TicketDetailPage({ params }: PageProps<"/support/[ticketId]">) {
   return (
-    <section>
-      <Link className="text-sm font-semibold text-primary underline" href="/support">Back to Support</Link>
-      <Suspense fallback={<TicketDetailSkeleton />}>
-        <TicketDetail params={params} />
-      </Suspense>
-    </section>
+    <Suspense fallback={<ConversationSkeleton />}>
+      <TicketDetail params={params} />
+    </Suspense>
   );
 }

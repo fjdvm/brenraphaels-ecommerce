@@ -52,7 +52,7 @@ describe("Ticket actions", () => {
   });
 
   test("opens a Customer Ticket and refreshes Support", async () => {
-    await expect(createTicket({}, ticketFormData())).resolves.toEqual({ created: true });
+    await expect(createTicket({}, ticketFormData())).resolves.toEqual({ created: true, ticketId: expect.any(Number) });
 
     expect(open).toHaveBeenCalledWith("customer-1", {
       subject: "My Delivery has not arrived",
@@ -143,7 +143,7 @@ describe("Ticket actions", () => {
     const formData = ticketFormData();
     formData.set("attachment", new File([new Uint8Array(4)], "photo.png", { type: "image/png" }));
 
-    await expect(createTicket({}, formData)).resolves.toEqual({ created: true });
+    await expect(createTicket({}, formData)).resolves.toEqual({ created: true, ticketId: expect.any(Number) });
     expect(put).toHaveBeenCalledWith("ticket-attachments/33/photo.png", expect.any(File), {
       access: "private",
       addRandomSuffix: true,
@@ -155,7 +155,7 @@ describe("Ticket actions", () => {
     const formData = ticketFormData();
     formData.set("attachment", new File([], "", { type: "application/octet-stream" }));
 
-    await expect(createTicket({}, formData)).resolves.toEqual({ created: true });
+    await expect(createTicket({}, formData)).resolves.toEqual({ created: true, ticketId: expect.any(Number) });
     expect(put).not.toHaveBeenCalled();
   });
 
@@ -163,7 +163,7 @@ describe("Ticket actions", () => {
     const formData = ticketFormData();
     formData.set("attachment", new File([], "undefined", { type: "" }));
 
-    await expect(createTicket({}, formData)).resolves.toEqual({ created: true });
+    await expect(createTicket({}, formData)).resolves.toEqual({ created: true, ticketId: expect.any(Number) });
     expect(put).not.toHaveBeenCalled();
   });
 

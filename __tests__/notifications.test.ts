@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { deriveNotifications } from "../lib/notifications/derive";
-import { relativeTime } from "../lib/notifications/relative-time";
+import { formatClock, relativeTime } from "../lib/notifications/relative-time";
 import type { Order } from "../lib/orders/orders";
 import type { Ticket } from "../lib/support/tickets";
 
@@ -91,5 +91,11 @@ describe("relativeTime", () => {
     ["2026-10-16T06:14:00Z", "Oct 16"],
   ])("%s → %s", (iso, expected) => {
     expect(relativeTime(new Date(iso), now)).toBe(expected);
+  });
+});
+
+describe("formatClock", () => {
+  test("reads in the shop's time zone", () => {
+    expect(formatClock(new Date("2026-10-16T06:14:00Z"))).toBe("2:14 PM");
   });
 });
