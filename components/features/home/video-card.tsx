@@ -18,8 +18,8 @@ export function VideoCard({ id, title, kicker, headline }: VideoCardProps) {
   const [playing, setPlaying] = useState(false);
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-[40px] bg-white">
-      <div className="relative h-[270px] overflow-hidden">
+    <article className="flex h-full flex-col overflow-hidden rounded-[40px] bg-white">
+      <div className="relative aspect-video overflow-hidden">
         {playing ? (
           <YouTubeVideo id={id} title={title} autoplay />
         ) : (

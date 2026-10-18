@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Menu, X } from "lucide-react";
+import { ChevronDown, Menu, Truck, X } from "lucide-react";
 
 const headerSignOutPaths = new Set([
   "/",
@@ -17,6 +17,13 @@ const headerSignOutPaths = new Set([
 
 export function shouldShowHeaderSignOut(pathname: string) {
   return headerSignOutPaths.has(pathname);
+}
+
+/** Pages that open on a full-bleed photo; their header floats over it until the visitor scrolls. */
+const transparentHeaderPaths = new Set(["/"]);
+
+export function hasTransparentHeader(pathname: string, scrolled: boolean) {
+  return transparentHeaderPaths.has(pathname) && !scrolled;
 }
 
 const aboutLinks = [
@@ -71,7 +78,7 @@ function AboutMenu({ label, items }: { label: string; items: NavLink[] }) {
         aria-expanded={open}
         aria-haspopup="true"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1 hover:text-primary"
+        className="flex items-center gap-1 transition hover:text-primary"
       >
         {label}
         <ChevronDown
@@ -81,7 +88,7 @@ function AboutMenu({ label, items }: { label: string; items: NavLink[] }) {
       </button>
       {open && (
         <div className="absolute left-0 top-full z-10 pt-3">
-          <div className="min-w-56 border border-outline-variant/60 bg-surface py-2 shadow-lg">
+          <div className="min-w-56 overflow-hidden rounded-3xl border border-outline-variant/60 bg-surface py-2 shadow-lg">
             {items.map((link) => (
               <Link
                 key={link.href}
@@ -109,29 +116,61 @@ export function Header({
   mobileSession: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const floating = transparentHeaderPaths.has(pathname);
+  const transparent = hasTransparentHeader(pathname, scrolled) && !open;
+
+  useEffect(() => {
+    const update = () => setScrolled(window.scrollY > 8);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
+
   const showHeaderSignOut = shouldShowHeaderSignOut(pathname);
   return (
-    <header className="sticky top-0 z-20 border-b border-outline-variant/60 bg-surface">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8">
-        <Link href="/" className="flex items-center gap-3">
+    <>
+    <div
+      data-theme="dark"
+      className="flex items-center justify-center gap-2.5 bg-tertiary px-5 py-2.5 text-center text-xs tracking-wide text-white"
+    >
+      <Truck aria-hidden size={16} className="shrink-0" />
+      <p>Store pickup in Antipolo, Rizal &nbsp;·&nbsp; Delivery available</p>
+    </div>
+    <header
+      data-theme={transparent ? "dark" : undefined}
+      className={`sticky top-0 z-20 border-b transition-colors duration-300 ${
+        floating ? "-mb-[89px]" : ""
+      } ${
+        transparent
+          ? "border-transparent bg-transparent text-white"
+          : "border-outline-variant/60 bg-surface text-on-surface"
+      }`}
+    >
+      <div className="flex h-[88px] items-center px-5 sm:px-10">
+        <Link href="/" className="flex items-center gap-3 md:w-80">
           <Image
             src="/logo.jpeg"
             alt="Bren Raphael's Ube Jam & Halaya"
             width={42}
             height={42}
-            className="h-10 w-10 object-cover"
+            className="h-11 w-11 rounded-[14px] object-cover"
           />
           <span>
-            <strong className="block font-serif text-lg leading-tight text-primary">
+            <strong
+              className={`block font-serif text-lg leading-tight transition-colors duration-300 ${transparent ? "text-white" : "text-primary"}`}
+            >
               Bren Raphael&apos;s
             </strong>
-            <small className="block text-[10px] font-bold uppercase tracking-[.15em] text-secondary">
+            <small
+              className={`block text-[10px] font-medium uppercase tracking-[.18em] transition-colors duration-300 ${transparent ? "text-primary-fixed-dim" : "text-on-surface-variant/70"}`}
+            >
               Ube Jam &amp; Halaya
             </small>
           </span>
         </Link>
-        <nav className="hidden items-center gap-7 text-sm font-semibold text-on-surface-variant md:flex">
+        <nav className="hidden flex-1 items-center justify-center gap-9 text-[15px] md:flex">
           {links.map((link) =>
             "children" in link ? (
               <AboutMenu
@@ -143,20 +182,20 @@ export function Header({
               <Link
                 key={link.href}
                 href={link.href}
-                className="hover:text-primary"
+                className="transition hover:text-primary"
               >
                 {link.label}
               </Link>
             ),
           )}
         </nav>
-        <div className="hidden items-center gap-5 text-sm font-semibold text-on-surface-variant md:flex">
+        <div className="hidden items-center justify-end gap-5 text-[15px] md:flex md:w-80">
           {desktopSession}
           {showHeaderSignOut ? headerSignOut : null}
         </div>
         <button
           type="button"
-          className="p-2 text-primary md:hidden"
+          className={`ml-auto p-2 md:hidden ${transparent ? "text-white" : "text-primary"}`}
           aria-label="Toggle navigation"
           aria-expanded={open}
           onClick={() => setOpen(!open)}
@@ -199,5 +238,6 @@ export function Header({
         </nav>
       )}
     </header>
+    </>
   );
 }

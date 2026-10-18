@@ -7,6 +7,7 @@ import {
   Bestsellers,
   BestsellersFallback,
 } from "@/components/features/home/bestsellers";
+import { Reveal } from "@/components/shared/reveal";
 import { KindWords } from "@/components/features/home/kind-words";
 import { VideoCard } from "@/components/features/home/video-card";
 import { WelcomeModal } from "@/components/features/home/welcome-modal";
@@ -136,7 +137,7 @@ export default async function Home({ searchParams }: HomeProps) {
       {visitor?.state === "customer" ? (
         <WelcomeModal firstName={visitor.customer.firstName} />
       ) : null}
-      <section className="relative grid min-h-[620px] place-items-center overflow-hidden px-5 py-24 text-center lg:min-h-[760px]">
+      <section className="relative grid min-h-[708px] place-items-center overflow-hidden px-5 pb-24 pt-[184px] text-center lg:min-h-[848px]">
         <Image
           src="/images/home/hero-products.jpg"
           alt="Bren Raphael's Ube Halaya pouches and boxes, Ube Jam jars and ube powder styled with fresh purple yam"
@@ -171,6 +172,7 @@ export default async function Home({ searchParams }: HomeProps) {
           </div>
         </div>
       </section>
+      <Reveal>
       <section
         aria-label="As featured on"
         className="border-b border-outline-variant/50 px-5 py-10 sm:px-10"
@@ -184,6 +186,8 @@ export default async function Home({ searchParams }: HomeProps) {
           ))}
         </div>
       </section>
+      </Reveal>
+      <Reveal>
       <section className="space-y-[50px] px-5 py-[100px] sm:px-10">
         <div className="flex flex-wrap items-end justify-between gap-[30px]">
           <div className="space-y-4 text-primary">
@@ -240,6 +244,8 @@ export default async function Home({ searchParams }: HomeProps) {
           ))}
         </div>
       </section>
+      </Reveal>
+      <Reveal>
       <section className="space-y-[50px] px-5 pb-[100px] sm:px-10">
         <div className="space-y-4 text-primary">
           <p className={eyebrowClass}>Shop</p>
@@ -249,6 +255,8 @@ export default async function Home({ searchParams }: HomeProps) {
           <Bestsellers />
         </Suspense>
       </section>
+      </Reveal>
+      <Reveal>
       <section className="px-5 pb-[100px] sm:px-10">
         <div className="grid gap-5 lg:grid-cols-2">
           <div className="relative min-h-[360px] overflow-hidden rounded-[40px] bg-primary-fixed lg:min-h-[600px]">
@@ -289,6 +297,8 @@ export default async function Home({ searchParams }: HomeProps) {
           </div>
         </div>
       </section>
+      </Reveal>
+      <Reveal>
       <section
         aria-label="Recognition"
         className="space-y-[50px] bg-surface-container-low px-5 py-[100px] sm:px-10"
@@ -302,18 +312,21 @@ export default async function Home({ searchParams }: HomeProps) {
             See all features <span aria-hidden>&rarr;</span>
           </Link>
         </div>
-        <div className="grid items-start gap-5 lg:grid-cols-3">
+        <div className="grid gap-5 lg:grid-cols-3">
           {recognitionVideos.map((video) => (
             <VideoCard key={video.id} {...video} />
           ))}
         </div>
       </section>
+      </Reveal>
+      <Reveal>
       <section
         aria-label="Customer messages"
         className="px-5 py-[100px] sm:px-10"
       >
         <KindWords messages={customerMessages} />
       </section>
+      </Reveal>
     </div>
   );
 }

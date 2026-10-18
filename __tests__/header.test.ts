@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { shouldShowHeaderSignOut } from "../components/shared/header";
+import { hasTransparentHeader, shouldShowHeaderSignOut } from "../components/shared/header";
 
 describe("Header sign out visibility", () => {
   test.each(["/", "/about", "/journey", "/vision-mission", "/faq", "/contact"])(
@@ -16,4 +16,15 @@ describe("Header sign out visibility", () => {
       expect(shouldShowHeaderSignOut(pathname)).toBe(false);
     },
   );
+});
+
+describe("Header transparency", () => {
+  test("floats over the landing page photo until the visitor scrolls", () => {
+    expect(hasTransparentHeader("/", false)).toBe(true);
+    expect(hasTransparentHeader("/", true)).toBe(false);
+  });
+
+  test.each(["/products", "/about", "/faq"])("stays solid on %s", (pathname) => {
+    expect(hasTransparentHeader(pathname, false)).toBe(false);
+  });
 });

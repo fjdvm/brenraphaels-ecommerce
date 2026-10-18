@@ -17,9 +17,12 @@ const arrowClass =
 /** A quote card beside the customer's screenshot; the arrows step through the messages. */
 export function KindWords({ messages }: { messages: CustomerMessage[] }) {
   const [index, setIndex] = useState(0);
+  const [direction, setDirection] = useState<"next" | "previous">("next");
   const message = messages[index];
-  const step = (by: number) =>
+  const step = (by: number) => {
+    setDirection(by > 0 ? "next" : "previous");
     setIndex((index + by + messages.length) % messages.length);
+  };
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_420px]">
@@ -28,7 +31,10 @@ export function KindWords({ messages }: { messages: CustomerMessage[] }) {
           Kind words
         </p>
         <div aria-live="polite" className="space-y-4">
-          <blockquote className="font-serif text-4xl leading-[1.1] text-white sm:text-6xl lg:text-7xl">
+          <blockquote
+            key={message.src}
+            className="kind-words-quote font-serif text-4xl leading-[1.1] text-white sm:text-6xl lg:text-7xl"
+          >
             &ldquo;{message.quote}&rdquo;
           </blockquote>
         </div>
@@ -63,11 +69,12 @@ export function KindWords({ messages }: { messages: CustomerMessage[] }) {
       <div className="relative min-h-[420px] overflow-hidden rounded-[40px] bg-primary-fixed lg:h-[560px]">
         <Image
           key={message.src}
+          data-direction={direction}
           src={message.src}
           alt={message.alt}
           fill
           sizes="(min-width: 1024px) 420px, 100vw"
-          className="object-contain"
+          className="kind-words-image object-contain"
         />
       </div>
     </div>
