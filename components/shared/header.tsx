@@ -4,8 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Menu, ShoppingCart, Truck, X } from "lucide-react";
+import { ChevronDown, Menu, ShoppingCart, X } from "lucide-react";
 
+import { freeShippingThreshold } from "@/lib/site/store-info";
 import { shouldShowCustomerSidebar } from "@/components/features/customer/customer-sidebar-routes";
 
 /** The sidebar carries its own sign out, so the header shows one exactly where the sidebar is hidden. */
@@ -18,6 +19,22 @@ const transparentHeaderPaths = new Set(["/"]);
 
 export function hasTransparentHeader(pathname: string, scrolled: boolean) {
   return transparentHeaderPaths.has(pathname) && !scrolled;
+}
+
+/** The Philippine flag, drawn rather than typed as an emoji, which some systems show as plain "PH". */
+function PhilippineFlag() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 16"
+      className="h-3.5 w-[21px] shrink-0 rounded-[2px]"
+    >
+      <rect width="24" height="8" fill="#0038a8" />
+      <rect y="8" width="24" height="8" fill="#ce1126" />
+      <path d="M0 0v16l13.9-8z" fill="#fff" />
+      <circle cx="4.2" cy="8" r="1.7" fill="#fcd116" />
+    </svg>
+  );
 }
 
 const aboutLinks = [
@@ -171,8 +188,16 @@ export function Header({
       data-theme="dark"
       className="flex items-center justify-center gap-2.5 bg-tertiary px-5 py-2.5 text-center text-xs tracking-wide text-white"
     >
-      <Truck aria-hidden size={16} className="shrink-0" />
-      <p>Store pickup in Antipolo, Rizal &nbsp;·&nbsp; Delivery available</p>
+      <PhilippineFlag />
+      <p>
+        Free Shipping on orders over ₱{freeShippingThreshold}
+        <Link
+          href="/products"
+          className="ml-2 font-bold uppercase underline underline-offset-2"
+        >
+          Shop now
+        </Link>
+      </p>
     </div>
     <header
       data-theme={transparent ? "dark" : undefined}

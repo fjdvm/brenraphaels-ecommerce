@@ -32,3 +32,11 @@ export const socialLinks = [
   },
   { label: "TikTok", href: "https://www.tiktok.com/@bren.raphaels.ube" },
 ];
+
+/** Opens a chat with the shop in the visitor's Messenger or Instagram app. */
+export const chatLinks = [
+  { label: "Chat on Messenger", href: "https://m.me/61569613527256" },
+  { label: "Chat on Instagram", href: "https://ig.me/m/brenraphaelsubejamhalaya" },
+];
+
+export const freeShippingThreshold = 2500;

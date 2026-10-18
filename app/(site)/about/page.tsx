@@ -92,7 +92,8 @@ export default function AboutPage() {
         <PhotoPair
           wide={
             <PhotoTile
-              alt="Ralph & Bernice, early days — 2011"
+              src="/images/about/jam-and-powder.jpg"
+              alt="Ube jam jars and a bowl of ube powder on a wooden table among purple yams"
               sizes="(min-width: 1024px) 900px, 100vw"
               className={wideClass}
             />
@@ -100,7 +101,7 @@ export default function AboutPage() {
           narrow={
             <PhotoTile
               src="/images/home/ube-halaya.jpg"
-              alt="Homemade halaya, the old-fashioned way"
+              alt="A pouch of Smooth Ube Halaya beside a tub of freshly made halaya, ube powder and sliced purple yam"
               sizes="(min-width: 1024px) 440px, 100vw"
               className={narrowClass}
             />
