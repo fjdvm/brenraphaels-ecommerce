@@ -6,6 +6,7 @@ import { CartSessionSync } from "@/components/features/orders/cart-session-sync"
 import { CustomerSidebarShell } from "@/components/features/customer/customer-sidebar-shell";
 import { CustomerSidebar } from "@/components/features/customer/customer-sidebar";
 import { Header } from "@/components/shared/header";
+import { PageTransition } from "@/components/shared/page-transition";
 import { SessionNav } from "@/components/shared/session-nav";
 import { SignOutButton } from "@/components/shared/sign-out-button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -83,6 +84,7 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
       </main>
       <Footer />
       <ChatLinks />
+      <PageTransition />
     </>
   );
 }

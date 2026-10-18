@@ -218,3 +218,42 @@ body {
     transition: none;
   }
 }
+
+/* The page-transition loading screen: the logo breathes inside a turning ring while the name fades up. */
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loading-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.loading-ring {
+  background: conic-gradient(from 0deg, transparent 0 55%, var(--primary-fixed-dim) 80%, var(--primary) 100%);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  animation: loading-spin 1.1s linear infinite;
+}
+
+.loading-logo {
+  animation: loading-breathe 1.5s ease-in-out infinite;
+}
+
+.loading-text {
+  animation: editorial-swap 600ms ease-out 150ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-ring,
+  .loading-logo,
+  .loading-text {
+    animation: none;
+  }
+}
