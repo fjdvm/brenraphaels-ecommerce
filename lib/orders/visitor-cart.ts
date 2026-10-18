@@ -10,6 +10,8 @@ export type VisitorCartLine = {
   productSlug: string;
   productName: string;
   sizeLabel: string;
+  /** Absent on lines saved before photos were kept with them. */
+  imageUrl?: string;
   priceInCentavos: number;
   quantity: number;
 };
@@ -21,6 +23,7 @@ function isVisitorCartLine(value: unknown): value is VisitorCartLine {
     && typeof line.productSlug === "string"
     && typeof line.productName === "string"
     && typeof line.sizeLabel === "string"
+    && (line.imageUrl === undefined || typeof line.imageUrl === "string")
     && Number.isInteger(line.priceInCentavos)
     && typeof line.quantity === "number"
     && Number.isInteger(line.quantity)

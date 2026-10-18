@@ -1,7 +1,7 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { cartLines, cartMerges, products, sizes } from "../db/schema";
+import { cartLines, cartMerges, productImages, products, sizes } from "../db/schema";
 import { cartLineQuantityLimit } from "./quantity";
 
 export { cartLineQuantityLimit } from "./quantity";
@@ -14,6 +14,8 @@ export type CartLine = {
   productSlug: string;
   productName: string;
   sizeLabel: string;
+  /** The Product's first photo, when it has one. */
+  imageUrl: string | null;
   priceInCentavos: number;
   quantity: number;
   available: boolean;
@@ -54,6 +56,7 @@ export function createCartStore<
         productSlug: products.slug,
         productName: products.name,
         sizeLabel: sizes.label,
+        imageUrl: sql<string | null>`(select ${productImages.url} from ${productImages} where ${productImages.productSlug} = ${products.slug} order by ${productImages.position} asc limit 1)`,
         priceInCentavos: sizes.priceInCentavos,
         quantity: cartLines.quantity,
         available: sizes.available,

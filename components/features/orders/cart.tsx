@@ -8,6 +8,7 @@ import { getPersistedCart, removeCartLine, updateCartLine } from "@/app/(site)/c
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { PageHeading } from "@/components/ui/page-heading";
+import { CartThumbnail } from "@/components/features/orders/cart-thumbnail";
 import { CartSkeleton } from "@/components/features/orders/cart-skeleton";
 import { formatPeso } from "@/lib/catalog/currency";
 import {
@@ -17,10 +18,10 @@ import {
 import { cartLineQuantityLimit } from "@/lib/orders/quantity";
 import type { Cart, CartLine } from "@/lib/orders/cart";
 
-type DisplayLine = Pick<CartLine, "id" | "sizeId" | "productSlug" | "productName" | "sizeLabel" | "priceInCentavos" | "quantity" | "available">;
+type DisplayLine = Pick<CartLine, "id" | "sizeId" | "productSlug" | "productName" | "sizeLabel" | "imageUrl" | "priceInCentavos" | "quantity" | "available">;
 
 function visitorCart(): Cart {
-  const lines = readVisitorCart().map((line) => ({ ...line, id: line.sizeId, available: true }));
+  const lines = readVisitorCart().map((line) => ({ ...line, imageUrl: line.imageUrl ?? null, id: line.sizeId, available: true }));
   return {
     lines,
     subtotalInCentavos: lines.reduce((subtotal, line) => subtotal + line.priceInCentavos * line.quantity, 0),
@@ -143,7 +144,8 @@ export function CartView({ customerHasCart, initialCart }: { customerHasCart: bo
               const pending = isPending && pendingLineId === line.id;
               return (
                 <li key={line.id} className="flex flex-wrap items-center gap-x-6 gap-y-4 py-7">
-                  <div className="flex min-w-[200px] flex-1 flex-col items-start gap-1.5">
+                  <CartThumbnail url={line.imageUrl} size={120} />
+                  <div className="flex min-w-[140px] flex-1 flex-col items-start gap-1.5">
                     <Link
                       href={`/products/${line.productSlug}`}
                       className="font-serif text-[22px] leading-[1.3] text-ink hover:underline"

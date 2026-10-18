@@ -15,7 +15,7 @@ export function AddToCart({
   product,
   customerHasCart,
 }: {
-  product: { slug: string; name: string; sizes: Size[] };
+  product: { slug: string; name: string; image?: string; sizes: Size[] };
   customerHasCart: boolean;
 }) {
   const router = useRouter();

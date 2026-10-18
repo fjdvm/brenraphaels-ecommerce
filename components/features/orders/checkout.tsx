@@ -18,6 +18,7 @@ import {
 } from "@/components/features/customer/input-sanitizers";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { CartThumbnail } from "@/components/features/orders/cart-thumbnail";
 import { PageHeading } from "@/components/ui/page-heading";
 import {
   Dialog,
@@ -152,6 +153,7 @@ export function CheckoutView({
           <ul className="flex flex-col gap-4">
             {cart.lines.map((line) => (
               <li key={line.id} className="flex items-center gap-4 tracking-wide">
+                <CartThumbnail url={line.imageUrl} size={64} />
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5 leading-normal">
                   <p className="text-sm font-medium text-ink">{line.productName}</p>
                   <p className="text-xs text-muted">{line.sizeLabel} × {line.quantity}</p>

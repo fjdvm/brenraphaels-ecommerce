@@ -7,7 +7,7 @@ import {
   cartLineQuantityLimit,
   createCartStore,
 } from "../lib/orders/cart";
-import { customers, products, sizes } from "../lib/db/schema";
+import { customers, productImages, products, sizes } from "../lib/db/schema";
 
 let client: PGlite;
 
@@ -72,6 +72,7 @@ describe("Cart", () => {
           productSlug: "ube-jam",
           productName: "Ube Jam",
           sizeLabel: "250g",
+          imageUrl: null,
           priceInCentavos: 21900,
           quantity: cartLineQuantityLimit,
           available: true,
@@ -79,6 +80,18 @@ describe("Cart", () => {
       ],
       subtotalInCentavos: 21900 * cartLineQuantityLimit,
     });
+  });
+
+  test("shows each line with its Product's first photo", async () => {
+    await drizzle(client).insert(productImages).values([
+      { productSlug: "ube-jam", url: "https://example.com/second.jpg", alt: "Second", position: 1 },
+      { productSlug: "ube-jam", url: "https://example.com/first.jpg", alt: "First", position: 0 },
+    ]);
+    const store = createCartStore(drizzle(client));
+    await store.addSize("customer-1", await sizeId("250g"), 1);
+
+    const cart = await store.get("customer-1");
+    expect(cart.lines[0].imageUrl).toBe("https://example.com/first.jpg");
   });
 
   test("updates and removes only the Customer's own Cart line", async () => {

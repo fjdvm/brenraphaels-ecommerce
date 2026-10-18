@@ -69,7 +69,7 @@ async function ProductPageContent({ params }: ProductPageProps) {
             </div>
             <div className="h-px bg-line" />
             <AddToCart
-              product={{ slug: product.slug, name: product.name, sizes: product.sizes }}
+              product={{ slug: product.slug, name: product.name, image: product.images[0]?.url, sizes: product.sizes }}
               customerHasCart={visitor.state === "customer"}
             />
             <div className="flex flex-col gap-[18px] rounded-[40px] bg-surface-container-low p-[30px]">

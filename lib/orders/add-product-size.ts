@@ -16,7 +16,7 @@ export async function addProductSizeToCart({
   quantity,
 }: {
   customerHasCart: boolean;
-  product: { slug: string; name: string };
+  product: { slug: string; name: string; image?: string };
   size: { id: number; label: string; priceInCentavos: number };
   quantity: number;
 }) {
@@ -30,6 +30,7 @@ export async function addProductSizeToCart({
     productSlug: product.slug,
     productName: product.name,
     sizeLabel: size.label,
+    imageUrl: product.image,
     priceInCentavos: size.priceInCentavos,
     quantity,
   });
