@@ -40,3 +40,6 @@ export const chatLinks = [
 ];
 
 export const freeShippingThreshold = 2500;
+
+/** Where the shop pin and the "get directions" route end (Marigman St., San Roque, Antipolo). */
+export const storeLocation = { lat: 14.5664468, lng: 121.166757 };

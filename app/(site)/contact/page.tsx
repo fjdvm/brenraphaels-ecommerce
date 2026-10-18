@@ -2,9 +2,9 @@ import { Clock, Mail, MapPin, Phone } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { AboutPageHeader } from "@/components/features/about/about-page-header";
-import { PhotoTile } from "@/components/features/about/photo-tile";
 import { SectionHeading } from "@/components/features/about/section-heading";
 import { ContactForm } from "@/components/features/contact/contact-form";
+import { StoreMap } from "@/components/features/contact/store-map";
 import { address, email, phones, storeSchedule } from "@/lib/site/store-info";
 
 export const metadata = { title: "Contact" };
@@ -61,7 +61,7 @@ export default function ContactPage() {
               ))}
             </InfoRow>
           </div>
-          <PhotoTile alt={`Map — ${shopPlace}`} sizes="560px" className="h-[300px]" />
+          <StoreMap className="h-[300px]" place={shopPlace} />
         </div>
         <ContactForm />
       </section>
