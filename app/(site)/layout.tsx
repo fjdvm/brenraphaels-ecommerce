@@ -21,16 +21,16 @@ async function CartSessionSyncGate() {
   return <CartSessionSync customerId={customerId} />;
 }
 
-async function SessionNavAsync({ className }: { className: string }) {
+async function SessionNavAsync({ className, showCart }: { className: string; showCart?: boolean }) {
   const visitor = await currentVisitor();
-  return <SessionNav visitor={visitor} className={className} />;
+  return <SessionNav visitor={visitor} className={className} showCart={showCart} />;
 }
 
 /** Mirrors SessionNav's cart icon plus profile-icon/"Sign in" slot so the header doesn't reflow once resolved. */
-function SessionNavFallback({ className }: { className: string }) {
+function SessionNavFallback({ className, showCart = true }: { className: string; showCart?: boolean }) {
   return (
     <div className={className} aria-hidden="true">
-      <Skeleton className="size-5 shrink-0 rounded-full" />
+      {showCart && <Skeleton className="size-5 shrink-0 rounded-full" />}
       <Skeleton className="h-4 w-14" />
     </div>
   );
@@ -64,8 +64,8 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
           </Suspense>
         }
         mobileSession={
-          <Suspense fallback={<SessionNavFallback className={mobileSessionClass} />}>
-            <SessionNavAsync className={mobileSessionClass} />
+          <Suspense fallback={<SessionNavFallback className={mobileSessionClass} showCart={false} />}>
+            <SessionNavAsync className={mobileSessionClass} showCart={false} />
           </Suspense>
         }
       />

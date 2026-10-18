@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Menu, Truck, X } from "lucide-react";
+import { ChevronDown, Menu, ShoppingCart, Truck, X } from "lucide-react";
 
 import { shouldShowCustomerSidebar } from "@/components/features/customer/customer-sidebar-routes";
 
@@ -100,6 +100,48 @@ function AboutMenu({ label, items }: { label: string; items: NavLink[] }) {
   );
 }
 
+/** The About Us group in the mobile menu: a toggle that expands its links beneath it. */
+function MobileAboutMenu({
+  label,
+  items,
+  onNavigate,
+}: {
+  label: string;
+  items: NavLink[];
+  onNavigate: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center justify-between py-3 text-sm font-semibold text-on-surface hover:text-primary"
+      >
+        {label}
+        <ChevronDown
+          aria-hidden
+          size={16}
+          className={expanded ? "rotate-180 transition" : "transition"}
+        />
+      </button>
+      {expanded &&
+        items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            className="block py-2.5 pl-4 text-sm font-semibold text-on-surface-variant hover:text-primary"
+          >
+            {item.label}
+          </Link>
+        ))}
+    </div>
+  );
+}
+
 export function Header({
   desktopSession,
   headerSignOut,
@@ -187,35 +229,38 @@ export function Header({
           {desktopSession}
           {showHeaderSignOut ? headerSignOut : null}
         </div>
-        <button
-          type="button"
-          className={`ml-auto p-2 md:hidden ${transparent ? "text-white" : "text-primary"}`}
-          aria-label="Toggle navigation"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
+        <div
+          className={`ml-auto flex items-center gap-1 md:hidden ${transparent ? "text-white" : "text-primary"}`}
         >
-          {open ? <X /> : <Menu />}
-        </button>
+          <Link
+            href="/cart"
+            aria-label="Cart"
+            onClick={() => setOpen(false)}
+            className="p-2"
+          >
+            <ShoppingCart />
+          </Link>
+          <button
+            type="button"
+            className="p-2"
+            aria-label="Toggle navigation"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
+            {open ? <X /> : <Menu />}
+          </button>
+        </div>
       </div>
       {open && (
         <nav className="border-t border-outline-variant/60 bg-surface px-5 py-4 md:hidden">
           {links.map((link) =>
             "children" in link ? (
-              <div key={link.label} className="py-3">
-                <p className="text-sm font-semibold text-on-surface">
-                  {link.label}
-                </p>
-                {link.children.map((child) => (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    onClick={() => setOpen(false)}
-                    className="block py-2.5 pl-4 text-sm font-semibold text-on-surface-variant hover:text-primary"
-                  >
-                    {child.label}
-                  </Link>
-                ))}
-              </div>
+              <MobileAboutMenu
+                key={link.label}
+                label={link.label}
+                items={link.children}
+                onNavigate={() => setOpen(false)}
+              />
             ) : (
               <Link
                 key={link.href}

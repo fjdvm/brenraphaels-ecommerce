@@ -3,12 +3,14 @@ import { ShoppingCart, User } from "lucide-react";
 
 import type { Visitor } from "@/lib/customer/visitor";
 
-export function SessionNav({ className, visitor }: { className?: string; visitor: Visitor }) {
+export function SessionNav({ className, visitor, showCart = true }: { className?: string; visitor: Visitor; showCart?: boolean }) {
   return (
     <div className={className}>
-      <Link href="/cart" aria-label="Cart" className="hover:text-primary">
-        <ShoppingCart size={20} />
-      </Link>
+      {showCart && (
+        <Link href="/cart" aria-label="Cart" className="hover:text-primary">
+          <ShoppingCart size={20} />
+        </Link>
+      )}
       {visitor.state === "needs-details" ? (
         <>
           <Link href="/profile" aria-label="Profile" className="hover:text-primary">
