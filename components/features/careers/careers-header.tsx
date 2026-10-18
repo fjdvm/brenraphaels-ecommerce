@@ -1,4 +1,4 @@
-import { ArrowUpRight, LogOut } from "lucide-react";
+import { ArrowUpRight, LogOut, User } from "lucide-react";
 import Link from "next/link";
 
 import { signOutApplicantAction } from "@/app/(careers)/careers/actions";
@@ -85,9 +85,13 @@ export async function CareersHeader() {
           </>
         ) : (
           <>
-            <Button asChild variant="link" size="link-sm">
-              <Link href="/careers/signin">Sign in</Link>
-            </Button>
+            <Link
+              href="/careers/signin"
+              className="flex items-center gap-2 text-sm font-medium text-ink hover:text-primary"
+            >
+              <User aria-hidden size={20} />
+              Sign in
+            </Link>
             <Button asChild variant="pill" size="pill-sm">
               <Link href="/careers/signup">Become an applicant</Link>
             </Button>
