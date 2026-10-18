@@ -36,7 +36,7 @@ export function ProductCard({
   const unavailable = product.sizes.every((size) => !size.available);
 
   return (
-    <div className="flex flex-col gap-[18px]">
+    <div className="flex h-full flex-col gap-[18px]">
       <Link
         href={`/products/${product.slug}`}
         className="group flex flex-col gap-[18px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
@@ -58,12 +58,12 @@ export function ProductCard({
           </p>
         </div>
       </Link>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-auto flex flex-col gap-3">
         <p className="font-medium tracking-wide text-primary">
           {priceRange(product.lowestPriceInCentavos, product.highestPriceInCentavos)}
         </p>
         {unavailable ? (
-          <span className="py-1.5 text-sm font-medium tracking-wide text-primary">Sold out</span>
+          <span className="flex h-[42px] items-center text-sm font-medium tracking-wide text-primary">Sold out</span>
         ) : (
           <ProductQuickOrder product={product} customerHasCart={customerHasCart} />
         )}

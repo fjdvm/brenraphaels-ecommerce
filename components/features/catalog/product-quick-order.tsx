@@ -63,7 +63,7 @@ export function ProductQuickOrder({
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <Button type="button" variant="pill-outline" size="pill-sm" onClick={() => start("cart")} disabled={pending}>
           Add to cart
         </Button>
@@ -71,7 +71,7 @@ export function ProductQuickOrder({
           Buy now
         </Button>
         {message && !open && (
-          <p role="status" className="w-full text-right text-xs font-semibold text-muted">
+          <p role="status" className="w-full text-xs font-semibold text-muted">
             {message}
           </p>
         )}
