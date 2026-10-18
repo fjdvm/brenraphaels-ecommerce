@@ -81,3 +81,8 @@ export function formatPlacedAt(date: Date) {
   const parts = Object.fromEntries(placedAt.formatToParts(date).map((part) => [part.type, part.value]));
   return `${parts.month} ${parts.day}, ${parts.year} · ${parts.hour}:${parts.minute} ${parts.dayPeriod}`;
 }
+
+/** Subtotal plus the delivery fee once staff have quoted it. */
+export function orderTotalInCentavos(order: Pick<Order, "subtotalInCentavos" | "deliveryFeeInCentavos">) {
+  return order.subtotalInCentavos + (order.deliveryFeeInCentavos ?? 0);
+}

@@ -3,7 +3,7 @@
 import "leaflet/dist/leaflet.css";
 
 import { LocateFixed, Navigation } from "lucide-react";
-import type { Map as LeafletMap, Polyline } from "leaflet";
+import type { CircleMarker, Map as LeafletMap, Polyline } from "leaflet";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ export function StoreMap({ place, className }: { place: string; className?: stri
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const routeLayerRef = useRef<Polyline | null>(null);
+  const youAreHereRef = useRef<CircleMarker | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string>();
   const [route, setRoute] = useState<Route>();
@@ -51,6 +52,7 @@ export function StoreMap({ place, className }: { place: string; className?: stri
       map?.remove();
       mapRef.current = null;
       routeLayerRef.current = null;
+      youAreHereRef.current = null;
     };
   }, []);
 
@@ -82,7 +84,8 @@ export function StoreMap({ place, className }: { place: string; className?: stri
           routeLayerRef.current?.remove();
           const path = found.geometry.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]);
           routeLayerRef.current = L.polyline(path, { color: "#4a2373", weight: 5, opacity: 0.85 }).addTo(map);
-          L.circleMarker([coords.latitude, coords.longitude], {
+          youAreHereRef.current?.remove();
+          youAreHereRef.current = L.circleMarker([coords.latitude, coords.longitude], {
             radius: 8,
             color: "#ffffff",
             weight: 3,
@@ -117,7 +120,7 @@ export function StoreMap({ place, className }: { place: string; className?: stri
   return (
     <div className={cn("relative isolate overflow-hidden rounded-[40px] bg-lavender-soft", className)}>
       <div aria-label={`Map — ${place}`} className="absolute inset-0 z-0" ref={containerRef} role="region" />
-      <div className="absolute inset-x-4 bottom-4 z-[500] flex flex-wrap items-center gap-3 rounded-[24px] bg-white/95 p-3 pl-5 shadow-md">
+      <div className="absolute inset-x-4 top-4 z-[500] flex flex-wrap items-center gap-3 rounded-[24px] bg-white/95 p-3 pl-5 shadow-md">
         <p aria-live="polite" className="min-w-0 flex-1 text-xs leading-normal tracking-[0.35px] text-body">
           {route
             ? `${route.distanceKm.toFixed(1)} km · about ${route.minutes} min by car`

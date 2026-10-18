@@ -94,6 +94,7 @@ export function OpenTicketForm({
           className={fieldClass}
           defaultValue={defaultOrderId && orders.some((order) => order.id === defaultOrderId) ? String(defaultOrderId) : ""}
           id="ticket-order"
+          key={defaultOrderId}
           name="orderId"
         >
           <option value="">No related order</option>

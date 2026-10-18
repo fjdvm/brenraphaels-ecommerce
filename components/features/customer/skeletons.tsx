@@ -2,18 +2,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const card = "rounded-[40px]";
 
-/** Holds the sidebar's column while the signed-in Customer resolves. */
-export function CustomerSidebarSkeleton() {
-  return (
-    <div aria-hidden="true" className="hidden w-[280px] flex-col gap-1.5 lg:flex">
-      <Skeleton className="mb-1.5 h-[94px] rounded-[40px]" />
-      {Array.from({ length: 5 }, (_, index) => (
-        <Skeleton className="h-[46px] rounded-full" key={index} />
-      ))}
-    </div>
-  );
-}
-
 export function OrdersSkeleton() {
   return (
     <div aria-hidden="true" className="flex flex-col gap-[30px]">

@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { ChatLinks } from "@/components/shared/chat-links";
 import { Footer } from "@/components/shared/footer";
 import { CartSessionSync } from "@/components/features/orders/cart-session-sync";
-import { CustomerSidebarSkeleton } from "@/components/features/customer/skeletons";
 import { CustomerSidebarShell } from "@/components/features/customer/customer-sidebar-shell";
 import { CustomerSidebar } from "@/components/features/customer/customer-sidebar";
 import { Header } from "@/components/shared/header";
@@ -77,7 +76,7 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
       <main className="flex-1">
         <CustomerSidebarShell
           sidebar={
-            <Suspense fallback={<CustomerSidebarSkeleton />}>
+            <Suspense fallback={null}>
               <CustomerSidebarGate />
             </Suspense>
           }

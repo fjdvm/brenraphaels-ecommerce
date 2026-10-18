@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
-import { ArrowRight } from "lucide-react";
-import Link from "next/link";
 import { Suspense } from "react";
 
+import { AddressBookHeading } from "@/components/features/customer/address-book-heading";
 import { AddressForms } from "@/components/features/customer/address-forms";
 import { AddressesSkeleton } from "@/components/features/customer/skeletons";
-import { Button } from "@/components/ui/button";
-import { PageHeading } from "@/components/ui/page-heading";
 import { listProvinces } from "@/lib/address/locations";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 
@@ -26,20 +23,7 @@ async function AddressBookContent() {
 export default function AddressBookPage() {
   return (
     <section className="flex flex-col gap-[30px]">
-      <PageHeading
-        aside={
-          <Button asChild size="pill-lg" variant="pill">
-            <Link href="/profile/addresses?add=1" scroll={false}>
-              Add address
-              <ArrowRight aria-hidden className="size-5" />
-            </Link>
-          </Button>
-        }
-        eyebrow="My account"
-        title="Address book"
-      >
-        <p className="tracking-[0.35px] text-body">Manage where we deliver your orders.</p>
-      </PageHeading>
+      <AddressBookHeading />
       <Suspense fallback={<AddressesSkeleton />}>
         <AddressBookContent />
       </Suspense>

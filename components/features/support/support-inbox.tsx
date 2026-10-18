@@ -12,7 +12,11 @@ import { cn } from "@/lib/utils";
 /** The left column of Support: search, Open/Resolved tabs and the Customer's Tickets. */
 export function SupportInbox({ tickets, now }: { tickets: InboxTicket[]; now: Date }) {
   const pathname = usePathname();
-  const [tab, setTab] = useState<TicketTab>("open");
+  const [picked, setPicked] = useState<{ tab: TicketTab; pathname: string }>();
+  const activeTicket = tickets.find((ticket) => pathname === `/support/${ticket.id}`);
+  // A tab the Customer picked holds only for the page they picked it on; otherwise the open conversation's tab shows.
+  const tab: TicketTab =
+    picked?.pathname === pathname ? picked.tab : activeTicket ? (activeTicket.status === "open" ? "open" : "resolved") : "open";
   const [query, setQuery] = useState("");
   const counts = {
     open: tickets.filter((ticket) => ticket.status === "open").length,
@@ -47,7 +51,7 @@ export function SupportInbox({ tickets, now }: { tickets: InboxTicket[]; now: Da
                   active ? "border-primary bg-primary text-white" : "border-line bg-white text-ink hover:bg-lavender-soft",
                 )}
                 key={id}
-                onClick={() => setTab(id)}
+                onClick={() => setPicked({ tab: id, pathname })}
                 type="button"
               >
                 {id}

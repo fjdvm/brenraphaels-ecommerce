@@ -183,7 +183,7 @@ export function TicketThread({ ticketId, messages: savedMessages }: { ticketId: 
                 name="body"
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
+                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                     event.preventDefault();
                     formRef.current?.requestSubmit();
                   }

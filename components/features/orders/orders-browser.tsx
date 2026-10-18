@@ -12,6 +12,7 @@ import {
   needsPayment,
   orderBadges,
   orderFilterOf,
+  orderTotalInCentavos,
   orderTrackerSteps,
   type OrderBadge,
   type OrderFilter,
@@ -110,7 +111,7 @@ function PhotoPlaceholder({ className }: { className: string }) {
 }
 
 function orderTotal(order: Order) {
-  const total = order.subtotalInCentavos + (order.deliveryFeeInCentavos ?? 0);
+  const total = orderTotalInCentavos(order);
   return order.fulfillmentMethod === "delivery" && order.deliveryFeeInCentavos === null
     ? `${formatPeso(total)} + delivery`
     : formatPeso(total);
@@ -180,7 +181,7 @@ function OrderDetails({
   const pickup = order.fulfillmentMethod === "pickup";
   const address = order.deliveryAddress;
   const feePending = !pickup && order.deliveryFeeInCentavos === null;
-  const total = order.subtotalInCentavos + (order.deliveryFeeInCentavos ?? 0);
+  const total = orderTotalInCentavos(order);
   const payment = order.paymentMethod === "gcash" ? "GCash" : "Cash on Delivery";
   const paymentNote = order.paymentMethod !== "gcash" ? "" : order.paymentProof ? " · reference submitted" : " · awaiting reference";
 

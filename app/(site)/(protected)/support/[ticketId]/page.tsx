@@ -1,4 +1,4 @@
-import { Package } from "lucide-react";
+import { ArrowLeft, Package } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,6 +11,7 @@ import { closeTicket, reopenTicket } from "@/app/(site)/(protected)/support/acti
 import { formatPeso } from "@/lib/catalog/currency";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
+import { orderTotalInCentavos } from "@/lib/orders/order-view";
 import { createOrderStore } from "@/lib/orders/orders";
 import { categoryLabel } from "@/lib/support/inbox";
 import { createTicketStore } from "@/lib/support/tickets";
@@ -50,6 +51,10 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
     <div className="flex min-h-[600px] flex-col">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-5 py-6 sm:px-8">
         <div className="flex min-w-0 flex-col gap-2">
+          <Link className="flex w-fit items-center gap-1.5 text-sm font-medium text-primary hover:underline lg:hidden" href="/support">
+            <ArrowLeft aria-hidden className="size-4" />
+            All tickets
+          </Link>
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="font-serif text-[28px] leading-[1.25] text-primary">{ticket.subject}</h2>
             <span className={open ? "rounded-full bg-lavender px-3 py-1 text-xs font-medium tracking-[0.35px] text-primary" : "rounded-full bg-surface-soft px-3 py-1 text-xs font-medium tracking-[0.35px] text-body"}>
@@ -64,7 +69,7 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
                 href="/profile/orders"
               >
                 <Package aria-hidden className="size-3.5" strokeWidth={1.5} />
-                Order #{relatedOrder.id} · {formatPeso(relatedOrder.subtotalInCentavos + (relatedOrder.deliveryFeeInCentavos ?? 0))}
+                Order #{relatedOrder.id} · {formatPeso(orderTotalInCentavos(relatedOrder))}
               </Link>
             ) : null}
           </div>
