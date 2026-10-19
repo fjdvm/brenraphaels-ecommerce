@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { customers, products, sizes } from "../lib/db/schema";
+import { customers, productImages, products, sizes } from "../lib/db/schema";
 import { createOrderStore, placeOrderAndNotify } from "../lib/orders/orders";
 import { createCartStore } from "../lib/orders/cart";
 
@@ -236,6 +236,21 @@ describe("Order", () => {
         status: "confirmed",
         lines: [expect.objectContaining({ productName: "Ube Jam", sizeLabel: "250g", quantity: 1 })],
       }),
+    ]);
+  });
+
+  test("lists each Order line with its Product's first photo", async () => {
+    const database = drizzle(client);
+    await database.insert(productImages).values([
+      { productSlug: "ube-jam", url: "https://example.com/second.jpg", alt: "Second", position: 2 },
+      { productSlug: "ube-jam", url: "https://example.com/first.jpg", alt: "First", position: 1 },
+    ]);
+    await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
+    const store = createOrderStore(database);
+    await store.place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+
+    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([
+      { lines: [{ productName: "Ube Jam", imageUrl: "https://example.com/first.jpg" }] },
     ]);
   });
 

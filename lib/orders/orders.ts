@@ -1,7 +1,7 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { addresses, customers, orderDeliveryAddresses, orderLines, orders } from "../db/schema";
+import { addresses, customers, orderDeliveryAddresses, orderLines, orders, productImages, products } from "../db/schema";
 import { createCartStore } from "./cart";
 
 export const fulfillmentMethods = ["pickup", "delivery"] as const;
@@ -31,6 +31,8 @@ export class OrderTransitionError extends Error {
 
 export type OrderLine = {
   productName: string;
+  /** The Product's first photo today, matched by name since lines are immutable copies; null once the Product is gone or renamed. */
+  imageUrl: string | null;
   sizeLabel: string;
   priceInCentavos: number;
   quantity: number;
@@ -132,6 +134,7 @@ export function createOrderStore<
     return db
       .select({
         productName: orderLines.productName,
+        imageUrl: sql<string | null>`(select ${productImages.url} from ${productImages} inner join ${products} on ${products.slug} = ${productImages.productSlug} where ${products.name} = ${orderLines.productName} order by ${productImages.position} asc limit 1)`,
         sizeLabel: orderLines.sizeLabel,
         priceInCentavos: orderLines.priceInCentavos,
         quantity: orderLines.quantity,
@@ -379,8 +382,9 @@ export function createOrderStore<
         createdAt: order.createdAt,
         deliveryAddress,
         paymentProof: null,
-        lines: cart.lines.map(({ productName, sizeLabel, priceInCentavos, quantity }) => ({
+        lines: cart.lines.map(({ productName, imageUrl, sizeLabel, priceInCentavos, quantity }) => ({
           productName,
+          imageUrl,
           sizeLabel,
           priceInCentavos,
           quantity,

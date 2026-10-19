@@ -1,8 +1,9 @@
 "use client";
 
-import { Calendar, Check, ChevronDown, ImageIcon, Store, Truck, Wallet } from "lucide-react";
+import { Calendar, Check, ChevronDown, Store, Truck, Wallet } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
+import { CartThumbnail } from "@/components/features/orders/cart-thumbnail";
 import { CancelOrderForm, MessageUsLink } from "@/components/features/orders/cancel-order-form";
 import { OrderFeedbackForm } from "@/components/features/orders/order-feedback-form";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
@@ -99,17 +100,6 @@ function Badge({ badge }: { badge: OrderBadge }) {
   );
 }
 
-function PhotoPlaceholder({ className }: { className: string }) {
-  return (
-    <span
-      aria-hidden
-      className={cn("flex shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#e9ddfb_0%,#c9a8f0_71.4%)] text-primary", className)}
-    >
-      <ImageIcon className="size-7" strokeWidth={1.5} />
-    </span>
-  );
-}
-
 function orderTotal(order: Order) {
   const total = orderTotalInCentavos(order);
   return order.fulfillmentMethod === "delivery" && order.deliveryFeeInCentavos === null
@@ -136,20 +126,25 @@ function OrderCard({
 
   return (
     <article className="flex flex-col gap-6 rounded-[40px] border border-line bg-white p-6 sm:p-10">
-      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
-        {!open && firstLine ? <PhotoPlaceholder className="size-14" /> : null}
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3.5 gap-y-1">
+      <div className="flex items-start gap-3.5">
+        {!open && firstLine ? <CartThumbnail size={64} url={firstLine.imageUrl} /> : null}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
           <h2 className={cn("font-serif text-primary", open ? "text-[28px] leading-[1.25]" : "text-[22px] leading-[1.3]")}>
             Order #{order.id}
           </h2>
-          {badges.map((badge) => <Badge badge={badge} key={badge.text} />)}
-          {!open ? <p className="basis-full text-xs tracking-[0.35px] text-muted">{summary}</p> : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {badges.map((badge) => <Badge badge={badge} key={badge.text} />)}
+          </div>
+          {open ? (
+            <p className="text-xs tracking-[0.35px] text-muted">Placed {formatPlacedAt(order.createdAt)}</p>
+          ) : (
+            <>
+              <p className="text-xs tracking-[0.35px] text-muted">{summary}</p>
+              <p className="font-serif text-[22px] leading-[1.3] text-ink sm:hidden">{orderTotal(order)}</p>
+            </>
+          )}
         </div>
-        {open ? (
-          <p className="text-xs tracking-[0.35px] text-muted">Placed {formatPlacedAt(order.createdAt)}</p>
-        ) : (
-          <p className="font-serif text-[22px] leading-[1.3] text-ink">{orderTotal(order)}</p>
-        )}
+        {!open ? <p className="hidden font-serif text-[22px] leading-[1.3] text-ink sm:block">{orderTotal(order)}</p> : null}
         <button
           aria-controls={detailsId}
           aria-expanded={open}
@@ -233,7 +228,7 @@ function OrderDetails({
       <ul className="flex flex-col gap-4">
         {order.lines.map((line) => (
           <li className="flex items-center gap-4" key={`${order.id}-${line.productName}-${line.sizeLabel}`}>
-            <PhotoPlaceholder className="size-16" />
+            <CartThumbnail size={64} url={line.imageUrl} />
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <p className="text-sm font-medium tracking-[0.35px] text-ink">{line.productName}</p>
               <p className="whitespace-pre text-xs tracking-[0.35px] text-muted">{`${line.sizeLabel}  ×  ${line.quantity}`}</p>
