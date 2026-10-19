@@ -67,3 +67,37 @@ export function AccountMenu({ initials, firstName, signOut }: { initials: string
     </div>
   );
 }
+
+/** The signed-in Customer's avatar and first name in the mobile menu; expands in place to their account pages and sign out. */
+export function MobileAccountMenu({ initials, firstName, signOut }: { initials: string; firstName: string; signOut: ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-2.5 py-1 text-sm font-semibold text-on-surface hover:text-primary"
+      >
+        <span aria-hidden className="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-medium tracking-[0.35px] text-white">
+          {initials}
+        </span>
+        {firstName}
+        <ChevronDown aria-hidden size={16} className={expanded ? "ml-auto rotate-180 transition" : "ml-auto transition"} />
+      </button>
+      {/* Stays mounted while collapsed so the sign-out confirmation survives the list hiding behind it. */}
+      <ul className={expanded ? "mt-2 flex flex-col" : "hidden"}>
+        {accountMenuItems.map(({ href, label, icon: Icon }) => (
+          <li key={href}>
+            <Link href={href} className="flex items-center gap-3 py-2.5 pl-4 text-sm font-semibold text-on-surface-variant hover:text-primary">
+              <Icon aria-hidden className="size-[18px]" strokeWidth={1.5} />
+              {label}
+            </Link>
+          </li>
+        ))}
+        <li className="pl-4">{signOut}</li>
+      </ul>
+    </div>
+  );
+}

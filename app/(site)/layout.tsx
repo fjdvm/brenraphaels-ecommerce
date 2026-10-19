@@ -1,4 +1,5 @@
-import { LogOut } from "lucide-react";
+import { Bell } from "lucide-react";
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { ChatLinks } from "@/components/shared/chat-links";
@@ -9,9 +10,7 @@ import { CustomerSidebar } from "@/components/features/customer/customer-sidebar
 import { Header } from "@/components/shared/header";
 import { PageTransition } from "@/components/shared/page-transition";
 import { SessionNav } from "@/components/shared/session-nav";
-import { SignOutButton } from "@/components/shared/sign-out-button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { signOut } from "@/app/actions";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 
 const desktopSessionClass = "flex items-center gap-5";
@@ -39,15 +38,13 @@ function SessionNavFallback({ className, showCart = true }: { className: string;
   );
 }
 
-async function HeaderSignOutAsync() {
+/** The signed-in Customer's bell in the mobile top bar, beside the cart. */
+async function MobileBellAsync() {
   const visitor = await currentVisitor();
-  return visitor.state !== "signed-out" ? (
-    <SignOutButton
-      action={signOut}
-      iconOnly
-      icon={<LogOut aria-hidden className="size-5" />}
-      className="flex items-center text-ink hover:no-underline"
-    />
+  return visitor.state === "customer" ? (
+    <Link href="/profile/notifications" aria-label="Notifications" className="p-2">
+      <Bell />
+    </Link>
   ) : null;
 }
 
@@ -70,9 +67,9 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
             <SessionNavAsync className={desktopSessionClass} />
           </Suspense>
         }
-        headerSignOut={
+        mobileBell={
           <Suspense fallback={null}>
-            <HeaderSignOutAsync />
+            <MobileBellAsync />
           </Suspense>
         }
         mobileSession={

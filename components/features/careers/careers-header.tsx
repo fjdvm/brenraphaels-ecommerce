@@ -2,21 +2,25 @@ import { ArrowUpRight, LogOut } from "lucide-react";
 import Link from "next/link";
 
 import { signOutApplicantAction } from "@/app/(careers)/careers/actions";
+import { CareersHeaderShell } from "@/components/features/careers/careers-header-shell";
 import { CareersLogo } from "@/components/features/careers/careers-logo";
 import { CareersNavLinks } from "@/components/features/careers/careers-nav-links";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SignOutButton } from "@/components/shared/sign-out-button";
 import { careersSession } from "@/lib/careers/auth";
+import { cn } from "@/lib/utils";
 
 const headerClass =
   "flex flex-wrap items-center gap-x-6 gap-y-3 mx-auto max-w-[1440px] whitespace-nowrap px-5 py-5 sm:px-10";
 const brandClass = "flex items-center gap-4 lg:min-w-[360px]";
 const sideClass =
-  "ml-auto flex items-center justify-end gap-5 lg:min-w-[360px]";
+  "flex flex-wrap items-center justify-center gap-5 lg:ml-auto lg:min-w-[360px] lg:justify-end";
 const shopLink = (
   <Link
     href="/"
+    target="_blank"
+    rel="noopener noreferrer"
     className="flex shrink-0 items-center gap-1.5 text-xs tracking-[0.35px] text-muted hover:text-primary"
   >
     Visit the shop
@@ -45,7 +49,8 @@ export function CareersHeaderFallback() {
     <header className="border-b border-line bg-surface" aria-hidden="true">
       <div className={headerClass}>
         <Brand />
-        <div className={sideClass}>
+        <Skeleton className="size-10 rounded-full lg:hidden" />
+        <div className={cn(sideClass, "max-lg:hidden")}>
           <Skeleton className="h-4 w-20" />
           <Skeleton className="h-9 w-40 rounded-full" />
         </div>
@@ -69,8 +74,7 @@ export async function CareersHeader() {
 
   return (
     <header className="border-b border-line bg-surface">
-      <div className={headerClass}>
-        <Brand />
+      <CareersHeaderShell className={headerClass} brand={<Brand />}>
         <nav
           aria-label="Careers"
           className="order-last flex w-full flex-wrap items-center justify-center gap-x-9 gap-y-1 lg:order-none lg:w-auto lg:flex-1"
@@ -110,7 +114,7 @@ export async function CareersHeader() {
             </>
           )}
         </div>
-      </div>
+      </CareersHeaderShell>
     </header>
   );
 }

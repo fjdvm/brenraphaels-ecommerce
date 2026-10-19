@@ -132,7 +132,15 @@ export function AddToCart({
         >
           {pending && pendingAction === "cart"
             ? "Adding…"
-            : `Add to cart — ${formatPeso((selectedSize?.priceInCentavos ?? 0) * quantity)}`}
+            : (
+              <>
+                Add to cart
+                <span className="hidden sm:inline">
+                  {" — "}
+                  {formatPeso((selectedSize?.priceInCentavos ?? 0) * quantity)}
+                </span>
+              </>
+            )}
         </Button>
       </div>
       <Button

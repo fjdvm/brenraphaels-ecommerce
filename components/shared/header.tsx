@@ -7,12 +7,6 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Menu, ShoppingCart, X } from "lucide-react";
 
 import { freeShippingThreshold } from "@/lib/site/store-info";
-import { shouldShowCustomerSidebar } from "@/components/features/customer/customer-sidebar-routes";
-
-/** The sidebar carries its own sign out, so the header shows one exactly where the sidebar is hidden. */
-export function shouldShowHeaderSignOut(pathname: string) {
-  return !shouldShowCustomerSidebar(pathname);
-}
 
 /** Pages that open on a full-bleed photo; their header floats over it until the visitor scrolls. */
 const transparentHeaderPaths = new Set(["/"]);
@@ -43,7 +37,7 @@ const aboutLinks = [
   { href: "/vision-mission", label: "Our Vision and Mission" },
 ];
 
-type NavLink = { href: string; label: string };
+type NavLink = { href: string; label: string; newTab?: boolean };
 type NavItem = NavLink | { label: string; children: NavLink[] };
 
 const links: NavItem[] = [
@@ -51,7 +45,7 @@ const links: NavItem[] = [
   { href: "/products", label: "Shop" },
   { label: "About Us", children: aboutLinks },
   { href: "/faq", label: "FAQ" },
-  { href: "/careers", label: "Careers" },
+  { href: "/careers", label: "Careers", newTab: true },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -161,11 +155,11 @@ function MobileAboutMenu({
 
 export function Header({
   desktopSession,
-  headerSignOut,
+  mobileBell,
   mobileSession,
 }: {
   desktopSession: ReactNode;
-  headerSignOut?: ReactNode;
+  mobileBell?: ReactNode;
   mobileSession: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -181,7 +175,6 @@ export function Header({
     return () => window.removeEventListener("scroll", update);
   }, []);
 
-  const showHeaderSignOut = shouldShowHeaderSignOut(pathname);
   return (
     <>
     <div
@@ -243,6 +236,7 @@ export function Header({
               <Link
                 key={link.href}
                 href={link.href}
+                {...(link.newTab && { target: "_blank", rel: "noopener noreferrer" })}
                 className="transition hover:text-primary"
               >
                 {link.label}
@@ -256,6 +250,9 @@ export function Header({
         <div
           className={`ml-auto flex items-center gap-1 md:hidden ${transparent ? "text-white" : "text-primary"}`}
         >
+          <div onClick={() => setOpen(false)} className="flex">
+            {mobileBell}
+          </div>
           <Link
             href="/cart"
             aria-label="Cart"
@@ -289,6 +286,7 @@ export function Header({
               <Link
                 key={link.href}
                 href={link.href}
+                {...(link.newTab && { target: "_blank", rel: "noopener noreferrer" })}
                 onClick={() => setOpen(false)}
                 className="block py-3 text-sm font-semibold text-on-surface hover:text-primary"
               >
@@ -297,7 +295,6 @@ export function Header({
             ),
           )}
           {mobileSession}
-          {showHeaderSignOut ? headerSignOut : null}
         </nav>
       )}
     </header>

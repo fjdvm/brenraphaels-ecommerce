@@ -11,7 +11,7 @@ import { careersSession } from "@/lib/careers/auth";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { parseJobFilter } from "@/lib/validators/careers";
-import { FilterForm } from "@/app/(careers)/careers/_components/filter-form";
+import { FilterField, FilterForm } from "@/app/(careers)/careers/_components/filter-form";
 import { JobPostingsList } from "@/app/(careers)/careers/_components/job-postings-list";
 import { SubmitButton } from "@/app/(careers)/careers/_components/submit-button";
 import { CareersHeroActionsSkeleton, CareersListSkeleton } from "@/app/(careers)/careers/_components/skeletons";
@@ -34,13 +34,13 @@ function Filter({ label, name, allLabel, options, selected }: {
   selected?: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-2">
+    <FilterField name={name}>
       <label htmlFor={`filter-${name}`} className={fieldLabelClass}>{label}</label>
       <Select id={`filter-${name}`} name={name} defaultValue={selected ?? ""} className={fieldClass}>
         <option value="">{allLabel}</option>
         {options.map((option) => <option key={option}>{option}</option>)}
       </Select>
-    </div>
+    </FilterField>
   );
 }
 
@@ -90,7 +90,14 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
         </h2>
       </div>
 
-      <FilterForm className="flex flex-col gap-4 rounded-[40px] border border-line bg-white p-6 lg:flex-row lg:items-end">
+      <FilterForm
+        chips={[
+          { name: "department", label: "Department", selected: filters.department },
+          { name: "employmentType", label: "Type", selected: filters.employmentType },
+          { name: "location", label: "Location", selected: filters.location },
+        ]}
+        className="flex flex-col gap-4 rounded-[40px] border border-line bg-white p-6 lg:flex-row lg:items-end"
+      >
         <Filter label="Department" name="department" allLabel="All departments" options={options.departments} selected={filters.department} />
         <Filter label="Employment type" name="employmentType" allLabel="All types" options={options.employmentTypes} selected={filters.employmentType} />
         <Filter label="Location" name="location" allLabel="All locations" options={options.locations} selected={filters.location} />
