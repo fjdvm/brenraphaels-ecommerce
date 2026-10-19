@@ -15,7 +15,7 @@ const headerClass =
   "flex flex-wrap items-center gap-x-6 gap-y-3 mx-auto max-w-[1440px] whitespace-nowrap px-5 py-5 sm:px-10";
 const brandClass = "flex items-center gap-4 lg:min-w-[360px]";
 const sideClass =
-  "flex flex-wrap items-center justify-center gap-5 lg:ml-auto lg:min-w-[360px] lg:justify-end";
+  "flex flex-col items-stretch gap-3 lg:ml-auto lg:min-w-[360px] lg:flex-row lg:items-center lg:justify-end lg:gap-5";
 const shopLink = (
   <Link
     href="/"
@@ -77,7 +77,7 @@ export async function CareersHeader() {
       <CareersHeaderShell className={headerClass} brand={<Brand />}>
         <nav
           aria-label="Careers"
-          className="order-last flex w-full flex-wrap items-center justify-center gap-x-9 gap-y-1 lg:order-none lg:w-auto lg:flex-1"
+          className="order-last flex w-full flex-col items-stretch gap-1 lg:order-none lg:w-auto lg:flex-1 lg:flex-row lg:flex-wrap lg:items-center lg:justify-center lg:gap-x-9"
         >
           <CareersNavLinks signedIn={Boolean(applicant)} />
         </nav>
