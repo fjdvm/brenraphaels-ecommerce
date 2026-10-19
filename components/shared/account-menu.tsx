@@ -2,14 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, MapPin, MessageCircle, Package, SlidersHorizontal } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
-export const accountMenuItems = [
-  { href: "/profile/orders", label: "Orders", icon: Package },
-  { href: "/support", label: "Support", icon: MessageCircle },
-  { href: "/profile/addresses", label: "Addresses", icon: MapPin },
-  { href: "/profile/settings", label: "Account settings", icon: SlidersHorizontal },
-];
+import { accountMenuItems } from "@/components/shared/account-menu-items";
 
 /** The signed-in Customer's avatar and first name; opens a menu to their account pages. Closes on Escape, a click away or choosing a link. */
 export function AccountMenu({ initials, firstName, signOut }: { initials: string; firstName: string; signOut: ReactNode }) {

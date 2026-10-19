@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Bell, LogOut, ShoppingCart, User } from "lucide-react";
 
 import { signOut } from "@/app/actions";
-import { AccountMenu, accountMenuItems } from "@/components/shared/account-menu";
+import { AccountMenu } from "@/components/shared/account-menu";
+import { accountMenuItems } from "@/components/shared/account-menu-items";
 import { SignOutButton } from "@/components/shared/sign-out-button";
 import { initialsOf } from "@/lib/customer/initials";
 import type { Visitor } from "@/lib/customer/visitor";
