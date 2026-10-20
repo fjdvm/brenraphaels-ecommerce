@@ -5,6 +5,8 @@
 CREATE ROLE creoms_tickets LOGIN PASSWORD 'REPLACE_WITH_A_STRONG_PASSWORD';
 
 -- Start from nothing: no database-wide surprises, and no access to any other table.
+-- Neon runs Postgres 15+, where PUBLIC no longer has CREATE on the public schema; on older versions also run
+-- REVOKE CREATE ON SCHEMA public FROM PUBLIC.
 REVOKE ALL ON SCHEMA public FROM creoms_tickets;
 GRANT USAGE ON SCHEMA public TO creoms_tickets;
 
