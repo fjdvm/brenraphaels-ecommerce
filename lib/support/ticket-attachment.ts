@@ -1,4 +1,4 @@
-import { cleanFileName } from "../validators/sanitize";
+import type { TicketFiles } from "./ticket-files";
 
 const acceptedAttachmentTypes = new Set(["image/jpeg", "image/png"]);
 const maximumAttachmentBytes = 5 * 1024 * 1024;
@@ -15,23 +15,13 @@ export function validateTicketAttachment(file: File) {
   }
 }
 
-/** Uploads the image privately, namespaced by Ticket so it can never be guessed. */
-export async function uploadTicketAttachment(
-  file: File,
-  dependencies: {
-    ticketId: number;
-    put(
-      pathname: string,
-      body: File,
-      options: { access: "private"; addRandomSuffix: true },
-    ): Promise<{ pathname: string }>;
-  },
-): Promise<string> {
+/** Stores the image as a Private File in file-storage and returns its id. */
+export async function uploadTicketAttachment(file: File, files: Pick<TicketFiles, "upload">): Promise<string> {
   validateTicketAttachment(file);
-  const safeName = cleanFileName(file.name);
-  const blob = await dependencies.put(`ticket-attachments/${dependencies.ticketId}/${safeName}`, file, {
-    access: "private",
-    addRandomSuffix: true,
+
+  return files.upload({
+    filename: file.name,
+    contentType: file.type,
+    bytes: new Uint8Array(await file.arrayBuffer()),
   });
-  return blob.pathname;
 }
