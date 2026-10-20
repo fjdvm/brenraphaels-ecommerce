@@ -161,6 +161,8 @@ export function TicketThread({
       return;
     }
 
+    // The picked file is the source of truth; the file input is reset by the form after every submit.
+    if (image) formData.set("attachment", image);
     const attachment = formData.get("attachment");
     const hasAttachment =
       attachment instanceof File &&
@@ -181,6 +183,8 @@ export function TicketThread({
     setMessage(undefined);
     sendingRef.current = true;
     setSending(true);
+    // The box clears as soon as the Message is on its way; a refused Message puts the text back.
+    setDraft("");
     addOptimisticMessage({
       id: -Date.now(),
       sender: "customer",
@@ -202,7 +206,8 @@ export function TicketThread({
     const fieldError =
       state.fieldErrors?.body?.[0] ?? state.fieldErrors?.attachment?.[0];
     if (fieldError) setMessage(fieldError);
-    // Keep the Customer's text in the form when the server rejected the Message.
+    // Put the Customer's text back when the server rejected the Message.
+    if (!state.sent) setDraft((current) => current || parsed.data.body);
     if (state.sent) {
       // Saved first; a line that is down loses nothing, the Staff member sees it on reload.
       try {
@@ -216,7 +221,6 @@ export function TicketThread({
         console.error("Message saved but could not be relayed live", error);
       }
       formRef.current?.reset();
-      setDraft("");
       setImage(undefined);
     }
   }
@@ -348,38 +352,26 @@ export function TicketThread({
           </div>
           <form action={submit} className="flex flex-col gap-2.5" ref={formRef}>
             <div className="flex flex-col gap-2 rounded-[28px] bg-surface-soft p-2">
-              {image && imagePreview ? (
+              {image && imagePreview && !sending ? (
                 <div className="flex px-1 pt-1">
                   <div className="relative size-16">
                     {/* eslint-disable-next-line @next/next/no-img-element -- local preview of the picked file */}
                     <img
                       alt={`Selected image: ${image.name}`}
-                      className={cn(
-                        "size-16 rounded-xl object-cover",
-                        sending && "opacity-50",
-                      )}
+                      className="size-16 rounded-xl object-cover"
                       src={imagePreview}
                     />
-                    {sending ? (
-                      <span className="absolute inset-0 flex items-center justify-center">
-                        <Loader2
-                          aria-hidden
-                          className="size-5 animate-spin text-primary"
-                        />
-                      </span>
-                    ) : (
-                      <button
-                        aria-label={`Remove ${image.name}`}
-                        className="absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full bg-white text-ink shadow"
-                        onClick={() => {
-                          setImage(undefined);
-                          if (picker.current) picker.current.value = "";
-                        }}
-                        type="button"
-                      >
-                        <X aria-hidden className="size-4" />
-                      </button>
-                    )}
+                    <button
+                      aria-label={`Remove ${image.name}`}
+                      className="absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full bg-white text-ink shadow"
+                      onClick={() => {
+                        setImage(undefined);
+                        if (picker.current) picker.current.value = "";
+                      }}
+                      type="button"
+                    >
+                      <X aria-hidden className="size-4" />
+                    </button>
                   </div>
                 </div>
               ) : null}
