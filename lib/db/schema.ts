@@ -206,7 +206,16 @@ export const tickets = pgTable("tickets", {
   subject: text("subject").notNull(),
   category: text("category").notNull(),
   orderId: integer("order_id").references(() => orders.id, { onDelete: "restrict" }),
-  status: text("status").notNull(),
+  /** `open`, `resolved` (staff say it is answered) or `completed` (done). */
+  status: text("status").notNull().default("open"),
+  /** `low`, `normal`, `high` or `urgent`; set by staff in CREOMS. */
+  priority: text("priority").notNull().default("normal"),
+  /** The staff member working the Ticket: an opaque id from br-auth-service, never a foreign key. */
+  claimedById: text("claimed_by_id"),
+  /** The Claimer's display name as it was when they claimed the Ticket. */
+  claimedByName: text("claimed_by_name"),
+  /** When staff last marked the Ticket Resolved. */
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -222,6 +231,8 @@ export const ticketMessages = pgTable("ticket_messages", {
   body: text("body").notNull(),
   /** Blob pathname of the optional image, never a public URL. */
   attachmentPathname: text("attachment_pathname"),
+  /** Id of the optional file in file storage, set by CREOMS. */
+  fileId: text("file_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

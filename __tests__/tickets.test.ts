@@ -174,8 +174,8 @@ describe("Ticket store", () => {
       body: "It arrived today.",
     });
 
-    await expect(store.close(ticket.id, "customer-1")).resolves.toMatchObject({ status: "closed" });
-    await expect(store.get(ticket.id, "customer-1")).resolves.toMatchObject({ status: "closed" });
+    await expect(store.close(ticket.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
+    await expect(store.get(ticket.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
     await expect(store.reopen(ticket.id, "customer-1")).resolves.toMatchObject({ status: "open" });
     await expect(store.close(ticket.id, "customer-2")).rejects.toThrow("Ticket was not found.");
     await expect(store.reopen(ticket.id, "customer-2")).rejects.toThrow("Ticket was not found.");

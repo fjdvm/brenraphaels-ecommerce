@@ -230,7 +230,7 @@ export function createTicketStore<
   async function close(ticketId: number, customerId: string): Promise<Ticket> {
     const ticket = await get(ticketId, customerId);
     if (!ticket) throw new Error("Ticket was not found.");
-    await db.update(tickets).set({ status: "closed" }).where(and(eq(tickets.id, ticketId), eq(tickets.customerId, customerId)));
+    await db.update(tickets).set({ status: "completed" }).where(and(eq(tickets.id, ticketId), eq(tickets.customerId, customerId)));
     return (await get(ticketId, customerId))!;
   }
 
