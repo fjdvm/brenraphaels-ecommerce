@@ -245,14 +245,15 @@ export function createTicketStore<
     const ticket = await get(ticketId, customerId);
     if (!ticket) throw new Error("Ticket was not found.");
     if (ticket.status === "completed") throw new Error(completedTicketError);
+    // A Customer Message on a Resolved Ticket says it is not settled, so it reopens. This runs before the
+    // insert so a failure here never leaves a Message on a Ticket that stayed Resolved.
+    if (ticket.status === "resolved") {
+      await db.update(tickets).set({ status: "open" }).where(and(eq(tickets.id, ticketId), eq(tickets.status, "resolved")));
+    }
     const [inserted] = await db
       .insert(ticketMessages)
       .values({ ticketId, sender: "customer", body: parsed, attachmentPathname })
       .returning({ id: ticketMessages.id });
-    // A Customer Message on a Resolved Ticket says it is not settled, so it reopens.
-    if (ticket.status === "resolved") {
-      await db.update(tickets).set({ status: "open" }).where(and(eq(tickets.id, ticketId), eq(tickets.status, "resolved")));
-    }
     const updated = (await get(ticketId, customerId))!;
     await publish({ type: "message-added", ticket: updated, message: updated.messages.find((m) => m.id === inserted.id)! });
     return updated;
