@@ -6,9 +6,10 @@ import { z } from "zod";
 
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
+import { sendTicketCompletedEmail } from "@/lib/email/ticket-completed-email";
 import { sendTicketCreatedEmail } from "@/lib/email/ticket-created-email";
 import { publishTicketEvent } from "@/lib/support/ticket-events";
-import { createTicketStore, openTicketAndNotify, ticketInput } from "@/lib/support/tickets";
+import { completedTicketError, completeTicketAndNotify, createTicketStore, openTicketAndNotify, ticketInput } from "@/lib/support/tickets";
 import { ticketMessageInput } from "@/lib/support/ticket-message";
 import { uploadTicketAttachment, validateTicketAttachment } from "@/lib/support/ticket-attachment";
 import { positiveIntegerField } from "@/lib/validators/fields";
@@ -27,12 +28,14 @@ export type SendMessageState = {
 };
 
 export type TicketStatusState = {
-  closed?: boolean;
+  completed?: boolean;
   message?: string;
   reopened?: boolean;
 };
 
 const ticketStore = () => createTicketStore(getDatabase(), { publish: publishTicketEvent });
+
+const completedMessage = "This Ticket is completed. Open a new Ticket if you need more help.";
 
 const attachmentUnavailable = "Image uploads aren't available right now. Send your Message without one, or try again later.";
 
@@ -133,7 +136,9 @@ export async function sendMessage(
   const customer = await requireCustomer();
   try {
     const store = ticketStore();
-    if (!(await store.get(ticketId, customer.userId))) throw new Error("Ticket was not found.");
+    const ticket = await store.get(ticketId, customer.userId);
+    if (!ticket) throw new Error("Ticket was not found.");
+    if (ticket.status === "completed") throw new Error(completedTicketError);
     const attachmentPathname = attachment.file ? await uploadAttachment(attachment.file, ticketId) : undefined;
     await store.addMessage(ticketId, customer.userId, parsed.data, attachmentPathname);
   } catch (error) {
@@ -142,6 +147,9 @@ export async function sendMessage(
     }
     if (error instanceof Error && error.message === "Ticket was not found.") {
       return { message: "This Ticket is no longer available." };
+    }
+    if (error instanceof Error && error.message === completedTicketError) {
+      return { message: completedMessage };
     }
     console.error("Sending Ticket Message failed", error);
     return { message: "We couldn't send your Message. Please try again." };
@@ -153,48 +161,65 @@ export async function sendMessage(
   return { sent: true };
 }
 
-/** Closes a Customer-owned Ticket and refreshes its detail and list entries. */
-export async function closeTicket(ticketId: number): Promise<TicketStatusState> {
+function refreshTicket(ticketId: number) {
+  revalidatePath(`/support/${ticketId}`);
+  revalidatePath("/support");
+  revalidatePath("/support", "layout");
+}
+
+/** Completes a Customer-owned Ticket, thanks the Customer by email and refreshes its detail and list entries. */
+export async function completeTicket(ticketId: number): Promise<TicketStatusState> {
   if (!positiveIntegerField("Ticket ID").safeParse(String(ticketId)).success) {
-    return { message: "We couldn't close this Ticket. Please try again." };
+    return { message: "We couldn't complete this Ticket. Please try again." };
   }
 
   const customer = await requireCustomer();
   try {
-    await createTicketStore(getDatabase()).close(ticketId, customer.userId);
+    await completeTicketAndNotify(ticketId, customer.userId, customer.email, {
+      ticketStore: ticketStore(),
+      mailer: { send: sendTicketCompletedEmail },
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "Ticket was not found.") {
       return { message: "This Ticket is no longer available." };
     }
-    console.error("Closing Ticket failed", error);
-    return { message: "We couldn't close this Ticket. Please try again." };
+    if (error instanceof Error && error.message === completedTicketError) {
+      refreshTicket(ticketId);
+      return { message: completedMessage };
+    }
+    console.error("Completing Ticket failed", error);
+    return { message: "We couldn't complete this Ticket. Please try again." };
   }
 
-  revalidatePath(`/support/${ticketId}`);
-  revalidatePath("/support");
-  revalidatePath("/support", "layout");
-  return { closed: true };
+  refreshTicket(ticketId);
+  return { completed: true };
 }
 
-/** Reopens a Customer-owned Ticket and refreshes its detail and list entries. */
-export async function reopenTicket(ticketId: number): Promise<TicketStatusState> {
+/** Sends a Resolved Customer-owned Ticket back to Open because it is not fixed. */
+export async function reportTicketNotFixed(ticketId: number): Promise<TicketStatusState> {
   if (!positiveIntegerField("Ticket ID").safeParse(String(ticketId)).success) {
     return { message: "We couldn't reopen this Ticket. Please try again." };
   }
 
   const customer = await requireCustomer();
   try {
-    await createTicketStore(getDatabase()).reopen(ticketId, customer.userId);
+    await ticketStore().reportNotFixed(ticketId, customer.userId);
   } catch (error) {
     if (error instanceof Error && error.message === "Ticket was not found.") {
       return { message: "This Ticket is no longer available." };
+    }
+    if (error instanceof Error && error.message === completedTicketError) {
+      refreshTicket(ticketId);
+      return { message: completedMessage };
+    }
+    if (error instanceof Error && error.message === "Ticket is not resolved.") {
+      refreshTicket(ticketId);
+      return { message: "This Ticket isn't waiting for your confirmation." };
     }
     console.error("Reopening Ticket failed", error);
     return { message: "We couldn't reopen this Ticket. Please try again." };
   }
 
-  revalidatePath(`/support/${ticketId}`);
-  revalidatePath("/support");
-  revalidatePath("/support", "layout");
+  refreshTicket(ticketId);
   return { reopened: true };
 }

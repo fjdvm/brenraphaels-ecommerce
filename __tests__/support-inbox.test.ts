@@ -36,7 +36,7 @@ describe("ticketPreview", () => {
 describe("filterTickets", () => {
   const tickets = [
     ticket({ id: 1, subject: "Payment not reflecting" }),
-    ticket({ id: 2, subject: "Lid was loose", category: "Order Issue", orderId: 2, status: "closed" }),
+    ticket({ id: 2, subject: "Lid was loose", category: "Order Issue", orderId: 2, status: "completed" }),
     ticket({ id: 3, subject: "Delivery fee", category: "Delivery Issue", orderId: 4 }),
   ];
 
@@ -67,7 +67,7 @@ describe("awaitingReply", () => {
   const staff = [{ sender: "staff" as const, body: "Hi", createdAt: new Date() }];
   test("is true only for an open Ticket that staff answered last", () => {
     expect(awaitingReply(ticket({ messages: staff }))).toBe(true);
-    expect(awaitingReply(ticket({ messages: staff, status: "closed" }))).toBe(false);
+    expect(awaitingReply(ticket({ messages: staff, status: "completed" }))).toBe(false);
     expect(awaitingReply(ticket({ messages: [{ sender: "customer", body: "Hi", createdAt: new Date() }] }))).toBe(false);
     expect(awaitingReply(ticket({}))).toBe(false);
   });

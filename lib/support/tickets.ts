@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
@@ -49,6 +49,7 @@ export type Ticket = {
   createdAt: Date;
   messages: TicketMessage[];
 };
+export const completedTicketError = "Ticket is completed.";
 export type TicketStore = {
   /** `attach` uploads the opening Message's image once the Ticket id exists and returns its Blob pathname. */
   open(customerId: string, input: OpenTicketInput, attach?: (ticketId: number) => Promise<string>): Promise<Ticket>;
@@ -61,8 +62,10 @@ export type TicketStore = {
     attachmentPathname?: string,
   ): Promise<Ticket>;
   getAttachmentPathname(messageId: number, customerId: string): Promise<string | undefined>;
-  close(ticketId: number, customerId: string): Promise<Ticket>;
-  reopen(ticketId: number, customerId: string): Promise<Ticket>;
+  /** Completes an Open or Resolved Ticket; Completed is final. */
+  complete(ticketId: number, customerId: string): Promise<Ticket>;
+  /** Returns a Resolved Ticket to Open because the Customer says it is not fixed. */
+  reportNotFixed(ticketId: number, customerId: string): Promise<Ticket>;
 };
 
 /** What the store announces after persisting; subscribers of the Ticket's channel receive it. */
@@ -95,6 +98,29 @@ export async function openTicketAndNotify(
     await dependencies.mailer.send(recipientEmail, ticket);
   } catch (error) {
     console.error("Ticket-created email could not be sent", error);
+  }
+  return ticket;
+}
+
+export type TicketCompletedMailer = {
+  send(recipientEmail: string, ticket: Ticket): Promise<void>;
+};
+
+/**
+ * Completes the Ticket and then thanks the Customer. The thank-you is only sent
+ * when this call made the change, and a failed email must not undo the completion.
+ */
+export async function completeTicketAndNotify(
+  ticketId: number,
+  customerId: string,
+  recipientEmail: string,
+  dependencies: { ticketStore: TicketStore; mailer: TicketCompletedMailer },
+): Promise<Ticket> {
+  const ticket = await dependencies.ticketStore.complete(ticketId, customerId);
+  try {
+    await dependencies.mailer.send(recipientEmail, ticket);
+  } catch (error) {
+    console.error("Ticket-completed email could not be sent", error);
   }
   return ticket;
 }
@@ -218,28 +244,38 @@ export function createTicketStore<
     const parsed = ticketMessageInput.parse(input).body;
     const ticket = await get(ticketId, customerId);
     if (!ticket) throw new Error("Ticket was not found.");
+    if (ticket.status === "completed") throw new Error(completedTicketError);
     const [inserted] = await db
       .insert(ticketMessages)
       .values({ ticketId, sender: "customer", body: parsed, attachmentPathname })
       .returning({ id: ticketMessages.id });
+    // A Customer Message on a Resolved Ticket says it is not settled, so it reopens.
+    if (ticket.status === "resolved") {
+      await db.update(tickets).set({ status: "open" }).where(and(eq(tickets.id, ticketId), eq(tickets.status, "resolved")));
+    }
     const updated = (await get(ticketId, customerId))!;
     await publish({ type: "message-added", ticket: updated, message: updated.messages.find((m) => m.id === inserted.id)! });
     return updated;
   }
 
-  async function close(ticketId: number, customerId: string): Promise<Ticket> {
+  /** Moves the Customer's Ticket from one of `from` to `to`, only if it is still in that status. */
+  async function transition(ticketId: number, customerId: string, from: string[], to: string): Promise<Ticket> {
     const ticket = await get(ticketId, customerId);
     if (!ticket) throw new Error("Ticket was not found.");
-    await db.update(tickets).set({ status: "completed" }).where(and(eq(tickets.id, ticketId), eq(tickets.customerId, customerId)));
+    if (ticket.status === "completed") throw new Error(completedTicketError);
+    if (!from.includes(ticket.status)) throw new Error("Ticket is not resolved.");
+    const changed = await db
+      .update(tickets)
+      .set({ status: to })
+      .where(and(eq(tickets.id, ticketId), eq(tickets.customerId, customerId), inArray(tickets.status, from)))
+      .returning({ id: tickets.id });
+    // A concurrent change (for example, a double submit) means this call did not make the transition.
+    if (changed.length === 0) throw new Error((await get(ticketId, customerId))?.status === "completed" ? completedTicketError : "Ticket is not resolved.");
     return (await get(ticketId, customerId))!;
   }
 
-  async function reopen(ticketId: number, customerId: string): Promise<Ticket> {
-    const ticket = await get(ticketId, customerId);
-    if (!ticket) throw new Error("Ticket was not found.");
-    await db.update(tickets).set({ status: "open" }).where(and(eq(tickets.id, ticketId), eq(tickets.customerId, customerId)));
-    return (await get(ticketId, customerId))!;
-  }
+  const complete = (ticketId: number, customerId: string) => transition(ticketId, customerId, ["open", "resolved"], "completed");
+  const reportNotFixed = (ticketId: number, customerId: string) => transition(ticketId, customerId, ["resolved"], "open");
 
   async function getAttachmentPathname(messageId: number, customerId: string): Promise<string | undefined> {
     const [row] = await db
@@ -250,5 +286,5 @@ export function createTicketStore<
     return row?.attachmentPathname ?? undefined;
   }
 
-  return { open, listForCustomer, get, addMessage, getAttachmentPathname, close, reopen };
+  return { open, listForCustomer, get, addMessage, getAttachmentPathname, complete, reportNotFixed };
 }

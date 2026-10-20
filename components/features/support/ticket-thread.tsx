@@ -1,6 +1,7 @@
 "use client";
 
 import { Image as ImageIcon, Paperclip, SendHorizontal } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useOptimistic, useRef, useState } from "react";
 
@@ -17,7 +18,7 @@ type OptimisticMessage = TicketMessage & { pending?: boolean };
 const quickReplies = ["Thank you!", "When will it be ready?", "Can I change to pickup?"];
 
 /** Renders a Ticket's thread, appends Customer Messages before the server responds, and shows Messages sent from other tabs live. */
-export function TicketThread({ ticketId, createdAt, messages: savedMessages }: { ticketId: number; createdAt: Date; messages: TicketMessage[] }) {
+export function TicketThread({ ticketId, createdAt, completed = false, messages: savedMessages }: { ticketId: number; createdAt: Date; completed?: boolean; messages: TicketMessage[] }) {
   const router = useRouter();
   const [liveMessages, setLiveMessages] = useState<TicketMessage[]>([]);
   const messages = useMemo(() => {
@@ -162,6 +163,14 @@ export function TicketThread({ ticketId, createdAt, messages: savedMessages }: {
           })}
         </ol>
       </div>
+      {completed ? (
+        <div className="flex shrink-0 flex-col gap-2 border-t border-line bg-white px-6 py-5">
+          <p className="text-sm tracking-[0.35px] text-ink">This Ticket is completed, so it can&apos;t be reopened or replied to.</p>
+          <Link className="w-fit text-sm font-medium text-primary hover:underline" href="/support/new">
+            Need more help? Open a new Ticket
+          </Link>
+        </div>
+      ) : (
       <div className="flex shrink-0 flex-col gap-2.5 border-t border-line bg-white px-6 pb-5 pt-4">
         <div className="flex flex-wrap gap-2">
           {quickReplies.map((reply) => (
@@ -231,6 +240,7 @@ export function TicketThread({ ticketId, createdAt, messages: savedMessages }: {
           Images: JPEG or PNG up to 5 MB · Our team replies Mon–Sat, 9:00am – 6:00pm
         </p>
       </div>
+      )}
     </>
   );
 }

@@ -1,10 +1,11 @@
 import { PGlite } from "@electric-sql/pglite";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { customers, orders } from "../lib/db/schema";
-import { createTicketStore, openTicketAndNotify } from "../lib/support/tickets";
+import { customers, orders, tickets } from "../lib/db/schema";
+import { completeTicketAndNotify, createTicketStore, openTicketAndNotify } from "../lib/support/tickets";
 
 let client: PGlite;
 
@@ -166,19 +167,74 @@ describe("Ticket store", () => {
     await expect(store.getAttachmentPathname(updated.messages[0].id, "customer-1")).resolves.toBeUndefined();
   });
 
-  test("lets a Customer close and reopen their Ticket", async () => {
-    const store = createTicketStore(drizzle(client));
-    const ticket = await store.open("customer-1", {
-      subject: "My delivery issue is resolved",
-      category: "Delivery Issue",
-      body: "It arrived today.",
+  describe("Customer status transitions", () => {
+    async function openTicket(store: ReturnType<typeof createTicketStore>) {
+      return store.open("customer-1", { subject: "My delivery issue", category: "Delivery Issue", body: "Where is it?" });
+    }
+    const markResolved = (ticketId: number) =>
+      drizzle(client).update(tickets).set({ status: "resolved", resolvedAt: new Date() }).where(eq(tickets.id, ticketId));
+
+    test("confirming a Resolved Ticket completes it", async () => {
+      const store = createTicketStore(drizzle(client));
+      const ticket = await openTicket(store);
+      await markResolved(ticket.id);
+
+      await expect(store.complete(ticket.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
+      await expect(store.get(ticket.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
     });
 
-    await expect(store.close(ticket.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
-    await expect(store.get(ticket.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
-    await expect(store.reopen(ticket.id, "customer-1")).resolves.toMatchObject({ status: "open" });
-    await expect(store.close(ticket.id, "customer-2")).rejects.toThrow("Ticket was not found.");
-    await expect(store.reopen(ticket.id, "customer-2")).rejects.toThrow("Ticket was not found.");
+    test("a Customer can complete an Open Ticket directly", async () => {
+      const store = createTicketStore(drizzle(client));
+      const ticket = await openTicket(store);
+
+      await expect(store.complete(ticket.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
+    });
+
+    test("Not fixed returns a Resolved Ticket to Open", async () => {
+      const store = createTicketStore(drizzle(client));
+      const ticket = await openTicket(store);
+      await markResolved(ticket.id);
+
+      await expect(store.reportNotFixed(ticket.id, "customer-1")).resolves.toMatchObject({ status: "open" });
+    });
+
+    test("Not fixed only applies to a Resolved Ticket", async () => {
+      const store = createTicketStore(drizzle(client));
+      const ticket = await openTicket(store);
+
+      await expect(store.reportNotFixed(ticket.id, "customer-1")).rejects.toThrow("Ticket is not resolved.");
+    });
+
+    test("a Customer Message on a Resolved Ticket reopens it", async () => {
+      const store = createTicketStore(drizzle(client));
+      const ticket = await openTicket(store);
+      await markResolved(ticket.id);
+
+      const updated = await store.addMessage(ticket.id, "customer-1", { body: "It broke again." });
+
+      expect(updated.status).toBe("open");
+      expect(updated.messages).toHaveLength(2);
+    });
+
+    test("a Completed Ticket cannot be reopened, messaged or completed again", async () => {
+      const store = createTicketStore(drizzle(client));
+      const ticket = await openTicket(store);
+      await store.complete(ticket.id, "customer-1");
+
+      await expect(store.reportNotFixed(ticket.id, "customer-1")).rejects.toThrow("Ticket is completed.");
+      await expect(store.addMessage(ticket.id, "customer-1", { body: "Hello?" })).rejects.toThrow("Ticket is completed.");
+      await expect(store.complete(ticket.id, "customer-1")).rejects.toThrow("Ticket is completed.");
+      await expect(store.get(ticket.id, "customer-1")).resolves.toMatchObject({ status: "completed", messages: [expect.anything()] });
+    });
+
+    test("another Customer's Ticket cannot be changed", async () => {
+      const store = createTicketStore(drizzle(client));
+      const ticket = await openTicket(store);
+      await markResolved(ticket.id);
+
+      await expect(store.complete(ticket.id, "customer-2")).rejects.toThrow("Ticket was not found.");
+      await expect(store.reportNotFixed(ticket.id, "customer-2")).rejects.toThrow("Ticket was not found.");
+    });
   });
 
   test("rejects an unowned Order link and invalid Category, Subject, or opening Message", async () => {
@@ -346,5 +402,42 @@ describe("Ticket store realtime publishing under load", () => {
 
     expect(error).toHaveBeenCalledWith("Ticket event could not be published", expect.any(Error));
     error.mockRestore();
+  });
+});
+
+describe("completeTicketAndNotify", () => {
+  async function openTicket(database: ReturnType<typeof drizzle>) {
+    return createTicketStore(database).open("customer-1", { subject: "Where is my Order", category: "Order Issue", body: "Please help." });
+  }
+
+  test("completes the Ticket and sends the thank-you email once", async () => {
+    const database = drizzle(client);
+    const ticket = await openTicket(database);
+    const mailer = { send: vi.fn().mockResolvedValue(undefined) };
+    const dependencies = { ticketStore: createTicketStore(database), mailer };
+
+    const completed = await completeTicketAndNotify(ticket.id, "customer-1", "jane@example.com", dependencies);
+
+    expect(completed.status).toBe("completed");
+    expect(mailer.send).toHaveBeenCalledOnce();
+    expect(mailer.send).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: ticket.id }));
+
+    await expect(completeTicketAndNotify(ticket.id, "customer-1", "jane@example.com", dependencies)).rejects.toThrow("Ticket is completed.");
+    expect(mailer.send).toHaveBeenCalledOnce();
+  });
+
+  test("still completes the Ticket when the email cannot be sent", async () => {
+    const database = drizzle(client);
+    const ticket = await openTicket(database);
+    const mailer = { send: vi.fn().mockRejectedValue(new Error("Brevo down")) };
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const completed = await completeTicketAndNotify(ticket.id, "customer-1", "jane@example.com", {
+      ticketStore: createTicketStore(database),
+      mailer,
+    });
+
+    expect(completed.status).toBe("completed");
+    consoleError.mockRestore();
   });
 });

@@ -1,20 +1,22 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { put, get, sendTicketCreatedEmail, addMessage, close, createTicketStore, getDatabase, open, reopen, revalidatePath, requireCustomer } = vi.hoisted(() => ({
+const { put, get, sendTicketCreatedEmail, addMessage, complete, createTicketStore, getDatabase, open, reportNotFixed, sendTicketCompletedEmail, revalidatePath, requireCustomer } = vi.hoisted(() => ({
   put: vi.fn(),
   get: vi.fn(),
   sendTicketCreatedEmail: vi.fn(),
   addMessage: vi.fn(),
-  close: vi.fn(),
-  createTicketStore: vi.fn(() => ({ addMessage, close, get, open, reopen })),
+  complete: vi.fn(),
+  createTicketStore: vi.fn(() => ({ addMessage, complete, get, open, reportNotFixed })),
   getDatabase: vi.fn(),
   open: vi.fn(),
-  reopen: vi.fn(),
+  reportNotFixed: vi.fn(),
+  sendTicketCompletedEmail: vi.fn(),
   revalidatePath: vi.fn(),
   requireCustomer: vi.fn(),
 }));
 
 vi.mock("@/lib/customer/current-visitor", () => ({ requireCustomer }));
+vi.mock("@/lib/email/ticket-completed-email", () => ({ sendTicketCompletedEmail }));
 vi.mock("@/lib/email/ticket-created-email", () => ({ sendTicketCreatedEmail }));
 vi.mock("@/lib/db", () => ({ getDatabase }));
 vi.mock("@/lib/support/tickets", async (importOriginal) => ({
@@ -24,7 +26,7 @@ vi.mock("@/lib/support/tickets", async (importOriginal) => ({
 vi.mock("@vercel/blob", () => ({ put }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { closeTicket, createTicket, reopenTicket, sendMessage } from "@/app/(site)/(protected)/support/actions";
+import { completeTicket, createTicket, reportTicketNotFixed, sendMessage } from "@/app/(site)/(protected)/support/actions";
 
 function ticketFormData() {
   const formData = new FormData();
@@ -37,15 +39,16 @@ function ticketFormData() {
 
 describe("Ticket actions", () => {
   beforeEach(() => {
-    createTicketStore.mockReset().mockReturnValue({ addMessage, close, get, open, reopen });
+    createTicketStore.mockReset().mockReturnValue({ addMessage, complete, get, open, reportNotFixed });
     get.mockReset().mockResolvedValue({ id: 12 });
     put.mockReset().mockResolvedValue({ pathname: "ticket-attachments/12/photo-abc.png" });
     process.env.ORDERS_BLOB_READ_WRITE_TOKEN = "test-token";
     addMessage.mockReset().mockResolvedValue({ id: 12 });
-    close.mockReset().mockResolvedValue({ id: 12, status: "closed" });
+    complete.mockReset().mockResolvedValue({ id: 12, status: "completed" });
+    sendTicketCompletedEmail.mockReset().mockResolvedValue(undefined);
     getDatabase.mockReset();
     open.mockReset().mockResolvedValue({ id: 1 });
-    reopen.mockReset().mockResolvedValue({ id: 12, status: "open" });
+    reportNotFixed.mockReset().mockResolvedValue({ id: 12, status: "open" });
     revalidatePath.mockReset();
     sendTicketCreatedEmail.mockReset().mockResolvedValue(undefined);
     requireCustomer.mockReset().mockResolvedValue({ userId: "customer-1", email: "jane@example.com" });
@@ -108,20 +111,41 @@ describe("Ticket actions", () => {
     expect(addMessage).not.toHaveBeenCalled();
   });
 
-  test("closes a Customer-owned Ticket and refreshes its detail and Support list", async () => {
-    await expect(closeTicket(12)).resolves.toEqual({ closed: true });
+  test("completes a Customer-owned Ticket, thanks them by email and refreshes its detail and Support list", async () => {
+    await expect(completeTicket(12)).resolves.toEqual({ completed: true });
 
-    expect(close).toHaveBeenCalledWith(12, "customer-1");
+    expect(complete).toHaveBeenCalledWith(12, "customer-1");
+    expect(sendTicketCompletedEmail).toHaveBeenCalledWith("jane@example.com", { id: 12, status: "completed" });
     expect(revalidatePath).toHaveBeenCalledWith("/support/12");
     expect(revalidatePath).toHaveBeenCalledWith("/support");
   });
 
-  test("reopens a Customer-owned Ticket and refreshes its detail and Support list", async () => {
-    await expect(reopenTicket(12)).resolves.toEqual({ reopened: true });
+  test("does not send the thank-you email when the Ticket was already completed", async () => {
+    complete.mockRejectedValue(new Error("Ticket is completed."));
 
-    expect(reopen).toHaveBeenCalledWith(12, "customer-1");
+    await expect(completeTicket(12)).resolves.toEqual({
+      message: "This Ticket is completed. Open a new Ticket if you need more help.",
+    });
+    expect(sendTicketCompletedEmail).not.toHaveBeenCalled();
+  });
+
+  test("sends a Resolved Ticket back to Open when the Customer says it is not fixed", async () => {
+    await expect(reportTicketNotFixed(12)).resolves.toEqual({ reopened: true });
+
+    expect(reportNotFixed).toHaveBeenCalledWith(12, "customer-1");
     expect(revalidatePath).toHaveBeenCalledWith("/support/12");
     expect(revalidatePath).toHaveBeenCalledWith("/support");
+  });
+
+  test("refuses a Message on a Completed Ticket", async () => {
+    get.mockResolvedValue({ id: 12, status: "completed" });
+    const formData = new FormData();
+    formData.set("body", "Hello again.");
+
+    await expect(sendMessage(12, {}, formData)).resolves.toEqual({
+      message: "This Ticket is completed. Open a new Ticket if you need more help.",
+    });
+    expect(addMessage).not.toHaveBeenCalled();
   });
 
   test("rejects an invalid image on the create form without opening a Ticket", async () => {
