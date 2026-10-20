@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { put, get, sendTicketCreatedEmail, addMessage, complete, createTicketStore, getDatabase, open, reportNotFixed, sendTicketCompletedEmail, revalidatePath, requireCustomer } = vi.hoisted(() => ({
+const { liveConversationUrl, put, get, sendTicketCreatedEmail, addMessage, complete, createTicketStore, getDatabase, open, reportNotFixed, sendTicketCompletedEmail, revalidatePath, requireCustomer } = vi.hoisted(() => ({
+  liveConversationUrl: vi.fn(),
   put: vi.fn(),
   get: vi.fn(),
   sendTicketCreatedEmail: vi.fn(),
@@ -23,10 +24,11 @@ vi.mock("@/lib/support/tickets", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/support/tickets")>()),
   createTicketStore,
 }));
+vi.mock("@/lib/support/live", () => ({ liveConversationUrl }));
 vi.mock("@vercel/blob", () => ({ put }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { completeTicket, createTicket, reportTicketNotFixed, sendMessage } from "@/app/(site)/(protected)/support/actions";
+import { completeTicket, createTicket, reportTicketNotFixed, sendMessage, ticketLiveUrl } from "@/app/(site)/(protected)/support/actions";
 
 function ticketFormData() {
   const formData = new FormData();
@@ -41,6 +43,7 @@ describe("Ticket actions", () => {
   beforeEach(() => {
     createTicketStore.mockReset().mockReturnValue({ addMessage, complete, get, open, reportNotFixed });
     get.mockReset().mockResolvedValue({ id: 12 });
+    liveConversationUrl.mockReset();
     put.mockReset().mockResolvedValue({ pathname: "ticket-attachments/12/photo-abc.png" });
     process.env.ORDERS_BLOB_READ_WRITE_TOKEN = "test-token";
     addMessage.mockReset().mockResolvedValue({ id: 12 });
@@ -91,7 +94,9 @@ describe("Ticket actions", () => {
     const formData = new FormData();
     formData.set("body", "Could you please share an update?");
 
-    await expect(sendMessage(12, {}, formData)).resolves.toEqual({ sent: true });
+    addMessage.mockResolvedValue({ id: 12, messageId: 77 });
+
+    await expect(sendMessage(12, {}, formData)).resolves.toEqual({ sent: true, messageId: 77 });
 
     expect(addMessage).toHaveBeenCalledWith(12, "customer-1", {
       body: "Could you please share an update?",
@@ -209,5 +214,27 @@ describe("Ticket actions", () => {
 
     await expect(sendMessage(12, {}, formData)).resolves.toEqual({ sent: true });
     expect(addMessage).toHaveBeenCalledWith(12, "customer-1", { body: "See attached." }, "ticket-attachments/12/photo-abc.png");
+  });
+
+  test("gives the Customer's browser a Live ticket address for their own Ticket", async () => {
+    liveConversationUrl.mockResolvedValue("wss://gateway.test/notifications/conversations/12/live?ticket=t");
+
+    await expect(ticketLiveUrl(12)).resolves.toBe("wss://gateway.test/notifications/conversations/12/live?ticket=t");
+    expect(liveConversationUrl).toHaveBeenCalledWith(12, "customer-1");
+  });
+
+  test("gives no Live ticket for a Ticket that is not the Customer's", async () => {
+    get.mockResolvedValue(undefined);
+
+    await expect(ticketLiveUrl(12)).resolves.toBeNull();
+    expect(liveConversationUrl).not.toHaveBeenCalled();
+  });
+
+  test("is not live, but not broken, when the gateway is unreachable", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    liveConversationUrl.mockRejectedValue(new Error("gateway down"));
+
+    await expect(ticketLiveUrl(12)).resolves.toBeNull();
+    error.mockRestore();
   });
 });

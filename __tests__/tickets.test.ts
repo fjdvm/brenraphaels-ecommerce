@@ -308,100 +308,18 @@ describe("openTicketAndNotify", () => {
   });
 });
 
-describe("Ticket store realtime publishing", () => {
-  test("publishes the new Ticket and its opening Message when a Ticket is opened", async () => {
-    const publish = vi.fn().mockResolvedValue(undefined);
-    const store = createTicketStore(drizzle(client), { publish });
-
-    const ticket = await store.open("customer-1", {
-      subject: "Where is my Order?",
-      category: "Order Issue",
-      body: "It has been a week.",
-    });
-
-    expect(publish).toHaveBeenCalledTimes(1);
-    expect(publish).toHaveBeenCalledWith({ type: "ticket-opened", ticket, message: ticket.messages[0] });
-  });
-
-  test("publishes the added Message and updated Ticket", async () => {
-    const publish = vi.fn().mockResolvedValue(undefined);
-    const store = createTicketStore(drizzle(client), { publish });
-    const opened = await store.open("customer-1", {
-      subject: "Where is my Order?",
-      category: "Order Issue",
-      body: "It has been a week.",
-    });
-    publish.mockClear();
-
-    const updated = await store.addMessage(opened.id, "customer-1", { body: "Any update?" });
-
-    expect(publish).toHaveBeenCalledTimes(1);
-    expect(publish).toHaveBeenCalledWith({
-      type: "message-added",
-      ticket: updated,
-      message: updated.messages[1],
-    });
-  });
-
-  test("does not publish when the Message is rejected", async () => {
-    const publish = vi.fn().mockResolvedValue(undefined);
-    const store = createTicketStore(drizzle(client), { publish });
-    const opened = await store.open("customer-1", {
-      subject: "Where is my Order?",
-      category: "Order Issue",
-      body: "It has been a week.",
-    });
-    publish.mockClear();
-
-    await expect(store.addMessage(opened.id, "customer-2", { body: "Not mine" })).rejects.toThrow();
-    await expect(store.addMessage(opened.id, "customer-1", { body: "" })).rejects.toThrow();
-
-    expect(publish).not.toHaveBeenCalled();
-  });
-
-  test("still saves the Message when publishing fails", async () => {
-    const publish = vi.fn().mockRejectedValue(new Error("redis down"));
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const store = createTicketStore(drizzle(client), { publish });
-    const opened = await store.open("customer-1", {
-      subject: "Where is my Order?",
-      category: "Order Issue",
-      body: "It has been a week.",
-    });
-
-    const updated = await store.addMessage(opened.id, "customer-1", { body: "Any update?" });
-
-    expect(updated.messages.map((message) => message.body)).toEqual(["It has been a week.", "Any update?"]);
-    error.mockRestore();
-  });
-});
-
-describe("Ticket store realtime publishing under load", () => {
-  test("publishes each Message it inserted even when two are sent at once", async () => {
-    const publish = vi.fn().mockResolvedValue(undefined);
-    const store = createTicketStore(drizzle(client), { publish });
+describe("Ticket store live relay", () => {
+  test("hands back the id of the Message it saved, for the live relay to echo", async () => {
+    const store = createTicketStore(drizzle(client));
     const opened = await store.open("customer-1", { subject: "Two tabs", category: "Other", body: "Opening." });
-    publish.mockClear();
 
-    await Promise.all([
+    const [one, two] = await Promise.all([
       store.addMessage(opened.id, "customer-1", { body: "From tab one" }),
       store.addMessage(opened.id, "customer-1", { body: "From tab two" }),
     ]);
 
-    const published = publish.mock.calls.map(([event]) => event.message.body).sort();
-    expect(published).toEqual(["From tab one", "From tab two"]);
-  });
-
-  test("does not wait on a publisher that never answers", async () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const store = createTicketStore(drizzle(client), { publish: () => new Promise(() => undefined) });
-
-    await expect(
-      store.open("customer-1", { subject: "Slow", category: "Other", body: "Opening." }),
-    ).resolves.toMatchObject({ subject: "Slow" });
-
-    expect(error).toHaveBeenCalledWith("Ticket event could not be published", expect.any(Error));
-    error.mockRestore();
+    const bodyOf = (sent: typeof one) => sent.messages.find((m) => m.id === sent.messageId)?.body;
+    expect([bodyOf(one), bodyOf(two)]).toEqual(["From tab one", "From tab two"]);
   });
 });
 
