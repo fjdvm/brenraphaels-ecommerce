@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useOptimistic, useRef, useState } from "react";
 
+import { connectLive } from "./live-socket";
 import { sendMessage } from "@/app/(site)/(protected)/support/actions";
 import { formatClock, formatDayAndClock } from "@/lib/notifications/relative-time";
 import type { TicketMessage } from "@/lib/support/tickets";
-import type { TicketEventPayload } from "@/lib/support/ticket-events";
+import type { ConnectLive, LiveConnection } from "@/lib/support/live";
 import { validateTicketAttachment } from "@/lib/support/ticket-attachment";
 import { ticketMessageInput } from "@/lib/support/ticket-message";
 import { cn } from "@/lib/utils";
@@ -17,8 +18,26 @@ type OptimisticMessage = TicketMessage & { pending?: boolean };
 
 const quickReplies = ["Thank you!", "When will it be ready?", "Can I change to pickup?"];
 
-/** Renders a Ticket's thread, appends Customer Messages before the server responds, and shows Messages sent from other tabs live. */
-export function TicketThread({ ticketId, createdAt, completed = false, messages: savedMessages }: { ticketId: number; createdAt: Date; completed?: boolean; messages: TicketMessage[] }) {
+const reconnectMilliseconds = 3_000;
+
+/**
+ * Renders a Ticket's thread, appends Customer Messages before the server responds, and shows Staff replies
+ * and Messages sent from the Customer's other tabs live. The saved thread is the source of truth: live
+ * Messages are matched to it by id, and a relay that fails loses nothing.
+ */
+export function TicketThread({
+  ticketId,
+  createdAt,
+  completed = false,
+  messages: savedMessages,
+  connect = connectLive,
+}: {
+  ticketId: number;
+  createdAt: Date;
+  completed?: boolean;
+  messages: TicketMessage[];
+  connect?: ConnectLive;
+}) {
   const router = useRouter();
   const [liveMessages, setLiveMessages] = useState<TicketMessage[]>([]);
   const messages = useMemo(() => {
@@ -26,24 +45,55 @@ export function TicketThread({ ticketId, createdAt, completed = false, messages:
     return [...savedMessages, ...liveMessages.filter((live) => !savedIds.has(live.id)).sort((a, b) => a.id - b.id)];
   }, [savedMessages, liveMessages]);
 
+  const line = useRef<LiveConnection | null>(null);
+  const refresh = useRef(router.refresh);
   useEffect(() => {
-    const events = new EventSource(`/api/support/tickets/${ticketId}/events`);
-    // Events are not replayed, so whatever was sent before this stream (re)connected is reloaded from the saved thread.
-    events.onopen = () => router.refresh();
-    events.onmessage = (event) => {
-      let payload: TicketEventPayload;
-      try {
-        payload = JSON.parse(event.data) as TicketEventPayload;
-      } catch {
-        return;
-      }
-      const live: TicketMessage = { ...payload.message, createdAt: new Date(payload.message.createdAt) };
-      setLiveMessages((current) => (current.some((existing) => existing.id === live.id) ? current : [...current, live]));
-      // The header status and the Close/Reopen control come from the saved Ticket.
-      router.refresh();
+    refresh.current = router.refresh;
+  });
+
+  useEffect(() => {
+    let stopped = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let wasDown = false;
+
+    const open = () => {
+      line.current = connect(ticketId, {
+        // Anything relayed while the line was down is gone, so a reconnect reloads the saved thread.
+        onOpen: () => {
+          if (wasDown) refresh.current();
+          wasDown = false;
+        },
+        onEvent: (event) => {
+          if (event.type !== "message") return;
+          const id = Number(event.id);
+          if (!Number.isInteger(id)) return;
+          const live: TicketMessage = {
+            id,
+            sender: event.from.role === "Staff" ? "staff" : "customer",
+            body: event.text,
+            attachmentPathname: null,
+            createdAt: new Date(event.sentAt),
+          };
+          setLiveMessages((current) => (current.some((existing) => existing.id === live.id) ? current : [...current, live]));
+          // The header status and the Close/Reopen control come from the saved Ticket.
+          refresh.current();
+        },
+        onClose: () => {
+          line.current = null;
+          wasDown = true;
+          if (!stopped) retry = setTimeout(open, reconnectMilliseconds);
+        },
+      });
     };
-    return () => events.close();
-  }, [ticketId, router]);
+
+    open();
+    return () => {
+      stopped = true;
+      clearTimeout(retry);
+      line.current?.close();
+      line.current = null;
+    };
+  }, [ticketId, connect]);
 
   const formRef = useRef<HTMLFormElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -94,6 +144,12 @@ export function TicketThread({ ticketId, createdAt, completed = false, messages:
     if (fieldError) setMessage(fieldError);
     // Keep the Customer's text in the form when the server rejected the Message.
     if (state.sent) {
+      // Saved first; a line that is down loses nothing, the Staff member sees it on reload.
+      try {
+        if (state.messageId !== undefined) line.current?.send({ type: "message", id: String(state.messageId), text: parsed.data.body });
+      } catch (error) {
+        console.error("Message saved but could not be relayed live", error);
+      }
       formRef.current?.reset();
       setDraft("");
       setImageName(undefined);

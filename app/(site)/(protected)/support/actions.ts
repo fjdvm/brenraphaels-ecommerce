@@ -8,7 +8,7 @@ import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { sendTicketCompletedEmail } from "@/lib/email/ticket-completed-email";
 import { sendTicketCreatedEmail } from "@/lib/email/ticket-created-email";
-import { publishTicketEvent } from "@/lib/support/ticket-events";
+import { liveConversationUrl } from "@/lib/support/live";
 import { completedTicketError, completeTicketAndNotify, createTicketStore, openTicketAndNotify, ticketInput } from "@/lib/support/tickets";
 import { ticketMessageInput } from "@/lib/support/ticket-message";
 import { uploadTicketAttachment, validateTicketAttachment } from "@/lib/support/ticket-attachment";
@@ -25,6 +25,8 @@ export type SendMessageState = {
   fieldErrors?: Record<string, string[] | undefined>;
   message?: string;
   sent?: boolean;
+  /** The saved Message's id, which the live relay echoes so every open tab can match its copy. */
+  messageId?: number;
 };
 
 export type TicketStatusState = {
@@ -33,7 +35,7 @@ export type TicketStatusState = {
   reopened?: boolean;
 };
 
-const ticketStore = () => createTicketStore(getDatabase(), { publish: publishTicketEvent });
+const ticketStore = () => createTicketStore(getDatabase());
 
 const completedMessage = "This Ticket is completed. Open a new Ticket if you need more help.";
 
@@ -134,13 +136,14 @@ export async function sendMessage(
   }
 
   const customer = await requireCustomer();
+  let saved: { messageId: number } | undefined;
   try {
     const store = ticketStore();
     const ticket = await store.get(ticketId, customer.userId);
     if (!ticket) throw new Error("Ticket was not found.");
     if (ticket.status === "completed") throw new Error(completedTicketError);
     const attachmentPathname = attachment.file ? await uploadAttachment(attachment.file, ticketId) : undefined;
-    await store.addMessage(ticketId, customer.userId, parsed.data, attachmentPathname);
+    saved = await store.addMessage(ticketId, customer.userId, parsed.data, attachmentPathname);
   } catch (error) {
     if (error instanceof Error && error.message === attachmentUnavailable) {
       return { fieldErrors: { attachment: [attachmentUnavailable] } };
@@ -158,7 +161,25 @@ export async function sendMessage(
   revalidatePath(`/support/${ticketId}`);
   revalidatePath("/support");
   revalidatePath("/support", "layout");
-  return { sent: true };
+  return { sent: true, messageId: saved?.messageId };
+}
+
+/**
+ * Where the Customer's browser joins their Ticket's Conversation, or null when it cannot: the Ticket is
+ * not theirs or the gateway is unreachable. The thread then simply is not live; Messages still save.
+ */
+export async function ticketLiveUrl(ticketId: number): Promise<string | null> {
+  if (!positiveIntegerField("Ticket ID").safeParse(String(ticketId)).success) return null;
+
+  const customer = await requireCustomer();
+  try {
+    if (!(await ticketStore().get(ticketId, customer.userId))) return null;
+
+    return await liveConversationUrl(ticketId, customer.userId);
+  } catch (error) {
+    console.error("Live ticket could not be issued", error);
+    return null;
+  }
 }
 
 function refreshTicket(ticketId: number) {

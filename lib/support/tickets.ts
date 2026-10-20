@@ -60,7 +60,7 @@ export type TicketStore = {
     customerId: string,
     input: { body: unknown },
     attachmentPathname?: string,
-  ): Promise<Ticket>;
+  ): Promise<Ticket & { messageId: number }>;
   getAttachmentPathname(messageId: number, customerId: string): Promise<string | undefined>;
   /** Completes an Open or Resolved Ticket; Completed is final. */
   complete(ticketId: number, customerId: string): Promise<Ticket>;
@@ -73,14 +73,6 @@ export type TicketStore = {
 /** How long a Ticket stays Resolved, with no reply from the Customer, before it completes by itself. */
 export const autoCompleteAfterDays = 3;
 
-/** What the store announces after persisting; subscribers of the Ticket's channel receive it. */
-export type TicketEvent = {
-  type: "ticket-opened" | "message-added";
-  ticket: Ticket;
-  message: TicketMessage;
-};
-const publishTimeoutMilliseconds = 3_000;
-export type TicketPublisher = (event: TicketEvent) => Promise<void>;
 
 export type TicketMailer = {
   send(recipientEmail: string, ticket: Ticket): Promise<void>;
@@ -157,27 +149,7 @@ export function createTicketStore<
   TSchema extends Record<string, unknown>,
 >(
   db: PgDatabase<TQueryResult, TSchema>,
-  dependencies: { publish?: TicketPublisher } = {},
 ): TicketStore {
-  /** The Ticket is already persisted, so a failed publish must not fail the write; other tabs catch up on reload. */
-  async function publish(event: TicketEvent) {
-    if (!dependencies.publish) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      // An unreachable provider must not hold the Customer's request open.
-      await Promise.race([
-        dependencies.publish(event),
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => reject(new Error("Publishing timed out")), publishTimeoutMilliseconds);
-        }),
-      ]);
-    } catch (error) {
-      console.error("Ticket event could not be published", error);
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
   async function messagesForTicket(ticketId: number): Promise<TicketMessage[]> {
     const messages = await db
       .select({
@@ -252,12 +224,10 @@ export function createTicketStore<
       await db.delete(tickets).where(eq(tickets.id, ticket.id));
       throw error;
     }
-    const [inserted] = await db
+    await db
       .insert(ticketMessages)
-      .values({ ticketId: ticket.id, sender: "customer", body: parsed.body, attachmentPathname })
-      .returning({ id: ticketMessages.id });
+      .values({ ticketId: ticket.id, sender: "customer", body: parsed.body, attachmentPathname });
     const opened = (await get(ticket.id, customerId))!;
-    await publish({ type: "ticket-opened", ticket: opened, message: opened.messages.find((m) => m.id === inserted.id)! });
     return opened;
   }
 
@@ -266,7 +236,7 @@ export function createTicketStore<
     customerId: string,
     input: { body: unknown },
     attachmentPathname?: string,
-  ): Promise<Ticket> {
+  ): Promise<Ticket & { messageId: number }> {
     const parsed = ticketMessageInput.parse(input).body;
     const ticket = await get(ticketId, customerId);
     if (!ticket) throw new Error("Ticket was not found.");
@@ -281,8 +251,7 @@ export function createTicketStore<
       .values({ ticketId, sender: "customer", body: parsed, attachmentPathname })
       .returning({ id: ticketMessages.id });
     const updated = (await get(ticketId, customerId))!;
-    await publish({ type: "message-added", ticket: updated, message: updated.messages.find((m) => m.id === inserted.id)! });
-    return updated;
+    return { ...updated, messageId: inserted.id };
   }
 
   /** Moves the Customer's Ticket from one of `from` to `to`, only if it is still in that status. */
