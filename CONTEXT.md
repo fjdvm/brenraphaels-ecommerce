@@ -89,7 +89,7 @@ _Avoid_: Review, comment, rating (alone)
 ### Support
 
 **Ticket**:
-A Customer's request for help: a Subject, a Category, and a thread of Messages, shown to the Customer as a chat. The Customer who opened it may close or reopen it themselves; staff answer it from CREOMS once built. A Ticket may optionally reference one of the Customer's own Orders.
+A Customer's request for help: a Subject, a Category, and a thread of Messages, shown to the Customer as a chat. Staff give it a Priority (Low, Normal, High, Urgent; Normal by default), may claim it (recorded as an opaque staff id plus a display-name snapshot), and may mark it Resolved. Its status is Open, Resolved or Completed; the Customer who opened it may close it (Completed) or reopen it themselves; staff answer it from CREOMS once built. A Ticket may optionally reference one of the Customer's own Orders.
 _Avoid_: Support request, case, conversation (alone)
 
 **Category**:

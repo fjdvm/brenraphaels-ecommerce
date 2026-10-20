@@ -8,6 +8,9 @@ CREATE ROLE creoms_tickets LOGIN PASSWORD 'REPLACE_WITH_A_STRONG_PASSWORD';
 REVOKE ALL ON SCHEMA public FROM creoms_tickets;
 GRANT USAGE ON SCHEMA public TO creoms_tickets;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE tickets, ticket_messages TO creoms_tickets;
--- Both tables use identity columns, so inserting needs their sequences.
-GRANT USAGE, SELECT ON SEQUENCE tickets_id_seq, ticket_messages_id_seq TO creoms_tickets;
+-- Tickets are opened by the shop, so CREOMS only reads and updates them (priority, claim, status).
+GRANT SELECT, UPDATE ON TABLE tickets TO creoms_tickets;
+-- Messages are permanent once sent: CREOMS reads them and adds staff replies, never edits or deletes.
+GRANT SELECT, INSERT ON TABLE ticket_messages TO creoms_tickets;
+-- ticket_messages uses an identity column, so inserting needs its sequence.
+GRANT USAGE, SELECT ON SEQUENCE ticket_messages_id_seq TO creoms_tickets;
