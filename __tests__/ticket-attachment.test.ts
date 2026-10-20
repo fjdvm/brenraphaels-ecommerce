@@ -19,21 +19,21 @@ describe("Ticket attachment validation", () => {
     expect(() => validateTicketAttachment(image("image/png", 5 * 1024 * 1024 + 1))).toThrow("5 MB");
   });
 
-  test("uploads privately under the Ticket with a sanitized name and returns only the pathname", async () => {
-    const put = vi.fn().mockResolvedValue({ pathname: "ticket-attachments/7/my-photo-abc.png", url: "https://blob/x" });
+  test("stores the image through file-storage with its real name and type, returning the file id", async () => {
+    const upload = vi.fn().mockResolvedValue("file-7");
 
-    await expect(uploadTicketAttachment(image("image/png", 10, "my/photo.png"), { ticketId: 7, put })).resolves.toBe(
-      "ticket-attachments/7/my-photo-abc.png",
-    );
-    expect(put).toHaveBeenCalledWith("ticket-attachments/7/my-photo.png", expect.any(File), {
-      access: "private",
-      addRandomSuffix: true,
+    await expect(uploadTicketAttachment(image("image/png", 10, "my-photo.png"), { upload })).resolves.toBe("file-7");
+    expect(upload).toHaveBeenCalledWith({
+      filename: "my-photo.png",
+      contentType: "image/png",
+      bytes: expect.any(Uint8Array),
     });
+    expect(upload.mock.calls[0][0].bytes).toHaveLength(10);
   });
 
-  test("does not upload an invalid file", async () => {
-    const put = vi.fn();
-    await expect(uploadTicketAttachment(image("image/gif", 10), { ticketId: 7, put })).rejects.toThrow();
-    expect(put).not.toHaveBeenCalled();
+  test("does not store an invalid file", async () => {
+    const upload = vi.fn();
+    await expect(uploadTicketAttachment(image("image/gif", 10), { upload })).rejects.toThrow();
+    expect(upload).not.toHaveBeenCalled();
   });
 });

@@ -37,7 +37,10 @@ export type TicketMessage = {
   id: number;
   sender: "customer" | "staff";
   body: string;
+  /** An image stored in Vercel Blob before file-storage; shown on the storefront only. */
   attachmentPathname: string | null;
+  /** The file-storage id of the Message's image. */
+  fileId: string | null;
   createdAt: Date;
 };
 export type Ticket = {
@@ -49,9 +52,11 @@ export type Ticket = {
   createdAt: Date;
   messages: TicketMessage[];
 };
+/** A Message's image: in file-storage, or (older Messages) in Vercel Blob. */
+export type StoredAttachment = { fileId: string } | { pathname: string };
 export const completedTicketError = "Ticket is completed.";
 export type TicketStore = {
-  /** `attach` uploads the opening Message's image once the Ticket id exists and returns its Blob pathname. */
+  /** `attach` stores the opening Message's image once the Ticket id exists and returns its file-storage id. */
   open(customerId: string, input: OpenTicketInput, attach?: (ticketId: number) => Promise<string>): Promise<Ticket>;
   listForCustomer(customerId: string): Promise<Ticket[]>;
   get(ticketId: number, customerId: string): Promise<Ticket | undefined>;
@@ -59,9 +64,10 @@ export type TicketStore = {
     ticketId: number,
     customerId: string,
     input: { body: unknown },
-    attachmentPathname?: string,
+    fileId?: string,
   ): Promise<Ticket & { messageId: number }>;
-  getAttachmentPathname(messageId: number, customerId: string): Promise<string | undefined>;
+  /** Where a Message's image lives, for the Customer who owns its Ticket; undefined when it has none or is not theirs. */
+  getAttachment(messageId: number, customerId: string): Promise<StoredAttachment | undefined>;
   /** Completes an Open or Resolved Ticket; Completed is final. */
   complete(ticketId: number, customerId: string): Promise<Ticket>;
   /** Returns a Resolved Ticket to Open because the Customer says it is not fixed. */
@@ -157,6 +163,7 @@ export function createTicketStore<
         sender: ticketMessages.sender,
         body: ticketMessages.body,
         attachmentPathname: ticketMessages.attachmentPathname,
+        fileId: ticketMessages.fileId,
         createdAt: ticketMessages.createdAt,
       })
       .from(ticketMessages)
@@ -217,16 +224,16 @@ export function createTicketStore<
         status: "open",
       })
       .returning();
-    let attachmentPathname: string | undefined;
+    let fileId: string | undefined;
     try {
-      attachmentPathname = await attach?.(ticket.id);
+      fileId = await attach?.(ticket.id);
     } catch (error) {
       await db.delete(tickets).where(eq(tickets.id, ticket.id));
       throw error;
     }
     await db
       .insert(ticketMessages)
-      .values({ ticketId: ticket.id, sender: "customer", body: parsed.body, attachmentPathname });
+      .values({ ticketId: ticket.id, sender: "customer", body: parsed.body, fileId });
     const opened = (await get(ticket.id, customerId))!;
     return opened;
   }
@@ -235,7 +242,7 @@ export function createTicketStore<
     ticketId: number,
     customerId: string,
     input: { body: unknown },
-    attachmentPathname?: string,
+    fileId?: string,
   ): Promise<Ticket & { messageId: number }> {
     const parsed = ticketMessageInput.parse(input).body;
     const ticket = await get(ticketId, customerId);
@@ -248,7 +255,7 @@ export function createTicketStore<
     }
     const [inserted] = await db
       .insert(ticketMessages)
-      .values({ ticketId, sender: "customer", body: parsed, attachmentPathname })
+      .values({ ticketId, sender: "customer", body: parsed, fileId })
       .returning({ id: ticketMessages.id });
     const updated = (await get(ticketId, customerId))!;
     return { ...updated, messageId: inserted.id };
@@ -288,14 +295,15 @@ export function createTicketStore<
     );
   }
 
-  async function getAttachmentPathname(messageId: number, customerId: string): Promise<string | undefined> {
+  async function getAttachment(messageId: number, customerId: string): Promise<StoredAttachment | undefined> {
     const [row] = await db
-      .select({ attachmentPathname: ticketMessages.attachmentPathname })
+      .select({ fileId: ticketMessages.fileId, pathname: ticketMessages.attachmentPathname })
       .from(ticketMessages)
       .innerJoin(tickets, eq(tickets.id, ticketMessages.ticketId))
       .where(and(eq(ticketMessages.id, messageId), eq(tickets.customerId, customerId)));
-    return row?.attachmentPathname ?? undefined;
+    if (row?.fileId) return { fileId: row.fileId };
+    return row?.pathname ? { pathname: row.pathname } : undefined;
   }
 
-  return { open, listForCustomer, get, addMessage, getAttachmentPathname, complete, reportNotFixed, autoCompleteResolved };
+  return { open, listForCustomer, get, addMessage, getAttachment, complete, reportNotFixed, autoCompleteResolved };
 }

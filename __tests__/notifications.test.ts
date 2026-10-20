@@ -39,8 +39,8 @@ describe("deriveNotifications", () => {
       tickets: [
         ticket({
           messages: [
-            { id: 1, sender: "customer", body: "Done!", attachmentPathname: null, createdAt: new Date("2026-10-19T11:30:00Z") },
-            { id: 2, sender: "staff", body: "Got it!", attachmentPathname: null, createdAt: new Date("2026-10-19T11:58:00Z") },
+            { id: 1, sender: "customer", body: "Done!", attachmentPathname: null, fileId: null, createdAt: new Date("2026-10-19T11:30:00Z") },
+            { id: 2, sender: "staff", body: "Got it!", attachmentPathname: null, fileId: null, createdAt: new Date("2026-10-19T11:58:00Z") },
           ],
         }),
       ],
@@ -50,8 +50,8 @@ describe("deriveNotifications", () => {
   });
 
   test("ignores a thread the Customer answered last or that is closed", () => {
-    const customerLast = ticket({ messages: [{ id: 1, sender: "customer", body: "Hi", attachmentPathname: null, createdAt: now }] });
-    const closed = ticket({ status: "closed", messages: [{ id: 2, sender: "staff", body: "Done", attachmentPathname: null, createdAt: now }] });
+    const customerLast = ticket({ messages: [{ id: 1, sender: "customer", body: "Hi", attachmentPathname: null, fileId: null, createdAt: now }] });
+    const closed = ticket({ status: "closed", messages: [{ id: 2, sender: "staff", body: "Done", attachmentPathname: null, fileId: null, createdAt: now }] });
     expect(deriveNotifications({ orders: [], tickets: [customerLast, closed] })).toEqual([]);
   });
 

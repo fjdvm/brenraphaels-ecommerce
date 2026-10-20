@@ -72,6 +72,7 @@ export function TicketThread({
             sender: event.from.role === "Staff" ? "staff" : "customer",
             body: event.text,
             attachmentPathname: null,
+            fileId: null,
             createdAt: new Date(event.sentAt),
           };
           setLiveMessages((current) => (current.some((existing) => existing.id === live.id) ? current : [...current, live]));
@@ -135,6 +136,7 @@ export function TicketThread({
       sender: "customer",
       body: parsed.data.body,
       attachmentPathname: null,
+      fileId: null,
       createdAt: new Date(),
       pending: true,
     });
@@ -200,7 +202,7 @@ export function TicketThread({
                       )}
                     >
                       {threadMessage.body}
-                      {threadMessage.attachmentPathname ? (
+                      {threadMessage.attachmentPathname || threadMessage.fileId ? (
                         // eslint-disable-next-line @next/next/no-img-element -- streamed from an authenticated route, not optimizable
                         <img
                           alt="Attached to this Message"

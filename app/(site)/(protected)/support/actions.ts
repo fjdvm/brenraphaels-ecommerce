@@ -1,6 +1,5 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -10,6 +9,7 @@ import { sendTicketCompletedEmail } from "@/lib/email/ticket-completed-email";
 import { sendTicketCreatedEmail } from "@/lib/email/ticket-created-email";
 import { liveConversationUrl } from "@/lib/support/live";
 import { completedTicketError, completeTicketAndNotify, createTicketStore, openTicketAndNotify, ticketInput } from "@/lib/support/tickets";
+import { gatewayTicketFiles } from "@/lib/support/ticket-files";
 import { ticketMessageInput } from "@/lib/support/ticket-message";
 import { uploadTicketAttachment, validateTicketAttachment } from "@/lib/support/ticket-attachment";
 import { positiveIntegerField } from "@/lib/validators/fields";
@@ -56,13 +56,33 @@ function readAttachment(formData: FormData): { file?: File; error?: string } {
   return { file: value };
 }
 
-function uploadAttachment(file: File, ticketId: number) {
-  const token = process.env.ORDERS_BLOB_READ_WRITE_TOKEN;
-  if (!token) throw new Error(attachmentUnavailable);
-  return uploadTicketAttachment(file, {
-    ticketId,
-    put: (pathname, body, options) => put(pathname, body, { ...options, token }),
-  });
+const ticketFiles = () => gatewayTicketFiles();
+
+/** Stores the image in file-storage; any failure reads as "uploads aren't available" so the form can say so. */
+async function uploadAttachment(file: File): Promise<string> {
+  try {
+    return await uploadTicketAttachment(file, ticketFiles());
+  } catch (error) {
+    console.error("Ticket image could not be stored in file-storage", error);
+    throw new Error(attachmentUnavailable);
+  }
+}
+
+/** The Message is already saved with its file id; the Link only helps file-storage find a record's Files. */
+async function linkAttachment(fileId: string, messageId: number) {
+  try {
+    await ticketFiles().linkToMessage(fileId, messageId);
+  } catch (error) {
+    console.error("Ticket image was saved but could not be Linked to its Message", error);
+  }
+}
+
+async function discardAttachment(fileId: string) {
+  try {
+    await ticketFiles().remove(fileId);
+  } catch (error) {
+    console.error("An image for an unsaved Message could not be removed from file-storage", error);
+  }
 }
 
 /** Opens a Ticket for the signed-in Customer, then refreshes their Support list. */
@@ -89,6 +109,7 @@ export async function createTicket(
 
   const customer = await requireCustomer();
   const file = attachment.file;
+  let fileId: string | undefined;
   let opened: Awaited<ReturnType<typeof openTicketAndNotify>>;
   try {
     opened = await openTicketAndNotify(
@@ -96,7 +117,7 @@ export async function createTicket(
       customer.email,
       parsed.data,
       { ticketStore: ticketStore(), mailer: { send: sendTicketCreatedEmail } },
-      file ? (ticketId) => uploadAttachment(file, ticketId) : undefined,
+      file ? async () => (fileId = await uploadAttachment(file)) : undefined,
     );
   } catch (error) {
     if (error instanceof Error && error.message === "Order was not found.") {
@@ -108,6 +129,8 @@ export async function createTicket(
     console.error("Opening Ticket failed", error);
     return { message: "We couldn't open your Ticket. Please try again." };
   }
+
+  if (fileId && opened.messages[0]) await linkAttachment(fileId, opened.messages[0].id);
 
   revalidatePath("/support");
   revalidatePath("/support", "layout");
@@ -137,14 +160,16 @@ export async function sendMessage(
 
   const customer = await requireCustomer();
   let saved: { messageId: number } | undefined;
+  let fileId: string | undefined;
   try {
     const store = ticketStore();
     const ticket = await store.get(ticketId, customer.userId);
     if (!ticket) throw new Error("Ticket was not found.");
     if (ticket.status === "completed") throw new Error(completedTicketError);
-    const attachmentPathname = attachment.file ? await uploadAttachment(attachment.file, ticketId) : undefined;
-    saved = await store.addMessage(ticketId, customer.userId, parsed.data, attachmentPathname);
+    fileId = attachment.file ? await uploadAttachment(attachment.file) : undefined;
+    saved = await store.addMessage(ticketId, customer.userId, parsed.data, fileId);
   } catch (error) {
+    if (fileId && !saved) await discardAttachment(fileId);
     if (error instanceof Error && error.message === attachmentUnavailable) {
       return { fieldErrors: { attachment: [attachmentUnavailable] } };
     }
@@ -157,6 +182,8 @@ export async function sendMessage(
     console.error("Sending Ticket Message failed", error);
     return { message: "We couldn't send your Message. Please try again." };
   }
+
+  if (fileId && saved) await linkAttachment(fileId, saved.messageId);
 
   revalidatePath(`/support/${ticketId}`);
   revalidatePath("/support");

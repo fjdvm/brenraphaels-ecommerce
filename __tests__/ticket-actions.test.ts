@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { liveConversationUrl, put, get, sendTicketCreatedEmail, addMessage, complete, createTicketStore, getDatabase, open, reportNotFixed, sendTicketCompletedEmail, revalidatePath, requireCustomer } = vi.hoisted(() => ({
+import { FakeTicketFiles } from "./fake-ticket-files";
+
+const files = new FakeTicketFiles();
+
+const { liveConversationUrl, get, sendTicketCreatedEmail, addMessage, complete, createTicketStore, getDatabase, open, reportNotFixed, sendTicketCompletedEmail, revalidatePath, requireCustomer } = vi.hoisted(() => ({
   liveConversationUrl: vi.fn(),
-  put: vi.fn(),
   get: vi.fn(),
   sendTicketCreatedEmail: vi.fn(),
   addMessage: vi.fn(),
@@ -25,7 +28,7 @@ vi.mock("@/lib/support/tickets", async (importOriginal) => ({
   createTicketStore,
 }));
 vi.mock("@/lib/support/live", () => ({ liveConversationUrl }));
-vi.mock("@vercel/blob", () => ({ put }));
+vi.mock("@/lib/support/ticket-files", () => ({ gatewayTicketFiles: () => files }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
 import { completeTicket, createTicket, reportTicketNotFixed, sendMessage, ticketLiveUrl } from "@/app/(site)/(protected)/support/actions";
@@ -44,8 +47,7 @@ describe("Ticket actions", () => {
     createTicketStore.mockReset().mockReturnValue({ addMessage, complete, get, open, reportNotFixed });
     get.mockReset().mockResolvedValue({ id: 12 });
     liveConversationUrl.mockReset();
-    put.mockReset().mockResolvedValue({ pathname: "ticket-attachments/12/photo-abc.png" });
-    process.env.ORDERS_BLOB_READ_WRITE_TOKEN = "test-token";
+    files.reset();
     addMessage.mockReset().mockResolvedValue({ id: 12 });
     complete.mockReset().mockResolvedValue({ id: 12, status: "completed" });
     sendTicketCompletedEmail.mockReset().mockResolvedValue(undefined);
@@ -161,22 +163,33 @@ describe("Ticket actions", () => {
       fieldErrors: { attachment: ["Attach a JPEG or PNG image."] },
     });
     expect(open).not.toHaveBeenCalled();
-    expect(put).not.toHaveBeenCalled();
+    expect(files.files.size).toBe(0);
   });
 
-  test("uploads the create-form image under the new Ticket via the store", async () => {
+  test("stores the create-form image in file-storage and Links it to the opening Message", async () => {
     open.mockImplementation(async (_customerId, _input, attach) => {
-      await expect(attach(33)).resolves.toBe("ticket-attachments/12/photo-abc.png");
-      return { id: 33 };
+      await expect(attach(33)).resolves.toBe("file-1");
+      return { id: 33, messages: [{ id: 90 }] };
     });
     const formData = ticketFormData();
     formData.set("attachment", new File([new Uint8Array(4)], "photo.png", { type: "image/png" }));
 
     await expect(createTicket({}, formData)).resolves.toEqual({ created: true, ticketId: expect.any(Number) });
-    expect(put).toHaveBeenCalledWith("ticket-attachments/33/photo.png", expect.any(File), {
-      access: "private",
-      addRandomSuffix: true,
-      token: "test-token",
+    expect(files.files.get("file-1")).toMatchObject({ filename: "photo.png", contentType: "image/png", messageId: 90 });
+  });
+
+  test("says uploads are unavailable when file-storage is down, and opens no Ticket", async () => {
+    files.failUpload = true;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    open.mockImplementation(async (_customerId, _input, attach) => {
+      await attach(33);
+      return { id: 33 };
+    });
+    const formData = ticketFormData();
+    formData.set("attachment", new File([new Uint8Array(4)], "photo.png", { type: "image/png" }));
+
+    await expect(createTicket({}, formData)).resolves.toEqual({
+      fieldErrors: { attachment: [expect.stringContaining("Image uploads aren't available")] },
     });
   });
 
@@ -185,7 +198,7 @@ describe("Ticket actions", () => {
     formData.set("attachment", new File([], "", { type: "application/octet-stream" }));
 
     await expect(createTicket({}, formData)).resolves.toEqual({ created: true, ticketId: expect.any(Number) });
-    expect(put).not.toHaveBeenCalled();
+    expect(files.files.size).toBe(0);
   });
 
   test("ignores an empty file input that arrives with a filename", async () => {
@@ -193,7 +206,7 @@ describe("Ticket actions", () => {
     formData.set("attachment", new File([], "undefined", { type: "" }));
 
     await expect(createTicket({}, formData)).resolves.toEqual({ created: true, ticketId: expect.any(Number) });
-    expect(put).not.toHaveBeenCalled();
+    expect(files.files.size).toBe(0);
   });
 
   test("rejects an oversized reply image and stores nothing", async () => {
@@ -207,13 +220,38 @@ describe("Ticket actions", () => {
     expect(addMessage).not.toHaveBeenCalled();
   });
 
-  test("sends a reply with the uploaded image pathname", async () => {
+  test("sends a reply with the image stored in file-storage and Linked to the Message", async () => {
+    addMessage.mockResolvedValue({ id: 12, messageId: 55 });
     const formData = new FormData();
     formData.set("body", "See attached.");
     formData.set("attachment", new File([new Uint8Array(4)], "photo.png", { type: "image/png" }));
 
-    await expect(sendMessage(12, {}, formData)).resolves.toEqual({ sent: true });
-    expect(addMessage).toHaveBeenCalledWith(12, "customer-1", { body: "See attached." }, "ticket-attachments/12/photo-abc.png");
+    await expect(sendMessage(12, {}, formData)).resolves.toEqual({ sent: true, messageId: 55 });
+    expect(addMessage).toHaveBeenCalledWith(12, "customer-1", { body: "See attached." }, "file-1");
+    expect(files.files.get("file-1")?.messageId).toBe(55);
+  });
+
+  test("removes the stored image when the reply is not saved", async () => {
+    addMessage.mockRejectedValue(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const formData = new FormData();
+    formData.set("body", "See attached.");
+    formData.set("attachment", new File([new Uint8Array(4)], "photo.png", { type: "image/png" }));
+
+    await sendMessage(12, {}, formData);
+
+    expect(files.files.size).toBe(0);
+  });
+
+  test("keeps the reply when only the Link fails", async () => {
+    files.failLink = true;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    addMessage.mockResolvedValue({ id: 12, messageId: 55 });
+    const formData = new FormData();
+    formData.set("body", "See attached.");
+    formData.set("attachment", new File([new Uint8Array(4)], "photo.png", { type: "image/png" }));
+
+    await expect(sendMessage(12, {}, formData)).resolves.toEqual({ sent: true, messageId: 55 });
   });
 
   test("gives the Customer's browser a Live ticket address for their own Ticket", async () => {

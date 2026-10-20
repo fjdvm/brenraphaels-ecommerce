@@ -108,9 +108,9 @@ describe("Ticket store", () => {
     })).rejects.toThrow("Ticket was not found.");
   });
 
-  test("persists an attachment pathname on the opening Message, uploading under the new Ticket", async () => {
+  test("persists the file-storage id on the opening Message, storing the image once the Ticket exists", async () => {
     const store = createTicketStore(drizzle(client));
-    const upload = vi.fn(async (ticketId: number) => `ticket-attachments/${ticketId}/photo-abc.png`);
+    const upload = vi.fn(async () => "file-1");
 
     const ticket = await store.open(
       "customer-1",
@@ -119,9 +119,9 @@ describe("Ticket store", () => {
     );
 
     expect(upload).toHaveBeenCalledWith(ticket.id);
-    expect(ticket.messages[0].attachmentPathname).toBe(`ticket-attachments/${ticket.id}/photo-abc.png`);
+    expect(ticket.messages[0].fileId).toBe("file-1");
     const reread = await store.get(ticket.id, "customer-1");
-    expect(reread?.messages[0].attachmentPathname).toBe(`ticket-attachments/${ticket.id}/photo-abc.png`);
+    expect(reread?.messages[0].fileId).toBe("file-1");
   });
 
   test("removes the Ticket when the opening attachment upload fails", async () => {
@@ -139,7 +139,7 @@ describe("Ticket store", () => {
     await expect(store.listForCustomer("customer-1")).resolves.toEqual([]);
   });
 
-  test("persists an attachment pathname on a reply and leaves other Messages without one", async () => {
+  test("persists the file-storage id on a reply and leaves other Messages without one", async () => {
     const store = createTicketStore(drizzle(client));
     const ticket = await store.open("customer-1", { subject: "Damaged item", category: "Order Issue", body: "Hello." });
 
@@ -147,24 +147,32 @@ describe("Ticket store", () => {
       ticket.id,
       "customer-1",
       { body: "Here is the photo." },
-      `ticket-attachments/${ticket.id}/photo-abc.jpg`,
+      "file-2",
     );
 
-    expect(updated.messages.map(({ attachmentPathname }) => attachmentPathname)).toEqual([
-      null,
-      `ticket-attachments/${ticket.id}/photo-abc.jpg`,
-    ]);
+    expect(updated.messages.map(({ fileId }) => fileId)).toEqual([null, "file-2"]);
   });
 
-  test("only reveals an attachment pathname to the owning Customer", async () => {
+  test("only reveals where an image lives to the owning Customer", async () => {
     const store = createTicketStore(drizzle(client));
     const ticket = await store.open("customer-1", { subject: "Damaged item", category: "Order Issue", body: "Hello." });
-    const updated = await store.addMessage(ticket.id, "customer-1", { body: "Photo." }, "ticket-attachments/1/p.png");
+    const updated = await store.addMessage(ticket.id, "customer-1", { body: "Photo." }, "file-3");
     const messageId = updated.messages[1].id;
 
-    await expect(store.getAttachmentPathname(messageId, "customer-1")).resolves.toBe("ticket-attachments/1/p.png");
-    await expect(store.getAttachmentPathname(messageId, "customer-2")).resolves.toBeUndefined();
-    await expect(store.getAttachmentPathname(updated.messages[0].id, "customer-1")).resolves.toBeUndefined();
+    await expect(store.getAttachment(messageId, "customer-1")).resolves.toEqual({ fileId: "file-3" });
+    await expect(store.getAttachment(messageId, "customer-2")).resolves.toBeUndefined();
+    await expect(store.getAttachment(updated.messages[0].id, "customer-1")).resolves.toBeUndefined();
+  });
+
+  test("still finds an older image stored in Vercel Blob", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await store.open("customer-1", { subject: "Damaged item", category: "Order Issue", body: "Hello." });
+    const [old] = await client.query<{ id: number }>(
+      `insert into ticket_messages (ticket_id, sender, body, attachment_pathname) values ($1, 'customer', 'Old', 'ticket-attachments/1/p.png') returning id`,
+      [ticket.id],
+    ).then((r) => r.rows);
+
+    await expect(store.getAttachment(old.id, "customer-1")).resolves.toEqual({ pathname: "ticket-attachments/1/p.png" });
   });
 
   describe("Customer status transitions", () => {
