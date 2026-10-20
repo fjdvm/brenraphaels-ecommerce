@@ -3,5 +3,6 @@
     "app/api/queues/hr-ats-delivery/route.ts": {
       "experimentalTriggers": [{ "type": "queue/v2beta", "topic": "hr-ats-application-delivery" }]
     }
-  }
+  },
+  "crons": [{ "path": "/api/cron/auto-complete-tickets", "schedule": "0 1 * * *" }]
 }

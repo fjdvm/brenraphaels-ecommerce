@@ -5,7 +5,7 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { customers, orders, tickets } from "../lib/db/schema";
-import { completeTicketAndNotify, createTicketStore, openTicketAndNotify } from "../lib/support/tickets";
+import { autoCompleteResolvedTicketsAndNotify, completeTicketAndNotify, createTicketStore, openTicketAndNotify } from "../lib/support/tickets";
 
 let client: PGlite;
 
@@ -439,5 +439,80 @@ describe("completeTicketAndNotify", () => {
 
     expect(completed.status).toBe("completed");
     consoleError.mockRestore();
+  });
+});
+
+describe("Daily auto-complete of Resolved Tickets", () => {
+  const now = new Date("2026-10-20T00:00:00Z");
+  const daysAgo = (days: number) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+  async function ticketWith(store: ReturnType<typeof createTicketStore>, status: string, resolvedAt: Date | null, customerId = "customer-1") {
+    const ticket = await store.open(customerId, { subject: "My delivery issue", category: "Delivery Issue", body: "Where is it?" });
+    await drizzle(client).update(tickets).set({ status, resolvedAt }).where(eq(tickets.id, ticket.id));
+    return ticket;
+  }
+
+  test("completes a Ticket Resolved 3 days ago and thanks the Customer once", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await ticketWith(store, "resolved", daysAgo(3));
+    const mailer = { send: vi.fn().mockResolvedValue(undefined) };
+
+    await expect(autoCompleteResolvedTicketsAndNotify(now, { ticketStore: store, mailer })).resolves.toBe(1);
+
+    await expect(store.get(ticket.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
+    expect(mailer.send).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: ticket.id, status: "completed" }));
+  });
+
+  test("leaves a Ticket Resolved less than 3 days ago alone", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await ticketWith(store, "resolved", daysAgo(2.9));
+    const mailer = { send: vi.fn() };
+
+    await expect(autoCompleteResolvedTicketsAndNotify(now, { ticketStore: store, mailer })).resolves.toBe(0);
+
+    await expect(store.get(ticket.id, "customer-1")).resolves.toMatchObject({ status: "resolved" });
+    expect(mailer.send).not.toHaveBeenCalled();
+  });
+
+  test("does not complete a Ticket the Customer reopened, or one that is Open or already Completed", async () => {
+    const store = createTicketStore(drizzle(client));
+    const reopened = await ticketWith(store, "resolved", daysAgo(5));
+    await store.addMessage(reopened.id, "customer-1", { body: "Still broken." });
+    const open = await ticketWith(store, "open", daysAgo(5));
+    const completed = await ticketWith(store, "completed", daysAgo(5));
+    const mailer = { send: vi.fn() };
+
+    await expect(autoCompleteResolvedTicketsAndNotify(now, { ticketStore: store, mailer })).resolves.toBe(0);
+
+    await expect(store.get(reopened.id, "customer-1")).resolves.toMatchObject({ status: "open" });
+    await expect(store.get(open.id, "customer-1")).resolves.toMatchObject({ status: "open" });
+    await expect(store.get(completed.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
+    expect(mailer.send).not.toHaveBeenCalled();
+  });
+
+  test("running twice sends one email per Ticket", async () => {
+    const store = createTicketStore(drizzle(client));
+    await ticketWith(store, "resolved", daysAgo(4));
+    await ticketWith(store, "resolved", daysAgo(10), "customer-2");
+    const mailer = { send: vi.fn().mockResolvedValue(undefined) };
+
+    await expect(autoCompleteResolvedTicketsAndNotify(now, { ticketStore: store, mailer })).resolves.toBe(2);
+    await expect(autoCompleteResolvedTicketsAndNotify(now, { ticketStore: store, mailer })).resolves.toBe(0);
+
+    expect(mailer.send).toHaveBeenCalledTimes(2);
+  });
+
+  test("a failed email does not undo the completion or stop the other Tickets", async () => {
+    const store = createTicketStore(drizzle(client));
+    const first = await ticketWith(store, "resolved", daysAgo(4));
+    const second = await ticketWith(store, "resolved", daysAgo(4), "customer-2");
+    const mailer = { send: vi.fn().mockRejectedValueOnce(new Error("smtp down")).mockResolvedValue(undefined) };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(autoCompleteResolvedTicketsAndNotify(now, { ticketStore: store, mailer })).resolves.toBe(2);
+
+    await expect(store.get(first.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
+    await expect(store.get(second.id, "customer-2")).resolves.toMatchObject({ status: "completed" });
+    expect(mailer.send).toHaveBeenCalledTimes(2);
   });
 });

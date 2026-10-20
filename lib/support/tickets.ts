@@ -1,8 +1,8 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
-import { orders, ticketMessages, tickets } from "../db/schema";
+import { customers, orders, ticketMessages, tickets } from "../db/schema";
 import { optionalPositiveIntegerField, textField } from "../validators/fields";
 import { ticketMessageInput } from "./ticket-message";
 
@@ -66,7 +66,12 @@ export type TicketStore = {
   complete(ticketId: number, customerId: string): Promise<Ticket>;
   /** Returns a Resolved Ticket to Open because the Customer says it is not fixed. */
   reportNotFixed(ticketId: number, customerId: string): Promise<Ticket>;
+  /** Completes every Ticket Resolved at or before `resolvedBefore` and returns each with its Customer's email. */
+  autoCompleteResolved(resolvedBefore: Date): Promise<{ ticket: Ticket; recipientEmail: string }[]>;
 };
+
+/** How long a Ticket stays Resolved, with no reply from the Customer, before it completes by itself. */
+export const autoCompleteAfterDays = 3;
 
 /** What the store announces after persisting; subscribers of the Ticket's channel receive it. */
 export type TicketEvent = {
@@ -123,6 +128,27 @@ export async function completeTicketAndNotify(
     console.error("Ticket-completed email could not be sent", error);
   }
   return ticket;
+}
+
+/**
+ * Completes Tickets left Resolved for 3 days and thanks each Customer. Only a Ticket this run completed is
+ * mailed, so a second run sends nothing, and one failed email neither undoes a completion nor skips the rest.
+ * Returns how many Tickets were completed.
+ */
+export async function autoCompleteResolvedTicketsAndNotify(
+  now: Date,
+  dependencies: { ticketStore: TicketStore; mailer: TicketCompletedMailer },
+): Promise<number> {
+  const cutoff = new Date(now.getTime() - autoCompleteAfterDays * 24 * 60 * 60 * 1000);
+  const completed = await dependencies.ticketStore.autoCompleteResolved(cutoff);
+  for (const { ticket, recipientEmail } of completed) {
+    try {
+      await dependencies.mailer.send(recipientEmail, ticket);
+    } catch (error) {
+      console.error("Ticket auto-completed email could not be sent", error);
+    }
+  }
+  return completed.length;
 }
 
 /** Stores and retrieves Tickets only through their owning Customer. */
@@ -278,6 +304,21 @@ export function createTicketStore<
   const complete = (ticketId: number, customerId: string) => transition(ticketId, customerId, ["open", "resolved"], "completed");
   const reportNotFixed = (ticketId: number, customerId: string) => transition(ticketId, customerId, ["resolved"], "open");
 
+  async function autoCompleteResolved(resolvedBefore: Date) {
+    // One conditional UPDATE: a Ticket the Customer reopened, or another run already completed, no longer matches.
+    const changed = await db
+      .update(tickets)
+      .set({ status: "completed" })
+      .where(and(eq(tickets.status, "resolved"), lte(tickets.resolvedAt, resolvedBefore)))
+      .returning();
+    return Promise.all(
+      changed.map(async (row) => {
+        const [customer] = await db.select({ email: customers.email }).from(customers).where(eq(customers.id, row.customerId));
+        return { ticket: await toTicket(row), recipientEmail: customer.email };
+      }),
+    );
+  }
+
   async function getAttachmentPathname(messageId: number, customerId: string): Promise<string | undefined> {
     const [row] = await db
       .select({ attachmentPathname: ticketMessages.attachmentPathname })
@@ -287,5 +328,5 @@ export function createTicketStore<
     return row?.attachmentPathname ?? undefined;
   }
 
-  return { open, listForCustomer, get, addMessage, getAttachmentPathname, complete, reportNotFixed };
+  return { open, listForCustomer, get, addMessage, getAttachmentPathname, complete, reportNotFixed, autoCompleteResolved };
 }
