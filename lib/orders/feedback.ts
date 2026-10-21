@@ -67,7 +67,13 @@ export function createOrderFeedbackStore<
       .insert(orderFeedback)
       .values(input)
       .onConflictDoNothing()
-      .returning();
+      // Sentiment is for Staff in CREOMS only; the storefront never reads or returns it.
+      .returning({
+        orderId: orderFeedback.orderId,
+        rating: orderFeedback.rating,
+        comment: orderFeedback.comment,
+        createdAt: orderFeedback.createdAt,
+      });
     if (!feedback) throw new OrderFeedbackAlreadySubmittedError();
 
     if (recipient && deps.queueThankYou) {
