@@ -1,3 +1,4 @@
+import type { DueFeedbackRequest as FeedbackRequest } from "../orders/feedback-requests";
 import { thankYouEmail } from "../orders/feedback-thank-you";
 
 export type AppEmail = {
@@ -51,13 +52,6 @@ export async function sendAppNotification(notification: AppNotification, fetcher
   });
   if (!response.ok) throw new Error(`The gateway refused the notification: ${response.status}`);
 }
-
-export type FeedbackRequest = {
-  orderId: number;
-  customerId: string;
-  customerName: string;
-  email: string;
-};
 
 /** The same words for the email and the in-app Notification; the link lands on the Order's Feedback form. */
 export function feedbackRequestContent(orderId: number, siteUrl: string) {

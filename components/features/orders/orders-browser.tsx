@@ -45,7 +45,8 @@ export function OrdersBrowser({ orders, focusOrderId }: { orders: OrderWithFeedb
   const [openIds, setOpenIds] = useState<Set<number>>(() => {
     const ids = new Set(orders.slice(0, 1).map(({ order }) => order.id));
     // A Feedback request links here with ?order=: open that Order's card so its form shows.
-    if (orders.some(({ order }) => order.id === focusOrderId)) ids.add(focusOrderId!);
+    const linked = orders.find(({ order }) => order.id === focusOrderId);
+    if (linked) ids.add(linked.order.id);
     return ids;
   });
 
