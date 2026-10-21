@@ -197,6 +197,26 @@ export const orderFeedback = pgTable("order_feedback", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+  /** Set by CREOMS's scheduled analysis; empty until the Feedback has been analyzed. */
+  sentiment: text("sentiment", { enum: ["positive", "neutral", "negative"] }),
+  /** The model that produced the Sentiment. */
+  sentimentModel: text("sentiment_model"),
+  sentimentAnalyzedAt: timestamp("sentiment_analyzed_at", { withTimezone: true }),
+});
+
+/** One run of CREOMS's Feedback analysis; backs "Last analyzed" and the failure warning. Written only by CREOMS. */
+export const feedbackAnalysisRuns = pgTable("feedback_analysis_runs", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  /** "schedule" or "staff". */
+  startedByKind: text("started_by_kind").notNull(),
+  startedById: text("started_by_id"),
+  startedByName: text("started_by_name"),
+  startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+  /** Empty while the run is in progress. */
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  analyzed: integer("analyzed").notNull().default(0),
+  failed: integer("failed").notNull().default(0),
+  model: text("model"),
 });
 
 /** The one Feedback request sent for an Order; its absence means the Customer has not been asked yet. */
