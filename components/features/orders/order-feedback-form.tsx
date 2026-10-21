@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useRef, useState, type FormEvent } from "react";
 
 import { submitOrderFeedback, type OrderFeedbackState } from "@/app/(site)/(protected)/profile/orders/actions";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ export function OrderFeedbackForm({ orderId, feedback }: { orderId: number; feed
   const [state, action, pending] = useActionState(submitOrderFeedback, initialState);
   const [confirming, setConfirming] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const confirmed = useRef(false);
 
   if (feedback || state.submitted) {
     return (
@@ -39,17 +40,24 @@ export function OrderFeedbackForm({ orderId, feedback }: { orderId: number; feed
     );
   }
 
-  function askToConfirm() {
-    if (formRef.current?.reportValidity()) setConfirming(true);
+  /** Every submit (button or Enter) asks first; only the dialog's confirm lets it through. */
+  function askToConfirm(event: FormEvent<HTMLFormElement>) {
+    if (confirmed.current) {
+      confirmed.current = false;
+      return;
+    }
+    event.preventDefault();
+    setConfirming(true);
   }
 
   function confirm() {
+    confirmed.current = true;
     setConfirming(false);
     formRef.current?.requestSubmit();
   }
 
   return (
-    <form action={action} className="mt-5 rounded-md border border-outline-variant/60 bg-surface-container p-4" ref={formRef}>
+    <form action={action} onSubmit={askToConfirm} className="mt-5 rounded-md border border-outline-variant/60 bg-surface-container p-4" ref={formRef}>
       <input name="orderId" type="hidden" value={orderId} />
       <fieldset className="grid gap-2">
         <legend className="font-semibold text-primary">How was your Order?</legend>
@@ -69,7 +77,7 @@ export function OrderFeedbackForm({ orderId, feedback }: { orderId: number; feed
         </label>
       </fieldset>
       {state.message ? <p className="mt-3 text-sm text-red-700" role="alert">{state.message}</p> : null}
-      <Button className="mt-4" disabled={pending} onClick={askToConfirm} type="button">{pending ? "Submitting…" : "Submit Feedback"}</Button>
+      <Button className="mt-4" disabled={pending} type="submit">{pending ? "Submitting…" : "Submit Feedback"}</Button>
 
       <Dialog onOpenChange={setConfirming} open={confirming}>
         <DialogContent className="text-center">

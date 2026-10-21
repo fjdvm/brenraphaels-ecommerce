@@ -20,6 +20,8 @@ export async function sendAppEmail(email: AppEmail, fetcher: typeof fetch = fetc
     method: "POST",
     headers: { Authorization: `Bearer ${required("GATEWAY_CALLER_KEY")}`, "Content-Type": "application/json" },
     body: JSON.stringify({ ...email, app: "ecommerce" }),
+    // A hung gateway must not hold up the Customer's submit.
+    signal: AbortSignal.timeout(5_000),
   });
   if (!response.ok) throw new Error(`The gateway refused the email: ${response.status}`);
 }
