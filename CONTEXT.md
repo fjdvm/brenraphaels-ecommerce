@@ -86,6 +86,13 @@ _Avoid_: Order feedback, review
 A Customer's optional rating and free text about their experience with a `delivered` Order, given once, not editable afterward. Visible to the Customer on their own Order and to CREOMS, never shown publicly.
 _Avoid_: Review, comment, rating (alone)
 
+**Feedback request**:
+The one email and in-app Notification sent to a Customer 2 days after an Order was Delivered, linking to that Order's Feedback form. Sent at most once per Order, with no reminder, and not sent if the Customer has already given Order feedback or the Order has no delivered at time. Each one is recorded.
+_Avoid_: Survey, review request
+
+**Delivered at**:
+The moment an Order became `delivered`, recorded when it happens. Orders delivered before it was recorded have none and are never sent a Feedback request.
+
 ### Support
 
 **Ticket**:
