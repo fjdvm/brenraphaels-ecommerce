@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { queueFeedbackThankYou, sendAppEmail } from "../lib/notifications/gateway";
 
 beforeEach(() => {
-  vi.stubEnv("GATEWAY_URL", "https://gateway.example.com/");
-  vi.stubEnv("GATEWAY_CALLER_KEY", "key-1");
+  vi.stubEnv("API_GATEWAY_URL", "https://gateway.example.com/");
+  vi.stubEnv("API_GATEWAY_CALLER_KEY", "key-1");
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.example.com");
 });
 
@@ -27,8 +27,8 @@ describe("gateway App email", () => {
   });
 
   test("fails when the gateway is not configured", async () => {
-    vi.stubEnv("GATEWAY_CALLER_KEY", "");
+    vi.stubEnv("API_GATEWAY_CALLER_KEY", "");
 
-    await expect(queueFeedbackThankYou("a@b.co", 5)).rejects.toThrow("GATEWAY_CALLER_KEY");
+    await expect(queueFeedbackThankYou("a@b.co", 5)).rejects.toThrow("API_GATEWAY_CALLER_KEY");
   });
 });

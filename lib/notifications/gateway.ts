@@ -15,10 +15,10 @@ function required(name: string): string {
 
 /** Queues an App email through the api-gateway's notifications service, as the storefront's Caller. */
 export async function sendAppEmail(email: AppEmail, fetcher: typeof fetch = fetch): Promise<void> {
-  const base = required("GATEWAY_URL").replace(/\/$/, "");
+  const base = required("API_GATEWAY_URL").replace(/\/$/, "");
   const response = await fetcher(`${base}/notifications/emails/app`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${required("GATEWAY_CALLER_KEY")}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${required("API_GATEWAY_CALLER_KEY")}`, "Content-Type": "application/json" },
     body: JSON.stringify({ ...email, app: "ecommerce" }),
     // A hung gateway must not hold up the Customer's submit.
     signal: AbortSignal.timeout(5_000),
