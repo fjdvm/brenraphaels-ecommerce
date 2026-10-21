@@ -30,3 +30,50 @@ export async function sendAppEmail(email: AppEmail, fetcher: typeof fetch = fetc
 export function queueFeedbackThankYou(recipient: string, rating: number): Promise<void> {
   return sendAppEmail({ to: recipient, ...thankYouEmail(rating, required("NEXT_PUBLIC_SITE_URL")) });
 }
+
+export type AppNotification = {
+  userId: string;
+  type: string;
+  title: string;
+  body: string;
+  link?: string;
+};
+
+/** Sends an in-app Notification to one Customer through the api-gateway's notifications service. */
+export async function sendAppNotification(notification: AppNotification, fetcher: typeof fetch = fetch): Promise<void> {
+  const base = required("API_GATEWAY_URL").replace(/\/$/, "");
+  const { userId, ...content } = notification;
+  const response = await fetcher(`${base}/notifications/notifications`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${required("API_GATEWAY_CALLER_KEY")}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ ...content, sendingApp: "ecommerce", targetApp: "ecommerce", userIds: [userId] }),
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!response.ok) throw new Error(`The gateway refused the notification: ${response.status}`);
+}
+
+export type FeedbackRequest = {
+  orderId: number;
+  customerId: string;
+  customerName: string;
+  email: string;
+};
+
+/** The same words for the email and the in-app Notification; the link lands on the Order's Feedback form. */
+export function feedbackRequestContent(orderId: number, siteUrl: string) {
+  return {
+    title: `How was your Order #${orderId}?`,
+    body: "Your Order from Bren Raphael's was delivered. Tell us how it went; your Feedback is private and helps us do better.",
+    button: { label: "Give Feedback", link: `${siteUrl.replace(/\/$/, "")}/profile/orders?order=${orderId}` },
+  };
+}
+
+/** Sends the Feedback request as an email and an in-app Notification; throws if either fails. */
+export async function sendFeedbackRequest(request: FeedbackRequest, fetcher: typeof fetch = fetch): Promise<void> {
+  const { title, body, button } = feedbackRequestContent(request.orderId, required("NEXT_PUBLIC_SITE_URL"));
+  await sendAppEmail({ to: request.email, title, body, button }, fetcher);
+  await sendAppNotification(
+    { userId: request.customerId, type: "feedback.request", title, body, link: button.link },
+    fetcher,
+  );
+}

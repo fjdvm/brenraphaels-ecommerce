@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar, Check, ChevronDown, Store, Truck, Wallet } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { CartThumbnail } from "@/components/features/orders/cart-thumbnail";
 import { CancelOrderForm, MessageUsLink } from "@/components/features/orders/cancel-order-form";
@@ -40,9 +40,18 @@ const badgeClass: Record<OrderBadge["tone"], string> = {
 };
 
 /** The My orders list: filter chips over expandable Order cards. */
-export function OrdersBrowser({ orders }: { orders: OrderWithFeedback[] }) {
+export function OrdersBrowser({ orders, focusOrderId }: { orders: OrderWithFeedback[]; focusOrderId?: number }) {
   const [filter, setFilter] = useState<"all" | OrderFilter>("all");
-  const [openIds, setOpenIds] = useState<Set<number>>(() => new Set(orders.slice(0, 1).map(({ order }) => order.id)));
+  const [openIds, setOpenIds] = useState<Set<number>>(() => {
+    const ids = new Set(orders.slice(0, 1).map(({ order }) => order.id));
+    // A Feedback request links here with ?order=: open that Order's card so its form shows.
+    if (orders.some(({ order }) => order.id === focusOrderId)) ids.add(focusOrderId!);
+    return ids;
+  });
+
+  useEffect(() => {
+    if (focusOrderId !== undefined) document.getElementById(`order-${focusOrderId}-feedback`)?.scrollIntoView?.({ block: "center" });
+  }, [focusOrderId]);
 
   const counts = new Map<string, number>([["all", orders.length]]);
   for (const { order } of orders) counts.set(orderFilterOf(order), (counts.get(orderFilterOf(order)) ?? 0) + 1);

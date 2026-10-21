@@ -157,6 +157,23 @@ describe("Order", () => {
     await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ id: dispatched.id, status: "dispatched" }, { id: placed.id, status: "cancelled" }]);
   });
 
+  test("records when an Order became Delivered, and only then", async () => {
+    const database = drizzle(client);
+    await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
+    const store = createOrderStore(database);
+    const order = await store.place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+    const deliveredAt = async () =>
+      (await client.query<{ delivered_at: Date | null }>("select delivered_at from orders where id = $1", [order.id])).rows[0].delivered_at;
+
+    await store.advance(order.id, { status: "preparing" });
+    await store.advance(order.id, { status: "dispatched" });
+    expect(await deliveredAt()).toBeNull();
+
+    const before = Date.now();
+    await store.advance(order.id, { status: "delivered" });
+    expect((await deliveredAt())!.getTime()).toBeGreaterThanOrEqual(before - 1000);
+  });
+
   test("allows a Customer to cancel only their own Order before dispatch", async () => {
     const database = drizzle(client);
     const cart = createCartStore(database);

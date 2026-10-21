@@ -41,6 +41,6 @@ describe("auto-complete Tickets cron route", () => {
   });
 
   test("is registered to run once a day", () => {
-    expect(vercelConfig.crons).toEqual([{ path: "/api/cron/auto-complete-tickets", schedule: expect.stringMatching(/^\d+ \d+ \* \* \*$/) }]);
+    expect(vercelConfig.crons).toContainEqual({ path: "/api/cron/auto-complete-tickets", schedule: expect.stringMatching(/^\d+ \d+ \* \* \*$/) });
   });
 });

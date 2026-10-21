@@ -154,6 +154,8 @@ export const orders = pgTable("orders", {
   gcashReferenceNumber: text("gcash_reference_number"),
   paymentProofScreenshotPathname: text("payment_proof_screenshot_pathname"),
   paymentProofSubmittedAt: timestamp("payment_proof_submitted_at", { withTimezone: true }),
+  // When the Order became Delivered. Orders delivered before this column existed keep it empty.
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -193,6 +195,19 @@ export const orderFeedback = pgTable("order_feedback", {
   rating: integer("rating").notNull(),
   comment: text("comment").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+/** The one Feedback request sent for an Order; its absence means the Customer has not been asked yet. */
+export const feedbackRequests = pgTable("feedback_requests", {
+  orderId: integer("order_id")
+    .primaryKey()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  customerId: text("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "restrict" }),
+  sentAt: timestamp("sent_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
 });
