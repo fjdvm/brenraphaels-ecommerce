@@ -82,6 +82,13 @@ describe("Unsubscribe link", () => {
     expect(await optIn("customer-3")).toBe(false);
   });
 
+  // CREOMS builds the same token; its tests should assert this same value.
+  test("the token format is stable", () => {
+    expect(unsubscribeToken("customer-1", secret)).toBe(
+      "Y3VzdG9tZXItMQ.DAqi85OFTo0NUmhkC4Tvgl_k5JSJvxJyUKdJT3QNkHM",
+    );
+  });
+
   test("links are unique to each Customer", () => {
     expect(unsubscribeToken("customer-1", secret)).not.toBe(unsubscribeToken("customer-2", secret));
   });
@@ -91,6 +98,9 @@ describe("Unsubscribe link", () => {
     ["empty", ""],
     ["garbage", "not-a-token"],
     ["no signature", "Y3VzdG9tZXItMQ."],
+    ["no dot", "Y3VzdG9tZXItMQ"],
+    ["extra dots", `${unsubscribeToken("customer-1", secret)}.extra`],
+    ["oversized", "a".repeat(600)],
   ])("a %s link changes nothing", async (_name, token) => {
     await expect(unsubscribeCustomer(token, { secret, db })).resolves.toBe("invalid");
 

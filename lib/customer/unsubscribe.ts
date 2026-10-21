@@ -7,6 +7,10 @@ import { customers } from "../db/schema";
 
 const tokenMaximumLength = 512;
 
+function sign(customerId: string, secret: string) {
+  return createHmac("sha256", secret).update(customerId).digest("base64url");
+}
+
 /**
  * An Unsubscribe token is `<base64url Customer id>.<base64url HMAC-SHA256 of the id>`,
  * signed with UNSUBSCRIBE_SECRET. It is stateless, unique to the Customer and cannot be
@@ -14,8 +18,7 @@ const tokenMaximumLength = 512;
  * the link in each Marketing Email.
  */
 export function unsubscribeToken(customerId: string, secret: string) {
-  const signature = createHmac("sha256", secret).update(customerId).digest("base64url");
-  return `${Buffer.from(customerId).toString("base64url")}.${signature}`;
+  return `${Buffer.from(customerId).toString("base64url")}.${sign(customerId, secret)}`;
 }
 
 export function unsubscribeLink(
@@ -37,7 +40,7 @@ function customerIdFromToken(token: string | undefined, secret: string) {
   }
 
   const customerId = Buffer.from(encodedId, "base64url").toString();
-  const expected = Buffer.from(unsubscribeToken(customerId, secret).split(".")[1]);
+  const expected = Buffer.from(sign(customerId, secret));
   const actual = Buffer.from(signature);
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
     return undefined;
