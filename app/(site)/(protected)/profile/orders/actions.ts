@@ -12,6 +12,7 @@ import {
   OrderFeedbackNotAvailableError,
   createOrderFeedbackStore,
 } from "@/lib/orders/feedback";
+import { queueFeedbackThankYou } from "@/lib/notifications/gateway";
 import { orderFeedbackInput } from "@/lib/orders/feedback-input";
 import { createOrderStore, OrderTransitionError, type Order } from "@/lib/orders/orders";
 import { gcashReferenceNumberField, uploadPaymentProofScreenshot } from "@/lib/orders/payment-proof";
@@ -133,7 +134,11 @@ export async function submitOrderFeedback(
 
   const customer = await requireCustomer();
   try {
-    await createOrderFeedbackStore(getDatabase()).submit(customer.userId, parsed.data);
+    await createOrderFeedbackStore(getDatabase(), { queueThankYou: queueFeedbackThankYou }).submit(
+      customer.userId,
+      parsed.data,
+      customer.email,
+    );
   } catch (error) {
     if (error instanceof OrderFeedbackNotAvailableError || error instanceof OrderFeedbackAlreadySubmittedError) {
       return { message: error.message };

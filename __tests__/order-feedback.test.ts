@@ -1,7 +1,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { customers, orders } from "../lib/db/schema";
 import {
@@ -68,5 +68,44 @@ describe("Order feedback", () => {
 
     await store.submit("customer-1", input);
     await expect(store.submit("customer-1", input)).rejects.toBeInstanceOf(OrderFeedbackAlreadySubmittedError);
+  });
+
+  describe("thank-you email", () => {
+    const input = (orderId: number, rating: number) => ({ orderId, rating, comment: "Secret comment about the jam." });
+
+    test("queues one thank-you email to the Customer after a successful submit", async () => {
+      const order = await createOrder("delivered");
+      const queueThankYou = vi.fn().mockResolvedValue(undefined);
+
+      await createOrderFeedbackStore(drizzle(client), { queueThankYou }).submit("customer-1", input(order.id, 5), "jane@example.com");
+
+      expect(queueThankYou).toHaveBeenCalledTimes(1);
+      expect(queueThankYou).toHaveBeenCalledWith("jane@example.com", 5);
+    });
+
+    test("queues nothing when the submit is refused", async () => {
+      const queueThankYou = vi.fn().mockResolvedValue(undefined);
+      const store = createOrderFeedbackStore(drizzle(client), { queueThankYou });
+      const notDelivered = await createOrder("confirmed");
+      const someoneElses = await createOrder("delivered", "customer-2");
+      const delivered = await createOrder("delivered");
+
+      await expect(store.submit("customer-1", input(notDelivered.id, 4), "jane@example.com")).rejects.toBeInstanceOf(OrderFeedbackNotAvailableError);
+      await expect(store.submit("customer-1", input(someoneElses.id, 4), "jane@example.com")).rejects.toBeInstanceOf(OrderFeedbackNotAvailableError);
+      await store.submit("customer-1", input(delivered.id, 4), "jane@example.com");
+      await expect(store.submit("customer-1", input(delivered.id, 1), "jane@example.com")).rejects.toBeInstanceOf(OrderFeedbackAlreadySubmittedError);
+
+      expect(queueThankYou).toHaveBeenCalledTimes(1);
+    });
+
+    test("keeps the Feedback when the email cannot be queued", async () => {
+      const order = await createOrder("delivered");
+      const queueThankYou = vi.fn().mockRejectedValue(new Error("gateway down"));
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const store = createOrderFeedbackStore(drizzle(client), { queueThankYou });
+
+      await expect(store.submit("customer-1", input(order.id, 2), "jane@example.com")).resolves.toMatchObject({ orderId: order.id, rating: 2 });
+      await expect(store.forOrder("customer-1", order.id)).resolves.toMatchObject({ rating: 2 });
+    });
   });
 });

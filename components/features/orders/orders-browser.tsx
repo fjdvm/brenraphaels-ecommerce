@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 
 import { CartThumbnail } from "@/components/features/orders/cart-thumbnail";
 import { CancelOrderForm, MessageUsLink } from "@/components/features/orders/cancel-order-form";
-import { OrderFeedbackForm } from "@/components/features/orders/order-feedback-form";
+import { OrderFeedbackForm, type GivenFeedback } from "@/components/features/orders/order-feedback-form";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { formatPeso } from "@/lib/catalog/currency";
 import {
@@ -21,7 +21,7 @@ import {
 import type { Order } from "@/lib/orders/orders";
 import { cn } from "@/lib/utils";
 
-export type OrderFeedbackSummary = { rating: number; comment: string };
+export type OrderFeedbackSummary = GivenFeedback;
 export type OrderWithFeedback = { order: Order; feedback: OrderFeedbackSummary | null };
 
 const filters: { id: "all" | OrderFilter; label: string; counted: boolean }[] = [
@@ -259,17 +259,7 @@ function OrderDetails({
         </p>
       ) : null}
 
-      {order.status === "delivered" ? (
-        feedback ? (
-          <section className="rounded-[3px] bg-surface-soft p-5">
-            <h3 className="font-serif text-lg text-primary">Your feedback</h3>
-            <p className="mt-2 text-sm text-ink">Order feedback score: {feedback.rating} / 5</p>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{feedback.comment}</p>
-          </section>
-        ) : (
-          <OrderFeedbackForm orderId={order.id} />
-        )
-      ) : null}
+      {order.status === "delivered" ? <OrderFeedbackForm feedback={feedback} orderId={order.id} /> : null}
 
       {cancellable ? (
         <CancelOrderForm orderId={order.id} />

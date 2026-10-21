@@ -57,6 +57,19 @@ describe("Order actions", () => {
     vi.restoreAllMocks();
   });
 
+  test("saves the Feedback for the signed-in Customer and has the thank-you sent to their email", async () => {
+    submit.mockResolvedValueOnce({ orderId: 12, rating: 5 });
+
+    await expect(submitOrderFeedback({}, feedbackFormData())).resolves.toEqual({ submitted: true });
+
+    expect(submit).toHaveBeenCalledWith(
+      "customer-1",
+      { orderId: 12, rating: 5, comment: "The ube halaya arrived fresh and delicious." },
+      "jane@example.com",
+    );
+    expect(revalidatePath).toHaveBeenCalledWith("/profile/orders");
+  });
+
   test("returns a form error when Feedback cannot be saved", async () => {
     submit.mockRejectedValueOnce(new Error("database unavailable"));
     vi.spyOn(console, "error").mockImplementation(() => undefined);

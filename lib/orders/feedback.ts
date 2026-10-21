@@ -28,8 +28,12 @@ export class OrderFeedbackAlreadySubmittedError extends Error {
   }
 }
 
+/** Queues the thank-you email for a Customer's Feedback; may fail without affecting the submit. */
+export type QueueThankYou = (recipient: string, rating: number) => Promise<void>;
+
 export type OrderFeedbackStore = {
-  submit(customerId: string, input: SubmitOrderFeedback): Promise<OrderFeedback>;
+  /** `recipient` is the Customer's email; when given, a thank-you email is queued after saving. */
+  submit(customerId: string, input: SubmitOrderFeedback, recipient?: string): Promise<OrderFeedback>;
   forOrder(customerId: string, orderId: number): Promise<OrderFeedback | undefined>;
 };
 
@@ -37,7 +41,7 @@ export type OrderFeedbackStore = {
 export function createOrderFeedbackStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
->(db: PgDatabase<TQueryResult, TSchema>): OrderFeedbackStore {
+>(db: PgDatabase<TQueryResult, TSchema>, deps: { queueThankYou?: QueueThankYou } = {}): OrderFeedbackStore {
   async function forOrder(customerId: string, orderId: number) {
     const [feedback] = await db
       .select({
@@ -52,7 +56,7 @@ export function createOrderFeedbackStore<
     return feedback;
   }
 
-  async function submit(customerId: string, input: SubmitOrderFeedback) {
+  async function submit(customerId: string, input: SubmitOrderFeedback, recipient?: string) {
     const [order] = await db
       .select({ id: orders.id })
       .from(orders)
@@ -65,6 +69,14 @@ export function createOrderFeedbackStore<
       .onConflictDoNothing()
       .returning();
     if (!feedback) throw new OrderFeedbackAlreadySubmittedError();
+
+    if (recipient && deps.queueThankYou) {
+      try {
+        await deps.queueThankYou(recipient, feedback.rating);
+      } catch (error) {
+        console.error("Feedback thank-you email could not be queued", error);
+      }
+    }
     return feedback;
   }
 
