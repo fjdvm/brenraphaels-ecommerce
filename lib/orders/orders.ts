@@ -237,6 +237,7 @@ export function createOrderStore<
       .update(orders)
       .set({
         status: input.status,
+        ...(input.status === "delivered" ? { deliveredAt: new Date() } : {}),
         ...(input.deliveryFeeInCentavos === undefined
           ? {}
           : { deliveryFeeInCentavos: input.deliveryFeeInCentavos }),
