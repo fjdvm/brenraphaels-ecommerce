@@ -11,6 +11,7 @@ const publicPaths = new Set([
   "/returns",
   "/careers",
   "/verify-email",
+  "/unsubscribe",
   "/products",
 ]);
 

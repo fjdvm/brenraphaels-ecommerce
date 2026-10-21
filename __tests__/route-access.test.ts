@@ -19,6 +19,7 @@ describe("Route access (proxy cookie check)", () => {
     "/careers/reset-password",
     "/careers/verify-email",
     "/verify-email",
+    "/unsubscribe",
     "/products",
     "/products/ube-jam-smooth",
     "/signin",

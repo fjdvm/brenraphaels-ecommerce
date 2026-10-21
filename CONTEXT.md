@@ -26,6 +26,10 @@ _Avoid_: Phone, mobile, cellphone
 The Customer's explicit yes-or-no answer to receiving promotional emails, asked at sign-up with no pre-selected answer.
 _Avoid_: Newsletter subscription, consent flag
 
+**Unsubscribe link**:
+A public link in the footer of every Marketing Email, unique to one Customer and not guessable. Opening it, without signing in, sets that Customer's Marketing opt-in to no at once and shows a confirmation page. Opening it again changes nothing. A link that is invalid or has been altered changes nothing and says so.
+_Avoid_: Opt-out link
+
 **Address**:
 A place the shop can deliver to, with a label (Home, Work, Other). A Customer gives their first Address at sign-up and may add, edit, or remove Addresses afterwards.
 _Avoid_: Location, shipping info
