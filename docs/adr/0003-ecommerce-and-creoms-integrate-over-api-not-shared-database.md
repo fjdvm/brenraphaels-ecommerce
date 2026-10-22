@@ -1,6 +1,6 @@
 # Ecommerce owns Order writes; CREOMS reads Orders through a read-only role
 
-Orders are managed from the staff side by CREOMS (Customer Relationship & E-commerce Ordering Management System), a separate application with its own auth (not Neon Auth). CREOMS and this app share one Neon database for Orders, but only for reading: CREOMS connects through a read-only role and never writes Order data directly. Every change to an Order (status, Delivery fee) goes through this app's secret-guarded Order status endpoint, so the transition rules and the Customer emails stay in the storefront and apply the same way whoever triggers the change. This app owns the schema and remains the source of truth for Order data.
+Orders are managed from the staff side by CREOMS (Customer Relationship & E-commerce Ordering Management System), a separate application with its own auth (not Neon Auth). CREOMS and this app share one Neon database for Orders, but only for reading: CREOMS connects through a read-only role and never writes Order data directly. Every change to an Order (status, Delivery fee) goes through this app's credential-guarded Order status endpoint, so the transition rules and the Customer emails stay in the storefront and apply the same way whoever triggers the change. This app owns the schema and remains the source of truth for Order data.
 
 ## Consequences
 
