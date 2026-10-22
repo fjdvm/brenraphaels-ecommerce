@@ -122,6 +122,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     expect((await post(statusRequest(expired), context)).status).toBe(401);
     process.env.ORDER_STATUS_API_SECRET = "test-secret";
     expect((await post(statusRequest("test-secret"), context)).status).toBe(401);
+    delete process.env.ORDER_STATUS_API_SECRET;
     expect(advance).not.toHaveBeenCalled();
     expect(createOrderStore).not.toHaveBeenCalled();
   });

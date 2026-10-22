@@ -56,6 +56,7 @@ describe("CREOMS service credential", () => {
     process.env.ORDER_STATUS_API_SECRET = "test-secret";
     expect(verifyCreomsCredential(headersWith("test-secret"), now)).toBe(false);
     expect(verifyCreomsCredential(new Headers({ "X-Order-Status-Secret": "test-secret" }), now)).toBe(false);
+    delete process.env.ORDER_STATUS_API_SECRET;
   });
 
   test("refuses everything when no key is configured or the key is too short", () => {

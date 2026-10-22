@@ -18,6 +18,8 @@ An HS256 JWT sent as `Authorization: Bearer <token>`, with claims:
 
 Tokens issued in the future, expired, with another audience or scope, or living longer than 15 minutes are refused. `mintCreomsCredential` in `lib/orders/creoms-credential.ts` is the reference implementation.
 
+Set `CREOMS_SERVICE_SECRET` in this app's environment **before** deploying: with it unset (or shorter than 32 characters) every call is refused with `401`. Hand the key to CREOMS over a secure channel (a password manager or similar), never by email or chat.
+
 ## Rotating the key
 
 1. Generate a new key: `openssl rand -base64 48`.

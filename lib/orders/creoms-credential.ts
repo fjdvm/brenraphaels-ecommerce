@@ -9,6 +9,7 @@ export const creomsIssuer = "creoms";
 export const creomsAudience = "brenraphaels-orders";
 export const creomsOrderStatusScope = "orders:status";
 export const maxCredentialLifetimeSeconds = 15 * 60;
+export const defaultCredentialLifetimeSeconds = 5 * 60;
 const minKeyLength = 32;
 
 type Claims = { iss?: unknown; aud?: unknown; scope?: unknown; iat?: unknown; exp?: unknown };
@@ -41,7 +42,7 @@ export function mintCreomsCredential(options: {
     aud: options.audience ?? creomsAudience,
     scope: options.scope ?? creomsOrderStatusScope,
     iat,
-    exp: iat + (options.lifetimeSeconds ?? 300),
+    exp: iat + (options.lifetimeSeconds ?? defaultCredentialLifetimeSeconds),
   })}`;
   return `${signingInput}.${sign(signingInput, options.secret ?? process.env.CREOMS_SERVICE_SECRET ?? "")}`;
 }
