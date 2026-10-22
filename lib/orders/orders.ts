@@ -2,6 +2,7 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { addresses, customers, orderDeliveryAddresses, orderLines, orders, productImages, products } from "../db/schema";
+import { staffAttribution } from "../validators/staff";
 import { createCartStore } from "./cart";
 
 export const fulfillmentMethods = ["pickup", "delivery"] as const;
@@ -64,6 +65,9 @@ export type Order = {
   subtotalInCentavos: number;
   // Pickup Orders never have one; Delivery Orders get theirs once staff quote it.
   deliveryFeeInCentavos: number | null;
+  paidById: string | null;
+  paidByName: string | null;
+  paidAt: Date | null;
   createdAt: Date;
   lines: OrderLine[];
   deliveryAddress: DeliveryAddress | null;
@@ -91,7 +95,7 @@ export type OrderStore = {
   listForCustomer(customerId: string): Promise<Order[]>;
   advance(
     orderId: number,
-    input: { status: OrderStatus; deliveryFeeInCentavos?: number },
+    input: { status: OrderStatus; deliveryFeeInCentavos?: number; staffId?: string; staffName?: string },
   ): Promise<Order>;
   cancel(customerId: string, orderId: number): Promise<Order>;
   customerEmailForOrder(orderId: number): Promise<string | undefined>;
@@ -168,6 +172,9 @@ export function createOrderStore<
       status: row.status as OrderStatus,
       subtotalInCentavos: row.subtotalInCentavos,
       deliveryFeeInCentavos: row.deliveryFeeInCentavos,
+      paidById: row.paidById,
+      paidByName: row.paidByName,
+      paidAt: row.paidAt,
       createdAt: row.createdAt,
       lines,
       deliveryAddress: await deliveryAddressForOrder(row.id),
@@ -195,7 +202,7 @@ export function createOrderStore<
 
   async function advance(
     orderId: number,
-    input: { status: OrderStatus; deliveryFeeInCentavos?: number },
+    input: { status: OrderStatus; deliveryFeeInCentavos?: number; staffId?: string; staffName?: string },
   ): Promise<Order> {
     const [persistedOrder] = await db
       .select()
@@ -233,10 +240,12 @@ export function createOrderStore<
       throw new Error("A confirmed Delivery Order must include its Delivery fee.");
     }
 
+    const staff = input.status === "paid" ? staffAttribution.parse(input) : null;
     const [updatedOrder] = await db
       .update(orders)
       .set({
         status: input.status,
+        ...(staff ? { paidById: staff.staffId, paidByName: staff.staffName, paidAt: new Date() } : {}),
         ...(input.status === "delivered" ? { deliveredAt: new Date() } : {}),
         ...(input.deliveryFeeInCentavos === undefined
           ? {}
@@ -383,6 +392,9 @@ export function createOrderStore<
         createdAt: order.createdAt,
         deliveryAddress,
         paymentProof: null,
+        paidById: null,
+        paidByName: null,
+        paidAt: null,
         lines: cart.lines.map(({ productName, imageUrl, sizeLabel, priceInCentavos, quantity }) => ({
           productName,
           imageUrl,

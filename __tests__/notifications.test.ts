@@ -18,6 +18,9 @@ const order = (overrides: Partial<Order>): Order => ({
   lines: [],
   deliveryAddress: null,
   paymentProof: null,
+  paidById: null,
+  paidByName: null,
+  paidAt: null,
   ...overrides,
 });
 

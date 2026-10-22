@@ -154,6 +154,11 @@ export const orders = pgTable("orders", {
   gcashReferenceNumber: text("gcash_reference_number"),
   paymentProofScreenshotPathname: text("payment_proof_screenshot_pathname"),
   paymentProofSubmittedAt: timestamp("payment_proof_submitted_at", { withTimezone: true }),
+  /** Opaque br-auth-service Staff id and display-name snapshot; never a foreign key. */
+  paidById: text("paid_by_id"),
+  paidByName: text("paid_by_name"),
+  // Legacy paid Orders keep all three attribution fields empty.
+  paidAt: timestamp("paid_at", { withTimezone: true }),
   // When the Order became Delivered. Orders delivered before this column existed keep it empty.
   deliveredAt: timestamp("delivered_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })

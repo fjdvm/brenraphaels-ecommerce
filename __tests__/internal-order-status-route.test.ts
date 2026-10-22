@@ -80,21 +80,58 @@ describe("POST /api/internal/orders/[id]/status", () => {
     advance.mockResolvedValue({
       id: 12,
       status: "paid",
+      paidById: "staff-17",
+      paidByName: "Ana de la Cruz",
+      paidAt: new Date("2026-10-22T12:00:00Z"),
       fulfillmentMethod: "pickup",
       deliveryFeeInCentavos: null,
       subtotalInCentavos: 21900,
     });
     const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
-      body: JSON.stringify({ status: "paid" }),
+      body: JSON.stringify({ status: "paid", staffId: "staff-17", staffName: "Ana de la Cruz" }),
       headers: { "Authorization": `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
       method: "POST",
     });
 
-    expect((await post(request, context)).status).toBe(200);
+    const response = await post(request, context);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      paidById: "staff-17", paidByName: "Ana de la Cruz", paidAt: "2026-10-22T12:00:00.000Z",
+    });
+    expect(advance).toHaveBeenCalledWith(12, { status: "paid", staffId: "staff-17", staffName: "Ana de la Cruz" });
     expect(customerEmailForOrder).toHaveBeenCalledWith(12);
     expect(sendOrderPaidEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12, status: "paid" }));
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
   });
+
+  test.each([
+    {}, { staffId: "staff-17" }, { staffName: "Ana Cruz" },
+    { staffId: "", staffName: "Ana Cruz" }, { staffId: "staff-17", staffName: " " },
+    { staffId: 17, staffName: "Ana Cruz" }, { staffId: "staff-17", staffName: "<script>" },
+  ])("refuses incomplete or invalid paid attribution before any write: %j", async (staff) => {
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "paid", ...staff }),
+      headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect((await post(request, context)).status).toBe(400);
+    expect(advance).not.toHaveBeenCalled();
+    expect(sendOrderPaidEmail).not.toHaveBeenCalled();
+  });
+
+  test.each(["confirmed", "cancelled", "preparing", "dispatched", "delivered"])(
+    "%s does not need or forward Staff attribution", async (status) => {
+      for (const staff of [{}, { staffId: "staff-17", staffName: "Ana Cruz" }]) {
+        const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+          body: JSON.stringify({ status, ...staff }),
+          headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+          method: "POST",
+        });
+        expect((await post(request, context)).status).toBe(200);
+        expect(advance).toHaveBeenLastCalledWith(12, { status });
+      }
+    },
+  );
 
   test("invites the Customer to leave Feedback when an Order is delivered", async () => {
     advance.mockResolvedValueOnce({ id: 12, status: "delivered", fulfillmentMethod: "pickup", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });

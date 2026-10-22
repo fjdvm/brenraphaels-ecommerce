@@ -45,6 +45,70 @@ async function firstSizeId() {
 }
 
 describe("Order", () => {
+  test("records who marked an Order paid and retains the attribution on reads", async () => {
+    const database = drizzle(client);
+    await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
+    const store = createOrderStore(database);
+    const order = await store.place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
+    await store.advance(order.id, { status: "awaiting payment" });
+    const before = Date.now();
+    const paid = await store.advance(order.id, { status: "paid", staffId: "staff-17", staffName: "Ana de la Cruz" });
+    expect(paid).toMatchObject({ status: "paid", paidById: "staff-17", paidByName: "Ana de la Cruz", paidAt: expect.any(Date) });
+    expect(paid.paidAt!.getTime()).toBeGreaterThanOrEqual(before);
+    expect(paid.paidAt!.getTime()).toBeLessThanOrEqual(Date.now());
+    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([paid]);
+    await expect(store.advance(order.id, { status: "preparing" })).resolves.toMatchObject({
+      paidById: "staff-17", paidByName: "Ana de la Cruz", paidAt: paid.paidAt,
+    });
+  });
+
+  test.each([
+    {}, { staffId: "staff-17" }, { staffName: "Ana Cruz" },
+    { staffId: " ", staffName: "Ana Cruz" }, { staffId: "staff-17", staffName: " " },
+  ])("refuses paid without Staff attribution and changes nothing: %j", async (staff) => {
+    const database = drizzle(client);
+    await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
+    const store = createOrderStore(database);
+    const order = await store.place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
+    const awaiting = await store.advance(order.id, { status: "awaiting payment" });
+    await expect(store.advance(order.id, { status: "paid", ...staff })).rejects.toThrow();
+    await expect(store.listForCustomer("customer-1")).resolves.toEqual([awaiting]);
+  });
+
+  test("legacy paid Orders have no attribution and can still advance", async () => {
+    const result = await client.query<{ id: number }>(`
+      insert into orders (customer_id, fulfillment_method, payment_method, status, subtotal_in_centavos)
+      values ('customer-1', 'pickup', 'gcash', 'paid', 21900) returning id
+    `);
+    const store = createOrderStore(drizzle(client));
+    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([
+      { status: "paid", paidById: null, paidByName: null, paidAt: null },
+    ]);
+    await expect(store.advance(result.rows[0].id, { status: "preparing" })).resolves.toMatchObject({
+      status: "preparing", paidById: null, paidByName: null, paidAt: null,
+    });
+  });
+
+  test("other status changes do not store supplied Staff attribution", async () => {
+    const result = await client.query<{ id: number }>(`
+      insert into orders (customer_id, fulfillment_method, payment_method, status, subtotal_in_centavos)
+      values ('customer-1', 'delivery', 'cash-on-delivery', 'placed', 21900) returning id
+    `);
+    const store = createOrderStore(drizzle(client));
+    for (const status of ["confirmed", "preparing", "dispatched", "delivered"] as const) {
+      await expect(store.advance(result.rows[0].id, {
+        status, staffId: "staff-17", staffName: "Ana Cruz",
+        ...(status === "confirmed" ? { deliveryFeeInCentavos: 8000 } : {}),
+      })).resolves.toMatchObject({ status, paidById: null, paidByName: null, paidAt: null });
+    }
+    const cart = createCartStore(drizzle(client));
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const order = await store.place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+    expect(order).toMatchObject({ paidById: null, paidByName: null, paidAt: null });
+    await expect(store.advance(order.id, { status: "cancelled", staffId: "staff-17", staffName: "Ana Cruz" }))
+      .resolves.toMatchObject({ status: "cancelled", paidById: null, paidByName: null, paidAt: null });
+  });
+
   test("places a Delivery Order with an immutable copy of its chosen Address", async () => {
     const database = drizzle(client);
     await client.query(`
@@ -109,7 +173,7 @@ describe("Order", () => {
     await expect(store.advance(placed.id, { status: "awaiting payment" })).resolves.toMatchObject({
       status: "awaiting payment",
     });
-    await expect(store.advance(placed.id, { status: "paid" })).resolves.toMatchObject({ status: "paid" });
+    await expect(store.advance(placed.id, { status: "paid", staffId: "staff-17", staffName: "Ana Cruz" })).resolves.toMatchObject({ status: "paid" });
     await expect(store.advance(placed.id, { status: "preparing" })).resolves.toMatchObject({ status: "preparing" });
     await expect(store.advance(placed.id, { status: "dispatched" })).resolves.toMatchObject({ status: "dispatched" });
     await expect(store.advance(placed.id, { status: "delivered" })).resolves.toMatchObject({ status: "delivered" });
@@ -315,7 +379,7 @@ describe("Order", () => {
         screenshotPathname: "payment-proofs/1/receipt.png",
       },
     });
-    await expect(store.advance(placed.id, { status: "paid" })).resolves.toMatchObject({ status: "paid" });
+    await expect(store.advance(placed.id, { status: "paid", staffId: "staff-17", staffName: "Ana Cruz" })).resolves.toMatchObject({ status: "paid" });
   });
 
   test("only accepts payment proof for a confirmed GCash Order belonging to the Customer", async () => {

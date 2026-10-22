@@ -20,6 +20,9 @@ const order = (id: number): Order => ({
   lines: [],
   deliveryAddress: null,
   paymentProof: null,
+  paidById: null,
+  paidByName: null,
+  paidAt: null,
 });
 
 const orders = [3, 2, 1].map((id) => ({ order: order(id), feedback: null }));
