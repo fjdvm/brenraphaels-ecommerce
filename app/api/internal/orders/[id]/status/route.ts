@@ -2,7 +2,8 @@ import { getDatabase } from "@/lib/db";
 import { sendOrderConfirmedEmail } from "@/lib/email/order-confirmed-email";
 import { sendOrderDeliveredEmail } from "@/lib/email/order-delivered-email";
 import { sendOrderPaidEmail } from "@/lib/email/order-paid-email";
-import { verifyInternalOrderStatusUpdate } from "@/lib/orders/internal-status";
+import { verifyCreomsCredential } from "@/lib/orders/creoms-credential";
+import { parseInternalOrderStatusUpdate } from "@/lib/orders/internal-status";
 import { createOrderStore, type Order, type OrderStore } from "@/lib/orders/orders";
 
 export const runtime = "nodejs";
@@ -27,6 +28,10 @@ export async function POST(
   request: Request,
   context: RouteContext<"/api/internal/orders/[id]/status">,
 ) {
+  if (!verifyCreomsCredential(request.headers)) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { id } = await context.params;
   const orderId = Number(id);
   if (!Number.isSafeInteger(orderId) || orderId < 1) {
@@ -34,7 +39,7 @@ export async function POST(
   }
 
   try {
-    const update = verifyInternalOrderStatusUpdate(await request.json(), request.headers);
+    const update = parseInternalOrderStatusUpdate(await request.json());
     const orderStore = createOrderStore(getDatabase());
     const order = await orderStore.advance(orderId, update);
     if (

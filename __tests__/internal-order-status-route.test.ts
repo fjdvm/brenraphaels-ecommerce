@@ -1,3 +1,4 @@
+import { mintCreomsCredential } from "@/lib/orders/creoms-credential";
 import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 
 const {
@@ -34,7 +35,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  process.env.ORDER_STATUS_API_SECRET = "test-secret";
+  process.env.CREOMS_SERVICE_SECRET = "k".repeat(40);
   advance.mockReset().mockResolvedValue({
     id: 12,
     status: "confirmed",
@@ -50,11 +51,11 @@ beforeEach(() => {
   getDatabase.mockClear();
 });
 
-function statusRequest(secret?: string) {
+function statusRequest(credential = mintCreomsCredential()) {
   return new Request("https://shop.example.test/api/internal/orders/12/status", {
     body: JSON.stringify({ status: "confirmed", deliveryFeeInCentavos: 8000 }),
     headers: {
-      "Authorization": `Bearer ${secret ?? "test-secret"}`,
+      "Authorization": `Bearer ${credential}`,
       "Content-Type": "application/json",
     },
     method: "POST",
@@ -64,7 +65,7 @@ function statusRequest(secret?: string) {
 const context = { params: Promise.resolve({ id: "12" }) };
 
 describe("POST /api/internal/orders/[id]/status", () => {
-  test("accepts a request carrying the shared secret", async () => {
+  test("accepts a request carrying a valid CREOMS service credential", async () => {
     expect((await post(statusRequest(), context)).status).toBe(200);
     expect(advance).toHaveBeenCalledWith(12, { status: "confirmed", deliveryFeeInCentavos: 8000 });
     expect(customerEmailForOrder).toHaveBeenCalledWith(12);
@@ -85,7 +86,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     });
     const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
       body: JSON.stringify({ status: "paid" }),
-      headers: { "Authorization": "Bearer test-secret", "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
       method: "POST",
     });
 
@@ -99,7 +100,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     advance.mockResolvedValueOnce({ id: 12, status: "delivered", fulfillmentMethod: "pickup", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
     const deliveredRequest = new Request("https://shop.example.test/api/internal/orders/12/status", {
       body: JSON.stringify({ status: "delivered" }),
-      headers: { "Authorization": "Bearer test-secret", "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
       method: "POST",
     });
 
@@ -108,15 +109,32 @@ describe("POST /api/internal/orders/[id]/status", () => {
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
   });
 
-  test("rejects a missing or invalid shared secret before advancing the Order", async () => {
-    const missingSecret = new Request("https://shop.example.test/api/internal/orders/12/status", {
+  test("refuses a missing, wrong, expired or retired credential with 401 before advancing the Order", async () => {
+    const missing = new Request("https://shop.example.test/api/internal/orders/12/status", {
       body: JSON.stringify({ status: "confirmed" }),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     });
+    const expired = mintCreomsCredential({ now: new Date(Date.now() - 600_000), lifetimeSeconds: 60 });
 
-    expect((await post(missingSecret, context)).status).toBe(400);
-    expect((await post(statusRequest("wrong-secret"), context)).status).toBe(400);
+    expect((await post(missing, context)).status).toBe(401);
+    expect((await post(statusRequest(mintCreomsCredential({ secret: "z".repeat(40) })), context)).status).toBe(401);
+    expect((await post(statusRequest(expired), context)).status).toBe(401);
+    process.env.ORDER_STATUS_API_SECRET = "test-secret";
+    expect((await post(statusRequest("test-secret"), context)).status).toBe(401);
     expect(advance).not.toHaveBeenCalled();
+    expect(createOrderStore).not.toHaveBeenCalled();
+  });
+
+  test("can cancel an Order with a valid credential", async () => {
+    advance.mockResolvedValueOnce({ id: 12, status: "cancelled", fulfillmentMethod: "pickup", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
+    const cancel = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "cancelled" }),
+      headers: { "Authorization": `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    expect((await post(cancel, context)).status).toBe(200);
+    expect(advance).toHaveBeenCalledWith(12, { status: "cancelled" });
   });
 });
