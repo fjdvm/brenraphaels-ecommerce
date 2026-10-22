@@ -2,7 +2,7 @@
 
 The online shop where people buy Bren Raphael's Ube Jam & Halaya. This context covers how people become Customers, prove they own their email, keep their personal details, browse products, place and pay for Orders, and give Feedback. This context is Customer-facing only: it has no staff or admin UI, and it shares no data, accounts, or vocabulary with the [Careers](./app/(careers)/CONTEXT.md) context living alongside it in this same app — see [Context Map](./CONTEXT-MAP.md). A Customer and an Applicant are unrelated identities, even for the same person.
 
-CREOMS (Customer Relationship & E-commerce Ordering Management System) is a separate application, built later. It manages Orders from the staff side (quoting delivery fees, verifying payment, advancing status) and, once built, answers Support Tickets from the staff side. For Orders, this app and CREOMS integrate over an API/webhook, not a shared database — this app owns and remains the source of truth for Order data (see [ADR-0003](./docs/adr/0003-ecommerce-and-creoms-integrate-over-api-not-shared-database.md)). Support Tickets are the exception: this app and CREOMS share one Neon database for Ticket data, with this app as the sole owner of that schema and its migrations (see [ADR-0007](./docs/adr/0007-support-tickets-integrate-via-shared-database.md)). Either way, CREOMS's own staff sign in through a separate service (br-auth-service), not Neon Auth, so staff identity never lives in this app's database.
+CREOMS (Customer Relationship & E-commerce Ordering Management System) is a separate application, built later. It manages Orders from the staff side (quoting delivery fees, verifying payment, advancing status) and, once built, answers Support Tickets from the staff side. For Orders, CREOMS reads them through a read-only database role and changes them only through this app's Order status endpoint, so the transition rules and Customer emails stay here — this app owns and remains the source of truth for Order data (see [ADR-0003](./docs/adr/0003-ecommerce-and-creoms-integrate-over-api-not-shared-database.md)). Support Tickets are the exception: this app and CREOMS share one Neon database for Ticket data, with this app as the sole owner of that schema and its migrations (see [ADR-0007](./docs/adr/0007-support-tickets-integrate-via-shared-database.md)). Either way, CREOMS's own staff sign in through a separate service (br-auth-service), not Neon Auth, so staff identity never lives in this app's database.
 
 ## Language
 
@@ -47,7 +47,7 @@ A Customer's request to buy one or more Sizes, placed against one fulfillment me
 _Avoid_: Purchase, transaction
 
 **Order status**:
-Where an Order is in its lifecycle: `placed`, `confirmed` (Delivery fee quoted, Pickup Orders skip straight here), `awaiting payment` and `paid` (GCash Orders only; Cash on Delivery Orders skip both), `preparing`, `dispatched`, `delivered`, or `cancelled`. A Customer may cancel their own Order any time before it is `dispatched`; cancellation past that point is staff-only, in CREOMS.
+Where an Order is in its lifecycle: `placed`, `confirmed` (Delivery fee quoted, Pickup Orders skip straight here), `awaiting payment` and `paid` (GCash Orders only; Cash on Delivery Orders skip both), `preparing`, `dispatched`, `delivered`, or `cancelled`. A Customer may cancel their own Order any time before it is `dispatched`. Staff can cancel an Order up to `preparing`; a `dispatched` Order cannot be cancelled yet.
 _Avoid_: Order state, fulfillment status
 
 **Fulfillment method**:
