@@ -18,3 +18,5 @@ Validation includes migrating a database with existing Orders, round-tripping al
 ## Applied rollout
 
 On 2026-10-23, migration `0019_order_returns` and the CREOMS SELECT-only permissions migration were applied to the configured production database after verification on an isolated production copy. Drizzle history matches the migration hash, all four tables exist, and the CREOMS role has SELECT without INSERT/UPDATE/DELETE/TRUNCATE privileges. Existing Order and Customer counts were unchanged. The live CREOMS Returns loaders were checked after migration.
+
+Final checks: 79 storefront test files / 616 tests passed, along with typechecking, full lint, production build and a Drizzle generation check reporting no schema drift. Both standards and specification reviews found no issues.
