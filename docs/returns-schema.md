@@ -14,3 +14,7 @@ Apply with the existing `npm run db:migrate` workflow and `DATABASE_URL_UNPOOLED
 The schema matches CREOMS's documented read contract. Customer request endpoints, the 24-hour request rule, Staff decision endpoints and Customer emails/Notifications are separate storefront work. Creating the tables alone does not deploy those endpoints.
 
 Validation includes migrating a database with existing Orders, round-tripping all four tables, rerunning Drizzle without losing data, and rejecting invalid amounts/image positions. The migration and permissions are also checked on an isolated Neon copy of production before live application.
+
+## Applied rollout
+
+On 2026-10-23, migration `0019_order_returns` and the CREOMS SELECT-only permissions migration were applied to the configured production database after verification on an isolated production copy. Drizzle history matches the migration hash, all four tables exist, and the CREOMS role has SELECT without INSERT/UPDATE/DELETE/TRUNCATE privileges. Existing Order and Customer counts were unchanged. The live CREOMS Returns loaders were checked after migration.
