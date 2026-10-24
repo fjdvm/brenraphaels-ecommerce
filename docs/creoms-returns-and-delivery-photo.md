@@ -2,7 +2,7 @@
 
 This updates the [#179 contract](https://github.com/fjdvm/epic-crms/blob/main/docs/creoms-returns-and-delivery-photo.md) for [the Customer Returns spec #194](https://github.com/fjdvm/epic-crms/issues/194), superseding its refund-only rules. Terms follow [CONTEXT.md](../CONTEXT.md). Ownership follows [ADR-0003](adr/0003-ecommerce-and-creoms-integrate-over-api-not-shared-database.md): the storefront owns Returns, the Refund window, evidence and refund proof File references, all Customer emails and Notifications. CREOMS reads through its SELECT-only database role and asks the storefront to make Staff changes. Staff settle refunds externally and send replacements; neither application initiates a payment here.
 
-Ticket #117 provides the schema and reusable `createReturnStore(...).transition` persistence boundary. The HTTP endpoints, Customer creation/eligibility, file verification, reads, emails, Notifications and UI below are the contract for dependent tickets; this document does not mean those flows are deployed. CREOMS must extend its existing refund-only caller and read model before enabling replacement decisions.
+Ticket #117 provides the schema and reusable `createReturnStore(...).transition` persistence boundary. Ticket #119 implements the authenticated Customer request/cancellation endpoints and their direct-upload evidence flow. Staff endpoints, Customer reads, emails, Notifications and UI below remain the contract for dependent tickets; this document does not mean those flows are deployed. CREOMS must extend its existing refund-only caller and read model before enabling replacement decisions.
 
 ## Credentials and attribution
 
@@ -37,7 +37,7 @@ Request creation must atomically save at least one whole-line snapshot, one to t
 
 ## Customer request and cancellation
 
-Build authenticated `POST /api/orders/<id>/returns`. Proposed JSON input:
+Authenticated `POST /api/orders/<id>/returns` accepts JSON input:
 
 ```json
 {
@@ -45,21 +45,29 @@ Build authenticated `POST /api/orders/<id>/returns`. Proposed JSON input:
   "reason": "damaged",
   "note": "The seal is broken.",
   "preferredResolution": "replacement",
-  "photoFileIds": ["photo-file-id"],
-  "videoFileId": "optional-video-file-id"
+  "photoUploadTokens": ["signed-photo-upload-token"],
+  "videoUploadToken": "optional-signed-video-upload-token"
 }
 ```
 
-Reasons are `damaged`, `defective`, `wrong item`, `other`. Normalize and validate every field using the shared validators. Reject duplicates, unrelated/partial lines and files not uploaded for this Customer/request. Recheck eligibility inside the transactional write, serializing against other requests and the Customer received action:
+Reasons are `damaged`, `defective`, `wrong item`, `other`. The note is optional, normalized and limited to 2,000 characters. Fields use the shared validators; unknown fields (including quantities, prices and bare File ids), duplicate lines/photos, unrelated lines and files not uploaded for this Customer/Order are refused. Whole quantities are copied from the purchased line snapshots.
+
+First call authenticated `POST /api/orders/<id>/returns/uploads` for each file with `{ "role": "photo", "contentType": "image/png", "size": 1234 }` (or role `video` and `video/mp4`/`video/quicktime`). The response is `201 { "id": "<File id>", "uploadUrl": "<presigned URL>", "uploadToken": "<signed token>" }`. PUT bytes directly to `uploadUrl` with the declared Content-Type and no gateway credentials. Pass the tokens when submitting the Return. This avoids sending up to 40 MB through a storefront Function. Tokens are signed using the storefront Caller key, scoped to Customer, Order, File id and photo/video purpose, and expire after one hour. A Caller-key rotation invalidates outstanding upload tokens; upload again.
+
+Browser uploads target Private, Temporary staging Files. The request boundary confirms each staging upload, verifies Active/Private/Temporary metadata, downloads its bounded content through a server-only signed view address, and checks actual JPG/PNG/MP4/MOV signatures and size. It then seals the verified bytes in a separate Private, Permanent File, confirms its metadata and persists only that new File id. The sealed File’s PUT URL stays server-side; reusing a browser staging URL cannot change accepted evidence. Unknown/unconfirmed evidence, metadata/content mismatches and uploads for another Customer, Order or purpose are refused. Confirmed Permanent files are kept after failed or uncertain requests rather than risking deletion of accepted evidence. Staging Files expire through file-storage cleanup. No browser API allows File replacement or deletion.
+
+Rollout dependency: file-storage must admit `video/mp4` and `video/quicktime` in its upload allowlist and preserve video bytes without image processing. Its current local `src/files/schemas.ts` allowlist excludes both. The storefront supports these types and exercises them with fake storage; the file-storage deployment must support them before enabling video in the Customer form. No live storage upload is part of this ticket.
+
+The boundary rechecks eligibility inside the transactional write, serializing against other requests and the Customer received action:
 
 - The Order belongs to the Customer and is `delivered`; `received` is ineligible.
 - Payment is confirmed: GCash reached `paid` before fulfilment; Cash on Delivery and Pickup qualify once delivered.
 - `delivered_at` is present and `delivered_at <= now < delivered_at + 24 hours`. Missing/future times and the exact cutoff are refused. Use elapsed storefront time, never a client clock.
 - Items in Requested, Approved or Goods received Returns are reserved. Refunded or Replaced items cannot be returned again. Declined and Customer-cancelled Returns release their items while the original window remains open.
 
-Calculate the amount from purchased line snapshots, capped at the amount actually paid for selected items. Include the Delivery fee only when all Order items are selected. Ignore Customer amounts/prices. The Refund window limits creation only: Staff cannot override it and later steps never expire. Return `201 { "id": 15, "number": "RMA-15", "status": "requested" }` after commit.
+Calculate the amount from purchased line snapshots, capped at the amount actually paid for selected items. If a historical paid subtotal is lower than the sum of its line snapshots, allocate that subtotal proportionally across lines in stable id order using integer centavos; splitting selections into disjoint Returns cannot multiply the cap. Include the Delivery fee only when all Order items are selected. Ignore Customer amounts/prices. The Refund window limits creation only: Staff cannot override it and later steps never expire. Return `201 { "id": 15, "number": "RMA-15", "status": "requested" }` after commit.
 
-Build `POST /api/returns/<id>/cancel` with an empty body for the owning Customer. Only Requested can become Cancelled, even after the window closes. Commit cancellation/history together and return `{ "id": 15, "status": "cancelled" }`. A race with approval has one winner.
+`POST /api/returns/<id>/cancel` accepts an empty body (or `{}`) for the owning Customer. Only Requested can become Cancelled, even after the window closes. Commit cancellation/history together and return `{ "id": 15, "status": "cancelled" }`. A race with approval has one winner.
 
 ## Status moves
 
