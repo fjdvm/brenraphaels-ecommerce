@@ -11,6 +11,8 @@ export class OrderReceiptNotFoundError extends Error {
 
 export class OrderReceiptConflictError extends Error {}
 
+const returnInProgressStatuses = ["requested", "approved", "goods received"] as const;
+
 /** Customer identity must come from the authenticated storefront session. */
 export function createOrderReceiptStore<
   TQueryResult extends PgQueryResultHKT,
@@ -28,7 +30,7 @@ export function createOrderReceiptStore<
       }
 
       const [activeReturn] = await tx.select({ id: orderReturns.id }).from(orderReturns)
-        .where(and(eq(orderReturns.orderId, orderId), inArray(orderReturns.status, ["requested", "approved", "goods received"])))
+        .where(and(eq(orderReturns.orderId, orderId), inArray(orderReturns.status, [...returnInProgressStatuses])))
         .limit(1);
       if (activeReturn) {
         throw new OrderReceiptConflictError("An Order with a Return in progress cannot be marked received.");
@@ -42,5 +44,13 @@ export function createOrderReceiptStore<
     });
   }
 
-  return { markReceived };
+  /** Ids of the Customer's Orders that have a Return in progress. */
+  async function orderIdsWithReturnInProgress(customerId: string) {
+    const rows = await db.selectDistinct({ orderId: orderReturns.orderId }).from(orderReturns)
+      .innerJoin(orders, eq(orders.id, orderReturns.orderId))
+      .where(and(eq(orders.customerId, customerId), inArray(orderReturns.status, [...returnInProgressStatuses])));
+    return new Set(rows.map((row) => row.orderId));
+  }
+
+  return { markReceived, orderIdsWithReturnInProgress };
 }

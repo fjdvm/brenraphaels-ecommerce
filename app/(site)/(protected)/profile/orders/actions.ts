@@ -14,6 +14,7 @@ import {
 } from "@/lib/orders/feedback";
 import { queueFeedbackThankYou } from "@/lib/notifications/gateway";
 import { orderFeedbackInput } from "@/lib/orders/feedback-input";
+import { createOrderReceiptStore, OrderReceiptConflictError, OrderReceiptNotFoundError } from "@/lib/orders/receipt";
 import { createOrderStore, OrderTransitionError, type Order } from "@/lib/orders/orders";
 import { gcashReferenceNumberField, uploadPaymentProofScreenshot } from "@/lib/orders/payment-proof";
 import { positiveIntegerField } from "@/lib/validators/fields";
@@ -32,6 +33,11 @@ export type OrderFeedbackState = {
 export type OrderCancellationState = {
   cancelled?: boolean;
   emailWarning?: string;
+  message?: string;
+};
+
+export type OrderReceivedState = {
+  received?: boolean;
   message?: string;
 };
 
@@ -149,4 +155,24 @@ export async function submitOrderFeedback(
 
   revalidatePath("/profile/orders");
   return { submitted: true };
+}
+
+/** Irreversible: ends the Customer's right to a Return on a delivered Order. */
+export async function markOrderReceived(orderId: number): Promise<OrderReceivedState> {
+  const parsed = positiveIntegerField("Order ID").safeParse(orderId);
+  if (!parsed.success) return { message: "We couldn't mark this Order received. Please try again." };
+
+  const customer = await requireCustomer();
+  try {
+    await createOrderReceiptStore(getDatabase()).markReceived(customer.userId, parsed.data);
+  } catch (error) {
+    if (error instanceof OrderReceiptNotFoundError || error instanceof OrderReceiptConflictError) {
+      return { message: error.message };
+    }
+    console.error("Order could not be marked received", error);
+    return { message: "We couldn't mark this Order received. Please try again." };
+  }
+
+  revalidatePath("/profile/orders");
+  return { received: true };
 }

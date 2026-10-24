@@ -25,7 +25,7 @@ const order = (id: number): Order => ({
   paidAt: null,
 });
 
-const orders = [3, 2, 1].map((id) => ({ order: order(id), feedback: null }));
+const orders = [3, 2, 1].map((id) => ({ order: order(id), feedback: null, returnInProgress: false }));
 
 describe("Orders page deep link to the Feedback form", () => {
   test("opens only the newest Order's card by default", () => {

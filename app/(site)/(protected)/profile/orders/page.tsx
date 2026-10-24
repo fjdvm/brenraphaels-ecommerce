@@ -10,6 +10,7 @@ import { PageHeading } from "@/components/ui/page-heading";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { createOrderFeedbackStore } from "@/lib/orders/feedback";
+import { createOrderReceiptStore } from "@/lib/orders/receipt";
 import { createOrderStore } from "@/lib/orders/orders";
 
 export const metadata: Metadata = { title: "My orders" };
@@ -22,10 +23,11 @@ async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/p
   const customer = await requireCustomer();
   const orders = await createOrderStore(getDatabase()).listForCustomer(customer.userId);
   const feedbackStore = createOrderFeedbackStore(getDatabase());
+  const withReturnInProgress = await createOrderReceiptStore(getDatabase()).orderIdsWithReturnInProgress(customer.userId);
   const withFeedback = await Promise.all(
     orders.map(async (order) => {
       const feedback = (order.status === "delivered" || order.status === "received") ? await feedbackStore.forOrder(customer.userId, order.id) : undefined;
-      return { order, feedback: feedback ? { rating: feedback.rating, comment: feedback.comment, createdAt: feedback.createdAt } : null };
+      return { order, feedback: feedback ? { rating: feedback.rating, comment: feedback.comment, createdAt: feedback.createdAt } : null, returnInProgress: withReturnInProgress.has(order.id) };
     }),
   );
 
