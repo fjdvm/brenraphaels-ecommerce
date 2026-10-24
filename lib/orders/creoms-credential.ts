@@ -1,9 +1,9 @@
 import crypto from "node:crypto";
 
 /**
- * The service credential CREOMS presents to the internal Order status endpoint (ADR-0003).
+ * The service credential CREOMS presents to the internal status endpoints (ADR-0003).
  * It is a short-lived HS256 JWT that CREOMS mints from a signing key only the two apps hold,
- * so a leaked token expires on its own and only ever opens Order status.
+ * so a leaked token expires on its own and only opens its signed audience and scope.
  */
 export const creomsIssuer = "creoms";
 export const creomsAudience = "brenraphaels-orders";
@@ -65,7 +65,7 @@ function parseJson(part: string): unknown {
   }
 }
 
-/** True only for a validly signed, unexpired credential scoped to Order status. Never throws. */
+/** Validates a signed, unexpired credential for the expected audience/scope (Orders by default). Never throws. */
 export function verifyCreomsCredential(
   headers: Headers,
   now = new Date(),
