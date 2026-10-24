@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, expect, test, vi } from "vi
 import { customers, orders, orderLines, orderReturnHistory, orderReturnImages, orderReturnItems, orderReturns } from "../lib/db/schema";
 import { createCustomerReturns } from "../lib/returns/customer-returns";
 import { createReturnStore } from "../lib/returns/returns";
+import { createOrderReceiptStore } from "../lib/orders/receipt";
 
 let client: PGlite;
 let db: ReturnType<typeof drizzle>;
@@ -171,6 +172,25 @@ test("rechecks received status and elapsed time after reading evidence", async (
   });
   await expect(service().request("customer-1", orderId, request())).rejects.toThrow("24-hour");
   expect(await db.select().from(orderReturns)).toEqual([]);
+});
+
+test("requesting a Return and marking received race through the same Order lock", async () => {
+  const results = await Promise.allSettled([
+    service().request("customer-1", orderId, request()),
+    createOrderReceiptStore(db).markReceived("customer-1", orderId),
+  ]);
+  expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+  const returns = await db.select().from(orderReturns);
+  expect(order.status === "received" ? returns.length === 0 : order.status === "delivered" && returns.length === 1).toBe(true);
+});
+
+test("a committed Return prevents receipt, and committed receipt prevents a Return", async () => {
+  const first = await service().request("customer-1", orderId, request());
+  await expect(createOrderReceiptStore(db).markReceived("customer-1", orderId)).rejects.toThrow("Return in progress");
+  await service().cancel("customer-1", first.id);
+  await createOrderReceiptStore(db).markReceived("customer-1", orderId);
+  await expect(service().request("customer-1", orderId, request())).rejects.toThrow("received");
 });
 
 test("a history failure rolls back the Return and all snapshots", async () => {
