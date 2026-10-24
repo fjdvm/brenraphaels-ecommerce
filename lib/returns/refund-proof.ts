@@ -1,3 +1,5 @@
+import sharp from "sharp";
+
 import { required } from "../gateway";
 
 const maxBytes = 5_242_880;
@@ -58,11 +60,16 @@ export async function verifyRefundProof(fileId: string, returnId: number, send: 
       await reader.cancel();
     }
     const bytes = Buffer.concat(chunks);
-    const png = bytes.length >= 24 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) &&
-      bytes.toString("ascii", 12, 16) === "IHDR" && bytes.readUInt32BE(16) > 0 && bytes.readUInt32BE(20) > 0;
-    const jpeg = bytes.length >= 4 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255 &&
-      bytes[bytes.length - 2] === 255 && bytes[bytes.length - 1] === 217;
-    if (size !== file.size || !(file.contentType === "image/png" ? png : jpeg)) throw invalid();
+    if (size !== file.size) throw invalid();
+    try {
+      // Decode the whole screenshot: a signature alone also matches truncated/non-image files.
+      const image = sharp(bytes, { failOn: "warning", limitInputPixels: 40_000_000 });
+      const { format } = await image.metadata();
+      if (format !== (file.contentType === "image/png" ? "png" : "jpeg")) throw invalid();
+      await image.resize(1, 1).raw().toBuffer();
+    } catch {
+      throw invalid();
+    }
   } catch (error) {
     if (error instanceof InvalidRefundProof || error instanceof RefundProofUnavailable) throw error;
     throw new RefundProofUnavailable("Refund proof could not be verified. Refresh before retrying.");

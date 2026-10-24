@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
@@ -13,7 +14,7 @@ let client: PGlite;
 let db: ReturnType<typeof drizzle>;
 let orderId: number;
 const staff = { staffId: "ana", staffName: "Ana Reyes" };
-const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aO1sAAAAASUVORK5CYII=", "base64");
+let png: Buffer;
 let metadata: Record<string, unknown>;
 let linkedReturn: number;
 let bytes: Uint8Array;
@@ -32,6 +33,7 @@ beforeEach(async () => {
   const [order] = await db.insert(orders).values({ customerId: "customer-1", status: "delivered", fulfillmentMethod: "pickup",
     paymentMethod: "cash-on-delivery", subtotalInCentavos: 10000 }).returning();
   orderId = order.id;
+  png = await sharp({ create: { width: 2, height: 2, channels: 3, background: "white" } }).png().toBuffer();
   linkedReturn = 0;
   bytes = png;
   metadata = { id: "proof-1", status: "active", contentType: "image/png", size: png.length,
@@ -188,4 +190,22 @@ test("a gateway outage refuses the refund with a refresh reason and no status/hi
   expect(response.status).toBe(503);
   expect((await response.json()).error).toMatch(/Refresh before retrying/);
   expect(await db.select().from(orderReturnHistory)).toHaveLength(1);
+});
+
+
+test("rejects truncated JPG/PNG payloads despite valid signatures and accepts a decoded JPEG", async () => {
+  const id = await requested();
+  await call(id, { status: "approved", ...staff });
+  for (const [contentType, payload] of [
+    ["image/jpeg", Buffer.from([255, 216, 255, 217])],
+    ["image/png", png.subarray(0, 24)],
+  ] as const) {
+    bytes = payload;
+    metadata = { ...metadata, contentType, size: payload.length };
+    expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff })).status).toBe(400);
+  }
+  expect(await db.select().from(orderReturnHistory)).toHaveLength(1);
+  bytes = await sharp(png).jpeg().toBuffer();
+  metadata = { ...metadata, contentType: "image/jpeg", size: bytes.length };
+  expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff })).status).toBe(200);
 });
