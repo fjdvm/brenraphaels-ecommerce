@@ -12,6 +12,7 @@ import { getDatabase } from "@/lib/db";
 import { createOrderFeedbackStore } from "@/lib/orders/feedback";
 import { createOrderReceiptStore } from "@/lib/orders/receipt";
 import { createOrderStore } from "@/lib/orders/orders";
+import { createReturnOfferStore } from "@/lib/returns/return-offers";
 
 export const metadata: Metadata = { title: "My orders" };
 
@@ -24,10 +25,11 @@ async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/p
   const orders = await createOrderStore(getDatabase()).listForCustomer(customer.userId);
   const feedbackStore = createOrderFeedbackStore(getDatabase());
   const withReturnInProgress = await createOrderReceiptStore(getDatabase()).orderIdsWithReturnInProgress(customer.userId);
+  const returnOffers = await createReturnOfferStore(getDatabase()).forCustomer(customer.userId, orders);
   const withFeedback = await Promise.all(
     orders.map(async (order) => {
       const feedback = (order.status === "delivered" || order.status === "received") ? await feedbackStore.forOrder(customer.userId, order.id) : undefined;
-      return { order, feedback: feedback ? { rating: feedback.rating, comment: feedback.comment, createdAt: feedback.createdAt } : null, returnInProgress: withReturnInProgress.has(order.id) };
+      return { order, feedback: feedback ? { rating: feedback.rating, comment: feedback.comment, createdAt: feedback.createdAt } : null, returnInProgress: withReturnInProgress.has(order.id), returnOffer: returnOffers.get(order.id) ?? null };
     }),
   );
 
