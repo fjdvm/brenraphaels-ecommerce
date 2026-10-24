@@ -47,8 +47,20 @@ A Customer's request to buy one or more Sizes, placed against one fulfillment me
 _Avoid_: Purchase, transaction
 
 **Order status**:
-Where an Order is in its lifecycle: `placed`, `confirmed` (Delivery fee quoted, Pickup Orders skip straight here), `awaiting payment` and `paid` (GCash Orders only; Cash on Delivery Orders skip both), `preparing`, `dispatched`, `delivered`, or `cancelled`. A Customer may cancel their own Order any time before it is `dispatched`. Staff can cancel an Order up to `preparing`; a `dispatched` Order cannot be cancelled yet.
+Where an Order is in its lifecycle: `placed`, `confirmed` (Delivery fee quoted, Pickup Orders skip straight here), `awaiting payment` and `paid` (GCash Orders only; Cash on Delivery Orders skip both), `preparing`, `dispatched`, `delivered`, `received` (the Customer confirms they have it, ending their right to request a Return), or `cancelled`. A Customer may cancel their own Order any time before it is `dispatched`. Staff can cancel an Order up to `preparing`; a `dispatched` Order cannot be cancelled yet.
 _Avoid_: Order state, fulfillment status
+
+**Return**:
+A Customer's request concerning one or more whole Order line items, identified by an RMA number, with a reason, note, evidence photos and optional video. Its statuses are Requested, Approved, Goods received, Refunded, Replaced, Declined and Cancelled by the Customer while Requested. Staff decide whether goods must come back. A Return never changes the Order's status; Refunded, Replaced and Declined are final.
+_Avoid_: Refund request (when replacement is also possible), RMA (alone)
+
+**Resolution**:
+Refund or replacement for a Return. The Customer states a preference; Staff choose the final Resolution on approval, which may differ. A refund includes proof visible to the Customer and reduces Total spent; a replacement ends when Staff have sent it and does not reduce Total spent or create another Order.
+_Avoid_: Outcome, store credit
+
+**Refund window**:
+The 24 hours after an Order is delivered during which the Customer may request a Return for damaged, defective or wrong items. Marking the Order received closes it early. The window binds only the request; an in-time Return remains valid however long Staff take, and Staff cannot override the window.
+_Avoid_: Grace period, return deadline
 
 **Fulfillment method**:
 How a Customer's Order reaches them: Pickup (from the store, no fee) or Delivery (to one of the Customer's Addresses).
