@@ -129,7 +129,7 @@ function OrderCard({
   onToggle: () => void;
 }) {
   const badges = orderBadges(order);
-  const cancellable = !["dispatched", "delivered", "cancelled"].includes(order.status);
+  const cancellable = !["dispatched", "delivered", "received", "cancelled"].includes(order.status);
   const firstLine = order.lines[0];
   const summary = order.lines.map((line) => `${line.productName} · ${line.sizeLabel} × ${line.quantity}`).join("  ·  ");
   const detailsId = `order-${order.id}-details`;
@@ -269,7 +269,7 @@ function OrderDetails({
         </p>
       ) : null}
 
-      {order.status === "delivered" ? <OrderFeedbackForm feedback={feedback} orderId={order.id} /> : null}
+      {(order.status === "delivered" || order.status === "received") ? <OrderFeedbackForm feedback={feedback} orderId={order.id} /> : null}
 
       {cancellable ? (
         <CancelOrderForm orderId={order.id} />
