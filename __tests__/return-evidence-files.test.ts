@@ -49,6 +49,12 @@ test("refuses another Customer, another Order, a different purpose, altered sign
   await expect(files.read({ ...owner, orderId: 13 }, "photo", upload.uploadToken)).rejects.toThrow("this Customer and Order");
   await expect(files.read(owner, "video", upload.uploadToken)).rejects.toThrow("this Customer and Order");
   await expect(files.read(owner, "photo", `${upload.uploadToken}x`)).rejects.toThrow("this Customer and Order");
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  const finalCharacter = alphabet.indexOf(upload.uploadToken.at(-1)!);
+  // SHA-256's base64url final character has two unused bits. An alias decodes to
+  // the same signature but must not bypass duplicate-photo token validation.
+  const alias = upload.uploadToken.slice(0, -1) + alphabet[finalCharacter + 1];
+  await expect(files.read(owner, "photo", alias)).rejects.toThrow("this Customer and Order");
   await expect(files.read(owner, "photo", "file-1")).rejects.toThrow("this Customer and Order");
   advance();
   await expect(files.read(owner, "photo", upload.uploadToken)).rejects.toThrow("this Customer and Order");

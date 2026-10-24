@@ -64,7 +64,7 @@ export function gatewayReturnEvidence({ baseUrl = process.env.API_GATEWAY_URL, c
       if (!payload || !signature || extra !== undefined) throw invalid();
       const expected = sign(payload);
       const actual = Buffer.from(signature, "base64url");
-      if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw invalid();
+      if (actual.toString("base64url") !== signature || actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw invalid();
       let parsed;
       try { parsed = binding.parse(JSON.parse(Buffer.from(payload, "base64url").toString())); } catch { throw invalid(); }
       if (parsed.customerId !== owner.customerId || parsed.orderId !== owner.orderId || parsed.role !== role || parsed.expires <= now()) throw invalid();
