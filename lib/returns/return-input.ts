@@ -2,10 +2,10 @@ import { z } from "zod";
 import { returnResolutions } from "../db/schema";
 import { multilineTextField, textField } from "../validators/fields";
 
-export const evidenceRoles = ["photo", "video"] as const;
-export type EvidenceRole = (typeof evidenceRoles)[number];
-export const evidenceLimits = { photo: 5 * 1024 * 1024, video: 25 * 1024 * 1024 };
-export const evidenceTypes = { photo: ["image/jpeg", "image/png"], video: ["video/mp4", "video/quicktime"] };
+import { evidenceLimits, evidenceRoles, evidenceTypes } from "./evidence-rules";
+
+export { evidenceLimits, evidenceRoles, evidenceTypes };
+export type { EvidenceRole } from "./evidence-rules";
 
 const uploadToken = textField("Evidence upload", { min: 1, max: 4096,
   pattern: /^[A-Za-z0-9_.-]+$/, patternMessage: "Choose evidence uploaded for this Order", rejectInvisible: true });

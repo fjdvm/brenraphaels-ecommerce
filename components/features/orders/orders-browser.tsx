@@ -7,6 +7,7 @@ import { CartThumbnail } from "@/components/features/orders/cart-thumbnail";
 import { CancelOrderForm, MessageUsLink } from "@/components/features/orders/cancel-order-form";
 import { OrderFeedbackForm, type GivenFeedback } from "@/components/features/orders/order-feedback-form";
 import { OrderReceivedButton } from "@/components/features/orders/order-received-button";
+import { OrderReturn } from "@/components/features/orders/order-return";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { formatPeso } from "@/lib/catalog/currency";
 import {
@@ -20,10 +21,11 @@ import {
   type OrderFilter,
 } from "@/lib/orders/order-view";
 import type { Order } from "@/lib/orders/orders";
+import type { ReturnOffer } from "@/lib/returns/return-offers";
 import { cn } from "@/lib/utils";
 
 export type OrderFeedbackSummary = GivenFeedback;
-export type OrderWithFeedback = { order: Order; feedback: OrderFeedbackSummary | null; returnInProgress: boolean };
+export type OrderWithFeedback = { order: Order; feedback: OrderFeedbackSummary | null; returnInProgress: boolean; returnOffer?: ReturnOffer | null };
 
 const filters: { id: "all" | OrderFilter; label: string; counted: boolean }[] = [
   { id: "all", label: "All", counted: true },
@@ -97,8 +99,8 @@ export function OrdersBrowser({ orders, focusOrderId }: { orders: OrderWithFeedb
           No orders in this view.
         </p>
       ) : (
-        visible.map(({ order, feedback, returnInProgress }) => (
-          <OrderCard feedback={feedback} key={order.id} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} />
+        visible.map(({ order, feedback, returnInProgress, returnOffer }) => (
+          <OrderCard feedback={feedback} key={order.id} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} />
         ))
       )}
     </div>
@@ -123,11 +125,13 @@ function OrderCard({
   feedback,
   open,
   returnInProgress,
+  returnOffer,
   onToggle,
 }: {
   order: Order;
   feedback: OrderFeedbackSummary | null;
   returnInProgress: boolean;
+  returnOffer: ReturnOffer | null;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -169,7 +173,7 @@ function OrderCard({
           <ChevronDown aria-hidden className={cn("size-[18px] transition-transform", open && "rotate-180")} />
         </button>
       </div>
-      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} returnInProgress={returnInProgress} /> : null}
+      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} returnInProgress={returnInProgress} returnOffer={returnOffer} /> : null}
     </article>
   );
 }
@@ -179,12 +183,14 @@ function OrderDetails({
   feedback,
   cancellable,
   returnInProgress,
+  returnOffer,
   detailsId,
 }: {
   order: Order;
   feedback: OrderFeedbackSummary | null;
   cancellable: boolean;
   returnInProgress: boolean;
+  returnOffer: ReturnOffer | null;
   detailsId: string;
 }) {
   const steps = orderTrackerSteps(order);
@@ -276,9 +282,10 @@ function OrderDetails({
 
       {(order.status === "delivered" || order.status === "received") ? <OrderFeedbackForm feedback={feedback} orderId={order.id} /> : null}
 
-      {order.status === "delivered" && !returnInProgress ? (
+      {order.status === "delivered" && (returnOffer || !returnInProgress) ? (
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <OrderReceivedButton orderId={order.id} />
+          {returnOffer ? <OrderReturn offer={returnOffer} orderId={order.id} /> : null}
+          {!returnInProgress ? <OrderReceivedButton orderId={order.id} /> : null}
         </div>
       ) : null}
 
