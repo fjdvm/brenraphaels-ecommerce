@@ -18,7 +18,10 @@ export function OrderReceivedButton({ orderId }: { orderId: number }) {
 
   function confirm() {
     startTransition(async () => {
-      const result = await markOrderReceived(orderId);
+      const result = await markOrderReceived(orderId).catch(() => ({
+        received: false,
+        message: "We couldn't mark this Order received. Please try again.",
+      }));
       setConfirming(false);
       setReceived(Boolean(result.received));
       setMessage(result.received ? undefined : result.message);
