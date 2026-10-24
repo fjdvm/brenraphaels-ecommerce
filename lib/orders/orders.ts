@@ -18,6 +18,7 @@ export const orderStatuses = [
   "preparing",
   "dispatched",
   "delivered",
+  "received",
   "cancelled",
 ] as const;
 export type OrderStatus = (typeof orderStatuses)[number];
@@ -220,6 +221,7 @@ export function createOrderStore<
       preparing: ["dispatched", "cancelled"],
       dispatched: ["delivered"],
       delivered: [],
+      received: [],
       cancelled: [],
     };
     const currentStatus = persistedOrder.status as OrderStatus;

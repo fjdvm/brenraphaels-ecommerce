@@ -50,6 +50,7 @@ function statusNotification(order: Order): NotificationItem {
         body: pickup ? "Drop by our Antipolo store whenever you're ready." : "Your order has left our store.",
       };
     case "delivered":
+    case "received":
       return { ...base, icon: "confirmed", title: `Order #${order.id} completed`, body: "Thanks for ordering from Bren Raphael's." };
     case "cancelled":
       return { ...base, icon: "order", title: `Order #${order.id} cancelled`, body: "This order has been cancelled." };

@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, lte, notExists } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lte, notExists } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import type { AuditEvent } from "../audit/gateway";
@@ -37,7 +37,7 @@ export function createFeedbackRequestStore<
         .from(orders)
         .innerJoin(customers, eq(orders.customerId, customers.id))
         .where(and(
-          eq(orders.status, "delivered"),
+          inArray(orders.status, ["delivered", "received"]),
           isNotNull(orders.deliveredAt),
           lte(orders.deliveredAt, deliveredBefore),
           notExists(db.select({ one: feedbackRequests.orderId }).from(feedbackRequests).where(eq(feedbackRequests.orderId, orders.id))),

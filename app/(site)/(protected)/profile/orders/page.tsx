@@ -24,7 +24,7 @@ async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/p
   const feedbackStore = createOrderFeedbackStore(getDatabase());
   const withFeedback = await Promise.all(
     orders.map(async (order) => {
-      const feedback = order.status === "delivered" ? await feedbackStore.forOrder(customer.userId, order.id) : undefined;
+      const feedback = (order.status === "delivered" || order.status === "received") ? await feedbackStore.forOrder(customer.userId, order.id) : undefined;
       return { order, feedback: feedback ? { rating: feedback.rating, comment: feedback.comment, createdAt: feedback.createdAt } : null };
     }),
   );

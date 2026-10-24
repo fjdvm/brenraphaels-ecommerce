@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { orderFeedback, orders } from "../db/schema";
@@ -60,7 +60,7 @@ export function createOrderFeedbackStore<
     const [order] = await db
       .select({ id: orders.id })
       .from(orders)
-      .where(and(eq(orders.id, input.orderId), eq(orders.customerId, customerId), eq(orders.status, "delivered")));
+      .where(and(eq(orders.id, input.orderId), eq(orders.customerId, customerId), inArray(orders.status, ["delivered", "received"])));
     if (!order) throw new OrderFeedbackNotAvailableError();
 
     const [feedback] = await db

@@ -15,6 +15,7 @@ const stageByStatus: Record<Exclude<OrderStatus, "cancelled">, number> = {
   preparing: 2,
   dispatched: 3,
   delivered: 4,
+  received: 4,
 };
 
 /** The five stops of an Order's journey, or null when a cancelled Order has no journey to show. */
@@ -30,7 +31,7 @@ export function orderTrackerSteps(order: OrderView): TrackerStep[] | null {
   const stage = stageByStatus[order.status];
   return labels.map((label, index) => ({
     label,
-    state: order.status === "delivered" || index < stage ? "done" : index === stage ? "current" : "upcoming",
+    state: (order.status === "delivered" || order.status === "received") || index < stage ? "done" : index === stage ? "current" : "upcoming",
   }));
 }
 
@@ -44,12 +45,13 @@ export function awaitingDeliveryFee(order: OrderView) {
   return order.fulfillmentMethod === "delivery"
     && order.deliveryFeeInCentavos === null
     && order.status !== "cancelled"
-    && order.status !== "delivered";
+    && order.status !== "delivered"
+    && order.status !== "received";
 }
 
 export function orderFilterOf(order: OrderView): OrderFilter {
   if (order.status === "cancelled") return "cancelled";
-  if (order.status === "delivered") return "completed";
+  if (order.status === "delivered" || order.status === "received") return "completed";
   if (order.status === "dispatched") return "on-the-way";
   return needsPayment(order) ? "to-pay" : "processing";
 }

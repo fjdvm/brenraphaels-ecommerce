@@ -10,7 +10,7 @@ const statusUpdate = z.discriminatedUnion("status", [
     ...staffAttribution.shape,
   }).strict(),
   z.object({
-    status: z.enum(orderStatuses).exclude(["paid"]),
+    status: z.enum(orderStatuses).exclude(["paid", "received"]),
     deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
     // Attribution is only used for paid; other moves ignore it.
     staffId: z.unknown().optional(),
