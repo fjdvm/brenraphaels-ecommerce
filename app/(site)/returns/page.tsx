@@ -9,25 +9,36 @@ export default function ReturnsPage() {
         </h2>
         <p>
           Because our artisanal Ube Jam and Halaya are perishable, we cannot
-          accept returns after delivery.
+          accept returns for a change of mind.
         </p>
       </section>
       <section>
         <h2 className="font-serif text-2xl text-primary">
-          2. Damaged or Defective Items
+          2. Damaged, Defective or Wrong Items
         </h2>
         <p>
-          If a shipment arrives damaged, unsealed, or compromised, notify us
-          within 24 hours and include photos of the container and packaging.
+          If an item arrives damaged, defective, or is not what you ordered,
+          you can report it from My orders within 24 hours of delivery. Include
+          photos of the item and its packaging, and a short video if you have
+          one.
+        </p>
+        <p>
+          Our Staff check the batch code and expiry date on the item, and
+          compare it against the retention sample we keep for every batch.
+        </p>
+        <p>
+          Marking your order as received ends the 24-hour window, so please
+          check your items before you do.
         </p>
       </section>
       <section>
         <h2 className="font-serif text-2xl text-primary">
-          3. Refunds &amp; Replacements
+          3. Refunds, Replacements &amp; Disposal
         </h2>
         <p>
-          After a valid claim for damaged goods or a fulfillment error is
-          verified, we will issue a refund or send a fresh replacement.
+          Once your report is verified, we will issue a refund or send a fresh
+          replacement. Damaged goods are disposed of for food safety, so they
+          usually do not come back to us. You do not need to ship them back.
         </p>
       </section>
       <section>
