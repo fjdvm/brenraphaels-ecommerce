@@ -14,7 +14,7 @@ const actorSchema = z.object({
   id: staffAttribution.shape.staffId,
   name: staffAttribution.shape.staffName,
 }).strict();
-const decisionSchema = z.discriminatedUnion("status", [z.object({
+export const returnDecisionSchema = z.discriminatedUnion("status", [z.object({
   status: z.literal("approved"),
   finalResolution: z.enum(returnResolutions).optional(),
   goodsRequired: z.boolean().default(false),
@@ -42,7 +42,7 @@ export function createReturnStore<
 >(db: PgDatabase<TQueryResult, TSchema>, deps: { now?: () => Date } = {}) {
   async function transition(id: number, actorInput: ReturnActor, input: unknown) {
     const actor = actorSchema.parse(actorInput);
-    const decision = decisionSchema.parse(input);
+    const decision = returnDecisionSchema.parse(input);
     return db.transaction(async (tx) => {
       // Serialize competing decisions before checking status or recording history.
       const [current] = await tx.select().from(orderReturns).where(eq(orderReturns.id, id)).for("update");

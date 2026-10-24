@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "vitest";
 
-import { mintCreomsCredential, verifyCreomsCredential } from "@/lib/orders/creoms-credential";
+import { creomsReturnCredential, mintCreomsCredential, verifyCreomsCredential } from "@/lib/orders/creoms-credential";
 
 const key = "k".repeat(40);
 const oldKey = "o".repeat(40);
@@ -75,4 +75,18 @@ describe("CREOMS service credential", () => {
     delete process.env.CREOMS_SERVICE_SECRET_PREVIOUS;
     expect(verifyCreomsCredential(headersWith(withOld), now)).toBe(false);
   });
+});
+
+
+test("Return credentials are isolated from Orders and support signing-key rotation", () => {
+  const headers = headersWith(mintCreomsCredential({ now, ...creomsReturnCredential }));
+  expect(verifyCreomsCredential(headers, now, creomsReturnCredential)).toBe(true);
+  expect(verifyCreomsCredential(headers, now)).toBe(false);
+  expect(verifyCreomsCredential(headersWith(mintCreomsCredential({ now })), now, creomsReturnCredential)).toBe(false);
+  expect(verifyCreomsCredential(headersWith(mintCreomsCredential({ now, audience: creomsReturnCredential.audience })), now, creomsReturnCredential)).toBe(false);
+  const oldHeaders = headersWith(mintCreomsCredential({ now, ...creomsReturnCredential, secret: oldKey }));
+  expect(verifyCreomsCredential(oldHeaders, now, creomsReturnCredential)).toBe(false);
+  process.env.CREOMS_SERVICE_SECRET_PREVIOUS = oldKey;
+  expect(verifyCreomsCredential(oldHeaders, now, creomsReturnCredential)).toBe(true);
+  expect(verifyCreomsCredential(headers, new Date(now.getTime() + 301_000), creomsReturnCredential)).toBe(false);
 });
