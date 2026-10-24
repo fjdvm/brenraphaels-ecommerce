@@ -99,3 +99,19 @@ test("receipt preserves the original two-day Feedback timer, completed display a
 test("Staff cannot request the received status through the internal status contract", () => {
   expect(() => parseInternalOrderStatusUpdate({ status: "received" })).toThrow();
 });
+
+test("lists only the Customer's Orders with a Return in progress", async () => {
+  const inProgress = await order();
+  const closed = await order();
+  const none = await order();
+  await db.insert(orderReturns).values([
+    { orderId: inProgress.id, status: "approved", reason: "damaged", amountInCentavos: 10000 },
+    { orderId: inProgress.id, status: "declined", reason: "damaged", amountInCentavos: 10000 },
+    { orderId: closed.id, status: "refunded", reason: "damaged", amountInCentavos: 10000 },
+  ]);
+  const ids = await receipt.orderIdsWithReturnInProgress("customer-1");
+  expect(ids.has(inProgress.id)).toBe(true);
+  expect(ids.has(closed.id)).toBe(false);
+  expect(ids.has(none.id)).toBe(false);
+  expect((await receipt.orderIdsWithReturnInProgress("someone-else")).size).toBe(0);
+});
