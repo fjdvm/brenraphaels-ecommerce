@@ -1,15 +1,17 @@
 import crypto from "node:crypto";
 
 /**
- * The service credential CREOMS presents to the internal Order status endpoint (ADR-0003).
+ * The service credential CREOMS presents to the internal status endpoints (ADR-0003).
  * It is a short-lived HS256 JWT that CREOMS mints from a signing key only the two apps hold,
- * so a leaked token expires on its own and only ever opens Order status.
+ * so a leaked token expires on its own and only opens its signed audience and scope.
  */
 export const creomsIssuer = "creoms";
 export const creomsAudience = "brenraphaels-orders";
 export const creomsOrderStatusScope = "orders:status";
 export const maxCredentialLifetimeSeconds = 15 * 60;
 export const defaultCredentialLifetimeSeconds = 5 * 60;
+export const creomsReturnCredential = { audience: "brenraphaels-returns", scope: "returns:status" } as const;
+const orderCredential = { audience: creomsAudience, scope: creomsOrderStatusScope };
 const minKeyLength = 32;
 
 type Claims = { iss?: unknown; aud?: unknown; scope?: unknown; iat?: unknown; exp?: unknown };
@@ -63,8 +65,12 @@ function parseJson(part: string): unknown {
   }
 }
 
-/** True only for a validly signed, unexpired credential scoped to Order status. Never throws. */
-export function verifyCreomsCredential(headers: Headers, now = new Date()): boolean {
+/** Validates a signed, unexpired credential for the expected audience/scope (Orders by default). Never throws. */
+export function verifyCreomsCredential(
+  headers: Headers,
+  now = new Date(),
+  expected = orderCredential,
+): boolean {
   const token = headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
   const parts = token?.split(".");
   if (!parts || parts.length !== 3) return false;
@@ -75,12 +81,14 @@ export function verifyCreomsCredential(headers: Headers, now = new Date()): bool
   if (!signatureMatches(`${header}.${payload}`, signature)) return false;
 
   const claims = parseJson(payload) as Claims | null;
-  if (!claims || typeof claims.iat !== "number" || typeof claims.exp !== "number") return false;
+  if (!claims || !Number.isSafeInteger(claims.iat) || !Number.isSafeInteger(claims.exp)) return false;
+  if (typeof claims.iat !== "number" || typeof claims.exp !== "number") return false;
   const nowSeconds = Math.floor(now.getTime() / 1000);
   return claims.iss === creomsIssuer
-    && claims.aud === creomsAudience
-    && claims.scope === creomsOrderStatusScope
+    && claims.aud === expected.audience
+    && claims.scope === expected.scope
     && claims.iat <= nowSeconds
+    && claims.exp > claims.iat
     && claims.exp > nowSeconds
     && claims.exp - claims.iat <= maxCredentialLifetimeSeconds;
 }

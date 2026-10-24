@@ -2,7 +2,7 @@
 
 This updates the [#179 contract](https://github.com/fjdvm/epic-crms/blob/main/docs/creoms-returns-and-delivery-photo.md) for [the Customer Returns spec #194](https://github.com/fjdvm/epic-crms/issues/194), superseding its refund-only rules. Terms follow [CONTEXT.md](../CONTEXT.md). Ownership follows [ADR-0003](adr/0003-ecommerce-and-creoms-integrate-over-api-not-shared-database.md): the storefront owns Returns, the Refund window, evidence and refund proof File references, all Customer emails and Notifications. CREOMS reads through its SELECT-only database role and asks the storefront to make Staff changes. Staff settle refunds externally and send replacements; neither application initiates a payment here.
 
-Ticket #117 provides the schema and reusable `createReturnStore(...).transition` persistence boundary. Ticket #119 implements the authenticated Customer request/cancellation endpoints and their direct-upload evidence flow. Staff endpoints, Customer reads, emails, Notifications and UI below remain the contract for dependent tickets; this document does not mean those flows are deployed. CREOMS must extend its existing refund-only caller and read model before enabling replacement decisions.
+Ticket #117 provides the schema and reusable `createReturnStore(...).transition` persistence boundary. Ticket #119 implements the authenticated Customer request/cancellation endpoints and their direct-upload evidence flow. Ticket #121 implements the Staff decision endpoint, Return-scoped credentials and refund-proof verification. Customer reads, emails, Notifications and UI below remain the contract for dependent tickets; this document does not mean those flows are deployed. CREOMS must extend its existing refund-only caller and read model before enabling replacement decisions.
 
 ## Credentials and attribution
 
@@ -16,7 +16,7 @@ CREOMS uses `CREOMS_STOREFRONT_URL` and the shared server-only `CREOMS_SERVICE_S
 | `iat` | Current Unix seconds | Current Unix seconds |
 | `exp` | `iat + 300` | `iat + 300` |
 
-The storefront verifies signature, algorithm, issuer, audience, scope and timestamps. Reject future-issued/expired tokens and lifetimes over 900 seconds. Orders credentials must not authorize Returns or vice versa. Follow [credential rotation](creoms-service-credential.md); reject the legacy shared-secret header. Extending the existing verifier for Returns belongs to the Staff endpoint ticket.
+The storefront verifies signature, algorithm, issuer, audience, scope and timestamps. Reject future-issued/expired tokens and lifetimes over 900 seconds. Orders credentials must not authorize Returns or vice versa. Follow [credential rotation](creoms-service-credential.md); reject the legacy shared-secret header. The shared verifier accepts the Returns audience and scope only on the Return endpoint; the Order endpoint keeps its existing scope.
 
 CREOMS checks the Returns Module for every decision and the Fulfilment Module for delivery. Every Staff decision supplies `staffId` (Portal username) and `staffName` (Portal display-name snapshot), sourced from its authenticated Staff session. The storefront validates these with the shared Staff attribution fields and supplies the time. Customer identity instead comes from the storefront session. No caller chooses an action time or impersonates another Customer.
 
@@ -89,7 +89,7 @@ All other moves, including repeats and resolution mismatches, are refused withou
 
 ## Staff decision API
 
-Build `POST /api/internal/returns/<id>/status` with the Returns credential. Supported bodies:
+Use `POST /api/internal/returns/<id>/status` with the Returns credential. Supported bodies:
 
 ```json
 { "status": "approved", "finalResolution": "replacement", "goodsRequired": false, "staffId": "ana", "staffName": "Ana Reyes" }
@@ -99,7 +99,7 @@ Build `POST /api/internal/returns/<id>/status` with the Returns credential. Supp
 { "status": "replaced", "staffId": "ben", "staffName": "Ben Cruz" }
 ```
 
-Approval may omit `finalResolution` and `goodsRequired` for the defaults above. Other decision fields must match their shape; decline reason is trimmed, required and at most 2,000 characters. Refunded requires a confirmed Private, Permanent JPG/PNG screenshot, verified by the endpoint's file-storage boundary before calling the persistence boundary. A nonempty File id alone is not verification. Staff mark Replaced only after sending the replacement.
+Approval may omit `finalResolution` and `goodsRequired` for the defaults above. Other decision fields must match their shape; decline reason is trimmed, required and at most 2,000 characters. Refunded requires a confirmed Private, Permanent JPG/PNG screenshot, verified by the endpoint's file-storage boundary before calling the persistence boundary. A nonempty File id alone is not verification. Before submitting a refund, CREOMS uploads/confirms the proof with a File Link `{ "system": "CRMS", "entityType": "return", "entityId": "15", "role": "refund-proof" }` for the numeric Return id (without `RMA-`). The endpoint looks up this Link through the storefront Caller, requires matching active/private/permanent metadata with no expiry and a size up to 5,242,880 bytes, and reads the signed original without Caller credentials to check its actual size and decode a valid JPG/PNG screenshot (at most 40 million pixels). Unrelated Files cannot serve as proof. Storage failures fail closed before the decision. This Link is a Return proof Link, never a Ticket Message Link. Staff mark Replaced only after sending the replacement.
 
 Return a 2xx JSON confirmation only after commit:
 
@@ -113,7 +113,7 @@ Return a 2xx JSON confirmation only after commit:
 }
 ```
 
-CREOMS checks matching `id`, `status`, Staff id/name and a parseable ISO `actedBy.at`. Approval echoes effective `finalResolution` and `goodsRequired`; decline echoes the trimmed reason; refund echoes `refundProofFileId`. All failures use `{ "error": "<safe reason>" }`: `401` invalid/missing credentials or Customer session, `400` invalid fields/files, `404` missing/inaccessible Order/Return, `409` closed window or conflicting/illegal move. Refusals write nothing and send nothing.
+CREOMS checks matching `id`, `status`, Staff id/name and a parseable ISO `actedBy.at`. Approval echoes effective `finalResolution` and `goodsRequired`; decline echoes the trimmed reason; refund echoes `refundProofFileId`. All failures use `{ "error": "<safe reason>" }`: `401` invalid/missing credentials or Customer session, `400` invalid fields/files, `404` missing/inaccessible Order/Return, `409` closed window or conflicting/illegal move. Storage/database failures return `503` with a safe refresh-before-retry reason because a database acknowledgement failure can be uncertain. Refusals write nothing and send nothing.
 
 CREOMS uses no-cache requests, refuses redirects, times out after ten seconds and makes one attempt. A timeout, malformed/mismatched confirmation or connection failure is uncertain: refresh before retrying, since the commit may have succeeded. Confirmed decisions refresh Returns, Order detail and Customer Profiles. The persistence boundary is internal and supplies Date objects; the HTTP adapter serializes dates to ISO and maps validated actor identity into it.
 
@@ -160,3 +160,8 @@ The storefront ships schema/migrations first, then Customer request/cancel and r
 Existing grants on the four Return tables cover new columns. On a fresh environment apply storefront migrations first, then CREOMS's rerunnable `docs/db/creoms-returns-readonly.sql` as owner, retaining SELECT without writes. Do not recreate tables from a CREOMS test fixture. Migration 0020 keeps legacy refund Returns readable; legacy completed refunds may have no proof and must not be fabricated or reopened.
 
 Test dependent server flows against the throwaway database with file/email fakes: eligibility/payment/cutoff, whole lines and refund cap, finished item exclusion, retry after decline/cancel, received exclusivity, status races, default/override Resolution, goods-back paths, evidence/proof validity and notification effects. Ticket #117 tests persistence/migrations, legal/illegal moves and atomic attribution; it does not substitute for those endpoint tests.
+
+
+## Staff endpoint verification (#121)
+
+`npx vitest run __tests__/internal-return-status-route.test.ts __tests__/creoms-credential.test.ts --maxWorkers=2` exercises the real HTTP handler with signed credentials, migrated throwaway PGlite and a fake file gateway. It covers the full Staff transition matrix, approval defaults/overrides, attribution, proof verification, credential isolation, strict input rejection, races and rollback/uncertain responses. No additional schema migration is needed; this endpoint uses migration 0020 from #117. Customer messaging remains a dependent ticket.
