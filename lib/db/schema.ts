@@ -287,22 +287,32 @@ export const feedbackRateLimits = pgTable("feedback_rate_limits", {
   submissionTimes: timestamp("submission_times", { withTimezone: true }).array().notNull(),
 });
 
-/** A Customer's whole-item refund request; Staff decisions never change the Order's status. */
+export const returnStatuses = ["requested", "approved", "goods received", "refunded", "replaced", "declined", "cancelled"] as const;
+export const returnResolutions = ["refund", "replacement"] as const;
+
+/** A Customer's whole-item Return request; Staff decisions never change the Order's status. */
 export const orderReturns = pgTable("order_returns", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "restrict" }),
-  status: text("status", { enum: ["requested", "approved", "goods received", "refunded", "declined", "cancelled"] })
+  status: text("status", { enum: returnStatuses })
     .notNull().default("requested"),
   reason: text("reason", { enum: ["damaged", "defective", "wrong item", "other"] }).notNull(),
   note: text("note").notNull().default(""),
   amountInCentavos: integer("amount_in_centavos").notNull(),
-  /** Null until approval; false allows refunding without returning the goods. */
+  preferredResolution: text("preferred_resolution", { enum: returnResolutions }).notNull().default("refund"),
+  finalResolution: text("final_resolution", { enum: returnResolutions }),
+  videoFileId: text("video_file_id"),
+  refundProofFileId: text("refund_proof_file_id"),
+  /** Null until approval; false allows completing without returning the goods. */
   goodsRequired: boolean("goods_required"),
   declineReason: text("decline_reason"),
   requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
   refundedAt: timestamp("refunded_at", { withTimezone: true }),
+  replacedAt: timestamp("replaced_at", { withTimezone: true }),
 }, (table) => [
-  check("order_returns_status", sql`${table.status} in ('requested','approved','goods received','refunded','declined','cancelled')`),
+  check("order_returns_status", sql`${table.status} in ('requested','approved','goods received','refunded','replaced','declined','cancelled')`),
+  check("order_returns_preferred_resolution", sql`${table.preferredResolution} in ('refund','replacement')`),
+  check("order_returns_final_resolution", sql`${table.finalResolution} in ('refund','replacement')`),
   check("order_returns_reason", sql`${table.reason} in ('damaged','defective','wrong item','other')`),
   check("order_returns_amount", sql`${table.amountInCentavos} >= 0`),
   index("order_returns_order_id").on(table.orderId),
@@ -336,12 +346,13 @@ export const orderReturnImages = pgTable("order_return_images", {
 export const orderReturnHistory = pgTable("order_return_history", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   returnId: integer("return_id").notNull().references(() => orderReturns.id, { onDelete: "cascade" }),
-  status: text("status").notNull(),
+  status: text("status", { enum: returnStatuses }).notNull(),
   actorType: text("actor_type", { enum: ["customer", "staff"] }).notNull(),
   actorId: text("actor_id").notNull(),
   actorName: text("actor_name").notNull(),
   occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
   note: text("note"),
 }, (table) => [
+  check("order_return_history_status", sql`${table.status} in ('requested','approved','goods received','refunded','replaced','declined','cancelled')`),
   check("order_return_history_actor_type", sql`${table.actorType} in ('customer','staff')`),
 ]);
