@@ -18,18 +18,21 @@ export function createCustomerReturns<TQueryResult extends PgQueryResultHKT, TSc
     const [order] = await tx.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.customerId, customerId))).for("update");
     if (!order) throw new ReturnRequestError("Order not found.", 404);
     if (order.status === "received") throw new ReturnRequestError("An Order marked received can no longer be returned.");
-    if (order.status !== "delivered") throw new ReturnRequestError("Returns are available only for delivered Orders.");
-    if ((order.paymentMethod === "gcash" && !order.paidAt) || !["gcash", "cash-on-delivery"].includes(order.paymentMethod)) {
+    if (order.status !== "delivered") throw new ReturnRequestError("Returns are available only for delivered Orders with confirmed payment.");
+    // The Order lifecycle requires GCash to pass paid before delivery. Legacy paid
+    // Orders have no paidAt attribution, so that optional timestamp is not a gate.
+    if (!["gcash", "cash-on-delivery"].includes(order.paymentMethod)) {
       throw new ReturnRequestError("Payment must be confirmed before requesting a Return.");
     }
-    const elapsed = now().getTime() - (order.deliveredAt?.getTime() ?? NaN);
+    const at = now();
+    const elapsed = at.getTime() - (order.deliveredAt?.getTime() ?? NaN);
     if (!Number.isFinite(elapsed) || elapsed < 0) throw new ReturnRequestError("This Order has no valid delivery time for a Return.");
     if (elapsed >= 24 * 60 * 60 * 1000) throw new ReturnRequestError("The 24-hour Return window has closed.");
-    return order;
+    return { order, at };
   }
 
   async function selectedLines(tx: Transaction, orderId: number, ids: number[]) {
-    const lines = await tx.select().from(orderLines).where(eq(orderLines.orderId, orderId));
+    const lines = await tx.select().from(orderLines).where(eq(orderLines.orderId, orderId)).orderBy(orderLines.id);
     const selected = lines.filter((line) => ids.includes(line.id));
     if (selected.length !== ids.length) throw new ReturnRequestError("Choose whole line items belonging to this Order.", 400);
     const reserved = await tx.select({ id: orderReturnItems.orderLineId }).from(orderReturnItems)
@@ -37,7 +40,7 @@ export function createCustomerReturns<TQueryResult extends PgQueryResultHKT, TSc
       .where(and(eq(orderReturns.orderId, orderId), inArray(orderReturnItems.orderLineId, ids),
         inArray(orderReturns.status, ["requested", "approved", "goods received", "refunded", "replaced"])));
     if (reserved.length) throw new ReturnRequestError("An item is already in an active, Refunded or Replaced Return.");
-    return { selected, allSelected: selected.length === lines.length };
+    return { lines, selected, allSelected: selected.length === lines.length };
   }
 
   async function prepareUpload(customerId: string, orderId: number, input: unknown) {
@@ -65,13 +68,24 @@ export function createCustomerReturns<TQueryResult extends PgQueryResultHKT, TSc
     if (new Set(photos.map((photo) => photo.id)).size !== photos.length) throw new ReturnRequestError("Choose each photo only once.", 400);
 
     return db.transaction(async (tx) => {
-      const order = await eligibleOrder(tx, customerId, orderId);
-      const { selected, allSelected } = await selectedLines(tx, orderId, parsed.orderLineIds);
+      const { order, at } = await eligibleOrder(tx, customerId, orderId);
+      const { lines, selected, allSelected } = await selectedLines(tx, orderId, parsed.orderLineIds);
       const [customer] = await tx.select({ name: customers.fullName }).from(customers).where(eq(customers.id, customerId));
-      const itemAmount = selected.reduce((sum, line) => sum + line.quantity * line.priceInCentavos, 0);
-      const amountInCentavos = Math.min(itemAmount, order.subtotalInCentavos) +
+      // Allocate any lower historical subtotal across all purchased lines once, in
+      // stable id order. Disjoint Returns therefore cannot each claim the same cap.
+      const total = lines.reduce((sum, line) => sum + BigInt(line.quantity) * BigInt(line.priceInCentavos), BigInt(0));
+      const paid = BigInt(order.subtotalInCentavos) < total ? BigInt(order.subtotalInCentavos) : total;
+      let cumulative = BigInt(0);
+      let itemAmount = 0;
+      for (const line of lines) {
+        const previous = cumulative;
+        cumulative += BigInt(line.quantity) * BigInt(line.priceInCentavos);
+        if (total > BigInt(0) && parsed.orderLineIds.includes(line.id)) {
+          itemAmount += Number(cumulative * paid / total - previous * paid / total);
+        }
+      }
+      const amountInCentavos = itemAmount +
         (allSelected && order.fulfillmentMethod === "delivery" ? order.deliveryFeeInCentavos ?? 0 : 0);
-      const at = now();
       const [created] = await tx.insert(orderReturns).values({ orderId, reason: parsed.reason, note: parsed.note,
         preferredResolution: parsed.preferredResolution, amountInCentavos, videoFileId: video?.id, requestedAt: at }).returning();
       await tx.insert(orderReturnItems).values(selected.map((line) => ({ returnId: created.id, orderLineId: line.id,

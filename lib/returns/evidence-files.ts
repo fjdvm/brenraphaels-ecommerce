@@ -8,6 +8,7 @@ import { evidenceLimits, evidenceRoles, evidenceTypes, evidenceUploadInput, Retu
 export type EvidenceOwner = { customerId: string; orderId: number };
 export type ReturnEvidenceFiles = {
   prepare(owner: EvidenceOwner, input: z.output<typeof evidenceUploadInput>): Promise<{ id: string; uploadUrl: string; uploadToken: string }>;
+  /** Verifies a staging upload and seals its bytes in a new Private, Permanent File. */
   read(owner: EvidenceOwner, role: EvidenceRole, uploadToken: string): Promise<{ id: string; bytes: Uint8Array }>;
 };
 
@@ -53,7 +54,7 @@ export function gatewayReturnEvidence({ baseUrl = process.env.API_GATEWAY_URL, c
       const parsed = evidenceUploadInput.parse(input);
       const extension = { "image/jpeg": "jpg", "image/png": "png", "video/mp4": "mp4", "video/quicktime": "mov" }[parsed.contentType];
       const pending = await call("", { method: "POST", body: JSON.stringify({ filename: `return-${parsed.role}.${extension}`,
-        contentType: parsed.contentType, size: parsed.size, visibility: "private", retentionType: "permanent" }) });
+        contentType: parsed.contentType, size: parsed.size, visibility: "private", retentionType: "temporary" }) });
       const payload = Buffer.from(JSON.stringify(binding.parse({ ...owner, id: pending.id, role: parsed.role,
         expires: now() + 60 * 60 * 1000 }))).toString("base64url");
       return { id: pending.id, uploadUrl: pending.uploadUrl, uploadToken: `${payload}.${sign(payload).toString("base64url")}` };
@@ -70,7 +71,7 @@ export function gatewayReturnEvidence({ baseUrl = process.env.API_GATEWAY_URL, c
       // Confirmation validates the uploaded object. The browser receives no gateway credential.
       await call(`/${encodeURIComponent(parsed.id)}/confirm`, { method: "POST" });
       const file = await call(`/${encodeURIComponent(parsed.id)}`);
-      if (file.id !== parsed.id || file.status !== "active" || file.visibility !== "private" || file.retentionType !== "permanent" ||
+      if (file.id !== parsed.id || file.status !== "active" || file.visibility !== "private" || file.retentionType !== "temporary" ||
         !evidenceTypes[role].includes(file.contentType) || !Number.isInteger(file.size) || file.size <= 0 || file.size > evidenceLimits[role]) throw invalid();
       const response = await send(file.url, { cache: "no-store", redirect: "error" });
       if (!response.ok || !response.body) throw new ReturnRequestError("Evidence could not be read. Upload it again.", 400);
@@ -90,7 +91,19 @@ export function gatewayReturnEvidence({ baseUrl = process.env.API_GATEWAY_URL, c
       const bytes = Buffer.concat(chunks);
       const detected = await validateReturnEvidence(bytes, role);
       if (detected.mime !== file.contentType) throw invalid();
-      return { id: parsed.id, bytes };
+      // A browser can reuse its staging PUT URL until it expires. Seal a different object
+      // using a server-only PUT URL so accepted evidence can never be overwritten by it.
+      const sealed = await call("", { method: "POST", body: JSON.stringify({ filename: `return-${role}.${detected.ext}`,
+        contentType: detected.mime, size: bytes.length, visibility: "private", retentionType: "permanent" }) });
+      const sealedId = fileIdField.parse(sealed.id);
+      if (sealedId === parsed.id) throw invalid();
+      const put = await send(sealed.uploadUrl, { method: "PUT", headers: { "Content-Type": detected.mime }, body: bytes,
+        redirect: "error" });
+      if (!put.ok) throw new Error(`Sealing Return evidence failed: ${put.status}`);
+      const confirmed = await call(`/${encodeURIComponent(sealedId)}/confirm`, { method: "POST" });
+      if (confirmed.id !== sealedId || confirmed.status !== "active" || confirmed.visibility !== "private" || confirmed.retentionType !== "permanent" ||
+        confirmed.contentType !== detected.mime || confirmed.size !== bytes.length) throw invalid();
+      return { id: sealedId, bytes };
     },
   };
 }

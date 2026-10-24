@@ -13,7 +13,7 @@ export async function handleCustomerReturn(request: Request, idParam: string, ac
   if (visitor.state !== "customer") return Response.json({ error: "Sign in as a Customer to continue." }, { status: 401 });
   const origin = request.headers.get("origin");
   if (origin && origin !== new URL(request.url).origin) return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
-  const id = positiveIntegerField(action === "cancel" ? "Return ID" : "Order ID").safeParse(idParam);
+  const id = positiveIntegerField(action === "cancel" ? "Return ID" : "Order ID", { max: 2147483647 }).safeParse(idParam);
   if (!id.success) return Response.json({ error: "Enter a valid id." }, { status: 400 });
 
   try {

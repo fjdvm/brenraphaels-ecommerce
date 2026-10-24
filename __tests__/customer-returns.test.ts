@@ -60,7 +60,7 @@ test.each([
   ["after the cutoff", { deliveredAt: new Date(at.getTime() - 86400001) }, "24-hour"],
   ["undelivered", { status: "dispatched" }, "delivered"],
   ["received", { status: "received" }, "received"],
-  ["unpaid GCash", { paymentMethod: "gcash", paidAt: null }, "Payment"],
+  ["unpaid GCash", { paymentMethod: "gcash", status: "awaiting payment", paidAt: null }, "payment"],
   ["missing delivery time", { deliveredAt: null }, "delivery time"],
   ["future delivery time", { deliveredAt: new Date(at.getTime() + 1) }, "delivery time"],
 ])("refuses %s before reading evidence", async (_label, update, message) => {
@@ -76,6 +76,11 @@ test("accepts paid GCash, delivered Pickup, and the last millisecond of the wind
   expect(await service().request("customer-1", orderId, request())).toMatchObject({ amountInCentavos: 25000 });
 });
 
+test("legacy GCash Orders delivered through the paid lifecycle remain eligible without paidAt attribution", async () => {
+  await db.update(orders).set({ paymentMethod: "gcash", paidAt: null }).where(eq(orders.id, orderId));
+  expect(await service().request("customer-1", orderId, request())).toMatchObject({ status: "requested" });
+});
+
 test("partial selections use purchased prices and exclude the Delivery fee", async () => {
   expect(await service().request("customer-1", orderId, { ...request(), orderLineIds: [lineIds[0]] }))
     .toMatchObject({ amountInCentavos: 20000 });
@@ -84,6 +89,12 @@ test("partial selections use purchased prices and exclude the Delivery fee", asy
 test("caps the refund at the recorded paid subtotal", async () => {
   await db.update(orders).set({ subtotalInCentavos: 20000 }).where(eq(orders.id, orderId));
   expect(await service().request("customer-1", orderId, request())).toMatchObject({ amountInCentavos: 25000 });
+});
+
+test("splitting an adjusted historical subtotal across Returns cannot multiply the refund cap", async () => {
+  await db.update(orders).set({ subtotalInCentavos: 20000 }).where(eq(orders.id, orderId));
+  expect(await service().request("customer-1", orderId, { ...request(), orderLineIds: [lineIds[0]] })).toMatchObject({ amountInCentavos: 16000 });
+  expect(await service().request("customer-1", orderId, { ...request(), orderLineIds: [lineIds[1]] })).toMatchObject({ amountInCentavos: 4000 });
 });
 
 test.each([

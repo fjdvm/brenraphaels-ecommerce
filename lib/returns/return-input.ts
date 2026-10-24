@@ -11,7 +11,7 @@ const uploadToken = textField("Evidence upload", { min: 1, max: 4096,
   pattern: /^[A-Za-z0-9_.-]+$/, patternMessage: "Choose evidence uploaded for this Order", rejectInvisible: true });
 
 export const returnRequestInput = z.object({
-  orderLineIds: z.array(z.number().int().positive()).min(1, "Choose at least one whole Order item").max(100)
+  orderLineIds: z.array(z.number().int().positive().max(2147483647)).min(1, "Choose at least one whole Order item").max(100)
     .refine((ids) => new Set(ids).size === ids.length, "Choose each Order item only once"),
   reason: z.enum(["damaged", "defective", "wrong item", "other"]),
   note: multilineTextField("Note", { optional: true, max: 2000,
