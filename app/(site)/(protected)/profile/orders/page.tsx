@@ -12,6 +12,7 @@ import { getDatabase } from "@/lib/db";
 import { createOrderFeedbackStore } from "@/lib/orders/feedback";
 import { createOrderReceiptStore } from "@/lib/orders/receipt";
 import { createOrderStore } from "@/lib/orders/orders";
+import { listCustomerReturns } from "@/lib/returns/customer-reads";
 import { createReturnOfferStore } from "@/lib/returns/return-offers";
 
 export const metadata: Metadata = { title: "My orders" };
@@ -26,6 +27,7 @@ async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/p
   const feedbackStore = createOrderFeedbackStore(getDatabase());
   const withReturnInProgress = await createOrderReceiptStore(getDatabase()).orderIdsWithReturnInProgress(customer.userId);
   const returnOffers = await createReturnOfferStore(getDatabase()).forCustomer(customer.userId, orders);
+  const returns = await listCustomerReturns(getDatabase(), customer.userId);
   const withFeedback = await Promise.all(
     orders.map(async (order) => {
       const feedback = (order.status === "delivered" || order.status === "received") ? await feedbackStore.forOrder(customer.userId, order.id) : undefined;
@@ -43,7 +45,7 @@ async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/p
     );
   }
 
-  return <OrdersBrowser focusOrderId={focusOrderId} orders={withFeedback} />;
+  return <OrdersBrowser focusOrderId={focusOrderId} orders={withFeedback} returns={returns} />;
 }
 
 export default function OrdersPage({ searchParams }: PageProps<"/profile/orders">) {

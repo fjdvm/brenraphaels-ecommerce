@@ -8,6 +8,7 @@ import { CancelOrderForm, MessageUsLink } from "@/components/features/orders/can
 import { OrderFeedbackForm, type GivenFeedback } from "@/components/features/orders/order-feedback-form";
 import { OrderReceivedButton } from "@/components/features/orders/order-received-button";
 import { OrderReturn } from "@/components/features/orders/order-return";
+import { ReturnsList } from "@/components/features/orders/returns-list";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { formatPeso } from "@/lib/catalog/currency";
 import {
@@ -21,19 +22,24 @@ import {
   type OrderFilter,
 } from "@/lib/orders/order-view";
 import type { Order } from "@/lib/orders/orders";
+import type { CustomerReturn } from "@/lib/returns/customer-reads";
 import type { ReturnOffer } from "@/lib/returns/return-offers";
+import { countedReturns, returnStatusLabel } from "@/lib/returns/return-view";
 import { cn } from "@/lib/utils";
 
 export type OrderFeedbackSummary = GivenFeedback;
 export type OrderWithFeedback = { order: Order; feedback: OrderFeedbackSummary | null; returnInProgress: boolean; returnOffer?: ReturnOffer | null };
 
-const filters: { id: "all" | OrderFilter; label: string; counted: boolean }[] = [
+type Tab = "all" | OrderFilter | "returns";
+
+const filters: { id: Tab; label: string; counted: boolean }[] = [
   { id: "all", label: "All", counted: true },
   { id: "to-pay", label: "To pay", counted: true },
   { id: "processing", label: "Processing", counted: true },
   { id: "on-the-way", label: "Ready / On the way", counted: false },
   { id: "completed", label: "Completed", counted: true },
   { id: "cancelled", label: "Cancelled", counted: false },
+  { id: "returns", label: "Returns", counted: true },
 ];
 
 const badgeClass: Record<OrderBadge["tone"], string> = {
@@ -43,8 +49,9 @@ const badgeClass: Record<OrderBadge["tone"], string> = {
 };
 
 /** The My orders list: filter chips over expandable Order cards. */
-export function OrdersBrowser({ orders, focusOrderId }: { orders: OrderWithFeedback[]; focusOrderId?: number }) {
-  const [filter, setFilter] = useState<"all" | OrderFilter>("all");
+export function OrdersBrowser({ orders, returns = [], focusOrderId }: { orders: OrderWithFeedback[]; returns?: CustomerReturn[]; focusOrderId?: number }) {
+  const [filter, setFilter] = useState<Tab>("all");
+  const [scrollToReturn, setScrollToReturn] = useState<number>();
   const [openIds, setOpenIds] = useState<Set<number>>(() => {
     const ids = new Set(orders.slice(0, 1).map(({ order }) => order.id));
     // A Feedback request links here with ?order=: open that Order's card so its form shows.
@@ -57,9 +64,19 @@ export function OrdersBrowser({ orders, focusOrderId }: { orders: OrderWithFeedb
     if (focusOrderId !== undefined) document.getElementById(`order-${focusOrderId}-feedback`)?.scrollIntoView?.({ block: "center" });
   }, [focusOrderId]);
 
-  const counts = new Map<string, number>([["all", orders.length]]);
+  useEffect(() => {
+    if (scrollToReturn !== undefined) document.getElementById(`return-${scrollToReturn}`)?.scrollIntoView?.({ block: "center" });
+  }, [scrollToReturn]);
+
+  const counts = new Map<string, number>([["all", orders.length], ["returns", countedReturns(returns)]]);
+  const returnsByOrder = Map.groupBy(returns, ({ orderId }) => orderId);
   for (const { order } of orders) counts.set(orderFilterOf(order), (counts.get(orderFilterOf(order)) ?? 0) + 1);
   const visible = orders.filter(({ order }) => filter === "all" || orderFilterOf(order) === filter);
+
+  function showReturn(id: number) {
+    setFilter("returns");
+    setScrollToReturn(id);
+  }
 
   function toggle(id: number) {
     setOpenIds((current) => {
@@ -94,13 +111,15 @@ export function OrdersBrowser({ orders, focusOrderId }: { orders: OrderWithFeedb
           );
         })}
       </div>
-      {visible.length === 0 ? (
+      {filter === "returns" ? (
+        <ReturnsList returns={returns} />
+      ) : visible.length === 0 ? (
         <p className="rounded-[40px] border border-line bg-white p-10 text-body" role="status">
           No orders in this view.
         </p>
       ) : (
         visible.map(({ order, feedback, returnInProgress, returnOffer }) => (
-          <OrderCard feedback={feedback} key={order.id} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} />
+          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} />
         ))
       )}
     </div>
@@ -126,9 +145,13 @@ function OrderCard({
   open,
   returnInProgress,
   returnOffer,
+  orderReturns,
+  onShowReturn,
   onToggle,
 }: {
   order: Order;
+  orderReturns: CustomerReturn[];
+  onShowReturn: (id: number) => void;
   feedback: OrderFeedbackSummary | null;
   returnInProgress: boolean;
   returnOffer: ReturnOffer | null;
@@ -151,6 +174,19 @@ function OrderCard({
           </h2>
           <div className="flex flex-wrap items-center gap-2">
             {badges.map((badge) => <Badge badge={badge} key={badge.text} />)}
+            {orderReturns.map((entry) => (
+              <a
+                className="rounded-full bg-lavender-soft px-3 py-1 text-xs font-medium tracking-[0.35px] text-primary underline-offset-4 hover:underline"
+                href={`#return-${entry.id}`}
+                key={entry.id}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onShowReturn(entry.id);
+                }}
+              >
+                Return {entry.number} · {returnStatusLabel(entry.status)}
+              </a>
+            ))}
           </div>
           {open ? (
             <p className="text-xs tracking-[0.35px] text-muted">Placed {formatPlacedAt(order.createdAt)}</p>
