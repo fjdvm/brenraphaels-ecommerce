@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
 import { orderStatuses, type OrderStatus } from "./orders";
 
@@ -10,7 +11,14 @@ const statusUpdate = z.discriminatedUnion("status", [
     ...staffAttribution.shape,
   }).strict(),
   z.object({
-    status: z.enum(orderStatuses).exclude(["paid", "received"]),
+    status: z.literal("delivered"),
+    deliveryPhotoFileId: fileIdField,
+    deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
+    staffId: z.unknown().optional(),
+    staffName: z.unknown().optional(),
+  }).strict(),
+  z.object({
+    status: z.enum(orderStatuses).exclude(["paid", "received", "delivered"]),
     deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
     // Attribution is only used for paid; other moves ignore it.
     staffId: z.unknown().optional(),
@@ -21,6 +29,7 @@ const statusUpdate = z.discriminatedUnion("status", [
 export type InternalOrderStatusUpdate = {
   status: OrderStatus;
   deliveryFeeInCentavos?: number;
+  deliveryPhotoFileId?: string;
   staffId?: string;
   staffName?: string;
 };
@@ -31,6 +40,7 @@ export function parseInternalOrderStatusUpdate(payload: unknown): InternalOrderS
   if (update.status === "paid") return update;
   return {
     status: update.status,
+    ...(update.status === "delivered" ? { deliveryPhotoFileId: update.deliveryPhotoFileId } : {}),
     ...(update.deliveryFeeInCentavos === undefined ? {} : { deliveryFeeInCentavos: update.deliveryFeeInCentavos }),
   };
 }

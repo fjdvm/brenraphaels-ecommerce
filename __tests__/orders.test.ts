@@ -99,6 +99,7 @@ describe("Order", () => {
       await expect(store.advance(result.rows[0].id, {
         status, staffId: "staff-17", staffName: "Ana Cruz",
         ...(status === "confirmed" ? { deliveryFeeInCentavos: 8000 } : {}),
+        ...(status === "delivered" ? { deliveryPhotoFileId: "photo-1" } : {}),
       })).resolves.toMatchObject({ status, paidById: null, paidByName: null, paidAt: null });
     }
     const cart = createCartStore(drizzle(client));
@@ -176,7 +177,7 @@ describe("Order", () => {
     await expect(store.advance(placed.id, { status: "paid", staffId: "staff-17", staffName: "Ana Cruz" })).resolves.toMatchObject({ status: "paid" });
     await expect(store.advance(placed.id, { status: "preparing" })).resolves.toMatchObject({ status: "preparing" });
     await expect(store.advance(placed.id, { status: "dispatched" })).resolves.toMatchObject({ status: "dispatched" });
-    await expect(store.advance(placed.id, { status: "delivered" })).resolves.toMatchObject({ status: "delivered" });
+    await expect(store.advance(placed.id, { status: "delivered", deliveryPhotoFileId: "photo-1" })).resolves.toMatchObject({ status: "delivered", deliveryPhotoFileId: "photo-1" });
   });
 
   test("does not add a Delivery fee to a Pickup Order", async () => {
@@ -234,7 +235,7 @@ describe("Order", () => {
     expect(await deliveredAt()).toBeNull();
 
     const before = Date.now();
-    await store.advance(order.id, { status: "delivered" });
+    await store.advance(order.id, { status: "delivered", deliveryPhotoFileId: "photo-1" });
     expect((await deliveredAt())!.getTime()).toBeGreaterThanOrEqual(before - 1000);
   });
 
