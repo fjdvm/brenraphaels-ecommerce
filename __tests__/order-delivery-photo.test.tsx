@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("@/app/(site)/(protected)/profile/orders/actions", () => ({ markOrderReceived: vi.fn(), submitOrderFeedback: vi.fn() }));
@@ -48,5 +48,12 @@ describe("Delivery photo on the Order card", () => {
     openOrder(status, null);
     expect(screen.queryByText("No photo")).toBeNull();
     expect(screen.queryByRole("img", { name: /Delivery photo/ })).toBeNull();
+  });
+
+  test("replaces the image with a notice when the photo cannot be loaded", () => {
+    openOrder("delivered", "file-1");
+    fireEvent.error(screen.getByRole("img", { name: "Delivery photo for Order #7" }));
+    expect(screen.queryByRole("img", { name: /Delivery photo/ })).toBeNull();
+    expect(screen.getByText("Photo unavailable")).toBeTruthy();
   });
 });

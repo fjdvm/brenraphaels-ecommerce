@@ -339,12 +339,15 @@ function OrderDetails({
 }
 
 function DeliveryPhoto({ orderId, fileId }: { orderId: number; fileId: string | null }) {
+  const [failed, setFailed] = useState(false);
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs tracking-[0.35px] text-muted">Delivery photo</p>
-      {fileId ? (
+      {fileId && failed ? (
+        <p className="text-sm text-body">Photo unavailable</p>
+      ) : fileId ? (
         // eslint-disable-next-line @next/next/no-img-element -- the route redirects to a short-lived signed URL
-        <img alt={`Delivery photo for Order #${orderId}`} className="max-h-80 w-full max-w-sm rounded-[3px] object-cover" loading="lazy" src={`/api/orders/${orderId}/delivery-photo`} />
+        <img alt={`Delivery photo for Order #${orderId}`} className="max-h-80 w-full max-w-sm rounded-[3px] object-cover" loading="lazy" onError={() => setFailed(true)} src={`/api/orders/${orderId}/delivery-photo`} />
       ) : (
         <p className="text-sm text-body">No photo</p>
       )}
