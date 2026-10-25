@@ -1,7 +1,8 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { addresses, customers, orderDeliveryAddresses, orderLines, orders, productImages, products } from "../db/schema";
+import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
 import { createCartStore } from "./cart";
 
@@ -23,8 +24,10 @@ export const orderStatuses = [
 ] as const;
 export type OrderStatus = (typeof orderStatuses)[number];
 
+export class OrderStatusUpdateError extends Error {}
+
 /** The requested status does not follow the Order lifecycle. */
-export class OrderTransitionError extends Error {
+export class OrderTransitionError extends OrderStatusUpdateError {
   constructor(nextStatus: OrderStatus, currentStatus: OrderStatus) {
     super(`\"${nextStatus}\" is not a legal transition from \"${currentStatus}\".`);
     this.name = "OrderTransitionError";
@@ -90,6 +93,14 @@ export type SubmitPaymentProofInput = {
   screenshotPathname?: string;
 };
 
+export type AdvanceOrderInput = {
+  status: OrderStatus;
+  deliveryFeeInCentavos?: number;
+  deliveryPhotoFileId?: string;
+  staffId?: string;
+  staffName?: string;
+};
+
 export type OrderStore = {
   place(
     customerId: string,
@@ -98,7 +109,7 @@ export type OrderStore = {
   listForCustomer(customerId: string): Promise<Order[]>;
   advance(
     orderId: number,
-    input: { status: OrderStatus; deliveryFeeInCentavos?: number; staffId?: string; staffName?: string },
+    input: AdvanceOrderInput,
   ): Promise<Order>;
   cancel(customerId: string, orderId: number): Promise<Order>;
   customerEmailForOrder(orderId: number): Promise<string | undefined>;
@@ -206,13 +217,20 @@ export function createOrderStore<
 
   async function advance(
     orderId: number,
-    input: { status: OrderStatus; deliveryFeeInCentavos?: number; staffId?: string; staffName?: string },
+    input: AdvanceOrderInput,
   ): Promise<Order> {
     const [persistedOrder] = await db
       .select()
       .from(orders)
       .where(eq(orders.id, orderId));
-    if (!persistedOrder) throw new Error("Order was not found.");
+    if (!persistedOrder) throw new OrderStatusUpdateError("Order was not found.");
+
+    if (input.status === "delivered" && persistedOrder.deliveryPhotoFileId !== null) {
+      throw new OrderStatusUpdateError("Delivery photo is already set.");
+    }
+    if (input.status !== "delivered" && input.deliveryPhotoFileId !== undefined) {
+      throw new OrderStatusUpdateError("A Delivery photo can only be set when marking an Order delivered.");
+    }
 
     const permittedNextStatuses: Record<OrderStatus, readonly OrderStatus[]> = {
       placed: ["confirmed", "cancelled"],
@@ -231,18 +249,19 @@ export function createOrderStore<
     if (!permittedNextStatuses[currentStatus].includes(input.status)) {
       throw new OrderTransitionError(input.status, currentStatus);
     }
+    const deliveryPhotoFileId = input.status === "delivered" ? fileIdField.parse(input.deliveryPhotoFileId) : undefined;
     if (
       input.deliveryFeeInCentavos !== undefined
       && (input.status !== "confirmed" || persistedOrder.fulfillmentMethod !== "delivery")
     ) {
-      throw new Error("A Delivery fee can only be set when confirming a Delivery Order.");
+      throw new OrderStatusUpdateError("A Delivery fee can only be set when confirming a Delivery Order.");
     }
     if (
       input.status === "confirmed"
       && persistedOrder.fulfillmentMethod === "delivery"
       && input.deliveryFeeInCentavos === undefined
     ) {
-      throw new Error("A confirmed Delivery Order must include its Delivery fee.");
+      throw new OrderStatusUpdateError("A confirmed Delivery Order must include its Delivery fee.");
     }
 
     const staff = input.status === "paid" ? staffAttribution.parse(input) : null;
@@ -251,15 +270,18 @@ export function createOrderStore<
       .set({
         status: input.status,
         ...(staff ? { paidById: staff.staffId, paidByName: staff.staffName, paidAt: new Date() } : {}),
-        ...(input.status === "delivered" ? { deliveredAt: new Date() } : {}),
+        ...(input.status === "delivered" ? { deliveredAt: new Date(), deliveryPhotoFileId } : {}),
         ...(input.deliveryFeeInCentavos === undefined
           ? {}
           : { deliveryFeeInCentavos: input.deliveryFeeInCentavos }),
       })
       // Keep a concurrent update from overwriting a status that was just advanced.
-      .where(and(eq(orders.id, orderId), eq(orders.status, currentStatus)))
+      .where(and(
+        eq(orders.id, orderId), eq(orders.status, currentStatus),
+        ...(input.status === "delivered" ? [isNull(orders.deliveryPhotoFileId)] : []),
+      ))
       .returning();
-    if (!updatedOrder) throw new Error("Order status changed before it could be advanced.");
+    if (!updatedOrder) throw new OrderStatusUpdateError("Order status or Delivery photo changed before it could be advanced. Refresh before retrying.");
 
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
   }

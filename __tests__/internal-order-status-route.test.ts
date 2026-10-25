@@ -1,5 +1,5 @@
 import { mintCreomsCredential } from "@/lib/orders/creoms-credential";
-import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 
 const {
   advance,
@@ -34,7 +34,12 @@ beforeAll(async () => {
   ({ POST: post } = await import("../app/api/internal/orders/[id]/status/route"));
 });
 
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+
 beforeEach(() => {
+  vi.stubEnv("API_GATEWAY_URL", "https://gateway.test");
+  vi.stubEnv("API_GATEWAY_CALLER_KEY", "storefront-key");
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ id: "photo-1", status: "active", visibility: "private", contentType: "image/jpeg" })));
   process.env.CREOMS_SERVICE_SECRET = "k".repeat(40);
   advance.mockReset().mockResolvedValue({
     id: 12,
@@ -123,12 +128,12 @@ describe("POST /api/internal/orders/[id]/status", () => {
     "%s does not need or forward Staff attribution", async (status) => {
       for (const staff of [{}, { staffId: "staff-17", staffName: "Ana Cruz" }]) {
         const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
-          body: JSON.stringify({ status, ...staff }),
+          body: JSON.stringify({ status, ...staff, ...(status === "delivered" ? { deliveryPhotoFileId: "photo-1" } : {}) }),
           headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
           method: "POST",
         });
         expect((await post(request, context)).status).toBe(200);
-        expect(advance).toHaveBeenLastCalledWith(12, { status });
+        expect(advance).toHaveBeenLastCalledWith(12, { status, ...(status === "delivered" ? { deliveryPhotoFileId: "photo-1" } : {}) });
       }
     },
   );
@@ -136,7 +141,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
   test("invites the Customer to leave Feedback when an Order is delivered", async () => {
     advance.mockResolvedValueOnce({ id: 12, status: "delivered", fulfillmentMethod: "pickup", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
     const deliveredRequest = new Request("https://shop.example.test/api/internal/orders/12/status", {
-      body: JSON.stringify({ status: "delivered" }),
+      body: JSON.stringify({ status: "delivered", deliveryPhotoFileId: "photo-1" }),
       headers: { "Authorization": `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
       method: "POST",
     });
@@ -175,4 +180,9 @@ describe("POST /api/internal/orders/[id]/status", () => {
     expect((await post(cancel, context)).status).toBe(200);
     expect(advance).toHaveBeenCalledWith(12, { status: "cancelled" });
   });
+});
+
+test("a failed Customer email lookup never reports a committed status change as failed", async () => {
+  customerEmailForOrder.mockRejectedValueOnce(new Error("Customer lookup unavailable"));
+  expect((await post(statusRequest(), context)).status).toBe(200);
 });
