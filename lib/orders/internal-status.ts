@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
-import { orderStatuses, type OrderStatus } from "./orders";
+import { orderStatuses } from "./orders";
 
 const statusUpdate = z.discriminatedUnion("status", [
   z.object({
@@ -26,21 +26,19 @@ const statusUpdate = z.discriminatedUnion("status", [
   }).strict(),
 ]);
 
-export type InternalOrderStatusUpdate = {
-  status: OrderStatus;
-  deliveryFeeInCentavos?: number;
-  deliveryPhotoFileId?: string;
-  staffId?: string;
-  staffName?: string;
-};
+export type InternalOrderStatusUpdate = ReturnType<typeof parseInternalOrderStatusUpdate>;
 
 /** Validates the body of an already-authenticated Order status request. */
-export function parseInternalOrderStatusUpdate(payload: unknown): InternalOrderStatusUpdate {
+export function parseInternalOrderStatusUpdate(payload: unknown) {
   const update = statusUpdate.parse(payload);
   if (update.status === "paid") return update;
+  if (update.status === "delivered") return {
+    status: update.status,
+    deliveryPhotoFileId: update.deliveryPhotoFileId,
+    ...(update.deliveryFeeInCentavos === undefined ? {} : { deliveryFeeInCentavos: update.deliveryFeeInCentavos }),
+  };
   return {
     status: update.status,
-    ...(update.status === "delivered" ? { deliveryPhotoFileId: update.deliveryPhotoFileId } : {}),
     ...(update.deliveryFeeInCentavos === undefined ? {} : { deliveryFeeInCentavos: update.deliveryFeeInCentavos }),
   };
 }

@@ -43,7 +43,7 @@ export async function POST(
 
   try {
     const update = parseInternalOrderStatusUpdate(await request.json());
-    if (update.status === "delivered") await verifyDeliveryPhoto(update.deliveryPhotoFileId!);
+    if (update.status === "delivered") await verifyDeliveryPhoto(update.deliveryPhotoFileId);
     const orderStore = createOrderStore(getDatabase());
     const order = await orderStore.advance(orderId, update);
     if (

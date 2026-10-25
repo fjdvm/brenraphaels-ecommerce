@@ -93,6 +93,14 @@ export type SubmitPaymentProofInput = {
   screenshotPathname?: string;
 };
 
+export type AdvanceOrderInput = {
+  status: OrderStatus;
+  deliveryFeeInCentavos?: number;
+  deliveryPhotoFileId?: string;
+  staffId?: string;
+  staffName?: string;
+};
+
 export type OrderStore = {
   place(
     customerId: string,
@@ -101,7 +109,7 @@ export type OrderStore = {
   listForCustomer(customerId: string): Promise<Order[]>;
   advance(
     orderId: number,
-    input: { status: OrderStatus; deliveryFeeInCentavos?: number; deliveryPhotoFileId?: string; staffId?: string; staffName?: string },
+    input: AdvanceOrderInput,
   ): Promise<Order>;
   cancel(customerId: string, orderId: number): Promise<Order>;
   customerEmailForOrder(orderId: number): Promise<string | undefined>;
@@ -209,7 +217,7 @@ export function createOrderStore<
 
   async function advance(
     orderId: number,
-    input: { status: OrderStatus; deliveryFeeInCentavos?: number; deliveryPhotoFileId?: string; staffId?: string; staffName?: string },
+    input: AdvanceOrderInput,
   ): Promise<Order> {
     const [persistedOrder] = await db
       .select()
