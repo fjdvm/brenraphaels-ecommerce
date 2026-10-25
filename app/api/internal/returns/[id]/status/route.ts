@@ -4,6 +4,7 @@ import { getDatabase } from "@/lib/db";
 import { creomsReturnCredential, verifyCreomsCredential } from "@/lib/orders/creoms-credential";
 import { parseInternalReturnStatusUpdate } from "@/lib/returns/internal-status";
 import { InvalidRefundProof, verifyRefundProof } from "@/lib/returns/refund-proof";
+import { notifyReturnChange } from "@/lib/returns/return-notices";
 import { createReturnStore, ReturnTransitionError } from "@/lib/returns/returns";
 
 export const runtime = "nodejs";
@@ -20,7 +21,9 @@ export async function POST(request: Request, context: RouteContext<"/api/interna
   try {
     const { actor, decision } = parseInternalReturnStatusUpdate(await request.json());
     if (decision.status === "refunded") await verifyRefundProof(decision.refundProofFileId, returnId);
-    const updated = await createReturnStore(getDatabase()).transition(returnId, actor, decision);
+    const db = getDatabase();
+    const updated = await createReturnStore(db).transition(returnId, actor, decision);
+    await notifyReturnChange(db, updated);
     return Response.json({
       id: updated.id, status: updated.status, finalResolution: updated.finalResolution,
       goodsRequired: updated.goodsRequired, declineReason: updated.declineReason,

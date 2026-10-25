@@ -22,6 +22,7 @@ let calls: { url: string; init?: RequestInit }[];
 
 beforeEach(async () => {
   vi.stubEnv("CREOMS_SERVICE_SECRET", "k".repeat(40));
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.test");
   vi.stubEnv("API_GATEWAY_URL", "https://gateway.test");
   vi.stubEnv("API_GATEWAY_CALLER_KEY", "storefront-key");
   client = new PGlite();
@@ -80,7 +81,10 @@ test("defaults approval to the Customer preference, skips goods received, and co
     { returnId: id, status: "replaced", actorId: "ben", actorName: "Ben Cruz" },
   ]);
   expect(await db.select().from(orders)).toMatchObject([{ status: "delivered" }]);
-  expect(calls).toHaveLength(0);
+  expect(calls.filter((c) => !c.url.includes("/notifications/"))).toHaveLength(0);
+  // Two decisions (approved, replaced): exactly one email and one Notification each.
+  expect(calls.filter((c) => c.url.endsWith("/notifications/emails/app"))).toHaveLength(2);
+  expect(calls.filter((c) => c.url.endsWith("/notifications/notifications"))).toHaveLength(2);
 });
 
 test("checks every Staff move against the status, final Resolution and goods requirement", async () => {
@@ -135,7 +139,7 @@ test("requires the Returns credential, rejects Orders credentials and malformed 
   }
   expect((await call(99999, { status: "approved", ...staff })).status).toBe(404);
   expect(await db.select().from(orderReturnHistory)).toHaveLength(0);
-  expect(calls).toHaveLength(0);
+  expect(calls.filter((c) => !c.url.includes("/notifications/"))).toHaveLength(0);
 });
 
 test("verifies refund proof before committing and never sends the Caller key to storage", async () => {
@@ -146,8 +150,9 @@ test("verifies refund proof before committing and never sends the Caller key to 
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ id, status: "refunded", refundProofFileId: "proof-1" });
   expect(await db.select().from(orderReturns)).toMatchObject([{ refundedAt: expect.any(Date), refundProofFileId: "proof-1" }]);
-  expect(calls[0].init).toMatchObject({ headers: { Authorization: "Bearer storefront-key" }, cache: "no-store", redirect: "error" });
-  expect(calls.at(-1)?.init?.headers).toBeUndefined();
+  const storageCalls = calls.filter((c) => !c.url.includes("/notifications/"));
+  expect(storageCalls[0].init).toMatchObject({ headers: { Authorization: "Bearer storefront-key" }, cache: "no-store", redirect: "error" });
+  expect(storageCalls.at(-1)?.init?.headers).toBeUndefined();
 });
 
 test("refuses unconfirmed, public, temporary, oversized, unrelated or spoofed proof without changing the Return", async () => {
