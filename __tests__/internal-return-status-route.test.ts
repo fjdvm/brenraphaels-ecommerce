@@ -10,6 +10,11 @@ import { POST } from "../app/api/internal/returns/[id]/status/route";
 
 const database = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock("@/lib/db", () => ({ getDatabase: database.get }));
+const { publishCustomerOrderEvent } = vi.hoisted(() => ({ publishCustomerOrderEvent: vi.fn() }));
+vi.mock("@/lib/orders/live-events", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/orders/live-events")>()),
+  publishCustomerOrderEvent,
+}));
 let client: PGlite;
 let db: ReturnType<typeof drizzle>;
 let orderId: number;
@@ -40,6 +45,7 @@ beforeEach(async () => {
   metadata = { id: "proof-1", status: "active", contentType: "image/png", size: png.length,
     visibility: "private", retentionType: "permanent", expiresAt: null, url: "https://storage.test/proof" };
   calls = [];
+  publishCustomerOrderEvent.mockReset().mockResolvedValue(undefined);
   vi.stubGlobal("fetch", vi.fn(async (input: string | URL, init?: RequestInit) => {
     const url = new URL(input);
     calls.push({ url: url.toString(), init });
@@ -213,4 +219,39 @@ test("rejects truncated JPG/PNG payloads despite valid signatures and accepts a 
   bytes = await sharp(png).jpeg().toBuffer();
   metadata = { ...metadata, contentType: "image/jpeg", size: bytes.length };
   expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff })).status).toBe(200);
+});
+
+test("each committed Return decision publishes one event for the Order's Customer", async () => {
+  const id = await requested("replacement");
+  expect((await call(id, { status: "approved", ...staff })).status).toBe(200);
+  expect((await call(id, { status: "replaced", ...staff })).status).toBe(200);
+  const event = { type: "return.updated", orderId: String(orderId), returnId: String(id) };
+  expect(publishCustomerOrderEvent.mock.calls).toEqual([["customer-1", event], ["customer-1", event]]);
+});
+
+test("a refused, invalid, unauthorized or rolled-back decision publishes nothing", async () => {
+  const id = await requested();
+  expect((await call(id, { status: "replaced", ...staff })).status).toBe(409);
+  expect((await call(id, { status: "approved" })).status).toBe(400);
+  expect((await call(id, { status: "approved", ...staff }, "invalid")).status).toBe(401);
+  expect((await call(99999, { status: "approved", ...staff })).status).toBe(404);
+  await client.exec("ALTER TABLE order_return_history ADD CONSTRAINT reject_history CHECK (false) NOT VALID");
+  expect((await call(id, { status: "approved", ...staff })).status).toBe(503);
+  expect(await db.select().from(orderReturns)).toMatchObject([{ id, status: "requested" }]);
+  expect(publishCustomerOrderEvent).not.toHaveBeenCalled();
+});
+
+test("a failed publish is logged and never fails or rolls back the committed decision", async () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  publishCustomerOrderEvent.mockRejectedValueOnce(new Error("The gateway refused the Order event: 502"));
+  const id = await requested();
+  const response = await call(id, { status: "declined", declineReason: "No defect found.", ...staff });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ id, status: "declined" });
+  expect(await db.select().from(orderReturns)).toMatchObject([{ id, status: "declined" }]);
+  expect(await db.select().from(orderReturnHistory)).toHaveLength(1);
+  expect(log).toHaveBeenCalledWith(`return.updated event for Order ${orderId} could not be published`, expect.any(Error));
+  // The Customer's email and Notification still go out.
+  expect(calls.filter((c) => c.url.includes("/notifications/"))).toHaveLength(2);
+  log.mockRestore();
 });

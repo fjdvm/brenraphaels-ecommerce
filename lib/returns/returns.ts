@@ -71,7 +71,7 @@ export function createReturnStore<
       await tx.insert(orderReturnHistory).values({ returnId: id, status: updated.status, actorType: actor.type,
         actorId: actor.id, actorName: actor.name, occurredAt: at,
         note: decision.status === "declined" ? decision.declineReason : null });
-      return { ...updated, number: formatReturnNumber(id), actedBy: { ...actor, at } };
+      return { ...updated, number: formatReturnNumber(id), customerId: order.customerId, actedBy: { ...actor, at } };
     });
   }
   return { transition };

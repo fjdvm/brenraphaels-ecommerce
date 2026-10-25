@@ -7,6 +7,7 @@ import { sendOrderPaidEmail } from "@/lib/email/order-paid-email";
 import { DeliveryPhotoUnavailable, InvalidDeliveryPhoto, verifyDeliveryPhoto } from "@/lib/orders/verify-delivery-photo";
 import { verifyCreomsCredential } from "@/lib/orders/creoms-credential";
 import { parseInternalOrderStatusUpdate } from "@/lib/orders/internal-status";
+import { publishAfterCommit, publishCustomerOrderEvent } from "@/lib/orders/live-events";
 import { createOrderStore, OrderStatusUpdateError, type Order, type OrderStore } from "@/lib/orders/orders";
 
 export const runtime = "nodejs";
@@ -46,6 +47,11 @@ export async function POST(
     if (update.status === "delivered") await verifyDeliveryPhoto(update.deliveryPhotoFileId);
     const orderStore = createOrderStore(getDatabase());
     const order = await orderStore.advance(orderId, update);
+    await publishAfterCommit(
+      orderStore.customerIdForOrder(order.id),
+      { type: "order.updated", orderId: String(order.id) },
+      publishCustomerOrderEvent,
+    );
     if (
       order.status === "confirmed"
       && order.fulfillmentMethod === "delivery"
