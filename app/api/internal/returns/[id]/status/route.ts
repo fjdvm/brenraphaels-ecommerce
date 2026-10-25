@@ -2,6 +2,7 @@ import { ZodError } from "zod";
 
 import { getDatabase } from "@/lib/db";
 import { creomsReturnCredential, verifyCreomsCredential } from "@/lib/orders/creoms-credential";
+import { publishAfterCommit, publishCustomerOrderEvent } from "@/lib/orders/live-events";
 import { parseInternalReturnStatusUpdate } from "@/lib/returns/internal-status";
 import { InvalidRefundProof, verifyRefundProof } from "@/lib/returns/refund-proof";
 import { notifyReturnChange } from "@/lib/returns/return-notices";
@@ -23,6 +24,9 @@ export async function POST(request: Request, context: RouteContext<"/api/interna
     if (decision.status === "refunded") await verifyRefundProof(decision.refundProofFileId, returnId);
     const db = getDatabase();
     const updated = await createReturnStore(db).transition(returnId, actor, decision);
+    await publishAfterCommit(updated.customerId, {
+      type: "return.updated", orderId: String(updated.orderId), returnId: String(updated.id),
+    }, publishCustomerOrderEvent);
     await notifyReturnChange(db, updated);
     return Response.json({
       id: updated.id, status: updated.status, finalResolution: updated.finalResolution,

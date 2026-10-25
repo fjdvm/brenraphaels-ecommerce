@@ -114,6 +114,7 @@ export type OrderStore = {
   ): Promise<Order>;
   cancel(customerId: string, orderId: number): Promise<Order>;
   customerEmailForOrder(orderId: number): Promise<string | undefined>;
+  customerIdForOrder(orderId: number): Promise<string | undefined>;
   submitPaymentProof(
     customerId: string,
     orderId: number,
@@ -346,6 +347,11 @@ export function createOrderStore<
     return customer?.email;
   }
 
+  async function customerIdForOrder(orderId: number): Promise<string | undefined> {
+    const [order] = await db.select({ customerId: orders.customerId }).from(orders).where(eq(orders.id, orderId));
+    return order?.customerId;
+  }
+
   async function place(
     customerId: string,
     input: PlaceOrderInput,
@@ -436,5 +442,5 @@ export function createOrderStore<
     });
   }
 
-  return { place, listForCustomer, advance, cancel, customerEmailForOrder, submitPaymentProof };
+  return { place, listForCustomer, advance, cancel, customerEmailForOrder, customerIdForOrder, submitPaymentProof };
 }

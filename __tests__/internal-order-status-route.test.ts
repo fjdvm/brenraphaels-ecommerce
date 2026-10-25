@@ -5,15 +5,19 @@ const {
   advance,
   createOrderStore,
   customerEmailForOrder,
+  customerIdForOrder,
   getDatabase,
+  publishCustomerOrderEvent,
   sendOrderConfirmedEmail,
   sendOrderDeliveredEmail,
   sendOrderPaidEmail,
 } = vi.hoisted(() => ({
   advance: vi.fn(),
-  createOrderStore: vi.fn(() => ({ advance, customerEmailForOrder })),
+  createOrderStore: vi.fn(() => ({ advance, customerEmailForOrder, customerIdForOrder })),
   customerEmailForOrder: vi.fn(),
+  customerIdForOrder: vi.fn(),
   getDatabase: vi.fn(),
+  publishCustomerOrderEvent: vi.fn(),
   sendOrderConfirmedEmail: vi.fn(),
   sendOrderDeliveredEmail: vi.fn(),
   sendOrderPaidEmail: vi.fn(),
@@ -23,6 +27,10 @@ vi.mock("@/lib/db", () => ({ getDatabase }));
 vi.mock("@/lib/email/order-confirmed-email", () => ({ sendOrderConfirmedEmail }));
 vi.mock("@/lib/email/order-delivered-email", () => ({ sendOrderDeliveredEmail }));
 vi.mock("@/lib/email/order-paid-email", () => ({ sendOrderPaidEmail }));
+vi.mock("@/lib/orders/live-events", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/orders/live-events")>()),
+  publishCustomerOrderEvent,
+}));
 vi.mock("@/lib/orders/orders", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/orders/orders")>()),
   createOrderStore,
@@ -49,6 +57,8 @@ beforeEach(() => {
     subtotalInCentavos: 21900,
   });
   customerEmailForOrder.mockReset().mockResolvedValue("jane@example.com");
+  customerIdForOrder.mockReset().mockResolvedValue("customer-7");
+  publishCustomerOrderEvent.mockReset().mockResolvedValue(undefined);
   sendOrderConfirmedEmail.mockReset().mockResolvedValue(undefined);
   sendOrderDeliveredEmail.mockReset().mockResolvedValue(undefined);
   sendOrderPaidEmail.mockReset().mockResolvedValue(undefined);
@@ -185,4 +195,54 @@ describe("POST /api/internal/orders/[id]/status", () => {
 test("a failed Customer email lookup never reports a committed status change as failed", async () => {
   customerEmailForOrder.mockRejectedValueOnce(new Error("Customer lookup unavailable"));
   expect((await post(statusRequest(), context)).status).toBe(200);
+});
+
+describe("Customer Order events", () => {
+  test.each(["confirmed", "cancelled"])("a committed %s change publishes one event for the Order's Customer", async (status) => {
+    advance.mockResolvedValueOnce({ id: 12, status, fulfillmentMethod: "pickup", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status }),
+      headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    expect((await post(request, context)).status).toBe(200);
+    expect(customerIdForOrder).toHaveBeenCalledWith(12);
+    expect(publishCustomerOrderEvent).toHaveBeenCalledTimes(1);
+    expect(publishCustomerOrderEvent).toHaveBeenCalledWith("customer-7", { type: "order.updated", orderId: "12" });
+  });
+
+  test("a refused, invalid or unauthorized change publishes nothing", async () => {
+    const { OrderTransitionError } = await import("@/lib/orders/orders");
+    advance.mockRejectedValueOnce(new OrderTransitionError("confirmed", "delivered"));
+    expect((await post(statusRequest(), context)).status).toBe(409);
+    advance.mockRejectedValueOnce(new Error("connection reset"));
+    expect((await post(statusRequest(), context)).status).toBe(503);
+    expect((await post(statusRequest("invalid"), context)).status).toBe(401);
+    const invalid = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "shipped" }),
+      headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect((await post(invalid, context)).status).toBe(400);
+    expect(publishCustomerOrderEvent).not.toHaveBeenCalled();
+  });
+
+  test("a failed publish or Customer lookup is logged and never fails the committed change", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    publishCustomerOrderEvent.mockRejectedValueOnce(new Error("The gateway refused the Order event: 502"));
+    const response = await post(statusRequest(), context);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ id: 12, status: "confirmed" });
+    expect(sendOrderConfirmedEmail).toHaveBeenCalled();
+
+    customerIdForOrder.mockRejectedValueOnce(new Error("Customer lookup unavailable"));
+    expect((await post(statusRequest(), context)).status).toBe(200);
+    expect(log).toHaveBeenCalledTimes(2);
+    expect(log.mock.calls.map(([message]) => message)).toEqual([
+      "order.updated event for Order 12 could not be published",
+      "order.updated event for Order 12 could not be published",
+    ]);
+    log.mockRestore();
+  });
 });
