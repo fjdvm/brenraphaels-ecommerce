@@ -272,6 +272,8 @@ function OrderDetails({
       </dl>
       {feePending ? <p className="text-right text-xs text-warning">We&apos;ll confirm the delivery fee shortly</p> : null}
 
+      {order.status === "delivered" || order.status === "received" ? <DeliveryPhoto fileId={order.deliveryPhotoFileId} orderId={order.id} /> : null}
+
       {needsPayment(order) ? <PaymentProofForm amountInCentavos={total} orderId={order.id} /> : null}
       {order.paymentProof ? (
         <p className="text-sm text-body">
@@ -295,6 +297,20 @@ function OrderDetails({
         <div className="flex justify-end">
           <MessageUsLink orderId={order.id} />
         </div>
+      )}
+    </div>
+  );
+}
+
+function DeliveryPhoto({ orderId, fileId }: { orderId: number; fileId: string | null }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs tracking-[0.35px] text-muted">Delivery photo</p>
+      {fileId ? (
+        // eslint-disable-next-line @next/next/no-img-element -- the route redirects to a short-lived signed URL
+        <img alt={`Delivery photo for Order #${orderId}`} className="max-h-80 w-full max-w-sm rounded-[3px] object-cover" loading="lazy" src={`/api/orders/${orderId}/delivery-photo`} />
+      ) : (
+        <p className="text-sm text-body">No photo</p>
       )}
     </div>
   );
