@@ -73,6 +73,13 @@ test("a Return carries its number, Order, items, Resolutions, evidence, decline 
   expect(d).toMatchObject({ id: declined.id, status: "declined", declineReason: "No defect visible.", refundProofFileId: null, finalResolution: null });
 });
 
+test("a decline reason or refund proof is only shown on a Declined or Refunded Return", async () => {
+  const o = await order("c1");
+  await aReturn(o, { status: "approved", declineReason: "stale", refundProofFileId: "stale-proof" });
+  const [r] = await listCustomerReturns(db, "c1");
+  expect(r).toMatchObject({ status: "approved", declineReason: null, refundProofFileId: null });
+});
+
 test("Orders expose the Delivery photo, or null for Orders delivered earlier", async () => {
   const withPhoto = await order("c1", { deliveryPhotoFileId: "delivery-1" });
   const without = await order("c1");
