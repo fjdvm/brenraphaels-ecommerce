@@ -4,6 +4,23 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import { fileIdField } from "../validators/file-id";
 import { productImageOrigin } from "./product-image-host";
 
+export type ProductImageReference = { productSlug: string; fileId: string | null; url: string | null };
+
+export async function resolveProductImage(image: ProductImageReference | null, files: ProductImageFiles): Promise<string | null> {
+  if (!image) return null;
+  return image.fileId ? files.publicUrl(image.productSlug, image.fileId) : image.url;
+}
+
+/** Image availability must never make a Cart or a committed Order change fail. */
+export async function productThumbnail(image: ProductImageReference | null, files: ProductImageFiles): Promise<string | null> {
+  try {
+    return await resolveProductImage(image, files);
+  } catch (error) {
+    console.error("Product thumbnail could not be resolved", error);
+    return image?.url ?? null;
+  }
+}
+
 export type ProductImageFiles = {
   publicUrl(productSlug: string, fileId: string): Promise<string>;
 };

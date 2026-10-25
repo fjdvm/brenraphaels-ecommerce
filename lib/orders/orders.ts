@@ -1,3 +1,4 @@
+import { gatewayProductImages, productThumbnail, type ProductImageFiles, type ProductImageReference } from "../catalog/product-images";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
@@ -147,12 +148,12 @@ export async function placeOrderAndNotify(
 export function createOrderStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
->(db: PgDatabase<TQueryResult, TSchema>): OrderStore {
+>(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages()): OrderStore {
   async function linesForOrder(orderId: number): Promise<OrderLine[]> {
-    return db
+    const lines = await db
       .select({
         productName: orderLines.productName,
-        imageUrl: sql<string | null>`(select ${productImages.url} from ${productImages} inner join ${products} on ${products.slug} = ${productImages.productSlug} where ${products.name} = ${orderLines.productName} order by ${productImages.position} asc limit 1)`,
+        image: sql<ProductImageReference | null>`(select json_build_object('productSlug', ${productImages.productSlug}, 'fileId', ${productImages.fileId}, 'url', ${productImages.url}) from ${productImages} inner join ${products} on ${products.slug} = ${productImages.productSlug} where ${products.name} = ${orderLines.productName} order by ${productImages.position} asc limit 1)`,
         sizeLabel: orderLines.sizeLabel,
         priceInCentavos: orderLines.priceInCentavos,
         quantity: orderLines.quantity,
@@ -160,6 +161,7 @@ export function createOrderStore<
       .from(orderLines)
       .where(eq(orderLines.orderId, orderId))
       .orderBy(asc(orderLines.id));
+    return Promise.all(lines.map(async ({ image, ...line }) => ({ ...line, imageUrl: await productThumbnail(image, files) })));
   }
 
   async function deliveryAddressForOrder(orderId: number): Promise<DeliveryAddress | null> {
@@ -349,7 +351,7 @@ export function createOrderStore<
     input: PlaceOrderInput,
   ): Promise<Order> {
     return db.transaction(async (transaction) => {
-      const transactionalCart = createCartStore(transaction);
+      const transactionalCart = createCartStore(transaction, files);
       const cart = await transactionalCart.get(customerId);
       if (cart.lines.length === 0) {
         throw new Error("Your Cart is empty.");

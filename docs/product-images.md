@@ -5,7 +5,10 @@ Refs fjdvm/epic-crms#230 (parent #226).
 IMS owns the Public, Permanent image Files. `product_images.file_id` holds their
 opaque File ids. `url` retains the old Blob address during migration; a row with
 no File id still uses that address and does not need the gateway configured.
-Catalog list and detail reads prefer the File id when both references exist.
+Catalog, Cart and Order history reads prefer the File id when both references exist.
+Cart and Order thumbnails fall back to the retained Blob address (or no image)
+on a resolution failure, so image availability cannot fail a purchase or a
+committed Order change.
 
 Set `API_GATEWAY_URL`, `API_GATEWAY_CALLER_KEY` and `PRODUCT_IMAGE_ORIGIN` before
 adding File ids. `PRODUCT_IMAGE_ORIGIN` is an HTTPS origin with no path, such as

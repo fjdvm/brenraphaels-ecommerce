@@ -2,7 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { productImages, products, sizes } from "../db/schema";
-import { gatewayProductImages, type ProductImageFiles } from "./product-images";
+import { gatewayProductImages, resolveProductImage, type ProductImageFiles } from "./product-images";
 
 export type CatalogProductSize = { id: number; label: string; priceInCentavos: number; available: boolean };
 
@@ -34,8 +34,7 @@ export function createCatalogStore<
   TSchema extends Record<string, unknown>,
 >(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages()): CatalogStore {
   async function imageUrl(image: { productSlug: string; fileId: string | null; url: string | null }) {
-    if (image.fileId) return files.publicUrl(image.productSlug, image.fileId);
-    return image.url ?? "";
+    return await resolveProductImage(image, files) ?? "";
   }
   return {
     async listProducts() {

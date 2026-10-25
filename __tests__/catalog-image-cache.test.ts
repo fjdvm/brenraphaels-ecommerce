@@ -43,7 +43,7 @@ async function refresh(slug: string) {
     renderOpts: {
       incrementalCache: cache, cacheLifeProfiles: { default: { stale: 300, revalidate: 900, expire: 86400 } }, staticPageGenerationTimeout: 60,
       cacheComponents: false, validationLevel: "warning", supportsDynamicResponse: true,
-      experimental: { authInterrupts: false, useCacheTimeout: 30 }, onClose: () => {},
+      experimental: { authInterrupts: false, useCacheTimeout: 30 }, onClose: () => {}, waitUntil: undefined, onAfterTaskError: undefined,
     },
   });
   workAsyncStorage.run(work, () => refreshProductImages(slug));

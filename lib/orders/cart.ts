@@ -2,6 +2,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { cartLines, cartMerges, productImages, products, sizes } from "../db/schema";
+import { gatewayProductImages, productThumbnail, type ProductImageFiles, type ProductImageReference } from "../catalog/product-images";
 import { cartLineQuantityLimit } from "./quantity";
 
 export { cartLineQuantityLimit } from "./quantity";
@@ -47,7 +48,7 @@ function cappedQuantity(quantity: number) {
 export function createCartStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
->(db: PgDatabase<TQueryResult, TSchema>): CartStore {
+>(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages()): CartStore {
   async function get(customerId: string): Promise<Cart> {
     const lines = await db
       .select({
@@ -56,7 +57,7 @@ export function createCartStore<
         productSlug: products.slug,
         productName: products.name,
         sizeLabel: sizes.label,
-        imageUrl: sql<string | null>`(select ${productImages.url} from ${productImages} where ${productImages.productSlug} = ${products.slug} order by ${productImages.position} asc limit 1)`,
+        image: sql<ProductImageReference | null>`(select json_build_object('productSlug', ${productImages.productSlug}, 'fileId', ${productImages.fileId}, 'url', ${productImages.url}) from ${productImages} where ${productImages.productSlug} = ${products.slug} order by ${productImages.position} asc limit 1)`,
         priceInCentavos: sizes.priceInCentavos,
         quantity: cartLines.quantity,
         available: sizes.available,
@@ -68,7 +69,7 @@ export function createCartStore<
       .orderBy(asc(cartLines.id));
 
     return {
-      lines,
+      lines: await Promise.all(lines.map(async ({ image, ...line }) => ({ ...line, imageUrl: await productThumbnail(image, files) }))),
       subtotalInCentavos: lines.reduce(
         (subtotal, line) => subtotal + line.priceInCentavos * line.quantity,
         0,
