@@ -57,6 +57,17 @@ async function sizeId(label: string) {
 }
 
 describe("Cart", () => {
+  test("shows the File-backed Product image in a Customer's Cart", async () => {
+    const database = drizzle(client);
+    await database.insert(productImages).values({ productSlug: "ube-jam", fileId: "jam-file", alt: "Jam", position: 0 });
+    const files = { publicUrl: async () => "https://images.example/jam-file/original" };
+    const store = createCartStore(database, files);
+    await store.addSize("customer-1", await sizeId("250g"), 1);
+    expect((await store.get("customer-1")).lines[0].imageUrl).toBe("https://images.example/jam-file/original");
+    files.publicUrl = async () => { throw new Error("gateway unavailable"); };
+    await expect(store.addSize("customer-1", await sizeId("250g"), 1)).resolves.toMatchObject({ lines: [{ imageUrl: null, quantity: 2 }] });
+  });
+
   test("adds a Size, combines repeat additions, and caps the line quantity", async () => {
     const store = createCartStore(drizzle(client));
     const small = await sizeId("250g");

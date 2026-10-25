@@ -45,6 +45,27 @@ async function firstSizeId() {
 }
 
 describe("Order", () => {
+  test("shows a File-backed Product image in Order history instead of the retained Blob address", async () => {
+    const database = drizzle(client);
+    await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
+    const placed = await createOrderStore(database).place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+    await database.insert(productImages).values({ productSlug: "ube-jam", fileId: "jam-file", url: "https://blob.example/old.jpg", alt: "Jam", position: 0 });
+    const files = { publicUrl: async () => "https://images.example/jam-file/original" };
+    const store = createOrderStore(database, files);
+    expect((await store.listForCustomer("customer-1"))[0]).toMatchObject({ id: placed.id, lines: [{ imageUrl: "https://images.example/jam-file/original" }] });
+  });
+
+  test("an image gateway outage never turns a committed Order change into a failure", async () => {
+    const database = drizzle(client);
+    await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
+    const placed = await createOrderStore(database).place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+    await database.insert(productImages).values({ productSlug: "ube-jam", fileId: "jam-file", url: "https://blob.example/old.jpg", alt: "Jam", position: 0 });
+    const files = { publicUrl: async (): Promise<string> => { throw new Error("gateway unavailable"); } };
+    await expect(createOrderStore(database, files).advance(placed.id, { status: "preparing" })).resolves.toMatchObject({
+      status: "preparing", lines: [{ imageUrl: "https://blob.example/old.jpg" }],
+    });
+  });
+
   test("records who marked an Order paid and retains the attribution on reads", async () => {
     const database = drizzle(client);
     await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);

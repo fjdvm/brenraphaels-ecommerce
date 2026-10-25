@@ -91,8 +91,10 @@ export const productImages = pgTable(
     productSlug: text("product_slug")
       .notNull()
       .references(() => products.slug, { onDelete: "cascade" }),
-    // This is a Vercel Blob URL, never a URL from the former Shopify shop.
-    url: text("url").notNull(),
+    // Kept during migration so older rows and rollback still have their Blob address.
+    url: text("url"),
+    /** Public, Permanent File owned by IMS. */
+    fileId: text("file_id"),
     alt: text("alt").notNull(),
     position: integer("position").notNull(),
   },

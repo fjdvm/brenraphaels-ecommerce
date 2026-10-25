@@ -155,6 +155,13 @@
       "when": 1792914809641,
       "tag": "0021_delivery_photo",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792956142156,
+      "tag": "0022_product_image_files",
+      "breakpoints": true
     }
   ]
 }

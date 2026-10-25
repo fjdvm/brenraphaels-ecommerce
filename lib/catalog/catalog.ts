@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { productImages, products, sizes } from "../db/schema";
+import { gatewayProductImages, resolveProductImage, type ProductImageFiles } from "./product-images";
 
 export type CatalogProductSize = { id: number; label: string; priceInCentavos: number; available: boolean };
 
@@ -31,7 +32,10 @@ export type CatalogStore = {
 export function createCatalogStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
->(db: PgDatabase<TQueryResult, TSchema>): CatalogStore {
+>(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages()): CatalogStore {
+  async function imageUrl(image: { productSlug: string; fileId: string | null; url: string | null }) {
+    return await resolveProductImage(image, files) ?? "";
+  }
   return {
     async listProducts() {
       const [allProducts, allImages, allSizes] = await Promise.all([
@@ -49,21 +53,22 @@ export function createCatalogStore<
           .orderBy(asc(sizes.priceInCentavos)),
       ]);
 
-      return allProducts.flatMap((product) => {
+      const listed = await Promise.all(allProducts.map(async (product) => {
         const image = allImages.find(({ productSlug }) => productSlug === product.slug);
         const productSizes = allSizes.filter(({ productSlug }) => productSlug === product.slug);
-        if (!image || productSizes.length === 0) return [];
+        if (!image || productSizes.length === 0) return undefined;
 
         const prices = productSizes.map(({ priceInCentavos }) => priceInCentavos);
-        return [{
+        return {
           slug: product.slug,
           name: product.name,
-          image: image.url,
+          image: await imageUrl(image),
           lowestPriceInCentavos: Math.min(...prices),
           highestPriceInCentavos: Math.max(...prices),
           sizes: productSizes.map(({ id, label, priceInCentavos, available }) => ({ id, label, priceInCentavos, available })),
-        }];
-      });
+        };
+      }));
+      return listed.filter((product) => product !== undefined);
     },
 
     async findProduct(slug) {
@@ -72,7 +77,7 @@ export function createCatalogStore<
 
       const [images, productSizes] = await Promise.all([
         db
-          .select({ url: productImages.url, alt: productImages.alt })
+          .select({ productSlug: productImages.productSlug, fileId: productImages.fileId, url: productImages.url, alt: productImages.alt })
           .from(productImages)
           .where(eq(productImages.productSlug, slug))
           .orderBy(asc(productImages.position)),
@@ -88,7 +93,7 @@ export function createCatalogStore<
           .orderBy(asc(sizes.priceInCentavos)),
       ]);
 
-      return { ...product, images, sizes: productSizes };
+      return { ...product, images: await Promise.all(images.map(async (image) => ({ url: await imageUrl(image), alt: image.alt }))), sizes: productSizes };
     },
   };
 }

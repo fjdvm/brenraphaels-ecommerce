@@ -19,6 +19,17 @@ afterEach(async () => {
 });
 
 describe("Catalog", () => {
+  test("resolves a Product's File id through the gateway instead of its old Blob address", async () => {
+    const database = drizzle(client);
+    await database.insert(products).values({ slug: "ube-jam", name: "Ube Jam", description: "Smooth." });
+    await database.insert(productImages).values({
+      productSlug: "ube-jam", fileId: "jam-file", url: "https://blob.example/old.jpg", alt: "Jam", position: 0,
+    });
+    const files = { publicUrl: async () => "https://images.example/jam-file/original" };
+    const product = await createCatalogStore(database, files).findProduct("ube-jam");
+    expect(product?.images).toEqual([{ url: "https://images.example/jam-file/original", alt: "Jam" }]);
+  });
+
   test("formats a Size price in Philippine pesos", () => {
     expect(formatPeso(21900)).toBe("₱219");
   });
