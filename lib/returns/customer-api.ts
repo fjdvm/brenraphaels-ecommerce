@@ -5,6 +5,7 @@ import { getDatabase } from "../db";
 import { positiveIntegerField } from "../validators/fields";
 import { createCustomerReturns } from "./customer-returns";
 import { gatewayReturnEvidence } from "./evidence-files";
+import { notifyReturnChange } from "./return-notices";
 import { ReturnRequestError } from "./return-input";
 import { ReturnTransitionError } from "./returns";
 
@@ -31,6 +32,7 @@ export async function handleCustomerReturn(request: Request, idParam: string, ac
     const customerId = visitor.customer.userId;
     if (action === "upload") return Response.json(await service.prepareUpload(customerId, id.data, input), { status: 201 });
     const result = action === "cancel" ? await service.cancel(customerId, id.data) : await service.request(customerId, id.data, input);
+    if (action === "request") await notifyReturnChange(getDatabase(), result);
     revalidatePath("/profile/orders");
     return Response.json({ id: result.id, status: result.status,
       ...(action === "request" ? { number: result.number } : {}) }, { status: action === "request" ? 201 : 200 });
