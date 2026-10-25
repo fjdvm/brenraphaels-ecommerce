@@ -20,8 +20,8 @@ test("Returns migrate over existing Orders, retain their data and can be migrate
     await migrate(database, { migrationsFolder: baseline });
     await database.insert(customers).values({ id: "c1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
       email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
-    const [order] = await database.insert(orders).values({ customerId: "c1", status: "delivered", fulfillmentMethod: "delivery",
-      paymentMethod: "cash-on-delivery", subtotalInCentavos: 10000 }).returning();
+    // Raw SQL: the baseline predates columns the current schema lists.
+    const { rows: [order] } = await client.query<{ id: number }>("INSERT INTO orders (customer_id, status, fulfillment_method, payment_method, subtotal_in_centavos) VALUES ('c1', 'delivered', 'delivery', 'cash-on-delivery', 10000) RETURNING id");
     const [line] = await database.insert(orderLines).values({ orderId: order.id, productName: "Halaya", sizeLabel: "Small",
       quantity: 2, priceInCentavos: 5000 }).returning();
 
@@ -36,7 +36,7 @@ test("Returns migrate over existing Orders, retain their data and can be migrate
       actorId: "ana", actorName: "Ana Reyes", occurredAt: at });
     await migrate(database, { migrationsFolder: "drizzle" });
 
-    expect(await database.select().from(orders)).toEqual([order]);
+    expect((await database.select().from(orders)).map(({ id }) => id)).toEqual([order.id]);
     expect(await database.select().from(orderLines)).toEqual([line]);
     expect(await database.select().from(orderReturns).orderBy(orderReturns.id)).toEqual([created]);
     expect(await database.select().from(orderReturnItems)).toMatchObject([{ productName: "Halaya", quantity: 2, priceInCentavos: 5000 }]);
@@ -64,8 +64,8 @@ test("Resolution migration preserves legacy refund Returns and round-trips repla
     await migrate(database, { migrationsFolder: baseline });
     await database.insert(customers).values({ id: "c1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
       email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
-    const [order] = await database.insert(orders).values({ customerId: "c1", status: "delivered", fulfillmentMethod: "pickup",
-      paymentMethod: "cash-on-delivery", subtotalInCentavos: 10000 }).returning();
+    // Raw SQL: the baseline predates columns the current schema lists.
+    const { rows: [order] } = await client.query<{ id: number }>("INSERT INTO orders (customer_id, status, fulfillment_method, payment_method, subtotal_in_centavos) VALUES ('c1', 'delivered', 'pickup', 'cash-on-delivery', 10000) RETURNING id");
     // Exercise the pre-0020 schema, which has no Resolution columns yet.
     await client.query("INSERT INTO order_returns (order_id, status, reason, amount_in_centavos, goods_required) VALUES ($1, 'approved', 'damaged', 10000, false), ($1, 'refunded', 'defective', 10000, false), ($1, 'requested', 'other', 10000, null)", [order.id]);
     await client.exec("INSERT INTO order_return_history (return_id, status, actor_type, actor_id, actor_name, occurred_at) VALUES (1, 'approved', 'staff', 'ana', 'Ana Reyes', '2026-10-23T08:00:00Z')");
