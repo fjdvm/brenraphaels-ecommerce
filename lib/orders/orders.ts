@@ -228,7 +228,6 @@ export function createOrderStore<
     if (input.status === "delivered" && persistedOrder.deliveryPhotoFileId !== null) {
       throw new OrderStatusUpdateError("Delivery photo is already set.");
     }
-    const deliveryPhotoFileId = input.status === "delivered" ? fileIdField.parse(input.deliveryPhotoFileId) : undefined;
     if (input.status !== "delivered" && input.deliveryPhotoFileId !== undefined) {
       throw new OrderStatusUpdateError("A Delivery photo can only be set when marking an Order delivered.");
     }
@@ -250,6 +249,7 @@ export function createOrderStore<
     if (!permittedNextStatuses[currentStatus].includes(input.status)) {
       throw new OrderTransitionError(input.status, currentStatus);
     }
+    const deliveryPhotoFileId = input.status === "delivered" ? fileIdField.parse(input.deliveryPhotoFileId) : undefined;
     if (
       input.deliveryFeeInCentavos !== undefined
       && (input.status !== "confirmed" || persistedOrder.fulfillmentMethod !== "delivery")
