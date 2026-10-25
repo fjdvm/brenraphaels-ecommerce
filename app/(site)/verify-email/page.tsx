@@ -1,20 +1,26 @@
+import { Suspense } from "react";
+
 import { VerifyEmailConfirmation } from "@/components/features/auth/verify-email-confirmation";
-import { Card } from "@/components/ui/card";
+import {
+  VerifyEmailFallback,
+  VerifyEmailShell,
+} from "@/components/features/auth/verify-email-shell";
 
 type VerifyEmailPageProps = {
   searchParams: Promise<{ token?: string | string[] }>;
 };
 
-export default async function VerifyEmailPage({
-  searchParams,
-}: VerifyEmailPageProps) {
+async function Confirmation({ searchParams }: VerifyEmailPageProps) {
   const { token } = await searchParams;
+  return <VerifyEmailConfirmation token={typeof token === "string" ? token : undefined} />;
+}
+
+export default function VerifyEmailPage({ searchParams }: VerifyEmailPageProps) {
   return (
-    <section className="flex min-h-[calc(100vh-12rem)] items-center px-5 py-12 sm:px-8 sm:py-16">
-      <Card className="mx-auto w-full max-w-xl p-8 text-center shadow-sm">
-        <h1 className="font-serif text-4xl text-primary">Verify your email</h1>
-        <VerifyEmailConfirmation token={typeof token === "string" ? token : undefined} />
-      </Card>
-    </section>
+    <VerifyEmailShell>
+      <Suspense fallback={<VerifyEmailFallback />}>
+        <Confirmation searchParams={searchParams} />
+      </Suspense>
+    </VerifyEmailShell>
   );
 }

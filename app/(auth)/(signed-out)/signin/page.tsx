@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { SignInForm } from "@/components/features/auth/sign-in-form";
+import { SignInFormWithNext } from "@/components/features/auth/search-param-forms";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-type SignInPageProps = {
-  searchParams: Promise<{ next?: string | string[] }>;
-};
-
-export default async function SignInPage({ searchParams }: SignInPageProps) {
-  const { next } = await searchParams;
-  return <SignInForm next={typeof next === "string" ? next : undefined} />;
+// The fallback is the form itself, so the page shows up complete and instantly.
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<SignInForm />}>
+      <SignInFormWithNext />
+    </Suspense>
+  );
 }

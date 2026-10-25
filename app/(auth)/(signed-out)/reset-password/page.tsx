@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
-import { ResetPasswordForm } from "@/components/features/auth/reset-password-form";
+import { ResetPasswordFormWithToken } from "@/components/features/auth/search-param-forms";
+import { SignedOutGateFallback } from "@/components/features/auth/signed-out-gate-fallback";
 
 export const metadata: Metadata = { title: "Reset password" };
 
-type ResetPasswordPageProps = {
-  searchParams: Promise<{ token?: string | string[] }>;
-};
-
-export default async function ResetPasswordPage({
-  searchParams,
-}: ResetPasswordPageProps) {
-  const { token } = await searchParams;
-  return <ResetPasswordForm token={typeof token === "string" ? token : undefined} />;
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<SignedOutGateFallback />}>
+      <ResetPasswordFormWithToken />
+    </Suspense>
+  );
 }

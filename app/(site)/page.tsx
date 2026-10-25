@@ -126,17 +126,23 @@ async function visitorToWelcome(welcome: string | string[] | undefined) {
   }
 }
 
-export default async function Home({ searchParams }: HomeProps) {
+/** Reads the query and session behind its own boundary so the page itself never waits on them. */
+async function WelcomeGate({ searchParams }: HomeProps) {
   const visitor = await visitorToWelcome((await searchParams).welcome);
   if (visitor?.state === "needs-details") {
     redirect(completeProfilePath);
   }
+  return visitor?.state === "customer" ? (
+    <WelcomeModal firstName={visitor.customer.firstName} />
+  ) : null;
+}
 
+export default function Home({ searchParams }: HomeProps) {
   return (
     <div className="bg-surface">
-      {visitor?.state === "customer" ? (
-        <WelcomeModal firstName={visitor.customer.firstName} />
-      ) : null}
+      <Suspense fallback={null}>
+        <WelcomeGate searchParams={searchParams} />
+      </Suspense>
       <section className="relative grid min-h-[708px] place-items-center overflow-hidden px-5 pb-24 pt-[184px] text-center lg:min-h-[848px]">
         <Image
           src="/images/home/hero-products.jpg"
