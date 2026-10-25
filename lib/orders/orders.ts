@@ -69,6 +69,8 @@ export type Order = {
   paidById: string | null;
   paidByName: string | null;
   paidAt: Date | null;
+  /** File id of the Delivery photo; null for Orders not yet delivered or delivered before photos existed. */
+  deliveryPhotoFileId: string | null;
   createdAt: Date;
   lines: OrderLine[];
   deliveryAddress: DeliveryAddress | null;
@@ -176,6 +178,7 @@ export function createOrderStore<
       paidById: row.paidById,
       paidByName: row.paidByName,
       paidAt: row.paidAt,
+      deliveryPhotoFileId: row.deliveryPhotoFileId,
       createdAt: row.createdAt,
       lines,
       deliveryAddress: await deliveryAddressForOrder(row.id),
@@ -397,6 +400,7 @@ export function createOrderStore<
         paidById: null,
         paidByName: null,
         paidAt: null,
+        deliveryPhotoFileId: null,
         lines: cart.lines.map(({ productName, imageUrl, sizeLabel, priceInCentavos, quantity }) => ({
           productName,
           imageUrl,
