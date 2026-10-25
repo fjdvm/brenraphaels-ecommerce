@@ -99,7 +99,7 @@ Use `POST /api/internal/returns/<id>/status` with the Returns credential. Suppor
 { "status": "replaced", "staffId": "ben", "staffName": "Ben Cruz" }
 ```
 
-Approval may omit `finalResolution` and `goodsRequired` for the defaults above. Other decision fields must match their shape; decline reason is trimmed, required and at most 2,000 characters. Refunded requires a confirmed Private, Permanent JPG/PNG screenshot, verified by the endpoint's file-storage boundary before calling the persistence boundary. A nonempty File id alone is not verification. Before submitting a refund, CREOMS uploads/confirms the proof with a File Link `{ "system": "CRMS", "entityType": "return", "entityId": "15", "role": "refund-proof" }` for the numeric Return id (without `RMA-`). The endpoint looks up this Link through the storefront Caller, requires matching active/private/permanent metadata with no expiry and a size up to 5,242,880 bytes, and reads the signed original without Caller credentials to check its actual size and decode a valid JPG/PNG screenshot (at most 40 million pixels). Unrelated Files cannot serve as proof. Storage failures fail closed before the decision. This Link is a Return proof Link, never a Ticket Message Link. Staff mark Replaced only after sending the replacement.
+Approval may omit `finalResolution` and `goodsRequired` for the defaults above. Other decision fields must match their shape; decline reason is trimmed, required and at most 2,000 characters. Refunded requires a confirmed Private, unexpired JPG/PNG screenshot, verified by the endpoint's file-storage boundary before calling the persistence boundary. A nonempty File id alone is not verification. Before submitting a refund, CREOMS uploads/confirms the proof with a File Link `{ "system": "CRMS", "entityType": "return", "entityId": "15", "role": "refund-proof" }` for the numeric Return id (without `RMA-`). The endpoint looks up this Link through the storefront Caller, requires matching Active/Private metadata with either Permanent retention and no expiry or Temporary retention with a valid future expiry and a size up to 5,242,880 bytes, and reads the signed original without Caller credentials to check its actual size and decode a valid JPG/PNG screenshot (at most 40 million pixels). Unrelated Files cannot serve as proof. Storage failures fail closed before the decision. This Link is a Return proof Link, never a Ticket Message Link. Staff mark Replaced only after sending the replacement.
 
 Return a 2xx JSON confirmation only after commit:
 
@@ -169,3 +169,15 @@ Test dependent server flows against the throwaway database with file/email fakes
 ## Customer reads (#122)
 
 Apply migration 0021 (`orders.delivery_photo_file_id`, nullable) before deploying. Authenticated `GET /api/returns` returns `{ "returns": [...] }` for the signed-in Customer only (`401` otherwise, `Cache-Control: private, no-store`), newest first and in every status. Each Return carries `id`, `number` (`RMA-<id>`), `orderId`, `status`, `reason`, `note`, `amountInCentavos`, `preferredResolution`, `finalResolution`, `goodsRequired`, `declineReason` (Declined), `photoFileIds` (in order), `videoFileId`, `refundProofFileId` (Refunded), `items` snapshots and the request/refund/replacement times. These are File ids only; viewing goes through the owner-checked File flow, never signed URLs stored here. The Order read model (`Order.deliveryPhotoFileId`) is the File id, or `null` for Orders delivered before photos existed (shown as “No photo”). Verify with `npx vitest run __tests__/customer-return-reads.test.ts`.
+
+
+## Temporary refund proof (CREOMS #232)
+
+CREOMS now uploads and confirms refund proof as Temporary, links it to the Return, and
+promotes it only after this endpoint echoes a committed refund with the same File id.
+The storefront accepts Temporary proof only while its expiry is a valid future timestamp.
+Permanent proof with null expiry remains valid for existing clients. Missing, malformed,
+and expired Temporary proof is refused before the Return or its history changes. All
+existing Private/Active, exact Return Link, size and decoded-image checks still apply.
+The storefront never promotes proof itself. This change needs no database migration or
+new configuration and must deploy before CREOMS PR fjdvm/epic-crms#264.

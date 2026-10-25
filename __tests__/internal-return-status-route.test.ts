@@ -59,7 +59,7 @@ beforeEach(async () => {
     return Response.json(metadata);
   }));
 });
-afterEach(async () => { await client.close(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); });
+afterEach(async () => { vi.useRealTimers(); await client.close(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
 async function requested(preferredResolution: "refund" | "replacement" = "refund") {
   const [record] = await db.insert(orderReturns).values({ orderId, preferredResolution, reason: "damaged", amountInCentavos: 10000 }).returning();
@@ -161,12 +161,40 @@ test("verifies refund proof before committing and never sends the Caller key to 
   expect(storageCalls.at(-1)?.init?.headers).toBeUndefined();
 });
 
-test("refuses unconfirmed, public, temporary, oversized, unrelated or spoofed proof without changing the Return", async () => {
+test("commits a refund with unexpired Temporary proof and echoes its File id for CREOMS to promote", async () => {
   const id = await requested();
   await call(id, { status: "approved", ...staff });
-  const good = { ...metadata };
-  for (const bad of [{ status: "pending" }, { visibility: "public" }, { retentionType: "temporary" },
-    { size: 5_242_881 }, { size: 0 }, { id: "other" }, { contentType: "application/pdf" }, { expiresAt: "2027-01-01" }]) {
+  metadata = { ...metadata, retentionType: "temporary", expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() };
+  const response = await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ id, status: "refunded", refundProofFileId: "proof-1" });
+  expect(await db.select().from(orderReturnHistory)).toMatchObject([{ status: "approved" }, { status: "refunded", actorId: "ana" }]);
+  expect(calls.every(({ init }) => !init?.method || ["GET", "POST"].includes(init.method))).toBe(true);
+  expect(calls.filter(({ init }) => init?.method === "POST").every(({ url }) => url.includes("/notifications/"))).toBe(true);
+});
+
+test("refuses Temporary proof with missing, invalid or expired expiry without committing a refund", async () => {
+  const id = await requested();
+  await call(id, { status: "approved", ...staff });
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-26T00:00:00.000Z"));
+  for (const expiresAt of [undefined, null, "not a date", 1, "2026-10-25T23:59:59.999Z", "2026-10-26T00:00:00.000Z"]) {
+    metadata = { ...metadata, retentionType: "temporary", expiresAt };
+    const response = await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/unexpired/);
+  }
+  expect(await db.select().from(orderReturns)).toMatchObject([{ status: "approved", refundProofFileId: null }]);
+  expect(await db.select().from(orderReturnHistory)).toHaveLength(1);
+});
+
+test("refuses unconfirmed, public, invalid-retention, oversized, unrelated or spoofed Temporary proof without changing the Return", async () => {
+  const id = await requested();
+  await call(id, { status: "approved", ...staff });
+  const good = { ...metadata, retentionType: "temporary", expiresAt: new Date(Date.now() + 60_000).toISOString() };
+  for (const bad of [{ status: "pending" }, { visibility: "public" }, { retentionType: "unknown" },
+    { retentionType: "permanent" },
+    { size: 5_242_881 }, { size: 0 }, { id: "other" }, { contentType: "application/pdf" }, { expiresAt: "2000-01-01" }]) {
     metadata = { ...good, ...bad };
     expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff })).status).toBe(400);
   }

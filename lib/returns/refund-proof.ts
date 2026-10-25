@@ -5,9 +5,9 @@ import { required } from "../gateway";
 const maxBytes = 5_242_880;
 export class InvalidRefundProof extends Error {}
 export class RefundProofUnavailable extends Error {}
-const invalid = () => new InvalidRefundProof("Refund proof must be a confirmed Private, Permanent JPG/PNG image up to 5 MB linked to this Return.");
+const invalid = () => new InvalidRefundProof("Refund proof must be a confirmed Private, unexpired JPG/PNG image up to 5 MB linked to this Return.");
 
-/** Read through the storefront Caller; only a CRMS return/refund-proof Link authorizes this purpose. */
+/** Verify the CRMS Return Link and image; CREOMS promotes Temporary proof after a confirmed refund. */
 export async function verifyRefundProof(fileId: string, returnId: number, send: typeof fetch = fetch) {
   try {
     const base = required("API_GATEWAY_URL").replace(/\/$/, "");
@@ -35,8 +35,10 @@ export async function verifyRefundProof(fileId: string, returnId: number, send: 
     if (response.status === 404) throw invalid();
     if (!response.ok) throw new RefundProofUnavailable();
     const file = await response.json();
+    const validRetention = (file.retentionType === "permanent" && file.expiresAt === null) ||
+      (file.retentionType === "temporary" && typeof file.expiresAt === "string" && Date.parse(file.expiresAt) > Date.now());
     if (file.id !== fileId || file.status !== "active" || file.visibility !== "private" ||
-      file.retentionType !== "permanent" || file.expiresAt !== null ||
+      !validRetention ||
       !Number.isSafeInteger(file.size) || file.size < 1 || file.size > maxBytes ||
       !["image/jpeg", "image/png"].includes(file.contentType)) throw invalid();
 
