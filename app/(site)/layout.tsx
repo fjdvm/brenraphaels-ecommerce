@@ -2,7 +2,6 @@ import { Bell } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { ChatLinks } from "@/components/shared/chat-links";
 import { Footer } from "@/components/shared/footer";
 import { CartSessionSync } from "@/components/features/orders/cart-session-sync";
 import { CustomerSidebarShell } from "@/components/features/customer/customer-sidebar-shell";
@@ -90,7 +89,7 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
         </CustomerSidebarShell>
       </main>
       <Footer />
-      <ChatLinks />
+      {/* Messenger/Instagram chat buttons are hidden for now; restore <ChatLinks /> from components/shared/chat-links to show them again. */}
       <PageTransition />
     </>
   );
