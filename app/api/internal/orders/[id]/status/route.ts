@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { ZodError } from "zod";
 
 import { sendPendingCustomerNotifications } from "@/lib/notifications/outbox";
@@ -48,29 +49,32 @@ export async function POST(
     if (update.status === "delivered") await verifyDeliveryPhoto(update.deliveryPhotoFileId);
     const orderStore = createOrderStore(getDatabase());
     const order = await orderStore.advance(orderId, update);
-    await publishAfterCommit(
-      orderStore.customerIdForOrder(order.id),
-      { type: "order.updated", orderId: String(order.id) },
-      publishCustomerOrderEvent,
-    );
-    if (
-      order.status === "confirmed"
-      && order.fulfillmentMethod === "delivery"
-      && order.deliveryFeeInCentavos !== null
-    ) {
-      await notifyCustomer(orderStore, order, "confirmed", sendOrderConfirmedEmail);
-    }
-    if (order.status === "paid") {
-      await notifyCustomer(orderStore, order, "paid", sendOrderPaidEmail);
-    }
-    if (order.status === "delivered") {
-      await notifyCustomer(orderStore, order, "delivered", sendOrderDeliveredEmail);
-      try {
-        await sendPendingCustomerNotifications(getDatabase(), order.id);
-      } catch (error) {
-        console.error("Customer Notification delivery will be retried by the cron job", error);
+    // Confirm the committed change before email or gateway latency can exhaust CREOMS's timeout.
+    after(async () => {
+      await publishAfterCommit(
+        orderStore.customerIdForOrder(order.id),
+        { type: "order.updated", orderId: String(order.id) },
+        publishCustomerOrderEvent,
+      );
+      if (
+        order.status === "confirmed"
+        && order.fulfillmentMethod === "delivery"
+        && order.deliveryFeeInCentavos !== null
+      ) {
+        await notifyCustomer(orderStore, order, "confirmed", sendOrderConfirmedEmail);
       }
-    }
+      if (order.status === "paid") {
+        await notifyCustomer(orderStore, order, "paid", sendOrderPaidEmail);
+      }
+      if (order.status === "delivered") {
+        await notifyCustomer(orderStore, order, "delivered", sendOrderDeliveredEmail);
+        try {
+          await sendPendingCustomerNotifications(getDatabase(), order.id);
+        } catch (error) {
+          console.error("Customer Notification delivery will be retried by the cron job", error);
+        }
+      }
+    });
     return Response.json(order);
   } catch (error) {
     if (error instanceof ZodError) return Response.json({ error: error.issues[0].message }, { status: 400 });

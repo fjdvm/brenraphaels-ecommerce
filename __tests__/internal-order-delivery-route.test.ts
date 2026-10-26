@@ -9,7 +9,8 @@ import { createOrderStore } from "../lib/orders/orders";
 import { GET as retryNotifications } from "../app/api/cron/customer-notifications/route";
 import { POST } from "../app/api/internal/orders/[id]/status/route";
 
-const mocks = vi.hoisted(() => ({ database: vi.fn(), email: vi.fn() }));
+const mocks = vi.hoisted(() => ({ database: vi.fn(), email: vi.fn(), afterTasks: [] as Array<() => Promise<void>> }));
+vi.mock("next/server", () => ({ after: (task: () => Promise<void>) => { mocks.afterTasks.push(task); } }));
 vi.mock("@/lib/db", () => ({ getDatabase: mocks.database }));
 vi.mock("@/lib/email/order-delivered-email", () => ({ sendOrderDeliveredEmail: mocks.email }));
 let client: PGlite;
@@ -19,6 +20,7 @@ let metadata: Record<string, unknown>;
 let gateway: ReturnType<typeof vi.fn>;
 
 beforeEach(async () => {
+  mocks.afterTasks.length = 0;
   vi.stubEnv("CREOMS_SERVICE_SECRET", "k".repeat(40));
   vi.stubEnv("API_GATEWAY_URL", "https://gateway.test");
   vi.stubEnv("API_GATEWAY_CALLER_KEY", "storefront-key");
@@ -40,11 +42,13 @@ beforeEach(async () => {
 });
 afterEach(async () => { await client.close(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.resetAllMocks(); });
 
-function call(body: unknown = { status: "delivered", deliveryPhotoFileId: "photo-1" }) {
-  return POST(new Request(`https://storefront.test/api/internal/orders/${orderId}/status`, {
+async function call(body: unknown = { status: "delivered", deliveryPhotoFileId: "photo-1" }) {
+  const response = await POST(new Request(`https://storefront.test/api/internal/orders/${orderId}/status`, {
     method: "POST", headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   }), { params: Promise.resolve({ id: String(orderId) }) });
+  for (const task of mocks.afterTasks.splice(0)) await task();
+  return response;
 }
 
 async function persisted() {

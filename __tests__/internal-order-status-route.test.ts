@@ -2,6 +2,7 @@ import { mintCreomsCredential } from "@/lib/orders/creoms-credential";
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 
 const {
+  afterTasks,
   advance,
   createOrderStore,
   customerEmailForOrder,
@@ -12,6 +13,7 @@ const {
   sendOrderDeliveredEmail,
   sendOrderPaidEmail,
 } = vi.hoisted(() => ({
+  afterTasks: [] as Array<() => Promise<void>>,
   advance: vi.fn(),
   createOrderStore: vi.fn(() => ({ advance, customerEmailForOrder, customerIdForOrder })),
   customerEmailForOrder: vi.fn(),
@@ -23,6 +25,8 @@ const {
   sendOrderPaidEmail: vi.fn(),
 }));
 
+vi.mock("next/server", () => ({ after: (task: () => Promise<void>) => { afterTasks.push(task); } }));
+vi.mock("@/lib/notifications/outbox", () => ({ sendPendingCustomerNotifications: vi.fn() }));
 vi.mock("@/lib/db", () => ({ getDatabase }));
 vi.mock("@/lib/email/order-confirmed-email", () => ({ sendOrderConfirmedEmail }));
 vi.mock("@/lib/email/order-delivered-email", () => ({ sendOrderDeliveredEmail }));
@@ -45,6 +49,7 @@ beforeAll(async () => {
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 beforeEach(() => {
+  afterTasks.length = 0;
   vi.stubEnv("API_GATEWAY_URL", "https://gateway.test");
   vi.stubEnv("API_GATEWAY_CALLER_KEY", "storefront-key");
   vi.stubGlobal("fetch", vi.fn(async () => Response.json({ id: "photo-1", status: "active", visibility: "private", contentType: "image/jpeg" })));
@@ -79,9 +84,46 @@ function statusRequest(credential = mintCreomsCredential()) {
 
 const context = { params: Promise.resolve({ id: "12" }) };
 
+async function postAndNotify(request: Request, ctx: { params: Promise<{ id: string }> }) {
+  const response = await post(request, ctx);
+  for (const task of afterTasks.splice(0)) await task();
+  return response;
+}
+
+test("confirms the saved Delivery photo before waiting for Customer notifications", async () => {
+  advance.mockResolvedValueOnce({
+    id: 12, status: "delivered", deliveryPhotoFileId: "photo-1",
+    fulfillmentMethod: "pickup", deliveryFeeInCentavos: null, subtotalInCentavos: 21900,
+  });
+  let releasePublish!: () => void;
+  publishCustomerOrderEvent.mockImplementationOnce(() => new Promise<void>((resolve) => { releasePublish = resolve; }));
+  const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+    body: JSON.stringify({ status: "delivered", deliveryPhotoFileId: "photo-1" }),
+    headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+    method: "POST",
+  });
+  let response: Response | undefined;
+  const pending = post(request, context).then((value) => { response = value; });
+  try {
+    await vi.waitFor(() => expect(response?.status).toBe(200), { timeout: 1_000 });
+    expect(await response!.json()).toMatchObject({ id: 12, status: "delivered", deliveryPhotoFileId: "photo-1" });
+    expect(advance).toHaveBeenCalledTimes(1);
+    expect(publishCustomerOrderEvent).not.toHaveBeenCalled();
+    expect(sendOrderDeliveredEmail).not.toHaveBeenCalled();
+    const notifications = afterTasks.shift()!();
+    await vi.waitFor(() => expect(publishCustomerOrderEvent).toHaveBeenCalledTimes(1));
+    releasePublish();
+    await notifications;
+    expect(sendOrderDeliveredEmail).toHaveBeenCalledTimes(1);
+  } finally {
+    releasePublish?.();
+    await pending;
+  }
+});
+
 describe("POST /api/internal/orders/[id]/status", () => {
   test("accepts a request carrying a valid CREOMS service credential", async () => {
-    expect((await post(statusRequest(), context)).status).toBe(200);
+    expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
     expect(advance).toHaveBeenCalledWith(12, { status: "confirmed", deliveryFeeInCentavos: 8000 });
     expect(customerEmailForOrder).toHaveBeenCalledWith(12);
     expect(sendOrderConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({
@@ -108,7 +150,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
       method: "POST",
     });
 
-    const response = await post(request, context);
+    const response = await postAndNotify(request, context);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       paidById: "staff-17", paidByName: "Ana de la Cruz", paidAt: "2026-10-22T12:00:00.000Z",
@@ -129,7 +171,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
       headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
       method: "POST",
     });
-    expect((await post(request, context)).status).toBe(400);
+    expect((await postAndNotify(request, context)).status).toBe(400);
     expect(advance).not.toHaveBeenCalled();
     expect(sendOrderPaidEmail).not.toHaveBeenCalled();
   });
@@ -142,7 +184,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
           headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
           method: "POST",
         });
-        expect((await post(request, context)).status).toBe(200);
+        expect((await postAndNotify(request, context)).status).toBe(200);
         expect(advance).toHaveBeenLastCalledWith(12, { status, ...(status === "delivered" ? { deliveryPhotoFileId: "photo-1" } : {}) });
       }
     },
@@ -156,7 +198,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
       method: "POST",
     });
 
-    expect((await post(deliveredRequest, context)).status).toBe(200);
+    expect((await postAndNotify(deliveredRequest, context)).status).toBe(200);
     expect(sendOrderDeliveredEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12, status: "delivered" }));
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
   });
@@ -169,11 +211,11 @@ describe("POST /api/internal/orders/[id]/status", () => {
     });
     const expired = mintCreomsCredential({ now: new Date(Date.now() - 600_000), lifetimeSeconds: 60 });
 
-    expect((await post(missing, context)).status).toBe(401);
-    expect((await post(statusRequest(mintCreomsCredential({ secret: "z".repeat(40) })), context)).status).toBe(401);
-    expect((await post(statusRequest(expired), context)).status).toBe(401);
+    expect((await postAndNotify(missing, context)).status).toBe(401);
+    expect((await postAndNotify(statusRequest(mintCreomsCredential({ secret: "z".repeat(40) })), context)).status).toBe(401);
+    expect((await postAndNotify(statusRequest(expired), context)).status).toBe(401);
     process.env.ORDER_STATUS_API_SECRET = "test-secret";
-    expect((await post(statusRequest("test-secret"), context)).status).toBe(401);
+    expect((await postAndNotify(statusRequest("test-secret"), context)).status).toBe(401);
     delete process.env.ORDER_STATUS_API_SECRET;
     expect(advance).not.toHaveBeenCalled();
     expect(createOrderStore).not.toHaveBeenCalled();
@@ -187,14 +229,14 @@ describe("POST /api/internal/orders/[id]/status", () => {
       method: "POST",
     });
 
-    expect((await post(cancel, context)).status).toBe(200);
+    expect((await postAndNotify(cancel, context)).status).toBe(200);
     expect(advance).toHaveBeenCalledWith(12, { status: "cancelled" });
   });
 });
 
 test("a failed Customer email lookup never reports a committed status change as failed", async () => {
   customerEmailForOrder.mockRejectedValueOnce(new Error("Customer lookup unavailable"));
-  expect((await post(statusRequest(), context)).status).toBe(200);
+  expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
 });
 
 describe("Customer Order events", () => {
@@ -206,7 +248,7 @@ describe("Customer Order events", () => {
       method: "POST",
     });
 
-    expect((await post(request, context)).status).toBe(200);
+    expect((await postAndNotify(request, context)).status).toBe(200);
     expect(customerIdForOrder).toHaveBeenCalledWith(12);
     expect(publishCustomerOrderEvent).toHaveBeenCalledTimes(1);
     expect(publishCustomerOrderEvent).toHaveBeenCalledWith("customer-7", { type: "order.updated", orderId: "12" });
@@ -215,29 +257,29 @@ describe("Customer Order events", () => {
   test("a refused, invalid or unauthorized change publishes nothing", async () => {
     const { OrderTransitionError } = await import("@/lib/orders/orders");
     advance.mockRejectedValueOnce(new OrderTransitionError("confirmed", "delivered"));
-    expect((await post(statusRequest(), context)).status).toBe(409);
+    expect((await postAndNotify(statusRequest(), context)).status).toBe(409);
     advance.mockRejectedValueOnce(new Error("connection reset"));
-    expect((await post(statusRequest(), context)).status).toBe(503);
-    expect((await post(statusRequest("invalid"), context)).status).toBe(401);
+    expect((await postAndNotify(statusRequest(), context)).status).toBe(503);
+    expect((await postAndNotify(statusRequest("invalid"), context)).status).toBe(401);
     const invalid = new Request("https://shop.example.test/api/internal/orders/12/status", {
       body: JSON.stringify({ status: "shipped" }),
       headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
       method: "POST",
     });
-    expect((await post(invalid, context)).status).toBe(400);
+    expect((await postAndNotify(invalid, context)).status).toBe(400);
     expect(publishCustomerOrderEvent).not.toHaveBeenCalled();
   });
 
   test("a failed publish or Customer lookup is logged and never fails the committed change", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     publishCustomerOrderEvent.mockRejectedValueOnce(new Error("The gateway refused the Order event: 502"));
-    const response = await post(statusRequest(), context);
+    const response = await postAndNotify(statusRequest(), context);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ id: 12, status: "confirmed" });
     expect(sendOrderConfirmedEmail).toHaveBeenCalled();
 
     customerIdForOrder.mockRejectedValueOnce(new Error("Customer lookup unavailable"));
-    expect((await post(statusRequest(), context)).status).toBe(200);
+    expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
     expect(log).toHaveBeenCalledTimes(2);
     expect(log.mock.calls.map(([message]) => message)).toEqual([
       "order.updated event for Order 12 could not be published",
