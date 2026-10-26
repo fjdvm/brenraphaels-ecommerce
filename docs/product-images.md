@@ -3,12 +3,16 @@
 Refs fjdvm/epic-crms#230 (parent #226).
 
 IMS owns the Public, Permanent image Files. `product_images.file_id` holds their
-opaque File ids. `url` retains the old Blob address during migration; a row with
-no File id still uses that address and does not need the gateway configured.
-Catalog, Cart and Order history reads prefer the File id when both references exist.
-Cart and Order thumbnails fall back to the retained Blob address (or no image)
-on a resolution failure, so image availability cannot fail a purchase or a
-committed Order change.
+opaque File ids. `url` retains the old Blob address as rollback data only: the
+storefront never reads it, never requests Blob for a product image, and the Blob
+host is not an allowed image host (fjdvm/epic-crms#241). A row with no File id
+shows no image. Cart and Order thumbnails show no image on a resolution failure,
+so image availability cannot fail a purchase or a committed Order change.
+
+**Before deploying #241**, run `npm run catalog:images:migrate -- --dry-run`
+against production: it must list zero planned copies and zero failures, i.e.
+every product image has a File id. Rolling back means restoring the previous
+`lib/catalog/product-images.ts` and `next.config.ts`; the Blob addresses remain.
 
 Set `API_GATEWAY_URL`, `API_GATEWAY_CALLER_KEY` and `PRODUCT_IMAGE_ORIGIN` before
 adding File ids. `PRODUCT_IMAGE_ORIGIN` is an HTTPS origin with no path, such as

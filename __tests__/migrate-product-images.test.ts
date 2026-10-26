@@ -2,9 +2,9 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import sharp from "sharp";
-import { afterEach, beforeEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { productImages, products } from "../lib/db/schema";
-import { migrateProductImages } from "../scripts/migrate-product-images.mjs";
+import { migrateProductImages, retryingFetch } from "../scripts/migrate-product-images.mjs";
 
 let client: PGlite;
 let db: ReturnType<typeof drizzle>;
@@ -207,4 +207,20 @@ test("does not report a cleanup failure when confirmation has already rejected a
   };
   expect(await migrateProductImages({ db, gateway, send: rejected, dryRun: false, report: event => events.push(event) })).toMatchObject({ failed: 1, copied: 0 });
   expect(events).toEqual([{ status: "failed", id: 1, fileId: "file-1", reason: "File storage POST failed: HTTP 422" }]);
+});
+
+test("retries a network failure on a repeatable call but never on one that creates", async () => {
+  const flaky = () => vi.fn<typeof fetch>().mockRejectedValueOnce(new TypeError("fetch failed")).mockResolvedValue(new Response("ok"));
+  const get = flaky();
+  await expect((await retryingFetch(get, { delayMs: 0 })("https://x.example/a")).text()).resolves.toBe("ok");
+  expect(get).toHaveBeenCalledTimes(2);
+  const put = flaky();
+  await retryingFetch(put, { delayMs: 0 })("https://x.example/a", { method: "PUT" });
+  expect(put).toHaveBeenCalledTimes(2);
+  const post = flaky();
+  await expect(retryingFetch(post, { delayMs: 0 })("https://x.example/a", { method: "POST" })).rejects.toThrow("fetch failed");
+  expect(post).toHaveBeenCalledTimes(1);
+  const down = vi.fn<typeof fetch>().mockRejectedValue(new TypeError("fetch failed"));
+  await expect(retryingFetch(down, { delayMs: 0, attempts: 3 })("https://x.example/a")).rejects.toThrow("fetch failed");
+  expect(down).toHaveBeenCalledTimes(3);
 });

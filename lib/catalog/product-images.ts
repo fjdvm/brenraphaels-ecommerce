@@ -8,7 +8,8 @@ export type ProductImageReference = { productSlug: string; fileId: string | null
 
 export async function resolveProductImage(image: ProductImageReference | null, files: ProductImageFiles): Promise<string | null> {
   if (!image) return null;
-  return image.fileId ? files.publicUrl(image.productSlug, image.fileId) : image.url;
+  // The retained Blob address is rollback data only; the storefront never requests it.
+  return image.fileId ? files.publicUrl(image.productSlug, image.fileId) : null;
 }
 
 /** Image availability must never make a Cart or a committed Order change fail. */
@@ -17,7 +18,7 @@ export async function productThumbnail(image: ProductImageReference | null, file
     return await resolveProductImage(image, files);
   } catch (error) {
     console.error("Product thumbnail could not be resolved", error);
-    return image?.url ?? null;
+    return null;
   }
 }
 
