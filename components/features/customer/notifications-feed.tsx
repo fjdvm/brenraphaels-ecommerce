@@ -1,16 +1,18 @@
 "use client";
 
-import { ArrowRight, Check, MessageCircle, Package, Truck, Wallet } from "lucide-react";
+import { Check, MessageCircle, Package, Truck, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
-import type { NotificationItem } from "@/lib/notifications/derive";
+import { markAllNotificationsRead, markNotificationRead } from "@/app/(site)/(protected)/profile/notifications/actions";
+import type { InboxNotification } from "@/lib/notifications/inbox";
+import { categoryOf, iconOf, linkTarget, type NotificationIcon } from "@/lib/notifications/inbox-view";
 import { relativeTime } from "@/lib/notifications/relative-time";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "unread" | "orders" | "support";
 
-const iconStyles: Record<NotificationItem["icon"], { className: string; icon: ReactNode }> = {
+const iconStyles: Record<NotificationIcon, { className: string; icon: ReactNode }> = {
   support: { className: "bg-lavender text-primary", icon: <MessageCircle aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
   payment: { className: "bg-warning-soft text-warning", icon: <Wallet aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
   confirmed: { className: "bg-success-soft text-success", icon: <Check aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
@@ -24,15 +26,17 @@ const preferenceRows = [
   { id: "email", label: "Email me a copy", initial: false },
 ];
 
-/** The Notifications page body: a filterable feed and the delivery preferences. */
-export function NotificationsFeed({ items, now }: { items: NotificationItem[]; now: Date }) {
+/** The Notifications page body: the Customer's stored inbox, filterable, and the delivery preferences. */
+export function NotificationsFeed({ items, now }: { items: InboxNotification[]; now: Date }) {
   const [filter, setFilter] = useState<Filter>("all");
-  const [read, setRead] = useState<Set<string>>(new Set());
-  const unread = items.filter((item) => item.needsAction && !read.has(item.id));
+  // Rows the Customer has just read here, shown as read before the stored inbox catches up.
+  const [justRead, setJustRead] = useState<Set<string>>(new Set());
+  const isUnread = (item: InboxNotification) => item.readAt === null && !justRead.has(item.id);
+  const unread = items.filter(isUnread);
   const visible = items.filter((item) => {
-    if (filter === "unread") return unread.includes(item);
+    if (filter === "unread") return isUnread(item);
     if (filter === "all") return true;
-    return item.category === filter;
+    return categoryOf(item) === filter;
   });
   const chips: { id: Filter; label: string; count?: number }[] = [
     { id: "all", label: "All" },
@@ -40,6 +44,17 @@ export function NotificationsFeed({ items, now }: { items: NotificationItem[]; n
     { id: "orders", label: "Orders" },
     { id: "support", label: "Support" },
   ];
+
+  /** Marks the row read before anything else, so a link that is slow or fails to open still leaves it read. */
+  const read = (item: InboxNotification) => {
+    if (!isUnread(item)) return;
+    setJustRead((current) => new Set(current).add(item.id));
+    void markNotificationRead(item.id);
+  };
+  const readAll = () => {
+    setJustRead(new Set(items.map((item) => item.id)));
+    void markAllNotificationsRead();
+  };
 
   return (
     <div className="flex flex-col gap-[30px]">
@@ -67,7 +82,7 @@ export function NotificationsFeed({ items, now }: { items: NotificationItem[]; n
         <button
           className="ml-auto text-sm font-medium tracking-[0.35px] text-primary hover:underline disabled:opacity-50 disabled:hover:no-underline"
           disabled={unread.length === 0}
-          onClick={() => setRead(new Set(items.map((item) => item.id)))}
+          onClick={readAll}
           type="button"
         >
           Mark all as read
@@ -81,40 +96,48 @@ export function NotificationsFeed({ items, now }: { items: NotificationItem[]; n
       ) : (
         <ul className="overflow-hidden rounded-[40px] border border-line bg-white">
           {visible.map((item) => {
-            const isUnread = unread.includes(item);
-            const style = iconStyles[item.icon];
-            return (
-              <li
-                className={cn("flex gap-4 border-b border-line px-[26px] py-5 last:border-b-0", isUnread && "bg-lavender-soft")}
-                key={item.id}
-              >
+            const unreadRow = isUnread(item);
+            const style = iconStyles[iconOf(item)];
+            const rowClass = cn(
+              "flex w-full gap-4 px-[26px] py-5 text-left",
+              unreadRow && "bg-lavender-soft",
+              (item.link || unreadRow) && "hover:bg-lavender-soft focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+            );
+            const content = (
+              <>
                 <span aria-hidden className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", style.className)}>
                   {style.icon}
                 </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <div className="flex items-start gap-3">
-                    <p className="flex-1 text-[13px] font-medium leading-[1.4] tracking-[0.35px] text-ink">{item.title}</p>
-                    <p className="flex shrink-0 items-center gap-2 text-xs tracking-[0.35px] text-muted">
-                      <time dateTime={item.at.toISOString()}>{relativeTime(item.at, now)}</time>
-                      {isUnread ? (
+                <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <span className="flex items-start gap-3">
+                    <span className="flex-1 text-[13px] font-medium leading-[1.4] tracking-[0.35px] text-ink">{item.title}</span>
+                    <span className="flex shrink-0 items-center gap-2 text-xs tracking-[0.35px] text-muted">
+                      <time dateTime={item.createdAt.toISOString()}>{relativeTime(item.createdAt, now)}</time>
+                      {unreadRow ? (
                         <>
                           <span aria-hidden className="size-1.5 rounded-full bg-primary" />
                           <span className="sr-only">Unread</span>
                         </>
                       ) : null}
-                    </p>
-                  </div>
-                  <p className="text-[13px] leading-[1.5] tracking-[0.35px] text-body">{item.body}</p>
-                  {item.href && item.actionLabel ? (
-                    <Link
-                      className="mt-1 flex w-fit items-center gap-2 text-[13px] font-medium tracking-[0.35px] text-primary hover:underline"
-                      href={item.href}
-                    >
-                      {item.actionLabel}
-                      <ArrowRight aria-hidden className="size-3.5" />
-                    </Link>
-                  ) : null}
-                </div>
+                    </span>
+                  </span>
+                  <span className="text-[13px] leading-[1.5] tracking-[0.35px] text-body">{item.body}</span>
+                </span>
+              </>
+            );
+            return (
+              <li className="border-b border-line last:border-b-0" key={item.id}>
+                {item.link ? (
+                  <Link className={rowClass} href={linkTarget(item.link, process.env.NEXT_PUBLIC_SITE_URL)} onClick={() => read(item)}>
+                    {content}
+                  </Link>
+                ) : unreadRow ? (
+                  <button className={rowClass} onClick={() => read(item)} type="button">
+                    {content}
+                  </button>
+                ) : (
+                  <div className={rowClass}>{content}</div>
+                )}
               </li>
             );
           })}

@@ -10,7 +10,6 @@ import { parseInternalOrderStatusUpdate } from "../lib/orders/internal-status";
 import { orderBadges, orderFilterOf, orderTrackerSteps } from "../lib/orders/order-view";
 import { createOrderStore, orderStatuses, type OrderStatus } from "../lib/orders/orders";
 import { createOrderReceiptStore, OrderReceiptConflictError, OrderReceiptNotFoundError } from "../lib/orders/receipt";
-import { deriveNotifications } from "../lib/notifications/derive";
 
 const client = new PGlite();
 const db = drizzle(client);
@@ -80,7 +79,7 @@ test("competing receipt confirmations commit only once", async () => {
   expect(results.map((result) => result.status).sort()).toEqual(["fulfilled", "rejected"]);
 });
 
-test("receipt preserves the original two-day Feedback timer, completed display and existing Notification", async () => {
+test("receipt preserves the original two-day Feedback timer, and completed display", async () => {
   const created = await order();
   const feedbackRequests = createFeedbackRequestStore(db);
   await receipt.markReceived("customer-1", created.id);
@@ -90,8 +89,6 @@ test("receipt preserves the original two-day Feedback timer, completed display a
   expect(orderFilterOf(received)).toBe("completed");
   expect(orderTrackerSteps(received)?.every((step) => step.state === "done")).toBe(true);
   expect(orderBadges(received)).toEqual([{ text: "Received", tone: "lavender" }]);
-  const beforeNotifications = deriveNotifications({ orders: [{ ...received, status: "delivered" }], tickets: [] });
-  expect(deriveNotifications({ orders: [received], tickets: [] })).toEqual(beforeNotifications);
   await expect(createOrderFeedbackStore(db).submit("customer-1", { orderId: created.id, rating: 5, comment: "Thank you" }))
     .resolves.toMatchObject({ orderId: created.id, rating: 5 });
 });
