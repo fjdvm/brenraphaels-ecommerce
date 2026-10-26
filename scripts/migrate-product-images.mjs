@@ -121,6 +121,20 @@ export async function migrateProductImages({ db, gateway = {}, send = fetch, dry
   return summary;
 }
 
+/** The public r2.dev host stalls under load; retry network failures of calls that are safe to repeat. */
+export function retryingFetch(send = fetch, { attempts = 4, delayMs = 2_000 } = {}) {
+  return async (url, init = {}) => {
+    const method = (init.method ?? "GET").toUpperCase();
+    const repeatable = method === "GET" || method === "PUT" || method === "DELETE";
+    for (let attempt = 1; ; attempt++) {
+      try { return await send(url, init); } catch (error) {
+        if (!repeatable || attempt >= attempts) throw error;
+        await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
+      }
+    }
+  };
+}
+
 export async function main(args = process.argv.slice(2)) {
   if (args.some(arg => !["--apply", "--dry-run"].includes(arg)) || (args.includes("--apply") && args.includes("--dry-run"))) {
     throw new Error("Usage: npm run catalog:images:migrate -- [--dry-run | --apply]");
@@ -134,7 +148,7 @@ export async function main(args = process.argv.slice(2)) {
   }
   const client = postgres(connectionString, { prepare: false, max: 1 });
   try {
-    const summary = await migrateProductImages({ db: drizzle(client), gateway, dryRun, report: event => console.log(JSON.stringify(event)) });
+    const summary = await migrateProductImages({ db: drizzle(client), gateway, send: retryingFetch(), dryRun, report: event => console.log(JSON.stringify(event)) });
     console.log(JSON.stringify({ status: "summary", dryRun, ...summary }));
     if (summary.failed) process.exitCode = 1;
     return summary;
