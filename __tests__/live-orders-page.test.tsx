@@ -37,11 +37,11 @@ const order = (status: OrderStatus, deliveryPhotoFileId: string | null): OrderWi
 });
 
 const returnWith = (status: CustomerReturn["status"]): CustomerReturn => ({
-  id: 3, number: "RET-0003", orderId: 7, status, reason: "Damaged", note: null, amountInCentavos: 20_900,
+  id: 3, number: "RET-0003", orderId: 7, status, reason: "damaged", note: "", amountInCentavos: 20_900,
   preferredResolution: "refund", finalResolution: null, goodsRequired: false, declineReason: null,
   photoFileIds: [], videoFileId: null, refundProofFileId: null, items: [],
   requestedAt: new Date("2026-10-11T06:00:00Z"), refundedAt: null, replacedAt: null,
-} as CustomerReturn);
+});
 
 function openPage() {
   let deliver!: Parameters<ConnectOrdersLive>[0];
