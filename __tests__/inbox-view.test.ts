@@ -12,15 +12,24 @@ describe("Inbox rows", () => {
   });
 
   test.each([
-    ["ticket.reply", "support"],
-    ["payment.needed", "payment"],
-    ["order.delivered", "confirmed"],
-    ["feedback.request", "confirmed"],
+    ["order.delivery-fee", "fee"],
+    ["order.payment-needed", "payment"],
     ["order.dispatched", "delivery"],
+    ["order.delivered", "confirmed"],
+    ["order.cancelled", "cancelled"],
+    ["ticket.reply", "support"],
+    ["return.approved", "return"],
+    ["return.declined", "return"],
+    ["feedback.request", "feedback"],
     ["order.something-new", "order"],
   ])("%s shows the %s icon", (type, icon) => {
     expect(iconOf({ type })).toBe(icon);
   });
+
+  test.each(["order.delivery-fee", "order.payment-needed", "order.dispatched", "order.delivered", "order.cancelled", "return.requested", "feedback.request"])(
+    "%s is filed under orders",
+    (type) => expect(categoryOf({ type })).toBe("orders"),
+  );
 
   test("a link into the storefront becomes a local path", () => {
     expect(linkTarget("https://shop.test/profile/orders?order=7", "https://shop.test")).toBe("/profile/orders?order=7");

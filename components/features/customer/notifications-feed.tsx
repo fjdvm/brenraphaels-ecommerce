@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, MessageCircle, Package, Truck, Wallet } from "lucide-react";
+import { Check, MessageCircle, Package, Receipt, Star, Truck, Undo2, Wallet, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
@@ -13,10 +13,14 @@ import { cn } from "@/lib/utils";
 type Filter = "all" | "unread" | "orders" | "support";
 
 const iconStyles: Record<NotificationIcon, { className: string; icon: ReactNode }> = {
-  support: { className: "bg-lavender text-primary", icon: <MessageCircle aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
+  fee: { className: "bg-warning-soft text-warning", icon: <Receipt aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
   payment: { className: "bg-warning-soft text-warning", icon: <Wallet aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
-  confirmed: { className: "bg-success-soft text-success", icon: <Check aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
   delivery: { className: "bg-surface-soft text-primary", icon: <Truck aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
+  confirmed: { className: "bg-success-soft text-success", icon: <Check aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
+  cancelled: { className: "bg-line text-muted", icon: <XCircle aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
+  support: { className: "bg-lavender text-primary", icon: <MessageCircle aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
+  return: { className: "bg-lavender text-primary", icon: <Undo2 aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
+  feedback: { className: "bg-success-soft text-success", icon: <Star aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
   order: { className: "bg-surface-soft text-primary", icon: <Package aria-hidden className="size-[18px]" strokeWidth={1.5} /> },
 };
 
@@ -97,7 +101,8 @@ export function NotificationsFeed({ items, now }: { items: InboxNotification[]; 
         <ul className="overflow-hidden rounded-[40px] border border-line bg-white">
           {visible.map((item) => {
             const unreadRow = isUnread(item);
-            const style = iconStyles[iconOf(item)];
+            const iconKind = iconOf(item);
+            const style = iconStyles[iconKind];
             const rowClass = cn(
               "flex w-full gap-4 px-[26px] py-5 text-left",
               unreadRow && "bg-lavender-soft",
@@ -105,7 +110,7 @@ export function NotificationsFeed({ items, now }: { items: InboxNotification[]; 
             );
             const content = (
               <>
-                <span aria-hidden className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", style.className)}>
+                <span aria-hidden data-icon={iconKind} className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", style.className)}>
                   {style.icon}
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1.5">

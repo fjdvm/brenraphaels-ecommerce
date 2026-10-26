@@ -99,3 +99,37 @@ describe("Customer's Notifications page", () => {
     expect(unreadRows()).toHaveLength(1);
   });
 });
+
+/** One row per Notification kind the storefront stores, worded and linked as the sender writes them. */
+const kinds = [
+  { type: "order.delivery-fee", title: "Delivery fee quoted for Order #7", body: "Your Delivery fee is ₱150.00. View your confirmed Order.", link: "/profile/orders?order=7", icon: "fee" },
+  { type: "order.payment-needed", title: "Payment needed for Order #7", body: "Please submit your GCash Payment proof to continue your Order.", link: "/profile/orders?order=7", icon: "payment" },
+  { type: "order.dispatched", title: "Order #7 dispatched", body: "Your Order has been dispatched. View your Order for details.", link: "/profile/orders?order=7", icon: "delivery" },
+  { type: "order.delivered", title: "Your Order #7 was delivered", body: "Your Refund window is 24 hours from delivery.", link: "/profile/orders?order=7", icon: "confirmed" },
+  { type: "order.cancelled", title: "Order #7 cancelled", body: "Your Order has been cancelled. View your Order for details.", link: "/profile/orders?order=7", icon: "cancelled" },
+  { type: "ticket.reply", title: "New reply on your Ticket", body: "Staff replied to your Ticket.", link: "/support/abc-123", icon: "support" },
+  { type: "return.approved", title: "Return RMA-4 approved", body: "Your Return RMA-4 was approved as a refund.", link: "/profile/orders?order=7", icon: "return" },
+  { type: "feedback.request", title: "How was Order #7?", body: "Tell us how your Order went.", link: "/profile/orders/7/feedback", icon: "feedback" },
+];
+
+describe("every Notification kind", () => {
+  test.each(kinds)("$type shows its own title, text, look and link, and clicking marks it read", ({ type, title, body, link, icon }) => {
+    render(<NotificationsFeed items={[notification({ id: `id-${type}`, type, title, body, link })]} now={now} />);
+
+    const row = screen.getByRole("link", { name: new RegExp(title) });
+    expect(row.textContent).toContain(body);
+    expect(row.getAttribute("href")).toBe(link);
+    expect(row.querySelector(`[data-icon="${icon}"]`)).not.toBeNull();
+    fireEvent.click(row);
+
+    expect(markRead).toHaveBeenCalledWith(`id-${type}`);
+    expect(unreadRows()).toHaveLength(0);
+  });
+
+  test("each kind has a look of its own", () => {
+    render(<NotificationsFeed items={kinds.map((kind) => notification({ ...kind, id: kind.type }))} now={now} />);
+
+    const icons = [...document.querySelectorAll("[data-icon]")].map((node) => node.getAttribute("data-icon"));
+    expect(new Set(icons).size).toBe(kinds.length);
+  });
+});
