@@ -29,7 +29,7 @@ const order = (status: OrderStatus): Order => ({
   paidById: null,
   paidByName: null,
   paidAt: null,
-  deliveryPhotoFileId: null,
+  deliveryPhotoRemovedAt: null, deliveryPhotoFileId: null,
 });
 
 const renderOrder = (status: OrderStatus, returnInProgress = false) =>

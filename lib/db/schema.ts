@@ -166,8 +166,10 @@ export const orders = pgTable("orders", {
   paidAt: timestamp("paid_at", { withTimezone: true }),
   // When the Order became Delivered. Orders delivered before this column existed keep it empty.
   deliveredAt: timestamp("delivered_at", { withTimezone: true }),
-  /** Private, Permanent File id of the courier's proof of delivery; empty until delivered, and for Orders delivered before photos existed. */
+  /** Private File id of proof of delivery; empty before delivery, for legacy Orders, or after removal. */
   deliveryPhotoFileId: text("delivery_photo_file_id"),
+  receivedAt: timestamp("received_at", { withTimezone: true }),
+  deliveryPhotoRemovedAt: timestamp("delivery_photo_removed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

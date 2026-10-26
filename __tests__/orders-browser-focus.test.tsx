@@ -23,7 +23,7 @@ const order = (id: number): Order => ({
   paidById: null,
   paidByName: null,
   paidAt: null,
-  deliveryPhotoFileId: null,
+  deliveryPhotoRemovedAt: null, deliveryPhotoFileId: null,
 });
 
 const orders = [3, 2, 1].map((id) => ({ order: order(id), feedback: null, returnInProgress: false }));

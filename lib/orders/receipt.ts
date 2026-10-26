@@ -36,9 +36,9 @@ export function createOrderReceiptStore<
         throw new OrderReceiptConflictError("An Order with a Return in progress cannot be marked received.");
       }
 
-      // Receipt has no deadline and changes only status, preserving delivery
+      // Receipt has no deadline; its timestamp starts photo retention, preserving delivery
       // time, payment data, Returns and the original Feedback request timer.
-      const [received] = await tx.update(orders).set({ status: "received" })
+      const [received] = await tx.update(orders).set({ status: "received", receivedAt: new Date() })
         .where(eq(orders.id, orderId)).returning({ id: orders.id });
       return { id: received.id, status: "received" as const };
     });

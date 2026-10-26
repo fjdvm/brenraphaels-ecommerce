@@ -21,7 +21,7 @@ const order = (overrides: Partial<Order>): Order => ({
   paidById: null,
   paidByName: null,
   paidAt: null,
-  deliveryPhotoFileId: null,
+  deliveryPhotoRemovedAt: null, deliveryPhotoFileId: null,
   ...overrides,
 });
 
