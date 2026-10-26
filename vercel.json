@@ -5,6 +5,7 @@
     }
   },
   "crons": [
+    { "path": "/api/cron/customer-notifications", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/auto-complete-tickets", "schedule": "0 1 * * *" },
     { "path": "/api/cron/feedback-requests", "schedule": "0 2 * * *" }
   ]

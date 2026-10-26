@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { customers, orders } from "../lib/db/schema";
 import { mintCreomsCredential } from "../lib/orders/creoms-credential";
 import { createOrderStore } from "../lib/orders/orders";
+import { GET as retryNotifications } from "../app/api/cron/customer-notifications/route";
 import { POST } from "../app/api/internal/orders/[id]/status/route";
 
 const mocks = vi.hoisted(() => ({ database: vi.fn(), email: vi.fn() }));
@@ -21,6 +22,8 @@ beforeEach(async () => {
   vi.stubEnv("CREOMS_SERVICE_SECRET", "k".repeat(40));
   vi.stubEnv("API_GATEWAY_URL", "https://gateway.test");
   vi.stubEnv("API_GATEWAY_CALLER_KEY", "storefront-key");
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.test");
+  vi.stubEnv("CRON_SECRET", "cron-key");
   client = new PGlite();
   db = drizzle(client);
   mocks.database.mockReturnValue(db);
@@ -135,4 +138,73 @@ test("concurrent delivery requests cannot replace the winning photo", async () =
   expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
   expect(await persisted()).toMatchObject({ status: "delivered", deliveryPhotoFileId: "photo-1" });
   expect(mocks.email).toHaveBeenCalledTimes(1);
+});
+
+test("stores and sends one delivered Notification for the Customer, naming the Refund window", async () => {
+  expect((await call()).status).toBe(200);
+  const sends = gateway.mock.calls.filter(([url]) => String(url).endsWith("/notifications/notifications"));
+  expect(sends).toHaveLength(1);
+  const payload = JSON.parse((sends[0] as unknown as [string, RequestInit])[1].body as string);
+  expect(payload).toMatchObject({
+    userIds: ["customer-1"], sendingApp: "ecommerce", targetApp: "ecommerce", type: "order.delivered",
+    idempotencyKey: `order.delivered:${orderId}`, link: `https://shop.test/profile/orders?order=${orderId}`,
+  });
+  expect(payload.body).toContain("24 hours");
+  expect(payload.body).toContain("Refund window");
+});
+
+function retry(authorization = "Bearer cron-key") {
+  return retryNotifications(new Request("https://shop.test/api/cron/customer-notifications", {
+    headers: { authorization },
+  }));
+}
+
+test.each(["failure", "timeout"])("retries a Notification after %s while delivery and email still succeed", async (failure) => {
+  const inbox = new Map<string, unknown>();
+  let offline = true;
+  const attempts: string[] = [];
+  gateway.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (!url.endsWith("/notifications/notifications")) return Response.json(metadata);
+    const notification = JSON.parse(init!.body as string);
+    attempts.push(notification.idempotencyKey);
+    if (failure === "timeout" || !offline) inbox.set(notification.idempotencyKey, notification);
+    if (offline) {
+      if (failure === "timeout") throw new DOMException("Response lost", "TimeoutError");
+      return new Response(null, { status: 503 });
+    }
+    return Response.json({}, { status: 201 });
+  });
+  expect((await call()).status).toBe(200);
+  expect(await persisted()).toMatchObject({ status: "delivered" });
+  expect(mocks.email).toHaveBeenCalledTimes(1);
+  expect((await call()).status).toBe(409);
+  offline = false;
+  expect(await (await retry()).json()).toEqual({ sent: 1 });
+  expect(await (await retry()).json()).toEqual({ sent: 0 });
+  expect(attempts).toEqual([`order.delivered:${orderId}`, `order.delivered:${orderId}`]);
+  expect(inbox.size).toBe(1);
+  expect(mocks.email).toHaveBeenCalledTimes(1);
+});
+
+test("only an authorized cron job may retry Customer Notifications", async () => {
+  expect((await retry("Bearer wrong")).status).toBe(401);
+  vi.stubEnv("CRON_SECRET", "");
+  expect((await retry()).status).toBe(401);
+  expect(gateway).not.toHaveBeenCalled();
+});
+
+test("a failed Notification does not prevent a later pending Notification being sent", async () => {
+  gateway.mockImplementation(async (url: string) => url.endsWith("/notifications/notifications")
+    ? new Response(null, { status: 503 }) : Response.json(metadata));
+  expect((await call()).status).toBe(200);
+  const [second] = await db.insert(orders).values({ customerId: "customer-1", status: "dispatched", fulfillmentMethod: "delivery",
+    paymentMethod: "cash-on-delivery", subtotalInCentavos: 10000 }).returning();
+  const firstOrderId = orderId;
+  orderId = second.id;
+  expect((await call()).status).toBe(200);
+  gateway.mockImplementation(async (_url: string, init: RequestInit) => {
+    const notification = JSON.parse(init.body as string);
+    return new Response(null, { status: notification.idempotencyKey === `order.delivered:${firstOrderId}` ? 503 : 201 });
+  });
+  expect(await (await retry()).json()).toEqual({ sent: 1 });
 });

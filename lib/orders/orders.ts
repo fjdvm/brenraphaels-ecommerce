@@ -2,7 +2,7 @@ import { gatewayProductImages, productThumbnail, type ProductImageFiles, type Pr
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { addresses, customers, orderDeliveryAddresses, orderLines, orders, productImages, products } from "../db/schema";
+import { addresses, customerNotifications, customers, orderDeliveryAddresses, orderLines, orders, productImages, products } from "../db/schema";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
 import { createCartStore } from "./cart";
@@ -270,23 +270,38 @@ export function createOrderStore<
     }
 
     const staff = input.status === "paid" ? staffAttribution.parse(input) : null;
-    const [updatedOrder] = await db
-      .update(orders)
-      .set({
-        status: input.status,
-        ...(staff ? { paidById: staff.staffId, paidByName: staff.staffName, paidAt: new Date() } : {}),
-        ...(input.status === "delivered" ? { deliveredAt: new Date(), deliveryPhotoFileId } : {}),
-        ...(input.deliveryFeeInCentavos === undefined
-          ? {}
-          : { deliveryFeeInCentavos: input.deliveryFeeInCentavos }),
-      })
-      // Keep a concurrent update from overwriting a status that was just advanced.
-      .where(and(
-        eq(orders.id, orderId), eq(orders.status, currentStatus),
-        ...(input.status === "delivered" ? [isNull(orders.deliveryPhotoFileId)] : []),
-      ))
-      .returning();
-    if (!updatedOrder) throw new OrderStatusUpdateError("Order status or Delivery photo changed before it could be advanced. Refresh before retrying.");
+    const updatedOrder = await db.transaction(async (transaction) => {
+      const [updatedOrder] = await transaction
+        .update(orders)
+        .set({
+          status: input.status,
+          ...(staff ? { paidById: staff.staffId, paidByName: staff.staffName, paidAt: new Date() } : {}),
+          ...(input.status === "delivered" ? { deliveredAt: new Date(), deliveryPhotoFileId } : {}),
+          ...(input.deliveryFeeInCentavos === undefined
+            ? {}
+            : { deliveryFeeInCentavos: input.deliveryFeeInCentavos }),
+        })
+        // Keep a concurrent update from overwriting a status that was just advanced.
+        .where(and(
+          eq(orders.id, orderId), eq(orders.status, currentStatus),
+          ...(input.status === "delivered" ? [isNull(orders.deliveryPhotoFileId)] : []),
+        ))
+        .returning();
+      if (!updatedOrder) throw new OrderStatusUpdateError("Order status or Delivery photo changed before it could be advanced. Refresh before retrying.");
+
+      if (input.status === "delivered") {
+        await transaction.insert(customerNotifications).values({
+          idempotencyKey: `order.delivered:${updatedOrder.id}`,
+          orderId: updatedOrder.id,
+          customerId: updatedOrder.customerId,
+          type: "order.delivered",
+          title: `Your Order #${updatedOrder.id} was delivered`,
+          body: "Your Order was delivered. Your Refund window is 24 hours from delivery to request a Return. Marking the Order received closes the window early.",
+          link: `/profile/orders?order=${updatedOrder.id}`,
+        });
+      }
+      return updatedOrder;
+    });
 
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
   }
