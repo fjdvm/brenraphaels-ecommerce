@@ -168,6 +168,8 @@ export const orders = pgTable("orders", {
   deliveredAt: timestamp("delivered_at", { withTimezone: true }),
   /** Private, Permanent File id of the courier's proof of delivery; empty until delivered, and for Orders delivered before photos existed. */
   deliveryPhotoFileId: text("delivery_photo_file_id"),
+  receivedAt: timestamp("received_at", { withTimezone: true }),
+  deliveryPhotoRemovedAt: timestamp("delivery_photo_removed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

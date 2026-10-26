@@ -23,6 +23,7 @@ const order = (status: OrderStatus, deliveryPhotoFileId: string | null): Order =
   paidById: null,
   paidByName: null,
   paidAt: null,
+  deliveryPhotoRemovedAt: null,
   deliveryPhotoFileId,
 });
 

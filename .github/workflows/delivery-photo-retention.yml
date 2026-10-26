@@ -1,0 +1,31 @@
+name: Delivery photo retention
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: delivery-photo-retention
+  cancel-in-progress: false
+
+jobs:
+  remove-due-photos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Remove due Delivery photos
+        env:
+          STOREFRONT_URL: ${{ vars.STOREFRONT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$STOREFRONT_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --silent --show-error \
+            --connect-timeout 10 --max-time 300 \
+            --retry 2 --retry-delay 10 --retry-all-errors \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "${STOREFRONT_URL%/}/api/cron/delivery-photo-retention"

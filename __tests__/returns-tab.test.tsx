@@ -25,7 +25,7 @@ const order = (id: number): Order => ({
   paidById: null,
   paidByName: null,
   paidAt: null,
-  deliveryPhotoFileId: null,
+  deliveryPhotoRemovedAt: null, deliveryPhotoFileId: null,
 });
 
 const aReturn = (id: number, orderId: number, overrides: Partial<CustomerReturn> = {}): CustomerReturn => ({

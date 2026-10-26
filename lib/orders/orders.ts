@@ -73,8 +73,9 @@ export type Order = {
   paidById: string | null;
   paidByName: string | null;
   paidAt: Date | null;
-  /** File id of the Delivery photo; null for Orders not yet delivered or delivered before photos existed. */
+  /** File id of the Delivery photo; null before delivery, for legacy Orders, or after retention removes it. */
   deliveryPhotoFileId: string | null;
+  deliveryPhotoRemovedAt: Date | null;
   createdAt: Date;
   lines: OrderLine[];
   deliveryAddress: DeliveryAddress | null;
@@ -193,6 +194,7 @@ export function createOrderStore<
       paidByName: row.paidByName,
       paidAt: row.paidAt,
       deliveryPhotoFileId: row.deliveryPhotoFileId,
+      deliveryPhotoRemovedAt: row.deliveryPhotoRemovedAt,
       createdAt: row.createdAt,
       lines,
       deliveryAddress: await deliveryAddressForOrder(row.id),
@@ -431,6 +433,7 @@ export function createOrderStore<
         paidByName: null,
         paidAt: null,
         deliveryPhotoFileId: null,
+        deliveryPhotoRemovedAt: null,
         lines: cart.lines.map(({ productName, imageUrl, sizeLabel, priceInCentavos, quantity }) => ({
           productName,
           imageUrl,
