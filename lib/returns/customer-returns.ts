@@ -1,10 +1,11 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import { customers, orders, orderLines, orderReturns, orderReturnItems, orderReturnImages, orderReturnHistory } from "../db/schema";
+import { customerNotifications, customers, orders, orderLines, orderReturns, orderReturnItems, orderReturnImages, orderReturnHistory } from "../db/schema";
 import { positiveIntegerField } from "../validators/fields";
 import { fileIdField } from "../validators/file-id";
 import { type ReturnEvidenceFiles, validateReturnEvidence } from "./evidence-files";
 import { ReturnRequestError, evidenceUploadInput, returnRequestInput } from "./return-input";
+import { returnNoticeContent } from "./return-notices";
 import { createReturnStore, formatReturnNumber } from "./returns";
 
 /** Customer identity is resolved by the authenticated adapter; prices and names come from the database. */
@@ -93,6 +94,11 @@ export function createCustomerReturns<TQueryResult extends PgQueryResultHKT, TSc
       await tx.insert(orderReturnImages).values(photos.map((photo, index) => ({ returnId: created.id, position: index + 1, fileId: photo.id })));
       await tx.insert(orderReturnHistory).values({ returnId: created.id, status: "requested", actorType: "customer",
         actorId: customerId, actorName: customer.name, occurredAt: at });
+      const content = returnNoticeContent(created, "")!;
+      await tx.insert(customerNotifications).values({
+        idempotencyKey: `return.requested:${created.id}`, orderId, customerId,
+        type: "return.requested", title: content.title, body: content.body, link: content.button.link,
+      });
       return { ...created, number: formatReturnNumber(created.id) };
     });
   }

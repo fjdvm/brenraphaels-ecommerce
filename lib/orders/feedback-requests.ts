@@ -1,8 +1,9 @@
 import { and, eq, inArray, isNotNull, lte, notExists } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
+import { feedbackRequestContent } from "../notifications/feedback-request-content";
 import type { AuditEvent } from "../audit/gateway";
-import { customers, feedbackRequests, orderFeedback, orders } from "../db/schema";
+import { customerNotifications, customers, feedbackRequests, orderFeedback, orders } from "../db/schema";
 
 /** How long after delivery a Customer is asked for Feedback. */
 export const feedbackRequestAfterDays = 2;
@@ -46,10 +47,18 @@ export function createFeedbackRequestStore<
         .orderBy(orders.id);
     },
     async record(request, sentAt) {
-      await db
-        .insert(feedbackRequests)
-        .values({ orderId: request.orderId, customerId: request.customerId, sentAt })
-        .onConflictDoNothing();
+      await db.transaction(async (tx) => {
+        const recorded = await tx.insert(feedbackRequests)
+          .values({ orderId: request.orderId, customerId: request.customerId, sentAt })
+          .onConflictDoNothing().returning();
+        if (!recorded.length) return;
+        const content = feedbackRequestContent(request.orderId, "");
+        await tx.insert(customerNotifications).values({
+          idempotencyKey: `feedback.request:${request.orderId}`, orderId: request.orderId,
+          customerId: request.customerId, type: "feedback.request",
+          title: content.title, body: content.body, link: content.button.link,
+        }).onConflictDoNothing();
+      });
     },
   };
 }

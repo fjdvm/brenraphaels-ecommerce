@@ -4,7 +4,7 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { customers, orders, type orderReturns } from "../db/schema";
 import { required } from "../gateway";
 import { type AppEmail, type AppNotification, sendAppEmail, sendAppNotification } from "../notifications/gateway";
-import { formatReturnNumber } from "./returns";
+import { sendPendingCustomerNotifications } from "../notifications/outbox";
 
 type ReturnRow = typeof orderReturns.$inferSelect;
 
@@ -13,7 +13,7 @@ const noticeStatuses = ["requested", "approved", "declined", "goods received", "
 
 /** One message, worded once for both the email and the in-app Notification. */
 export function returnNoticeContent(record: ReturnRow, siteUrl: string) {
-  const number = formatReturnNumber(record.id);
+  const number = `RMA-${record.id}`;
   const link = `${siteUrl.replace(/\/$/, "")}/profile/orders?order=${record.orderId}`;
   const button = { label: "View your Return", link };
   switch (record.status) {
@@ -62,7 +62,7 @@ export async function notifyReturnChange<TQueryResult extends PgQueryResultHKT, 
     const { title, body, button } = content;
     const results = await Promise.allSettled([
       senders.email({ to: recipient.email, title, body, button }),
-      senders.notification({ userId: recipient.id, type: `return.${record.status.replace(" ", "-")}`, title, body, link: button.link }),
+      sendPendingCustomerNotifications(db, record.orderId, senders.notification),
     ]);
     for (const result of results) if (result.status === "rejected") console.error(`Return ${record.id} notice failed`, result.reason);
   } catch (error) {

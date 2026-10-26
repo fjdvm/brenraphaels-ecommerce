@@ -366,7 +366,7 @@ export const orderReturnHistory = pgTable("order_return_history", {
 /** Durable Customer Notifications: saved with the Order change, retained until the service accepts them. */
 export const customerNotifications = pgTable("customer_notifications", {
   idempotencyKey: text("idempotency_key").primaryKey(),
-  orderId: integer("order_id").notNull().references(() => orders.id),
+  orderId: integer("order_id").references(() => orders.id),
   customerId: text("customer_id").notNull().references(() => customers.id),
   type: text("type").notNull(),
   title: text("title").notNull(),

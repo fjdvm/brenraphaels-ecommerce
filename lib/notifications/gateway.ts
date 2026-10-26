@@ -1,3 +1,5 @@
+import { feedbackRequestContent } from "./feedback-request-content";
+export { feedbackRequestContent } from "./feedback-request-content";
 import type { DueFeedbackRequest as FeedbackRequest } from "../orders/feedback-requests";
 import { postToGateway, required } from "../gateway";
 import { thankYouEmail } from "../orders/feedback-thank-you";
@@ -39,23 +41,10 @@ export function sendAppNotification(notification: AppNotification, fetcher: type
   );
 }
 
-/** The same words for the email and the in-app Notification; the link lands on the Order's Feedback form. */
-export function feedbackRequestContent(orderId: number, siteUrl: string) {
-  return {
-    title: `How was your Order #${orderId}?`,
-    body: "Your Order from Bren Raphael's was delivered. Tell us how it went; your Feedback is private and helps us do better.",
-    button: { label: "Give Feedback", link: `${siteUrl.replace(/\/$/, "")}/profile/orders?order=${orderId}` },
-  };
-}
-
-/** Sends the Feedback request as an email and an in-app Notification; throws if either fails. */
+/** Sends the Feedback request email. Recording the request stores its Notification in the outbox. */
 export async function sendFeedbackRequest(request: FeedbackRequest, fetcher: typeof fetch = fetch): Promise<void> {
   const { title, body, button } = feedbackRequestContent(request.orderId, required("NEXT_PUBLIC_SITE_URL"));
   await sendAppEmail({ to: request.email, title, body, button }, fetcher);
-  await sendAppNotification(
-    { userId: request.customerId, type: "feedback.request", title, body, link: button.link },
-    fetcher,
-  );
 }
 
 /** Tells CREOMS to discover new Orders; it owns alert contents and Staff eligibility. */

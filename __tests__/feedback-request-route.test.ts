@@ -12,7 +12,7 @@ const { getDatabase, sendFeedbackRequest, writeAuditEvent } = vi.hoisted(() => (
 }));
 
 vi.mock("@/lib/db", () => ({ getDatabase }));
-vi.mock("@/lib/notifications/gateway", () => ({ sendFeedbackRequest }));
+vi.mock("@/lib/notifications/gateway", () => ({ sendFeedbackRequest, sendAppNotification: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/audit/gateway", () => ({ writeAuditEvent }));
 
 import { GET } from "@/app/api/cron/feedback-requests/route";

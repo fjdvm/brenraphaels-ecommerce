@@ -147,6 +147,15 @@ export async function placeOrderAndNotify(
   return order;
 }
 
+function paymentNeededNotification(order: typeof orders.$inferSelect) {
+  return {
+    idempotencyKey: `order.payment-needed:${order.id}`, orderId: order.id, customerId: order.customerId,
+    type: "order.payment-needed", title: `Payment needed for Order #${order.id}`,
+    body: "Please submit your GCash Payment proof to continue your Order.",
+    link: `/profile/orders?order=${order.id}`,
+  };
+}
+
 export function createOrderStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
@@ -300,6 +309,20 @@ export function createOrderStore<
           link: `/profile/orders?order=${updatedOrder.id}`,
         });
       }
+      const content = input.status === "confirmed" && updatedOrder.fulfillmentMethod === "delivery"
+        ? { type: "order.delivery-fee", title: `Delivery fee quoted for Order #${orderId}`, body: `Your Delivery fee is ₱${((updatedOrder.deliveryFeeInCentavos ?? 0) / 100).toFixed(2)}. View your confirmed Order.` }
+        : input.status === "dispatched"
+          ? { type: "order.dispatched", title: `Order #${orderId} dispatched`, body: "Your Order has been dispatched. View your Order for details." }
+          : input.status === "cancelled"
+            ? { type: "order.cancelled", title: `Order #${orderId} cancelled`, body: "Your Order has been cancelled. View your Order for details." }
+            : null;
+      if (content) await transaction.insert(customerNotifications).values({
+        ...content, idempotencyKey: `${content.type}:${orderId}`, orderId,
+        customerId: updatedOrder.customerId, link: `/profile/orders?order=${orderId}`,
+      }).onConflictDoNothing();
+      if (input.status === "confirmed" && updatedOrder.paymentMethod === "gcash") {
+        await transaction.insert(customerNotifications).values(paymentNeededNotification(updatedOrder));
+      }
       return updatedOrder;
     });
 
@@ -430,6 +453,9 @@ export function createOrderStore<
         await transaction.insert(orderDeliveryAddresses).values({ orderId: order.id, ...deliveryAddress });
       }
       await transactionalCart.clear(customerId);
+      if (order.status === "confirmed" && order.paymentMethod === "gcash") {
+        await transaction.insert(customerNotifications).values(paymentNeededNotification(order));
+      }
 
       // Built from the Cart lines already in hand, not re-queried: `linesForOrder`
       // is bound to the outer `db`, and querying it from inside this still-open
