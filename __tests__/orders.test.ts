@@ -55,14 +55,14 @@ describe("Order", () => {
     expect((await store.listForCustomer("customer-1"))[0]).toMatchObject({ id: placed.id, lines: [{ imageUrl: "https://images.example/jam-file/original" }] });
   });
 
-  test("an image gateway outage never turns a committed Order change into a failure", async () => {
+  test("an image gateway outage shows no photo and never turns a committed Order change into a failure", async () => {
     const database = drizzle(client);
     await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
     const placed = await createOrderStore(database).place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
     await database.insert(productImages).values({ productSlug: "ube-jam", fileId: "jam-file", url: "https://blob.example/old.jpg", alt: "Jam", position: 0 });
     const files = { publicUrl: async (): Promise<string> => { throw new Error("gateway unavailable"); } };
     await expect(createOrderStore(database, files).advance(placed.id, { status: "preparing" })).resolves.toMatchObject({
-      status: "preparing", lines: [{ imageUrl: "https://blob.example/old.jpg" }],
+      status: "preparing", lines: [{ imageUrl: null }],
     });
   });
 
@@ -345,15 +345,15 @@ describe("Order", () => {
   test("lists each Order line with its Product's first photo", async () => {
     const database = drizzle(client);
     await database.insert(productImages).values([
-      { productSlug: "ube-jam", url: "https://example.com/second.jpg", alt: "Second", position: 2 },
-      { productSlug: "ube-jam", url: "https://example.com/first.jpg", alt: "First", position: 1 },
+      { productSlug: "ube-jam", fileId: "second", alt: "Second", position: 2 },
+      { productSlug: "ube-jam", fileId: "first", alt: "First", position: 1 },
     ]);
     await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
-    const store = createOrderStore(database);
+    const store = createOrderStore(database, { publicUrl: async (_slug, id) => `https://images.example/${id}` });
     await store.place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
 
     await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([
-      { lines: [{ productName: "Ube Jam", imageUrl: "https://example.com/first.jpg" }] },
+      { lines: [{ productName: "Ube Jam", imageUrl: "https://images.example/first" }] },
     ]);
   });
 

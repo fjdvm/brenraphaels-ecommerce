@@ -17,7 +17,6 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       ...(imageOrigin ? [new URL("/**", imageOrigin)] : []),
-      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
     ],
   },
 };

@@ -95,14 +95,14 @@ describe("Cart", () => {
 
   test("shows each line with its Product's first photo", async () => {
     await drizzle(client).insert(productImages).values([
-      { productSlug: "ube-jam", url: "https://example.com/second.jpg", alt: "Second", position: 1 },
-      { productSlug: "ube-jam", url: "https://example.com/first.jpg", alt: "First", position: 0 },
+      { productSlug: "ube-jam", fileId: "second", alt: "Second", position: 1 },
+      { productSlug: "ube-jam", fileId: "first", alt: "First", position: 0 },
     ]);
-    const store = createCartStore(drizzle(client));
+    const store = createCartStore(drizzle(client), { publicUrl: async (_slug, id) => `https://images.example/${id}` });
     await store.addSize("customer-1", await sizeId("250g"), 1);
 
     const cart = await store.get("customer-1");
-    expect(cart.lines[0].imageUrl).toBe("https://example.com/first.jpg");
+    expect(cart.lines[0].imageUrl).toBe("https://images.example/first");
   });
 
   test("updates and removes only the Customer's own Cart line", async () => {

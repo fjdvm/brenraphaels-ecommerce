@@ -8,6 +8,7 @@ import { createCatalogStore } from "../lib/catalog/catalog";
 import { formatPeso } from "../lib/catalog/currency";
 
 let client: PGlite;
+const shopFiles = { publicUrl: async (slug: string, id: string) => `https://images.example/${slug}/${id}` };
 
 beforeEach(async () => {
   client = new PGlite();
@@ -43,7 +44,7 @@ describe("Catalog", () => {
     });
     await database.insert(productImages).values({
       productSlug: "ube-jam-smooth",
-      url: "https://blob.example/ube-jam.jpg",
+      fileId: "jam-file",
       alt: "A jar of smooth ube jam",
       position: 0,
     });
@@ -62,11 +63,11 @@ describe("Catalog", () => {
       },
     ]);
 
-    await expect(createCatalogStore(database).listProducts()).resolves.toEqual([
+    await expect(createCatalogStore(database, shopFiles).listProducts()).resolves.toEqual([
       {
         slug: "ube-jam-smooth",
         name: "Ube Jam Smooth",
-        image: "https://blob.example/ube-jam.jpg",
+        image: "https://images.example/ube-jam-smooth/jam-file",
         lowestPriceInCentavos: 21900,
         highestPriceInCentavos: 46900,
         sizes: [
@@ -86,7 +87,7 @@ describe("Catalog", () => {
     });
     await database.insert(productImages).values({
       productSlug: "ube-powder-120-mesh",
-      url: "https://blob.example/ube-powder.jpg",
+      fileId: "powder-file",
       alt: "A pouch of 120 mesh ube powder",
       position: 0,
     });
@@ -98,14 +99,14 @@ describe("Catalog", () => {
     });
 
     await expect(
-      createCatalogStore(database).findProduct("ube-powder-120-mesh"),
+      createCatalogStore(database, shopFiles).findProduct("ube-powder-120-mesh"),
     ).resolves.toEqual({
       slug: "ube-powder-120-mesh",
       name: "120 Mesh Ube Powder",
       description: "Fine ube powder.",
       images: [
         {
-          url: "https://blob.example/ube-powder.jpg",
+          url: "https://images.example/ube-powder-120-mesh/powder-file",
           alt: "A pouch of 120 mesh ube powder",
         },
       ],
