@@ -39,9 +39,21 @@ describe("Delivery photo on the Order card", () => {
     expect(screen.queryByText("No photo")).toBeNull();
   });
 
-  test("shows No photo on a delivered Order from before photos existed", () => {
-    openOrder("delivered", null);
+  test.each<OrderStatus>(["delivered", "received"])("shows No photo on a %s Order that never had one", (status) => {
+    openOrder(status, null);
     expect(screen.getByText("No photo")).toBeTruthy();
+    expect(screen.queryByText("The Delivery photo was removed.")).toBeNull();
+    expect(screen.queryByRole("img", { name: /Delivery photo/ })).toBeNull();
+  });
+
+  test.each<OrderStatus>(["delivered", "received"])("says the Delivery photo was removed on a %s Order after retention", (status) => {
+    render(<OrdersBrowser orders={[{
+      order: { ...order(status, null), deliveryPhotoRemovedAt: new Date("2026-10-25T06:00:00Z") },
+      feedback: null,
+      returnInProgress: false,
+    }]} />);
+    expect(screen.getByText("The Delivery photo was removed.")).toBeTruthy();
+    expect(screen.queryByText("No photo")).toBeNull();
     expect(screen.queryByRole("img", { name: /Delivery photo/ })).toBeNull();
   });
 
