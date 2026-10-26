@@ -6,7 +6,8 @@ import { useEffect, useRef } from "react";
 import { connectOrdersLive } from "@/components/features/orders/live-socket";
 import type { ConnectOrdersLive, OrdersLiveConnection } from "@/lib/orders/live";
 
-const reconnectMilliseconds = 3_000;
+const firstRetryMilliseconds = 3_000;
+const longestRetryMilliseconds = 60_000;
 
 /**
  * Keeps the Customer's Orders page current. Staff moving an Order or deciding a Return sends an invalidation
@@ -24,16 +25,22 @@ export function LiveOrders({ connect = connectOrdersLive }: { connect?: ConnectO
     let stopped = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let line: OrdersLiveConnection | null = null;
+    let wait = firstRetryMilliseconds;
 
     const open = () => {
       line = connect({
-        onOpen: () => refresh.current(),
+        onOpen: () => {
+          wait = firstRetryMilliseconds;
+          refresh.current();
+        },
         onEvent: (event) => {
           if (event?.type === "order.updated" || event?.type === "return.updated") refresh.current();
         },
         onClose: () => {
           line = null;
-          if (!stopped) retry = setTimeout(open, reconnectMilliseconds);
+          // Back off so a gateway that stays down or unconfigured is not hit every few seconds forever.
+          if (!stopped) retry = setTimeout(open, wait);
+          wait = Math.min(wait * 2, longestRetryMilliseconds);
         },
       });
     };

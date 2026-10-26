@@ -83,6 +83,30 @@ describe("Customer's open Orders page, live", () => {
     expect(refresh).toHaveBeenCalledTimes(2);
   });
 
+  test("waits longer after each failed attempt, and starts over once connected", () => {
+    const line = fakeLine();
+    render(<LiveOrders connect={line.connect} />);
+
+    for (const wait of [3_000, 6_000, 12_000]) {
+      act(() => line.current().onClose());
+      act(() => {
+        vi.advanceTimersByTime(wait - 1);
+      });
+      const before = line.lines.length;
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(line.lines).toHaveLength(before + 1);
+    }
+
+    act(() => line.current().onOpen());
+    act(() => line.current().onClose());
+    act(() => {
+      vi.advanceTimersByTime(3_000);
+    });
+    expect(line.lines).toHaveLength(5);
+  });
+
   test("closes the line when the page is left and does not reconnect", () => {
     const line = fakeLine();
     const { unmount } = render(<LiveOrders connect={line.connect} />);
