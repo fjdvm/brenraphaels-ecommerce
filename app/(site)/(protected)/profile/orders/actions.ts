@@ -17,6 +17,7 @@ import { orderFeedbackInput } from "@/lib/orders/feedback-input";
 import { createOrderReceiptStore, OrderReceiptConflictError, OrderReceiptNotFoundError } from "@/lib/orders/receipt";
 import { createOrderStore, OrderTransitionError, type Order } from "@/lib/orders/orders";
 import { gcashReferenceNumberField, uploadPaymentProofScreenshot } from "@/lib/orders/payment-proof";
+import { liveOrdersUrl } from "@/lib/orders/live";
 import { positiveIntegerField } from "@/lib/validators/fields";
 
 export type PaymentProofState = {
@@ -175,4 +176,15 @@ export async function markOrderReceived(orderId: number): Promise<OrderReceivedS
 
   revalidatePath("/profile/orders");
   return { received: true };
+}
+
+/** The address for the signed-in Customer's live Orders line, or null when it cannot be issued; the page then just stays as loaded. */
+export async function ordersLiveUrl(): Promise<string | null> {
+  const customer = await requireCustomer();
+  try {
+    return await liveOrdersUrl(customer.userId);
+  } catch (error) {
+    console.error("Live Orders pass could not be issued", error);
+    return null;
+  }
 }

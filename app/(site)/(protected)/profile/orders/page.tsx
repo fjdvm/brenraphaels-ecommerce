@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { AccountEmptyState } from "@/components/features/customer/account-empty-state";
 import { OrdersSkeleton } from "@/components/features/customer/skeletons";
+import { LiveOrders } from "@/components/features/orders/live-orders";
 import { OrdersBrowser } from "@/components/features/orders/orders-browser";
 import { Button } from "@/components/ui/button";
 import { PageHeading } from "@/components/ui/page-heading";
@@ -37,15 +38,23 @@ async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/p
 
   if (orders.length === 0) {
     return (
-      <AccountEmptyState title="No orders yet" description="Your past and upcoming orders will appear here.">
-        <Button asChild className="mt-2" size="pill-lg" variant="pill">
-          <Link href="/products">Shop now</Link>
-        </Button>
-      </AccountEmptyState>
+      <>
+        <LiveOrders />
+        <AccountEmptyState title="No orders yet" description="Your past and upcoming orders will appear here.">
+          <Button asChild className="mt-2" size="pill-lg" variant="pill">
+            <Link href="/products">Shop now</Link>
+          </Button>
+        </AccountEmptyState>
+      </>
     );
   }
 
-  return <OrdersBrowser focusOrderId={focusOrderId} orders={withFeedback} returns={returns} />;
+  return (
+    <>
+      <LiveOrders />
+      <OrdersBrowser focusOrderId={focusOrderId} orders={withFeedback} returns={returns} />
+    </>
+  );
 }
 
 export default function OrdersPage({ searchParams }: PageProps<"/profile/orders">) {
