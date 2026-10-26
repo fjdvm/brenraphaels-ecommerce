@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { scheduleStaffSignal } from "@/lib/notifications/staff-signal";
 
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
@@ -130,6 +131,7 @@ export async function createTicket(
     return { message: "We couldn't open your Ticket. Please try again." };
   }
 
+  scheduleStaffSignal("Ticket");
   if (fileId && opened.messages[0]) await linkAttachment(fileId, opened.messages[0].id);
 
   revalidatePath("/support");
@@ -183,6 +185,7 @@ export async function sendMessage(
     return { message: "We couldn't send your Message. Please try again." };
   }
 
+  scheduleStaffSignal("Ticket");
   if (fileId && saved) await linkAttachment(fileId, saved.messageId);
 
   revalidatePath(`/support/${ticketId}`);

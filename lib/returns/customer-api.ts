@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { scheduleStaffSignal } from "../notifications/staff-signal";
 import { currentVisitor } from "../customer/current-visitor";
 import { getDatabase } from "../db";
 import { positiveIntegerField } from "../validators/fields";
@@ -32,7 +33,10 @@ export async function handleCustomerReturn(request: Request, idParam: string, ac
     const customerId = visitor.customer.userId;
     if (action === "upload") return Response.json(await service.prepareUpload(customerId, id.data, input), { status: 201 });
     const result = action === "cancel" ? await service.cancel(customerId, id.data) : await service.request(customerId, id.data, input);
-    if (action === "request") await notifyReturnChange(getDatabase(), result);
+    if (action === "request") {
+      scheduleStaffSignal("Return");
+      await notifyReturnChange(getDatabase(), result);
+    }
     revalidatePath("/profile/orders");
     return Response.json({ id: result.id, status: result.status,
       ...(action === "request" ? { number: result.number } : {}) }, { status: action === "request" ? 201 : 200 });
