@@ -93,7 +93,7 @@ test("product reads share cached public addresses across stores; refreshing one 
   expect(JSON.stringify(config.images?.remotePatterns)).not.toMatch(/blob/i);
 });
 
-test("a row without a File id never yields its retained Blob address and needs no gateway call", async () => {
+test("a row without a File id shows no image, never its retained Blob address, and needs no gateway call", async () => {
   const database = drizzle(client);
   await database.insert(products).values({ slug, name: "Jam", description: "Jam." });
   await database.insert(productImages).values([
@@ -102,10 +102,7 @@ test("a row without a File id never yields its retained Blob address and needs n
   ]);
   const send = vi.fn<typeof fetch>();
   const store = createCatalogStore(database, gatewayProductImages({ baseUrl: "", callerKey: "", publicOrigin: "", fetch: send }));
-  expect((await store.findProduct(slug))?.images).toEqual([
-    { url: "", alt: "Front" },
-    { url: "", alt: "Back" },
-  ]);
+  expect((await store.findProduct(slug))?.images).toEqual([]);
   expect(send).not.toHaveBeenCalled();
 });
 

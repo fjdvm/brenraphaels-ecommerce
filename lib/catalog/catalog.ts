@@ -33,8 +33,10 @@ export function createCatalogStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
 >(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages()): CatalogStore {
-  async function imageUrl(image: { productSlug: string; fileId: string | null; url: string | null }) {
-    return await resolveProductImage(image, files) ?? "";
+  /** An image with no File id has nothing to show; next/image rejects an empty src. */
+  async function resolvedImages(images: { productSlug: string; fileId: string | null; url: string | null; alt: string }[]) {
+    const resolved = await Promise.all(images.map(async (image) => ({ url: await resolveProductImage(image, files), alt: image.alt })));
+    return resolved.filter((image): image is { url: string; alt: string } => image.url !== null);
   }
   return {
     async listProducts() {
@@ -56,13 +58,14 @@ export function createCatalogStore<
       const listed = await Promise.all(allProducts.map(async (product) => {
         const image = allImages.find(({ productSlug }) => productSlug === product.slug);
         const productSizes = allSizes.filter(({ productSlug }) => productSlug === product.slug);
-        if (!image || productSizes.length === 0) return undefined;
+        const url = image && await resolveProductImage(image, files);
+        if (!url || productSizes.length === 0) return undefined;
 
         const prices = productSizes.map(({ priceInCentavos }) => priceInCentavos);
         return {
           slug: product.slug,
           name: product.name,
-          image: await imageUrl(image),
+          image: url,
           lowestPriceInCentavos: Math.min(...prices),
           highestPriceInCentavos: Math.max(...prices),
           sizes: productSizes.map(({ id, label, priceInCentavos, available }) => ({ id, label, priceInCentavos, available })),
@@ -93,7 +96,7 @@ export function createCatalogStore<
           .orderBy(asc(sizes.priceInCentavos)),
       ]);
 
-      return { ...product, images: await Promise.all(images.map(async (image) => ({ url: await imageUrl(image), alt: image.alt }))), sizes: productSizes };
+      return { ...product, images: await resolvedImages(images), sizes: productSizes };
     },
   };
 }
