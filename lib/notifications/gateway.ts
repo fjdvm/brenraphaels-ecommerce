@@ -57,3 +57,8 @@ export async function sendFeedbackRequest(request: FeedbackRequest, fetcher: typ
     fetcher,
   );
 }
+
+/** Tells CREOMS to discover new Orders; it owns alert contents and Staff eligibility. */
+export function sendOrderPlacedSignal(fetcher: typeof fetch = fetch): Promise<void> {
+  return postToGateway("/creoms/notifications/signal", { kind: "Order" }, "Order signal", fetcher);
+}
