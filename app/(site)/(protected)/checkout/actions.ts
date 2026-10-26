@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 
 import { locationErrors } from "@/lib/address/locations";
@@ -8,6 +9,7 @@ import { addCustomerAddress, createAddressStore, customerAddressSchema } from "@
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { sendOrderPlacedEmail } from "@/lib/email/order-placed-email";
+import { sendOrderPlacedSignal } from "@/lib/notifications/gateway";
 import {
   fulfillmentMethods,
   paymentMethods,
@@ -69,6 +71,14 @@ export async function placeOrder(input: unknown) {
   const order = await placeOrderAndNotify(customer.userId, customer.email, parsed, {
     orderStore: createOrderStore(getDatabase()),
     mailer: { send: sendOrderPlacedEmail },
+  });
+  // The Order is committed. A slow or failed signal must never delay checkout.
+  after(async () => {
+    try {
+      await sendOrderPlacedSignal();
+    } catch (error) {
+      console.error("Order-placed signal could not be sent", error);
+    }
   });
   revalidatePath("/cart");
   revalidatePath("/profile/orders");
