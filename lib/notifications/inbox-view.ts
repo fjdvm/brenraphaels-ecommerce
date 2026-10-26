@@ -1,6 +1,6 @@
 import type { InboxNotification } from "./inbox";
 
-export type NotificationIcon = "support" | "payment" | "confirmed" | "delivery" | "order";
+export type NotificationIcon = "fee" | "payment" | "delivery" | "confirmed" | "cancelled" | "support" | "return" | "feedback" | "order";
 export type NotificationCategory = "orders" | "support";
 
 /** Types are `<subject>.<event>`; the subject decides where the Notification is filed and how it looks. */
@@ -8,12 +8,19 @@ export function categoryOf({ type }: Pick<InboxNotification, "type">): Notificat
   return type.startsWith("ticket.") ? "support" : "orders";
 }
 
+const iconByType: Record<string, NotificationIcon> = {
+  "order.delivery-fee": "fee",
+  "order.payment-needed": "payment",
+  "order.dispatched": "delivery",
+  "order.delivered": "confirmed",
+  "order.cancelled": "cancelled",
+  "feedback.request": "feedback",
+};
+
 export function iconOf({ type }: Pick<InboxNotification, "type">): NotificationIcon {
   if (type.startsWith("ticket.")) return "support";
-  if (type.startsWith("payment.")) return "payment";
-  if (type === "order.delivered" || type.startsWith("feedback.")) return "confirmed";
-  if (type === "order.dispatched" || type.startsWith("delivery.")) return "delivery";
-  return "order";
+  if (type.startsWith("return.")) return "return";
+  return iconByType[type] ?? "order";
 }
 
 /** A link into this storefront opens as a client navigation; anything else is left as the sender wrote it. */
