@@ -12,6 +12,7 @@ import {
   OrderFeedbackNotAvailableError,
   createOrderFeedbackStore,
 } from "@/lib/orders/feedback";
+import { scheduleStaffSignal } from "@/lib/notifications/staff-signal";
 import { queueFeedbackThankYou } from "@/lib/notifications/gateway";
 import { orderFeedbackInput } from "@/lib/orders/feedback-input";
 import { createOrderReceiptStore, OrderReceiptConflictError, OrderReceiptNotFoundError } from "@/lib/orders/receipt";
@@ -123,6 +124,7 @@ export async function submitPaymentProof(
     return { message: error instanceof Error ? error.message : "We couldn't submit your payment proof." };
   }
 
+  scheduleStaffSignal("Payment");
   revalidatePath("/profile/orders");
   return { message: "Payment proof submitted. We'll email you once it's verified." };
 }
@@ -154,6 +156,7 @@ export async function submitOrderFeedback(
     return { message: "We couldn't save your Feedback. Please try again." };
   }
 
+  if (parsed.data.rating <= 3) scheduleStaffSignal("Feedback");
   revalidatePath("/profile/orders");
   return { submitted: true };
 }

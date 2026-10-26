@@ -1,5 +1,7 @@
 "use server";
 
+import { scheduleStaffSignal } from "@/lib/notifications/staff-signal";
+
 import {
   resendCustomerVerification,
   verifyCustomerEmail,
@@ -16,11 +18,13 @@ export type ResendVerificationState = {
 };
 
 export async function confirmVerificationEmail(token: string | undefined) {
-  return verifyCustomerEmail(token, {
+  const result = await verifyCustomerEmail(token, {
     auth: neonVerificationAuth,
     now: new Date(),
     tokenStore: createVerificationTokenStore(getDatabase()),
   });
+  if (result === "verified") scheduleStaffSignal("Customer");
+  return result;
 }
 
 export async function resendVerificationEmail(
