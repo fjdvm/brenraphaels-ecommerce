@@ -1,16 +1,17 @@
-import { Bell } from "lucide-react";
-import Link from "next/link";
 import { Suspense } from "react";
 
 import { Footer } from "@/components/shared/footer";
+import { LiveNotifications } from "@/components/features/customer/live-notifications";
 import { CartSessionSync } from "@/components/features/orders/cart-session-sync";
 import { CustomerSidebarShell } from "@/components/features/customer/customer-sidebar-shell";
 import { CustomerSidebar } from "@/components/features/customer/customer-sidebar";
 import { Header } from "@/components/shared/header";
+import { NotificationBell } from "@/components/shared/notification-bell";
 import { PageTransition } from "@/components/shared/page-transition";
 import { SessionNav } from "@/components/shared/session-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currentVisitor } from "@/lib/customer/current-visitor";
+import { unreadInboxCount } from "@/lib/notifications/inbox";
 
 const desktopSessionClass = "flex items-center gap-5";
 const mobileSessionClass =
@@ -22,9 +23,26 @@ async function CartSessionSyncGate() {
   return <CartSessionSync customerId={customerId} />;
 }
 
+/** The unread count for the bell; the inbox being unreachable must not take the header down, so it shows none. */
+async function unreadFor(customerId: string): Promise<number> {
+  try {
+    return await unreadInboxCount(customerId);
+  } catch (error) {
+    console.error("Unread Notifications could not be counted", error);
+    return 0;
+  }
+}
+
 async function SessionNavAsync({ className, showCart }: { className: string; showCart?: boolean }) {
   const visitor = await currentVisitor();
-  return <SessionNav visitor={visitor} className={className} showCart={showCart} />;
+  const unread = visitor.state === "customer" && showCart !== false ? await unreadFor(visitor.customer.userId) : 0;
+  return <SessionNav visitor={visitor} className={className} showCart={showCart} unreadNotifications={unread} />;
+}
+
+/** Opens the Customer's live Notifications line, which refreshes the bell and the page in every open tab. */
+async function LiveNotificationsGate() {
+  const visitor = await currentVisitor();
+  return visitor.state === "customer" ? <LiveNotifications /> : null;
 }
 
 /** Mirrors SessionNav's cart icon plus profile-icon/"Sign in" slot so the header doesn't reflow once resolved. */
@@ -41,9 +59,7 @@ function SessionNavFallback({ className, showCart = true }: { className: string;
 async function MobileBellAsync() {
   const visitor = await currentVisitor();
   return visitor.state === "customer" ? (
-    <Link href="/profile/notifications" aria-label="Notifications" className="p-2">
-      <Bell />
-    </Link>
+    <NotificationBell className="relative p-2" size={24} unread={await unreadFor(visitor.customer.userId)} />
   ) : null;
 }
 
@@ -59,6 +75,9 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
     <>
       <Suspense fallback={null}>
         <CartSessionSyncGate />
+      </Suspense>
+      <Suspense fallback={null}>
+        <LiveNotificationsGate />
       </Suspense>
       <Header
         desktopSession={

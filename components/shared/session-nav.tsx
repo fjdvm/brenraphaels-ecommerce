@@ -1,13 +1,16 @@
 import Link from "next/link";
-import { Bell, LogOut, ShoppingCart, User } from "lucide-react";
+import { LogOut, ShoppingCart, User } from "lucide-react";
 
 import { signOut } from "@/app/actions";
 import { AccountMenu, MobileAccountMenu } from "@/components/shared/account-menu";
 import { SignOutButton } from "@/components/shared/sign-out-button";
+import { NotificationBell } from "@/components/shared/notification-bell";
 import { initialsOf } from "@/lib/customer/initials";
 import type { Visitor } from "@/lib/customer/visitor";
 
-export function SessionNav({ className, visitor, showCart = true }: { className?: string; visitor: Visitor; showCart?: boolean }) {
+export function SessionNav({
+  className, visitor, showCart = true, unreadNotifications = 0,
+}: { className?: string; visitor: Visitor; showCart?: boolean; unreadNotifications?: number }) {
   const initials = visitor.state === "customer" ? initialsOf(visitor.customer.fullName) : "";
   const signOutButton = (
     <SignOutButton
@@ -43,9 +46,7 @@ export function SessionNav({ className, visitor, showCart = true }: { className?
       ) : (
         <>
           {showCart && (
-            <Link href="/profile/notifications" aria-label="Notifications" className="flex items-center hover:text-primary">
-              <Bell size={20} />
-            </Link>
+            <NotificationBell className="flex items-center hover:text-primary" unread={unreadNotifications} />
           )}
           {showCart ? (
             <AccountMenu initials={initials} firstName={visitor.customer.firstName} signOut={signOutButton} />
