@@ -160,7 +160,7 @@ export async function submitOrderFeedback(
 
 /** Irreversible: ends the Customer's right to a Return on a delivered Order. */
 export async function markOrderReceived(orderId: number): Promise<OrderReceivedState> {
-  const parsed = positiveIntegerField("Order ID").safeParse(orderId);
+  const parsed = positiveIntegerField("Order ID").safeParse(String(orderId));
   if (!parsed.success) return { message: "We couldn't mark this Order received. Please try again." };
 
   const customer = await requireCustomer();
