@@ -15,7 +15,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 async function fillIn(user: ReturnType<typeof userEvent.setup>) {
-  await user.selectOptions(screen.getByLabelText("Order feedback score"), "2");
+  await user.click(screen.getByLabelText("2 out of 5 stars"));
   await user.type(screen.getByLabelText("Your Order feedback"), "Arrived late.");
 }
 
