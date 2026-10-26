@@ -362,3 +362,16 @@ export const orderReturnHistory = pgTable("order_return_history", {
   check("order_return_history_status", sql`${table.status} in ('requested','approved','goods received','refunded','replaced','declined','cancelled')`),
   check("order_return_history_actor_type", sql`${table.actorType} in ('customer','staff')`),
 ]);
+
+/** Durable Customer Notifications: saved with the Order change, retained until the service accepts them. */
+export const customerNotifications = pgTable("customer_notifications", {
+  idempotencyKey: text("idempotency_key").primaryKey(),
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  customerId: text("customer_id").notNull().references(() => customers.id),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  link: text("link").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+});

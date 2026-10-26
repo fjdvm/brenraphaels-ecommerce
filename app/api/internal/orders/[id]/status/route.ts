@@ -1,5 +1,6 @@
 import { ZodError } from "zod";
 
+import { sendPendingCustomerNotifications } from "@/lib/notifications/outbox";
 import { getDatabase } from "@/lib/db";
 import { sendOrderConfirmedEmail } from "@/lib/email/order-confirmed-email";
 import { sendOrderDeliveredEmail } from "@/lib/email/order-delivered-email";
@@ -64,6 +65,11 @@ export async function POST(
     }
     if (order.status === "delivered") {
       await notifyCustomer(orderStore, order, "delivered", sendOrderDeliveredEmail);
+      try {
+        await sendPendingCustomerNotifications(getDatabase(), order.id);
+      } catch (error) {
+        console.error("Customer Notification delivery will be retried by the cron job", error);
+      }
     }
     return Response.json(order);
   } catch (error) {

@@ -20,6 +20,7 @@ export function queueFeedbackThankYou(recipient: string, rating: number): Promis
 }
 
 export type AppNotification = {
+  idempotencyKey?: string;
   userId: string;
   type: string;
   title: string;

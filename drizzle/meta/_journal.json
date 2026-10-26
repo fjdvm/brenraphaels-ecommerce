@@ -169,6 +169,13 @@
       "when": 1792987828002,
       "tag": "0023_delivery_photo_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792994924888,
+      "tag": "0024_customer_notification_outbox",
+      "breakpoints": true
     }
   ]
 }
