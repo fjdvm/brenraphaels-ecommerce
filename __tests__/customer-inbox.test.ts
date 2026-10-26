@@ -92,11 +92,11 @@ describe("Live ticket for a Customer's inbox", () => {
     const url = await liveInboxUrl("customer-1", gateway(fetch));
 
     expect(url).toBe("wss://gateway.test/notifications/live?ticket=a.b");
-    expect(fetch).toHaveBeenCalledWith("https://gateway.test/live-tickets", {
+    expect(fetch).toHaveBeenCalledWith("https://gateway.test/live-tickets", expect.objectContaining({
       method: "POST",
       headers: { ...auth, "Content-Type": "application/json" },
       body: JSON.stringify({ userId: "customer-1" }),
-    });
+    }));
   });
 
   test("fails when the gateway refuses", async () => {

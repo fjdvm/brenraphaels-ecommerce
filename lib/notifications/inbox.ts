@@ -76,14 +76,8 @@ export async function markAllInboxRead(customerId: string, gateway: Gateway = {}
  * Customer alone and expires within about a minute, so the browser can never listen for anyone else's.
  */
 export async function liveInboxUrl(customerId: string, gateway: Gateway = {}): Promise<string> {
-  const { base, callerKey, send } = connection(gateway);
-  const response = await send(`${base}/live-tickets`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${callerKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ userId: customerId }),
-  });
-  if (!response.ok) throw new Error(`The gateway refused a Notifications pass: ${response.status}`);
-
-  const { ticket } = (await response.json()) as { ticket: string };
+  const { base } = connection(gateway);
+  const pass = await call(gateway, "/live-tickets", "Notifications pass", { body: { userId: customerId } });
+  const { ticket } = z.object({ ticket: z.string() }).parse(pass);
   return `${base.replace(/^http/, "ws")}/notifications/live?ticket=${encodeURIComponent(ticket)}`;
 }
