@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
-import { orders, orderReturns, orderReturnHistory, returnResolutions } from "../db/schema";
+import { customerNotifications, orders, orderReturns, orderReturnHistory, returnResolutions } from "../db/schema";
+import { returnNoticeContent } from "./return-notices";
 import { multilineTextField } from "../validators/fields";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
@@ -71,6 +72,13 @@ export function createReturnStore<
       await tx.insert(orderReturnHistory).values({ returnId: id, status: updated.status, actorType: actor.type,
         actorId: actor.id, actorName: actor.name, occurredAt: at,
         note: decision.status === "declined" ? decision.declineReason : null });
+      const content = returnNoticeContent(updated, "");
+      if (content) await tx.insert(customerNotifications).values({
+        idempotencyKey: `return.${updated.status.replace(" ", "-")}:${id}`,
+        orderId: updated.orderId, customerId: order.customerId,
+        type: `return.${updated.status.replace(" ", "-")}`,
+        title: content.title, body: content.body, link: content.button.link,
+      }).onConflictDoNothing();
       return { ...updated, number: formatReturnNumber(id), customerId: order.customerId, actedBy: { ...actor, at } };
     });
   }

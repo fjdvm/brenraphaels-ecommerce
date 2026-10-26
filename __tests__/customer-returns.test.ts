@@ -4,7 +4,7 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test, vi } from "vitest";
 
-import { customers, orders, orderLines, orderReturnHistory, orderReturnImages, orderReturnItems, orderReturns } from "../lib/db/schema";
+import { customerNotifications, customers, orders, orderLines, orderReturnHistory, orderReturnImages, orderReturnItems, orderReturns } from "../lib/db/schema";
 import { createCustomerReturns } from "../lib/returns/customer-returns";
 import { createReturnStore } from "../lib/returns/returns";
 import { createOrderReceiptStore } from "../lib/orders/receipt";
@@ -54,6 +54,9 @@ test("requests whole lines, uploads verified evidence and records the RMA and Cu
     actorId: "customer-1", actorName: "Maria Santos", occurredAt: at }]);
   expect(await db.select().from(orders)).toMatchObject([{ status: "delivered" }]);
   expect(await db.select().from(orderReturns)).toHaveLength(1);
+  expect(await db.select().from(customerNotifications)).toMatchObject([{
+    idempotencyKey: `return.requested:${result.id}`, customerId: "customer-1", type: "return.requested",
+  }]);
 });
 
 test.each([

@@ -3,8 +3,9 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import { customers, orders, orderReturns } from "../lib/db/schema";
+import { customerNotifications, customers, orders, orderReturns } from "../lib/db/schema";
 import { notifyReturnChange, type ReturnNoticeSenders } from "../lib/returns/return-notices";
+import { sendPendingCustomerNotifications } from "../lib/notifications/outbox";
 import { createReturnStore } from "../lib/returns/returns";
 
 let client: PGlite;
@@ -58,6 +59,10 @@ test("sends exactly one email and one Notification per event, linking to the Ret
 
 test("a requested Return notice carries its RMA number", async () => {
   const [record] = await db.insert(orderReturns).values({ orderId, reason: "damaged", amountInCentavos: 1 }).returning();
+  // A requested Return is stored by createCustomerReturns in production; seed its durable notice here.
+  await db.insert(customerNotifications).values({ idempotencyKey: `return.requested:${record.id}`,
+    orderId, customerId: "customer-1", type: "return.requested", title: `Return RMA-${record.id} requested`,
+    body: "We've received your Return request.", link: `/profile/orders?order=${orderId}` });
   await notifyReturnChange(db, record, senders);
   expect(sent.email).toMatchObject([{ title: `Return RMA-${record.id} requested` }]);
   expect(sent.notification).toHaveLength(1);
@@ -91,4 +96,18 @@ test("a failing sender is logged and never throws; the other message still goes 
   await move({ status: "declined", declineReason: "No." });
   expect(sent.notification).toHaveLength(1);
   expect(error).toHaveBeenCalled();
+});
+
+
+test("a Notification outage leaves the Return decision and email saved; retry sends only the Notification", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  senders.notification = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue(undefined);
+  const record = await move({ status: "declined", declineReason: "No defect." });
+  expect(record.status).toBe("declined");
+  expect(sent.email).toHaveLength(1);
+  expect(await sendPendingCustomerNotifications(db, orderId, senders.notification)).toBe(1);
+  expect(await sendPendingCustomerNotifications(db, orderId, senders.notification)).toBe(0);
+  expect(sent.email).toHaveLength(1);
+  expect(senders.notification).toHaveBeenCalledTimes(2);
+  expect(vi.mocked(senders.notification).mock.calls[1][0]).toEqual(vi.mocked(senders.notification).mock.calls[0][0]);
 });

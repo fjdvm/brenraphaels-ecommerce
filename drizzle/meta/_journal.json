@@ -176,6 +176,13 @@
       "when": 1792994924888,
       "tag": "0024_customer_notification_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793031787801,
+      "tag": "0025_remaining_customer_notifications",
+      "breakpoints": true
     }
   ]
 }

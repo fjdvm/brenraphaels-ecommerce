@@ -44,7 +44,7 @@ describe("gateway in-app Notification", () => {
 });
 
 describe("sending a Feedback request", () => {
-  test("sends the email and the Notification, both linking to the Order", async () => {
+  test("sends the email linking to the Order; the durable store owns its Notification", async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response("{}", { status: 202 }));
 
     await sendFeedbackRequest({ orderId: 208, customerId: "customer-1", customerName: "Jane Doe", email: "jane@example.com" }, fetcher);
@@ -52,16 +52,13 @@ describe("sending a Feedback request", () => {
     const urls = fetcher.mock.calls.map(([url]) => url);
     expect(urls).toEqual([
       "https://gateway.example.com/notifications/emails/app",
-      "https://gateway.example.com/notifications/notifications",
     ]);
     const email = JSON.parse(fetcher.mock.calls[0][1].body);
     expect(email).toMatchObject({ to: "jane@example.com", button: { link: "https://shop.example.com/profile/orders?order=208" } });
-    expect(JSON.parse(fetcher.mock.calls[1][1].body).link).toBe("https://shop.example.com/profile/orders?order=208");
   });
 
-  test("fails when either send fails", async () => {
+  test("fails when the email send fails", async () => {
     const fetcher = vi.fn()
-      .mockResolvedValueOnce(new Response("{}", { status: 202 }))
       .mockResolvedValueOnce(new Response("no", { status: 500 }));
 
     await expect(

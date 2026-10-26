@@ -1,3 +1,4 @@
+import { sendPendingCustomerNotifications } from "@/lib/notifications/outbox";
 import { writeAuditEvent } from "@/lib/audit/gateway";
 import { getDatabase } from "@/lib/db";
 import { createFeedbackRequestStore, sendDueFeedbackRequests } from "@/lib/orders/feedback-requests";
@@ -17,5 +18,10 @@ export async function GET(request: Request) {
     send: (feedbackRequest) => sendFeedbackRequest(feedbackRequest),
     audit: writeAuditEvent,
   });
+  try {
+    await sendPendingCustomerNotifications(getDatabase());
+  } catch (error) {
+    console.error("Feedback Notifications will be retried", error);
+  }
   return Response.json({ sent });
 }

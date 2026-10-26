@@ -68,11 +68,11 @@ export async function POST(
       }
       if (order.status === "delivered") {
         await notifyCustomer(orderStore, order, "delivered", sendOrderDeliveredEmail);
-        try {
-          await sendPendingCustomerNotifications(getDatabase(), order.id);
-        } catch (error) {
-          console.error("Customer Notification delivery will be retried by the cron job", error);
-        }
+      }
+      try {
+        await sendPendingCustomerNotifications(getDatabase(), order.id);
+      } catch (error) {
+        console.error("Customer Notification delivery will be retried by the cron job", error);
       }
     });
     return Response.json(order);

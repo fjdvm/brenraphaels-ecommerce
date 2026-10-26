@@ -9,7 +9,7 @@ import { sendAppNotification } from "./gateway";
 export async function sendPendingCustomerNotifications<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
->(db: PgDatabase<TQueryResult, TSchema>, orderId?: number): Promise<number> {
+>(db: PgDatabase<TQueryResult, TSchema>, orderId?: number, send: typeof sendAppNotification = sendAppNotification): Promise<number> {
   const pending = await db.select().from(customerNotifications)
     .where(and(isNull(customerNotifications.acceptedAt), orderId === undefined ? undefined : eq(customerNotifications.orderId, orderId)))
     .orderBy(customerNotifications.createdAt, customerNotifications.idempotencyKey)
@@ -18,7 +18,7 @@ export async function sendPendingCustomerNotifications<
   let sent = 0;
   for (const notification of pending) {
     try {
-      await sendAppNotification({
+      await send({
         idempotencyKey: notification.idempotencyKey,
         userId: notification.customerId,
         type: notification.type,
