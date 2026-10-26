@@ -23,7 +23,7 @@ beforeEach(async () => {
   vi.stubEnv("API_GATEWAY_URL", "https://gateway.test");
   vi.stubEnv("API_GATEWAY_CALLER_KEY", "storefront-key");
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.test");
-  vi.stubEnv("CRON_SECRET", "cron-key");
+  vi.stubEnv("CUSTOMER_NOTIFICATION_CRON_SECRET", "cron-key");
   client = new PGlite();
   db = drizzle(client);
   mocks.database.mockReturnValue(db);
@@ -188,7 +188,7 @@ test.each(["failure", "timeout"])("retries a Notification after %s while deliver
 
 test("only an authorized cron job may retry Customer Notifications", async () => {
   expect((await retry("Bearer wrong")).status).toBe(401);
-  vi.stubEnv("CRON_SECRET", "");
+  vi.stubEnv("CUSTOMER_NOTIFICATION_CRON_SECRET", "");
   expect((await retry()).status).toBe(401);
   expect(gateway).not.toHaveBeenCalled();
 });

@@ -13,7 +13,8 @@ export async function sendPendingCustomerNotifications<
   const pending = await db.select().from(customerNotifications)
     .where(and(isNull(customerNotifications.acceptedAt), orderId === undefined ? undefined : eq(customerNotifications.orderId, orderId)))
     .orderBy(customerNotifications.createdAt, customerNotifications.idempotencyKey)
-    .limit(100);
+    // Bound an outage run to ten gateway timeouts (five seconds each).
+    .limit(10);
   let sent = 0;
   for (const notification of pending) {
     try {
