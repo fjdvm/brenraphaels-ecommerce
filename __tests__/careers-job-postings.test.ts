@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
+import { jobPostings } from "../lib/careers/schema";
 import { createJobPostingStore } from "../lib/careers/job-postings";
 
 let client: PGlite;
@@ -51,6 +52,36 @@ describe("Job Posting sync", () => {
         screeningCriteria: ["Pastry experience"],
       },
     ]);
+  });
+
+  test.each([
+    ["draft", "2030-03-01T00:00:00.000Z"],
+    ["closed", "2030-03-01T00:00:00.000Z"],
+    ["filled", "2030-03-01T00:00:00.000Z"],
+    ["open", "2000-01-01T00:00:00.000Z"],
+  ])("hides a directly written %s Job Posting with deadline %s", async (status, deadline) => {
+    const db = drizzle(client);
+    const store = createJobPostingStore(db);
+    await db.insert(jobPostings).values({
+      id: "hrms-posting",
+      title: "Pastry Chef",
+      department: "Kitchen",
+      description: "Make heritage desserts.",
+      requirements: "Pastry experience.",
+      employmentType: "Full-time",
+      location: "Makati",
+      deadline: new Date(deadline),
+      requiredDocuments: ["Resume"],
+      screeningCriteria: ["Pastry experience"],
+      status,
+    });
+
+    await expect(store.listOpen()).resolves.toEqual([]);
+    await expect(store.findOpen("hrms-posting")).resolves.toBeUndefined();
+    await expect(store.listOpenFilterOptions()).resolves.toEqual({
+      departments: [], employmentTypes: [], locations: [],
+    });
+    await expect(store.findById("hrms-posting")).resolves.toMatchObject({ id: "hrms-posting" });
   });
 
   test("updates, filters, and hides closed or expired Job Postings", async () => {
