@@ -8,8 +8,9 @@ Careers owns Applicant and Application writes; HRMS owns Job Posting and Job
 Template writes. The storefront database and its `drizzle/` history are separate.
 
 This contract supports HRMS `PabloEcobag-alt/hrms#34` (Job Templates) and `#37`
-(announcements), under Careers #169 / #170. Retiring Job Posting webhooks is a
-separate ticket; the legacy webhook still exists during this transition.
+(announcements), under Careers #169 / #170. Job Posting webhooks are retired under #175; signed `job_posting.*` events
+are rejected with HTTP 400 without writing. Only `application.status_changed`
+is accepted by the HR-ATS webhook. See [ADR-0009](../adr/0009-hrms-writes-job-postings-to-the-shared-careers-database.md).
 
 ## Table shapes
 

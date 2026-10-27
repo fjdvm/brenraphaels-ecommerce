@@ -4,27 +4,6 @@ import { z } from "zod";
 
 import { createApplicationStore } from "./applications";
 import { getCareersDatabase } from "./db";
-import { createJobPostingStore, type JobPostingEvent } from "./job-postings";
-
-const jobPostingData = z.object({
-  id: z.string().min(1),
-  title: z.string().min(1),
-  department: z.string().min(1),
-  description: z.string(),
-  requirements: z.string(),
-  employmentType: z.string().min(1),
-  location: z.string().min(1),
-  deadline: z.string().datetime({ offset: true }),
-  requiredDocuments: z.array(z.string()),
-  screeningCriteria: z.array(z.string()),
-  status: z.enum(["open", "closed", "filled"]),
-});
-
-const jobPostingEvent = z.object({
-  event: z.enum(["job_posting.created", "job_posting.updated", "job_posting.closed"]),
-  data: jobPostingData,
-});
-
 const applicationStatusEvent = z.object({
   event: z.literal("application.status_changed"),
   data: z.object({
@@ -35,7 +14,7 @@ const applicationStatusEvent = z.object({
 
 export type ApplicationStatusEvent = z.infer<typeof applicationStatusEvent>;
 
-const hrAtsWebhookEvent = z.union([jobPostingEvent, applicationStatusEvent]);
+const hrAtsWebhookEvent = applicationStatusEvent;
 
 export type HrAtsWebhookEvent = z.infer<typeof hrAtsWebhookEvent>;
 
@@ -62,14 +41,9 @@ export function verifyHrAtsWebhook(rawBody: string, headers: Headers): unknown {
   }
 }
 
-/** Parses a signed webhook payload, either a Job-Posting sync or an Application-status change, before any database mutation is attempted. */
+/** Parses a signed webhook payload, an Application-status change, before any database mutation is attempted. */
 export function parseHrAtsWebhookEvent(payload: unknown): HrAtsWebhookEvent {
   return hrAtsWebhookEvent.parse(payload);
-}
-
-/** Applies valid HR-ATS Job Posting updates to the local careers cache. */
-export async function syncJobPostingWebhook(event: JobPostingEvent) {
-  await createJobPostingStore(getCareersDatabase()).applyEvent(event);
 }
 
 /** Mirrors an HR-ATS Application-status change into the local read-model the Applicant's dashboard renders from. */
