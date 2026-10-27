@@ -7,8 +7,10 @@ import { CareersLogo } from "@/components/features/careers/careers-logo";
 import { CareersNavLinks } from "@/components/features/careers/careers-nav-links";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { NotificationBell } from "@/components/shared/notification-bell";
 import { SignOutButton } from "@/components/shared/sign-out-button";
 import { careersSession } from "@/lib/careers/auth";
+import { unreadApplicantInboxCount } from "@/lib/careers/inbox";
 import { cn } from "@/lib/utils";
 
 const headerClass =
@@ -59,6 +61,16 @@ export function CareersHeaderFallback() {
   );
 }
 
+/** The inbox being unreachable must not take the header down, so the bell then shows no count. */
+async function unreadNotifications(): Promise<number> {
+  try {
+    return await unreadApplicantInboxCount();
+  } catch (error) {
+    console.error("Unread Applicant Notifications could not be counted", error);
+    return 0;
+  }
+}
+
 function initials(fullName: string, email: string) {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   const letters =
@@ -71,6 +83,7 @@ function initials(fullName: string, email: string) {
 /** The Careers portal header: separate from the shop's, with no cart or customer menu. */
 export async function CareersHeader() {
   const applicant = await careersSession();
+  const unread = applicant ? await unreadNotifications() : 0;
 
   return (
     <header className="border-b border-line bg-surface">
@@ -85,6 +98,7 @@ export async function CareersHeader() {
           {shopLink}
           {applicant ? (
             <>
+              <NotificationBell href="/careers/notifications" className="relative flex p-2 text-ink hover:text-primary" size={22} unread={unread} />
               <span className="flex items-center gap-2.5">
                 <span
                   aria-hidden

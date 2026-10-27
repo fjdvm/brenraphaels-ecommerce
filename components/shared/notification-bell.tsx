@@ -1,11 +1,21 @@
 import { Bell } from "lucide-react";
 import Link from "next/link";
 
-/** The Customer's bell: a link to the Notifications page, badged with how many are unread. */
-export function NotificationBell({ className, size = 20, unread }: { className?: string; size?: number; unread: number }) {
+/** The bell: a link to the Notifications page (the Customer's by default), badged with how many are unread. */
+export function NotificationBell({
+  className,
+  size = 20,
+  unread,
+  href = "/profile/notifications",
+}: {
+  className?: string;
+  size?: number;
+  unread: number;
+  href?: string;
+}) {
   return (
     <Link
-      href="/profile/notifications"
+      href={href}
       aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
       className={className}
     >
