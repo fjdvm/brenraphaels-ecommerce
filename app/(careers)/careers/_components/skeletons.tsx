@@ -87,3 +87,16 @@ export function CareersApplicationsSkeleton() {
     </div>
   );
 }
+
+/** Mirrors the toolbar row and inbox card of the notifications page. */
+export function CareersNotificationsSkeleton() {
+  return (
+    <div className="flex flex-col gap-5" aria-hidden="true">
+      <div className="flex items-center justify-between gap-4">
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-5 w-32" />
+      </div>
+      <Skeleton className="h-[420px] rounded-[40px]" />
+    </div>
+  );
+}

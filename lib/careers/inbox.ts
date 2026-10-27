@@ -30,3 +30,9 @@ export async function markAllApplicantInboxRead(gateway: Gateway = {}) {
   const { userId, inbox } = await applicantInbox(gateway);
   return inbox.markAllInboxRead(userId);
 }
+
+/** The address for the signed-in Applicant's own live Notifications line; the gateway pass names that Applicant alone. */
+export async function liveApplicantInboxUrl(gateway: Gateway = {}) {
+  const { userId, inbox } = await applicantInbox(gateway);
+  return inbox.liveInboxUrl(userId);
+}

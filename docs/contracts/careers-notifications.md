@@ -68,7 +68,9 @@ Applicant's id. Mark-one also supplies both values, so the service returns 404
 for another Applicant's Notification or a Notification from another App.
 Mark-all affects only that same recipient/App pair. Errors propagate to the
 caller so a later UI can offer retry; they are never reported as successful
-reads. Live updates and the bell/inbox UI belong to a separate ticket.
+reads. The bell and inbox keep current through the gateway's live line: the server
+issues a short-lived pass for the signed-in Applicant only, and the browser
+refetches the inbox on every connect and on each created or read event.
 
 ## Registration verification (#173)
 
