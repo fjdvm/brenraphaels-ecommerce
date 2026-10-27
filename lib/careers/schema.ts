@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
 
 // Careers is the sole migration owner of the shared brenraphaels-ats database.
 // HRMS writes Job Postings and Job Templates; it never migrates these tables.
@@ -12,6 +12,7 @@ export const applicantProfiles = pgTable("applicant_profiles", {
   location: text("location"),
   summary: text("summary"),
   skills: text("skills").notNull().default(""),
+  jobAlertsOptIn: boolean("job_alerts_opt_in").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

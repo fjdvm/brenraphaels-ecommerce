@@ -92,3 +92,21 @@ export async function submitApplicantProfile(_previous: ApplicantProfileActionSt
   redirect("/careers/profile");
 }
 export async function submitApplicantDocument(_previous: ApplicantProfileActionState, formData: FormData): Promise<ApplicantProfileActionState> { const identity = await careersSession(); const file = formData.get("document"); if (!identity || !(file instanceof File)) return { message: "Choose a Document to upload." }; const token = process.env.CAREERS_BLOB_READ_WRITE_TOKEN; if (!token) return { message: "Document uploads are not configured yet." }; try { await uploadApplicantDocument(file, { applicantId: identity.userId, store: createApplicantDocumentStore(getCareersDatabase()), put: (pathname, body, options) => put(pathname, body, { ...options, token }) }); revalidatePath("/careers/profile"); return { message: "Document uploaded." }; } catch (error) { return { message: error instanceof Error ? error.message : "We couldn't upload that Document." }; } }
+
+/** Save immediately; ownership always comes from the authenticated session. */
+export async function setApplicantJobAlerts(input: unknown): Promise<{ jobAlertsOptIn: boolean } | { message: string }> {
+  const identity = await careersSession();
+  if (!identity) return { message: "Please sign in to change job-alert emails." };
+  const parsed = z.object({ jobAlertsOptIn: z.boolean() }).safeParse(input);
+  if (!parsed.success) return { message: "Choose whether to receive job-alert emails." };
+  try {
+    const saved = await createApplicantProfileStore(getCareersDatabase())
+      .setJobAlertsOptIn(identity.userId, parsed.data.jobAlertsOptIn);
+    if (!saved) return { message: "Complete your Applicant profile before changing job-alert emails." };
+    revalidatePath("/careers/profile");
+    return parsed.data;
+  } catch (error) {
+    console.error("Saving Applicant job-alert preference failed", error);
+    return { message: "We couldn't save your job-alert preference. Try again." };
+  }
+}

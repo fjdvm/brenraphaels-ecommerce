@@ -1,0 +1,1 @@
+ALTER TABLE "applicant_profiles" ADD COLUMN "job_alerts_opt_in" boolean DEFAULT false NOT NULL;

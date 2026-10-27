@@ -56,7 +56,11 @@ export const applicantProfileSchema = z.object({
 });
 export type ApplicantProfileInput = z.input<typeof applicantProfileSchema>;
 export type ApplicantProfile = z.output<typeof applicantProfileSchema>;
-export type ApplicantProfileStore = { save(input: ApplicantProfile & { applicantId: string; email: string }): Promise<void>; find(applicantId: string): Promise<ApplicantProfile | null> };
+export type ApplicantProfileStore = {
+  save(input: ApplicantProfile & { applicantId: string; email: string }): Promise<void>;
+  setJobAlertsOptIn(applicantId: string, optedIn: boolean): Promise<boolean>;
+  find(applicantId: string): Promise<(ApplicantProfile & { jobAlertsOptIn: boolean }) | null>;
+};
 
 export function createApplicantProfileStore<TQueryResult extends PgQueryResultHKT, TSchema extends Record<string, unknown>>(db: PgDatabase<TQueryResult, TSchema>): ApplicantProfileStore {
   return {
@@ -67,6 +71,13 @@ export function createApplicantProfileStore<TQueryResult extends PgQueryResultHK
       if (input.education.length) await tx.insert(applicantEducation).values(input.education.map((item) => ({ ...item, applicantId: input.applicantId })));
       if (input.workHistory.length) await tx.insert(applicantWorkHistory).values(input.workHistory.map((item) => ({ ...item, applicantId: input.applicantId })));
     }); },
+    async setJobAlertsOptIn(applicantId, optedIn) {
+      const rows = await db.update(applicantProfiles)
+        .set({ jobAlertsOptIn: optedIn, updatedAt: new Date() })
+        .where(eq(applicantProfiles.applicantId, applicantId))
+        .returning({ applicantId: applicantProfiles.applicantId });
+      return rows.length > 0;
+    },
     async find(applicantId) {
       const [profile] = await db.select().from(applicantProfiles).where(eq(applicantProfiles.applicantId, applicantId)).limit(1);
       if (!profile) return null;
@@ -74,7 +85,7 @@ export function createApplicantProfileStore<TQueryResult extends PgQueryResultHK
         db.select().from(applicantEducation).where(eq(applicantEducation.applicantId, applicantId)).orderBy(asc(applicantEducation.id)),
         db.select().from(applicantWorkHistory).where(eq(applicantWorkHistory.applicantId, applicantId)).orderBy(asc(applicantWorkHistory.id)),
       ]);
-      return { fullName: profile.fullName, phone: profile.phone, location: profile.location, summary: profile.summary, skills: profile.skills, education: educationRows.map(({ school, qualification, fieldOfStudy, startedOn, completedOn }) => ({ school, qualification, fieldOfStudy, startedOn, completedOn })), workHistory: workHistoryRows.map(({ employer, title, startedOn, endedOn, description }) => ({ employer, title, startedOn, endedOn, description })) };
+      return { jobAlertsOptIn: profile.jobAlertsOptIn, fullName: profile.fullName, phone: profile.phone, location: profile.location, summary: profile.summary, skills: profile.skills, education: educationRows.map(({ school, qualification, fieldOfStudy, startedOn, completedOn }) => ({ school, qualification, fieldOfStudy, startedOn, completedOn })), workHistory: workHistoryRows.map(({ employer, title, startedOn, endedOn, description }) => ({ employer, title, startedOn, endedOn, description })) };
     },
   };
 }
