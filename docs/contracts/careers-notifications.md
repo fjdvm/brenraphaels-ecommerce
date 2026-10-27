@@ -69,3 +69,17 @@ for another Applicant's Notification or a Notification from another App.
 Mark-all affects only that same recipient/App pair. Errors propagate to the
 caller so a later UI can offer retry; they are never reported as successful
 reads. Live updates and the bell/inbox UI belong to a separate ticket.
+
+## Registration verification (#173)
+
+The gateway Caller `careers` is provisioned with `app: "careers"`, and
+`CAREERS_API_GATEWAY_CALLER_KEY` is stored as a Vercel Production secret for
+`brenraphaels`. The next production deployment receives it. A live gateway
+ticket verified the App claim as `careers`; list and unread-count requests for
+a synthetic recipient both returned HTTP 200 (empty list, zero unread).
+The existing storefront and HRMS Caller credentials still authenticate with
+their original App claims. No Notifications were created by these checks.
+
+Production credentials do not configure local or Preview environments. Provision
+a dedicated credential there before testing against a live gateway; the inbox
+service tests supply their own HTTP gateway and require no credentials.
