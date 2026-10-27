@@ -69,3 +69,19 @@ From the Careers checkout, load the target environment and run
 branch's direct connection string. Never run `db:migrate` for this database;
 that command targets the storefront. Test on an isolated branch first. HRMS
 must wait until the Careers migration has been applied before using new columns.
+
+## Applicant job-alert email preference
+
+`public.applicant_profiles.job_alerts_opt_in` is a NOT NULL boolean, default
+`false` for both existing and new Applicants (migration
+`0005_applicant_job_alerts`). Careers owns this value. HRMS reads it when
+selecting email recipients: send job-alert email only to Applicants whose email
+is Verified **and** whose `job_alerts_opt_in` is `true`. The preference alone is
+not proof of verification. In-app notifications do not depend on this flag.
+
+Careers exposes `setApplicantJobAlerts({ jobAlertsOptIn: boolean })` as a profile
+Server Action. It saves immediately for the signed-in Applicant, returns the
+saved choice (or a retryable message), and never accepts a target Applicant id.
+The profile store's `find` includes `jobAlertsOptIn`; ordinary profile saves
+preserve the existing preference. This backend ticket does not add the profile
+toggle UI.

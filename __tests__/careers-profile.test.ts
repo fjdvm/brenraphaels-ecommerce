@@ -17,6 +17,7 @@ beforeEach(async () => {
       location text,
       summary text,
       skills text not null default '',
+      job_alerts_opt_in boolean not null default false,
       updated_at timestamptz not null default now()
     );
     create table applicant_education (
