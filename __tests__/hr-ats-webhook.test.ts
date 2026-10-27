@@ -1,17 +1,18 @@
 import crypto from "node:crypto";
 
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { syncJobPostingWebhook, syncApplicationStatusWebhook } = vi.hoisted(() => ({
-  syncJobPostingWebhook: vi.fn(),
+const { getCareersDatabase, syncApplicationStatusWebhook } = vi.hoisted(() => ({
+  getCareersDatabase: vi.fn(),
   syncApplicationStatusWebhook: vi.fn(),
 }));
 
 vi.mock("../lib/careers/hr-ats-webhook", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/careers/hr-ats-webhook")>()),
-  syncJobPostingWebhook,
   syncApplicationStatusWebhook,
 }));
+
+vi.mock("../lib/careers/db", () => ({ getCareersDatabase }));
 
 let post: (request: Request) => Promise<Response>;
 
@@ -35,10 +36,12 @@ function signedRequest(body: string, signature?: string) {
   });
 }
 
+beforeEach(() => vi.clearAllMocks());
+
 describe("POST /api/webhooks/hr-ats", () => {
-  it("accepts a valid signed Job Posting event", async () => {
+  it.each(["job_posting.created", "job_posting.updated", "job_posting.closed"])("rejects retired %s events without applying any update", async (eventType) => {
     const event = {
-      event: "job_posting.closed",
+      event: eventType,
       data: {
         id: "ats-1",
         title: "Pastry Chef",
@@ -55,11 +58,12 @@ describe("POST /api/webhooks/hr-ats", () => {
     };
     const body = JSON.stringify(event);
 
-    expect((await post(signedRequest(body))).status).toBe(204);
-    expect(syncJobPostingWebhook).toHaveBeenCalledWith(event);
+    expect((await post(signedRequest(body))).status).toBe(400);
+    expect(getCareersDatabase).not.toHaveBeenCalled();
+    expect(syncApplicationStatusWebhook).not.toHaveBeenCalled();
   });
 
-  it("accepts a valid signed Application-status-change event, verified the same way as a Job Posting event", async () => {
+  it("accepts a valid signed Application-status-change event", async () => {
     const event = {
       event: "application.status_changed",
       data: { referenceNumber: "BR-20260928-0001", status: "Interviewing" },

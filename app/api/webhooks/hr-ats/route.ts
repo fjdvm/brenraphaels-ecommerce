@@ -1,7 +1,6 @@
 import {
   parseHrAtsWebhookEvent,
   syncApplicationStatusWebhook,
-  syncJobPostingWebhook,
   verifyHrAtsWebhook,
 } from "../../../../lib/careers/hr-ats-webhook";
 
@@ -18,11 +17,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    if (event.event === "application.status_changed") {
-      await syncApplicationStatusWebhook(event);
-    } else {
-      await syncJobPostingWebhook(event);
-    }
+    await syncApplicationStatusWebhook(event);
   } catch {
     return Response.json({ error: "Unable to sync HR-ATS update" }, { status: 500 });
   }

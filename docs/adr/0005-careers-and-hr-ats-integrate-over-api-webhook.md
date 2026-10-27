@@ -1,5 +1,7 @@
 # Careers and HR-ATS integrate over API/webhook, with HR-ATS as source of truth from submission onward
 
+**Status:** Job Posting integration and the separate-database assumption are superseded by [ADR-0009](./0009-hrms-writes-job-postings-to-the-shared-careers-database.md). HRMS writes Job Postings directly into the shared Careers database. The Application-status webhook and outbound Application queue remain in effect. The original rationale below is retained as history.
+
 HR-ATS is a separate application with its own database, owning the full hiring workflow (requisition, posting, screening, exams, interviews, evaluation, offers, hiring). This app's Careers context only captures the Applicant's account, profile, and the moment of submission — everything from screening onward is HR-ATS's own domain, with no interactive UI for it here. Unlike the Storefront ↔ CREOMS boundary (ADR-0003), where this app owns the tracked data and the external system is downstream, here the external system (HR-ATS) is the one that owns the thing being tracked once it exists.
 
 We chose a local-first, asynchronous integration rather than sending everything to HR-ATS synchronously in real time:
@@ -13,7 +15,7 @@ We chose a local-first, asynchronous integration rather than sending everything 
 
 ## Consequences
 
-- A cross-database view spanning Careers and HR-ATS (e.g. "which Applicants are mid-interview") isn't possible in SQL; it has to be assembled by one side calling the other's API.
+- Originally, separate databases prevented cross-system SQL views. ADR-0009 replaces that boundary with a shared database; Application-status display still depends on webhook delivery.
 - HR-ATS's own internal record-keeping is never exposed to the Applicant — only this app's Reference number is, everywhere, permanently.
 - Duplicate-Application checks and Application-status display both depend on this app's local copy of the data staying in sync with HR-ATS via webhook; a missed or delayed webhook delivery means the dashboard can be briefly stale, not wrong forever, but there is no reconciliation mechanism beyond HR-ATS's own retry/redelivery of the webhook.
 - Sharing one set of Brevo credentials across two separate codebases means a key rotation or leak affects sending for both systems at once; this needs a shared secrets-management convention once the integration is actually wired up.

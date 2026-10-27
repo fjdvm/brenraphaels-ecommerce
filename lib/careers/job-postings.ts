@@ -16,18 +16,7 @@ export type JobPosting = {
   screeningCriteria: string[];
 };
 
-type JobPostingPayload = Omit<JobPosting, "deadline"> & {
-  deadline: string;
-  status: "draft" | "open" | "closed" | "filled";
-};
-
-export type JobPostingEvent = {
-  event: "job_posting.created" | "job_posting.updated" | "job_posting.closed";
-  data: JobPostingPayload;
-};
-
 export type JobPostingStore = {
-  applyEvent(event: JobPostingEvent): Promise<void>;
   listOpen(filters?: JobPostingFilters): Promise<JobPosting[]>;
   listOpenFilterOptions(): Promise<JobPostingFilterOptions>;
   findOpen(id: string): Promise<JobPosting | undefined>;
@@ -61,24 +50,12 @@ function asJobPosting(posting: typeof jobPostings.$inferSelect): JobPosting {
   };
 }
 
-/** Keeps the public careers pages independent from HR-ATS availability. */
+/** Reads HRMS-authored Job Postings from the shared Careers database. */
 export function createJobPostingStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
 >(db: PgDatabase<TQueryResult, TSchema>): JobPostingStore {
   return {
-    async applyEvent({ event, data }) {
-      const status = event === "job_posting.closed" ? "closed" : data.status;
-      const values = { ...data, deadline: new Date(data.deadline), status, updatedAt: new Date() };
-      await db
-        .insert(jobPostings)
-        .values(values)
-        .onConflictDoUpdate({
-          target: jobPostings.id,
-          set: values,
-        });
-    },
-
     async listOpen(filters = {}) {
       const conditions = openPostingConditions();
       if (filters.department) conditions.push(eq(jobPostings.department, filters.department));
