@@ -1,6 +1,7 @@
 import { integer, jsonb, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
 
-// These tables are migrated only against Careers' dedicated Neon database.
+// Careers is the sole migration owner of the shared brenraphaels-ats database.
+// HRMS writes Job Postings and Job Templates; it never migrates these tables.
 // applicantId is an opaque id from Careers' Neon Auth instance, never a
 // foreign key to neon_auth because application migrations do not manage it.
 export const applicantProfiles = pgTable("applicant_profiles", {
@@ -34,7 +35,7 @@ export const applicantDocuments = pgTable("applicant_documents", {
   name: text("name").notNull(), contentType: text("content_type").notNull(), size: integer("size").notNull(), blobPathname: text("blob_pathname").notNull().unique(), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-/** A local read cache of Job Postings owned and pushed by HR-ATS. */
+/** Job Postings authored directly by HRMS in the shared database. */
 export const jobPostings = pgTable("job_postings", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
@@ -47,9 +48,26 @@ export const jobPostings = pgTable("job_postings", {
   requiredDocuments: jsonb("required_documents").$type<string[]>().notNull(),
   screeningCriteria: jsonb("screening_criteria").$type<string[]>().notNull(),
   status: text("status").notNull(),
+  announcedAt: timestamp("announced_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+});
+
+/** Explicitly saved by HRMS; copying a template keeps no link to the source. */
+export const jobTemplates = pgTable("job_templates", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  department: text("department").notNull(),
+  description: text("description").notNull(),
+  requirements: text("requirements").notNull(),
+  employmentType: text("employment_type").notNull(),
+  location: text("location").notNull(),
+  requiredDocuments: jsonb("required_documents").$type<string[]>().notNull(),
+  screeningCriteria: jsonb("screening_criteria").$type<string[]>().notNull(),
+  status: text("status").notNull(),
+  announcedAt: timestamp("announced_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 /** A local, immutable-at-submission record sent to HR-ATS asynchronously later. */

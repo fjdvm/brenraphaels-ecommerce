@@ -18,7 +18,7 @@ export type JobPosting = {
 
 type JobPostingPayload = Omit<JobPosting, "deadline"> & {
   deadline: string;
-  status: "open" | "closed" | "filled";
+  status: "draft" | "open" | "closed" | "filled";
 };
 
 export type JobPostingEvent = {
@@ -118,7 +118,7 @@ export function createJobPostingStore<
       return posting && asJobPosting(posting);
     },
 
-    /** Looks up a Job Posting regardless of its open/closed/filled status, e.g. to check its deadline for the Frozen rule (ADR-0005). */
+    /** Looks up a Job Posting regardless of its draft/open/closed/filled status, e.g. to check its deadline for the Frozen rule (ADR-0005). */
     async findById(id) {
       const [posting] = await db.select().from(jobPostings).where(eq(jobPostings.id, id)).limit(1);
       return posting && asJobPosting(posting);
