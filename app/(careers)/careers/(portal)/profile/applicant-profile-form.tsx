@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 
 import { Field, RequiredMark, fieldProps } from "@/app/(careers)/careers/_components/field";
 import { submitApplicantDocument, submitApplicantProfile } from "./actions";
+import { JobAlertsToggle } from "./job-alerts-toggle";
 import { profileStrength } from "./profile-strength";
 
 type Document = { id: number; name: string; contentType: string; size: number };
@@ -251,7 +252,7 @@ function ProfileStrength({ percent, steps }: ReturnType<typeof profileStrength>)
   );
 }
 
-export function ApplicantProfileForm({ heading, fullName, profile, documents = [] }: { heading: string; fullName: string; profile?: ApplicantProfile; documents?: Document[] }) {
+export function ApplicantProfileForm({ heading, fullName, profile, documents = [] }: { heading: string; fullName: string; profile?: ApplicantProfile & { jobAlertsOptIn?: boolean }; documents?: Document[] }) {
   const [profileState, profileAction, profilePending] = useActionState(submitApplicantProfile, {});
   const [education, setEducation] = useState<Array<Education | undefined>>(profile?.education ?? []);
   const [workHistory, setWorkHistory] = useState<Array<WorkHistory | undefined>>(profile?.workHistory ?? []);
@@ -320,6 +321,8 @@ export function ApplicantProfileForm({ heading, fullName, profile, documents = [
               {workHistory.map((item, index) => <WorkHistoryFields key={index} item={item} index={index} errors={errors} remove={() => setWorkHistory((items) => items.filter((_, itemIndex) => itemIndex !== index))} />)}
             </section>
           </form>
+
+          <JobAlertsToggle initial={profile?.jobAlertsOptIn ?? false} profileSaved={Boolean(profile)} />
 
           <Documents profileSaved={Boolean(profile)} documents={documents} />
         </div>
