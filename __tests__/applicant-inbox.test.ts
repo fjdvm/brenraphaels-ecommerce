@@ -150,3 +150,21 @@ test("uses the dedicated Careers credential by default and never falls back to t
     expect(fetch).not.toHaveBeenCalled();
   } finally { vi.unstubAllEnvs(); }
 });
+
+test("issues the signed-in Applicant's own live Notifications address", async () => {
+  const fetch = vi.fn().mockResolvedValue(Response.json({ ticket: "t 1" }));
+  const { liveApplicantInboxUrl } = await import("@/lib/careers/inbox");
+  expect(await liveApplicantInboxUrl(gateway(fetch))).toBe("wss://gateway.test/notifications/live?ticket=t%201");
+  expect(fetch).toHaveBeenCalledWith(
+    "https://gateway.test/live-tickets",
+    expect.objectContaining({ body: JSON.stringify({ userId: "applicant-1" }), headers: expect.objectContaining({ Authorization: "Bearer careers-key" }) }),
+  );
+});
+
+test("refuses a live address when no Applicant is signed in", async () => {
+  careersSession.mockResolvedValue(null);
+  const fetch = vi.fn();
+  const { liveApplicantInboxUrl } = await import("@/lib/careers/inbox");
+  await expect(liveApplicantInboxUrl(gateway(fetch))).rejects.toThrow("sign in");
+  expect(fetch).not.toHaveBeenCalled();
+});
