@@ -1,11 +1,11 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import type { ApplicantDocumentStore } from "./documents";
 import type { ApplicationDeliveryEvent } from "./hr-ats-delivery";
 import type { JobPostingStore } from "./job-postings";
 import type { ApplicantProfile, ApplicantProfileStore } from "./profile";
-import { applications } from "./schema";
+import { applications, jobPostings } from "./schema";
 
 export type ApplicationStatus = "Received" | "Withdrawn" | "Hired" | "Declined" | "Expired" | "Rejected" | string;
 export type ApplicationDocument = { id: number; name: string; contentType: string; size: number; requiredFor: string };
@@ -21,10 +21,22 @@ export type Application = {
   updatedAt: Date;
 };
 
+/** One row of the Applicant's applications list; Job Posting fields are null if the posting is gone. */
+export type ApplicationSummary = {
+  referenceNumber: string;
+  status: ApplicationStatus;
+  appliedAt: Date;
+  title: string | null;
+  department: string | null;
+  location: string | null;
+  employmentType: string | null;
+};
+
 export type ApplicationStore = {
   findForApplicantAndPosting(applicantId: string, jobPostingId: string): Promise<Application | undefined>;
   insert(application: Omit<Application, "createdAt" | "updatedAt">): Promise<void>;
   listForApplicant(applicantId: string): Promise<Application[]>;
+  listSummariesForApplicant(applicantId: string): Promise<ApplicationSummary[]>;
   withdraw(referenceNumber: string, applicantId: string): Promise<ApplicationStatus | undefined>;
   /** Mirrors an HR-ATS Application-status change into the local read-model (ADR-0005). */
   updateStatus(referenceNumber: string, status: ApplicationStatus): Promise<boolean>;
@@ -75,6 +87,22 @@ export function createApplicationStore<TQueryResult extends PgQueryResultHKT, TS
     async listForApplicant(applicantId) {
       const rows = await db.select().from(applications).where(eq(applications.applicantId, applicantId)).orderBy(asc(applications.createdAt));
       return rows.map(asApplication);
+    },
+    async listSummariesForApplicant(applicantId) {
+      return db
+        .select({
+          referenceNumber: applications.referenceNumber,
+          status: applications.status,
+          appliedAt: applications.createdAt,
+          title: jobPostings.title,
+          department: jobPostings.department,
+          location: jobPostings.location,
+          employmentType: jobPostings.employmentType,
+        })
+        .from(applications)
+        .leftJoin(jobPostings, eq(applications.jobPostingId, jobPostings.id))
+        .where(eq(applications.applicantId, applicantId))
+        .orderBy(desc(applications.createdAt));
     },
     async withdraw(referenceNumber, applicantId) {
       const [application] = await db.select().from(applications).where(and(eq(applications.referenceNumber, referenceNumber), eq(applications.applicantId, applicantId))).limit(1);

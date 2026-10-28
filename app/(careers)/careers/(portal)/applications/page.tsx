@@ -13,9 +13,11 @@ import { SubmitButton } from "@/app/(careers)/careers/_components/submit-button"
 import { CareersApplicationsSkeleton } from "@/app/(careers)/careers/_components/skeletons";
 import { withdrawApplicationAction } from "./actions";
 
+const appliedDate = new Intl.DateTimeFormat("en-PH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Manila" });
+
 async function ApplicationsList() {
   const applicant = await requireApplicant();
-  const applications = await createApplicationStore(getCareersDatabase()).listForApplicant(applicant.userId);
+  const applications = await createApplicationStore(getCareersDatabase()).listSummariesForApplicant(applicant.userId);
 
   if (applications.length === 0) {
     return (
@@ -38,33 +40,38 @@ async function ApplicationsList() {
   }
 
   return (
-    <ul className="flex flex-col gap-5">
-      {applications.map((application) => (
-        <li key={application.referenceNumber} className="flex flex-col gap-4 rounded-[40px] border border-line bg-white p-6 sm:flex-row sm:items-center sm:gap-6 sm:p-8">
-          <span aria-hidden className="flex size-14 shrink-0 items-center justify-center rounded-full bg-lavender text-primary">
-            <Briefcase className="size-[25px]" strokeWidth={1.5} />
-          </span>
-          <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-            <p className="font-serif text-2xl leading-[1.25] text-primary">Reference number: {application.referenceNumber}</p>
-            <p>
-              <span className="rounded-full bg-lavender px-3 py-1 text-xs font-medium tracking-[0.35px] text-primary">
-                Status: {application.status}
-              </span>
-            </p>
-          </div>
-          {canWithdrawApplication(application.status) ? (
-            <form action={withdrawApplicationAction}>
-              <input type="hidden" name="referenceNumber" value={application.referenceNumber} />
-              <SubmitButton
-                pendingLabel="Withdrawing…"
-                className="rounded-full border border-primary px-[22px] py-2.5 text-sm font-medium tracking-wide text-primary hover:bg-lavender-soft"
-              >
-                Withdraw Application
-              </SubmitButton>
-            </form>
-          ) : null}
-        </li>
-      ))}
+    <ul className="flex flex-col gap-4">
+      {applications.map((application) => {
+        const details = [
+          application.department,
+          application.employmentType,
+          application.location,
+          `Applied ${appliedDate.format(application.appliedAt)}`,
+        ].filter(Boolean);
+        return (
+          <li key={application.referenceNumber} className="flex flex-col gap-4 rounded-[24px] border border-line bg-white p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-[17px] sm:py-5">
+            <div className="flex min-w-0 flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <h2 className="font-serif text-xl leading-[1.3] text-primary">{application.title ?? "Job posting unavailable"}</h2>
+                <span className="rounded-full bg-lavender px-3 py-1 text-xs font-medium tracking-[0.35px] text-primary">{application.status}</span>
+              </div>
+              <p className="text-sm tracking-[0.35px] text-body">{details.join(" · ")}</p>
+              <p className="text-xs tracking-[0.35px] text-body">Reference number: {application.referenceNumber}</p>
+            </div>
+            {canWithdrawApplication(application.status) ? (
+              <form action={withdrawApplicationAction} className="shrink-0">
+                <input type="hidden" name="referenceNumber" value={application.referenceNumber} />
+                <SubmitButton
+                  pendingLabel="Withdrawing…"
+                  className="rounded-full border border-primary px-[22px] py-2.5 text-sm font-medium tracking-wide text-primary hover:bg-lavender-soft"
+                >
+                  Withdraw Application
+                </SubmitButton>
+              </form>
+            ) : null}
+          </li>
+        );
+      })}
     </ul>
   );
 }
