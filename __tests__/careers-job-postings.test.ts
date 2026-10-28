@@ -33,6 +33,8 @@ describe("HRMS-authored Job Postings", () => {
         deadline: new Date("2030-02-01T00:00:00.000Z"),
         requiredDocuments: ["Resume", "Portfolio"],
         screeningCriteria: ["Pastry experience"],
+        responsibilities: ["Bake daily"],
+        benefits: ["Free pastries"],
         status: "open",
     });
 
@@ -48,6 +50,8 @@ describe("HRMS-authored Job Postings", () => {
         deadline: new Date("2030-02-01T00:00:00.000Z"),
         requiredDocuments: ["Resume", "Portfolio"],
         screeningCriteria: ["Pastry experience"],
+        responsibilities: ["Bake daily"],
+        benefits: ["Free pastries"],
       },
     ]);
   });
