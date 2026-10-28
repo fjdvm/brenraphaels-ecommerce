@@ -5,12 +5,14 @@ import { Suspense } from "react";
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { HowHiringWorks } from "@/components/features/careers/how-hiring-works";
 import { Button } from "@/components/ui/button";
+import { applicationProgress } from "@/lib/careers/application-progress";
 import { canWithdrawApplication, createApplicationStore } from "@/lib/careers/applications";
 import { requireApplicant } from "@/lib/careers/current-applicant";
 import { getCareersDatabase } from "@/lib/careers/db";
 
 import { SubmitButton } from "@/app/(careers)/careers/_components/submit-button";
 import { CareersApplicationsSkeleton } from "@/app/(careers)/careers/_components/skeletons";
+import { ApplicationProgressStrip } from "@/app/(careers)/careers/_components/application-progress-strip";
 import { withdrawApplicationAction } from "./actions";
 
 const appliedDate = new Intl.DateTimeFormat("en-PH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Manila" });
@@ -48,8 +50,10 @@ async function ApplicationsList() {
           application.location,
           `Applied ${appliedDate.format(application.appliedAt)}`,
         ].filter(Boolean);
+        const progress = applicationProgress(application.status);
         return (
-          <li key={application.referenceNumber} className="flex flex-col gap-4 rounded-[24px] border border-line bg-white p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-[17px] sm:py-5">
+          <li key={application.referenceNumber} className="flex flex-col gap-4 rounded-[24px] border border-line bg-white p-5 sm:px-[17px] sm:py-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
             <div className="flex min-w-0 flex-col gap-2">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <h2 className="font-serif text-xl leading-[1.3] text-primary">{application.title ?? "Job posting unavailable"}</h2>
@@ -69,6 +73,8 @@ async function ApplicationsList() {
                 </SubmitButton>
               </form>
             ) : null}
+            </div>
+            <ApplicationProgressStrip progress={progress} />
           </li>
         );
       })}
