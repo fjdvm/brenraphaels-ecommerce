@@ -2,20 +2,19 @@ import { ArrowRight, Heart, Star, User } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { HeroCarousel } from "@/components/features/careers/hero-carousel";
+import { HeroImages } from "@/components/features/careers/hero-images";
 import { HowHiringWorks } from "@/components/features/careers/how-hiring-works";
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
 import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Select } from "@/components/ui/select";
-import { careersSession } from "@/lib/careers/auth";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { parseJobFilter } from "@/lib/validators/careers";
 import { FilterField, FilterForm } from "@/app/(careers)/careers/_components/filter-form";
 import { JobPostingsList } from "@/app/(careers)/careers/_components/job-postings-list";
 import { SubmitButton } from "@/app/(careers)/careers/_components/submit-button";
-import { CareersHeroActionsSkeleton, CareersListSkeleton } from "@/app/(careers)/careers/_components/skeletons";
+import { CareersListSkeleton } from "@/app/(careers)/careers/_components/skeletons";
 
 type CareersPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -42,33 +41,6 @@ function Filter({ label, name, allLabel, options, selected }: {
         {options.map((option) => <option key={option}>{option}</option>)}
       </Select>
     </FilterField>
-  );
-}
-
-async function HeroActions() {
-  const applicant = await careersSession();
-  if (applicant) {
-    return (
-      <Button asChild variant="pill" size="pill-lg">
-        <Link href="/careers/applications">
-          Your applications
-          <ArrowRight aria-hidden className="size-5" />
-        </Link>
-      </Button>
-    );
-  }
-  return (
-    <div className="flex flex-wrap items-center gap-4">
-      <Button asChild variant="pill" size="pill-lg">
-        <Link href="/careers/signup">
-          Become an applicant
-          <ArrowRight aria-hidden className="size-5" />
-        </Link>
-      </Button>
-      <Button asChild variant="link" size="pill-lg" className="px-0 py-2.5">
-        <Link href="/careers/signin">Applicant sign in</Link>
-      </Button>
-    </div>
   );
 }
 
@@ -124,8 +96,8 @@ export default function CareersPage(props: CareersPageProps) {
   return (
     <>
       <section className="mx-auto w-full max-w-[1440px] px-5 pb-[100px] pt-[60px] sm:px-10">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_560px]">
-          <div className="flex flex-col justify-center gap-7 rounded-[40px] bg-lavender-soft p-8 sm:p-[60px]">
+        <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-[60px]">
+          <div className="flex flex-col gap-7">
             <div className="flex max-w-[660px] flex-col gap-4">
               <p className={eyebrowClass}>Careers at Bren Raphael&apos;s</p>
               <h1 className="font-serif text-5xl leading-[1.1] text-primary sm:text-7xl">
@@ -136,11 +108,19 @@ export default function CareersPage(props: CareersPageProps) {
                 brand rooted in family, faith and real ube.
               </p>
             </div>
-            <Suspense fallback={<CareersHeroActionsSkeleton />}>
-              <HeroActions />
-            </Suspense>
+            <div className="flex flex-wrap items-center gap-4">
+              <Button asChild variant="pill" size="pill-lg">
+                <Link href="#open-roles">
+                  See open roles
+                  <ArrowRight aria-hidden className="size-5" />
+                </Link>
+              </Button>
+              <Button asChild variant="pill-outline" size="pill-lg">
+                <Link href="#how-hiring-works">How hiring works</Link>
+              </Button>
+            </div>
           </div>
-          <HeroCarousel />
+          <HeroImages />
         </div>
       </section>
 

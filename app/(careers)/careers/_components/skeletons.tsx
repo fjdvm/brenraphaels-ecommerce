@@ -1,15 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-/** Sized like the hero's two buttons so the hero doesn't shift once the Applicant session resolves. */
-export function CareersHeroActionsSkeleton() {
-  return (
-    <div className="flex items-center gap-4" aria-hidden="true">
-      <Skeleton className="h-[59px] w-[287px] rounded-full" />
-      <Skeleton className="h-[47px] w-[146px] rounded-full" />
-    </div>
-  );
-}
-
 /** Shown while the job list and filter options resolve on the careers list page. */
 export function CareersListSkeleton() {
   return (
