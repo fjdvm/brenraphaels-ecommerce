@@ -3,15 +3,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 /** Shown while the job list and filter options resolve on the careers list page. */
 export function CareersListSkeleton() {
   return (
-    <div className="flex flex-col gap-[30px]" aria-hidden="true">
-      <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6" aria-hidden="true">
+      <div className="flex flex-col gap-2">
         <Skeleton className="h-[18px] w-24" />
-        <Skeleton className="h-12 w-80 max-w-full" />
+        <Skeleton className="h-10 w-80 max-w-full" />
       </div>
       <Skeleton className="h-[127px] w-full rounded-[40px]" />
-      <Skeleton className="h-[141px] w-full rounded-[40px]" />
-      <Skeleton className="h-[141px] w-full rounded-[40px]" />
-      <Skeleton className="h-[141px] w-full rounded-[40px]" />
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-[92px] w-full rounded-2xl" />
+        <Skeleton className="h-[92px] w-full rounded-2xl" />
+        <Skeleton className="h-[92px] w-full rounded-2xl" />
+      </div>
     </div>
   );
 }

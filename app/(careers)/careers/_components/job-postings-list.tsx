@@ -1,51 +1,63 @@
-import { ArrowRight, Briefcase, Clock, MapPin } from "lucide-react";
+import { ArrowRight, Clock, MapPin, Tag } from "lucide-react";
 import Link from "next/link";
 
+import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
 import type { JobPosting } from "@/lib/careers/job-postings";
 
-const pillClass =
-  "flex items-center gap-1.5 rounded-full bg-surface-soft py-1.5 pl-3 pr-3.5 text-xs tracking-[0.35px] text-body";
+const detailClass = "flex items-center gap-1.5 text-sm tracking-[0.35px] text-body";
+
+/** Eyebrow, section title and the number of Open Job Postings, as in the design. */
+export function OpenRolesHeading({ count }: { count: number }) {
+  return (
+    <div className="flex items-end gap-3">
+      <div className="flex flex-1 flex-col gap-2">
+        <p className={eyebrowClass}>Open roles</p>
+        <h2 className="font-serif text-3xl leading-[1.2] text-primary sm:text-[32px]">
+          Find your place in our kitchen
+        </h2>
+      </div>
+      <p className="shrink-0 text-sm font-medium tracking-[0.35px] text-body">
+        {count} open {count === 1 ? "role" : "roles"}
+      </p>
+    </div>
+  );
+}
 
 export function JobPostingsList({ jobs }: { jobs: JobPosting[] }) {
   if (jobs.length === 0) {
     return (
-      <p className="rounded-[40px] border border-line bg-white px-8 py-10 text-sm tracking-[0.35px] text-body">
+      <p className="rounded-2xl border border-line bg-white px-6 py-8 text-sm tracking-[0.35px] text-body">
         There are no open Job Postings matching those filters.
       </p>
     );
   }
 
   return (
-    <ul className="flex flex-col gap-[30px]">
+    <ul className="flex flex-col gap-3">
       {jobs.map((job) => (
         <li
           key={job.id}
-          className="flex flex-col gap-5 rounded-[40px] border border-line bg-white p-6 sm:flex-row sm:items-center sm:gap-6 sm:p-8"
+          className="flex flex-col gap-4 rounded-2xl border border-line bg-white px-6 py-[22px] sm:flex-row sm:items-center"
         >
-          <span
-            aria-hidden
-            className="flex size-14 shrink-0 items-center justify-center rounded-full bg-lavender text-primary"
-          >
-            <Briefcase className="size-[25px]" strokeWidth={1.5} />
-          </span>
           <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-            <h3 className="font-serif text-2xl leading-[1.25] text-primary sm:text-[28px]">{job.title}</h3>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-lavender px-3 py-1 text-xs font-medium tracking-[0.35px] text-primary">
+            <h3 className="font-serif text-xl leading-[1.3] text-primary">{job.title}</h3>
+            <div className="flex flex-wrap items-center gap-x-[18px] gap-y-2">
+              <span className={detailClass}>
+                <Tag aria-hidden className="size-4" />
                 {job.department}
               </span>
-              <span className={pillClass}>
-                <MapPin aria-hidden className="size-3.5" />
+              <span className={detailClass}>
+                <MapPin aria-hidden className="size-4" />
                 {job.location}
               </span>
-              <span className={pillClass}>
-                <Clock aria-hidden className="size-3.5" />
+              <span className={detailClass}>
+                <Clock aria-hidden className="size-4" />
                 {job.employmentType}
               </span>
             </div>
           </div>
-          <Button asChild variant="pill-outline" size="pill-sm" className="shrink-0 self-start sm:self-auto">
+          <Button asChild variant="pill" size="pill-sm" className="shrink-0 self-start sm:self-auto">
             <Link href={`/careers/${job.id}`}>
               View &amp; apply
               <ArrowRight aria-hidden className="size-4" />
