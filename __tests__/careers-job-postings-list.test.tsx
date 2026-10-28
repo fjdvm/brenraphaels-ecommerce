@@ -41,6 +41,27 @@ describe("Open role cards", () => {
   });
 });
 
+describe("Applied roles", () => {
+  const jobs = [posting({ id: "a", title: "Production Assistant" }), posting({ id: "b", title: "Seasonal Packer" })];
+
+  test("a role already applied to shows its status chip and View application in place of View & apply", () => {
+    const markup = renderToStaticMarkup(<JobPostingsList jobs={jobs} applicationStatuses={{ a: "Received" }} />);
+    const [applied, open] = markup.split("<li ").slice(1);
+    expect(applied).toContain("Received");
+    expect(applied).toContain("View application");
+    expect(applied).toContain('href="/careers/applications"');
+    expect(applied).not.toContain("View &amp; apply");
+    expect(open).toContain("View &amp; apply");
+    expect(open).not.toContain("View application");
+  });
+
+  test("signed-out visitors see no chip and no View application", () => {
+    const markup = renderToStaticMarkup(<JobPostingsList jobs={jobs} />);
+    expect(markup).not.toContain("View application");
+    expect(markup.match(/View &amp; apply/g)).toHaveLength(2);
+  });
+});
+
 describe("Open roles heading", () => {
   test("shows the design's heading and the role count", () => {
     const markup = renderToStaticMarkup(<OpenRolesHeading count={2} />);

@@ -37,6 +37,8 @@ export type ApplicationStore = {
   insert(application: Omit<Application, "createdAt" | "updatedAt">): Promise<void>;
   listForApplicant(applicantId: string): Promise<Application[]>;
   listSummariesForApplicant(applicantId: string): Promise<ApplicationSummary[]>;
+  /** Application status keyed by Job Posting id, for marking roles already applied to. */
+  statusesByPostingForApplicant(applicantId: string): Promise<Record<string, ApplicationStatus>>;
   withdraw(referenceNumber: string, applicantId: string): Promise<ApplicationStatus | undefined>;
   /** Mirrors an HR-ATS Application-status change into the local read-model (ADR-0005). */
   updateStatus(referenceNumber: string, status: ApplicationStatus): Promise<boolean>;
@@ -103,6 +105,13 @@ export function createApplicationStore<TQueryResult extends PgQueryResultHKT, TS
         .leftJoin(jobPostings, eq(applications.jobPostingId, jobPostings.id))
         .where(eq(applications.applicantId, applicantId))
         .orderBy(desc(applications.createdAt));
+    },
+    async statusesByPostingForApplicant(applicantId) {
+      const rows = await db
+        .select({ jobPostingId: applications.jobPostingId, status: applications.status })
+        .from(applications)
+        .where(eq(applications.applicantId, applicantId));
+      return Object.fromEntries(rows.map((row) => [row.jobPostingId, row.status]));
     },
     async withdraw(referenceNumber, applicantId) {
       const [application] = await db.select().from(applications).where(and(eq(applications.referenceNumber, referenceNumber), eq(applications.applicantId, applicantId))).limit(1);

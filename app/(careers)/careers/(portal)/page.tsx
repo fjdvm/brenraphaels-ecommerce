@@ -11,6 +11,8 @@ import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
+import { createApplicationStore } from "@/lib/careers/applications";
+import { careersSession } from "@/lib/careers/auth";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { parseJobFilter } from "@/lib/validators/careers";
 import { FilterField, FilterForm } from "@/app/(careers)/careers/_components/filter-form";
@@ -47,8 +49,10 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
     employmentType: parseJobFilter(query.employmentType),
     location: parseJobFilter(query.location),
   };
-  const store = createJobPostingStore(getCareersDatabase());
-  const [postings, options] = await Promise.all([store.listOpen(filters), store.listOpenFilterOptions()]);
+  const db = getCareersDatabase();
+  const store = createJobPostingStore(db);
+  const [postings, options, applicant] = await Promise.all([store.listOpen(filters), store.listOpenFilterOptions(), careersSession()]);
+  const applicationStatuses = applicant ? await createApplicationStore(db).statusesByPostingForApplicant(applicant.userId) : {};
 
   return (
     <div className="flex flex-col gap-6">
@@ -78,7 +82,7 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
         </div>
       </FilterForm>
 
-      <JobPostingsList jobs={postings} />
+      <JobPostingsList jobs={postings} applicationStatuses={applicationStatuses} />
     </div>
   );
 }

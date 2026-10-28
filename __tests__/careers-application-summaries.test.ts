@@ -57,3 +57,15 @@ describe("Application summaries", () => {
     expect(summaries[2]).toMatchObject({ referenceNumber: "BR-3", title: null, department: null });
   });
 });
+
+describe("Application statuses by Job Posting", () => {
+  test("maps each Job Posting an Applicant applied to onto the Application status", async () => {
+    const statuses = await createApplicationStore(drizzle(client)).statusesByPostingForApplicant("a1");
+
+    expect(statuses).toEqual({ p1: "Received", p2: "Rejected", gone: "Received" });
+  });
+
+  test("is empty for an Applicant with no Applications", async () => {
+    expect(await createApplicationStore(drizzle(client)).statusesByPostingForApplicant("nobody")).toEqual({});
+  });
+});

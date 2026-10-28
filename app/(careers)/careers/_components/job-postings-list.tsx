@@ -24,7 +24,8 @@ export function OpenRolesHeading({ count }: { count: number }) {
   );
 }
 
-export function JobPostingsList({ jobs }: { jobs: JobPosting[] }) {
+/** `applicationStatuses` maps Job Posting id to the signed-in Applicant's Application status; omit it for signed-out visitors. */
+export function JobPostingsList({ jobs, applicationStatuses = {} }: { jobs: JobPosting[]; applicationStatuses?: Record<string, string> }) {
   if (jobs.length === 0) {
     return (
       <p className="rounded-2xl border border-line bg-white px-6 py-8 text-sm tracking-[0.35px] text-body">
@@ -41,7 +42,12 @@ export function JobPostingsList({ jobs }: { jobs: JobPosting[] }) {
           className="flex flex-col gap-4 rounded-2xl border border-line bg-white px-6 py-[22px] sm:flex-row sm:items-center"
         >
           <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-            <h3 className="font-serif text-xl leading-[1.3] text-primary">{job.title}</h3>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <h3 className="font-serif text-xl leading-[1.3] text-primary">{job.title}</h3>
+              {applicationStatuses[job.id] ? (
+                <span className="rounded-full bg-lavender px-3 py-1 text-xs font-medium tracking-[0.35px] text-primary">{applicationStatuses[job.id]}</span>
+              ) : null}
+            </div>
             <div className="flex flex-wrap items-center gap-x-[18px] gap-y-2">
               <span className={detailClass}>
                 <Tag aria-hidden className="size-4" />
@@ -57,12 +63,21 @@ export function JobPostingsList({ jobs }: { jobs: JobPosting[] }) {
               </span>
             </div>
           </div>
-          <Button asChild variant="pill" size="pill-sm" className="shrink-0 self-start sm:self-auto">
-            <Link href={`/careers/${job.id}`}>
-              View &amp; apply
-              <ArrowRight aria-hidden className="size-4" />
-            </Link>
-          </Button>
+          {applicationStatuses[job.id] ? (
+            <Button asChild variant="pill-outline" size="pill-sm" className="shrink-0 self-start sm:self-auto">
+              <Link href="/careers/applications">
+                View application
+                <ArrowRight aria-hidden className="size-4" />
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild variant="pill" size="pill-sm" className="shrink-0 self-start sm:self-auto">
+              <Link href={`/careers/${job.id}`}>
+                View &amp; apply
+                <ArrowRight aria-hidden className="size-4" />
+              </Link>
+            </Button>
+          )}
         </li>
       ))}
     </ul>
