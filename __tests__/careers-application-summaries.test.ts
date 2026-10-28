@@ -58,6 +58,21 @@ describe("Application summaries", () => {
   });
 });
 
+describe("Application summary by Reference number", () => {
+  test("finds the Applicant's own Application with its Job Posting details", async () => {
+    const summary = await createApplicationStore(drizzle(client)).findSummaryForApplicant("a1", "BR-2");
+
+    expect(summary).toMatchObject({ referenceNumber: "BR-2", status: "Rejected", title: "Seasonal Packer", location: "Quezon City" });
+  });
+
+  test("does not find another Applicant's Application or an unknown Reference number", async () => {
+    const store = createApplicationStore(drizzle(client));
+
+    expect(await store.findSummaryForApplicant("a1", "BR-4")).toBeUndefined();
+    expect(await store.findSummaryForApplicant("a1", "nope")).toBeUndefined();
+  });
+});
+
 describe("Application statuses by Job Posting", () => {
   test("maps each Job Posting an Applicant applied to onto the Application status", async () => {
     const statuses = await createApplicationStore(drizzle(client)).statusesByPostingForApplicant("a1");

@@ -37,6 +37,8 @@ export type ApplicationStore = {
   insert(application: Omit<Application, "createdAt" | "updatedAt">): Promise<void>;
   listForApplicant(applicantId: string): Promise<Application[]>;
   listSummariesForApplicant(applicantId: string): Promise<ApplicationSummary[]>;
+  /** One of the Applicant's own Applications by Reference number; undefined if it doesn't exist or belongs to someone else. */
+  findSummaryForApplicant(applicantId: string, referenceNumber: string): Promise<ApplicationSummary | undefined>;
   /** Application status keyed by Job Posting id, for marking roles already applied to. */
   statusesByPostingForApplicant(applicantId: string): Promise<Record<string, ApplicationStatus>>;
   withdraw(referenceNumber: string, applicantId: string): Promise<ApplicationStatus | undefined>;
@@ -77,6 +79,21 @@ function asApplication(row: typeof applications.$inferSelect): Application {
   };
 }
 
+function selectSummaries<TQueryResult extends PgQueryResultHKT, TSchema extends Record<string, unknown>>(db: PgDatabase<TQueryResult, TSchema>) {
+  return db
+    .select({
+      referenceNumber: applications.referenceNumber,
+      status: applications.status,
+      appliedAt: applications.createdAt,
+      title: jobPostings.title,
+      department: jobPostings.department,
+      location: jobPostings.location,
+      employmentType: jobPostings.employmentType,
+    })
+    .from(applications)
+    .leftJoin(jobPostings, eq(applications.jobPostingId, jobPostings.id));
+}
+
 export function createApplicationStore<TQueryResult extends PgQueryResultHKT, TSchema extends Record<string, unknown>>(db: PgDatabase<TQueryResult, TSchema>): ApplicationStore {
   return {
     async findForApplicantAndPosting(applicantId, jobPostingId) {
@@ -91,20 +108,13 @@ export function createApplicationStore<TQueryResult extends PgQueryResultHKT, TS
       return rows.map(asApplication);
     },
     async listSummariesForApplicant(applicantId) {
-      return db
-        .select({
-          referenceNumber: applications.referenceNumber,
-          status: applications.status,
-          appliedAt: applications.createdAt,
-          title: jobPostings.title,
-          department: jobPostings.department,
-          location: jobPostings.location,
-          employmentType: jobPostings.employmentType,
-        })
-        .from(applications)
-        .leftJoin(jobPostings, eq(applications.jobPostingId, jobPostings.id))
-        .where(eq(applications.applicantId, applicantId))
-        .orderBy(desc(applications.createdAt));
+      return selectSummaries(db).where(eq(applications.applicantId, applicantId)).orderBy(desc(applications.createdAt));
+    },
+    async findSummaryForApplicant(applicantId, referenceNumber) {
+      const [summary] = await selectSummaries(db)
+        .where(and(eq(applications.applicantId, applicantId), eq(applications.referenceNumber, referenceNumber)))
+        .limit(1);
+      return summary;
     },
     async statusesByPostingForApplicant(applicantId) {
       const rows = await db

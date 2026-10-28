@@ -56,7 +56,11 @@ async function ApplicationsList() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
             <div className="flex min-w-0 flex-col gap-2">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <h2 className="font-serif text-xl leading-[1.3] text-primary">{application.title ?? "Job posting unavailable"}</h2>
+                <h2 className="font-serif text-xl leading-[1.3] text-primary">
+                  <Link href={`/careers/applications/${encodeURIComponent(application.referenceNumber)}`} className="hover:underline">
+                    {application.title ?? "Job posting unavailable"}
+                  </Link>
+                </h2>
                 <span className="rounded-full bg-lavender px-3 py-1 text-xs font-medium tracking-[0.35px] text-primary">{application.status}</span>
               </div>
               <p className="text-sm tracking-[0.35px] text-body">{details.join(" · ")}</p>
