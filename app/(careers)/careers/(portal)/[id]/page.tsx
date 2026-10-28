@@ -39,7 +39,7 @@ async function JobPostingPageContent({ params }: JobPostingPageProps) {
       <JobDetailHeader posting={posting} />
       <JobDetailBody
         posting={posting}
-        aside={<ApplyCard jobPostingId={posting.id} title={posting.title} requiredDocuments={posting.requiredDocuments} access={access} />}
+        aside={<ApplyCard jobPostingId={posting.id} requiredDocuments={posting.requiredDocuments} access={access} />}
       />
     </article>
   );

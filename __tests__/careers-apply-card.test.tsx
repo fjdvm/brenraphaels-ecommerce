@@ -8,7 +8,6 @@ const ready = (overrides: Partial<Parameters<typeof ApplyCard>[0]> = {}) =>
   renderToStaticMarkup(
     <ApplyCard
       jobPostingId="job-1"
-      title="Packaging Associate"
       requiredDocuments={["Résumé", "Health certificate"]}
       access={{ kind: "ready", email: "mylene@example.com", profile, documents: [{ id: 1, name: "Resume.pdf" }] }}
       {...overrides}
@@ -57,6 +56,12 @@ describe("Apply card", () => {
     expect(markup).toContain('href="/careers/signin"');
     expect(markup).toContain("Sign in to apply");
     expect(markup).not.toContain("<form");
+  });
+
+  test("lists the required Documents even before the visitor can apply", () => {
+    const markup = ready({ access: { kind: "signed-out" } });
+    expect(markup).toContain("Required Documents");
+    expect(markup).toContain("Health certificate");
   });
 
   test("sends unverified or profile-less Applicants to finish the step first", () => {

@@ -25,13 +25,19 @@ const labelClass = "flex gap-[3px] text-[13px] font-medium text-ink";
 const linkClass = "text-[13px] font-semibold text-primary";
 const buttonClass = "flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-[15px] font-semibold text-on-primary";
 
-function Gate({ title, message, href, label }: { title: string; message: string; href: string; label: string }) {
+function Gate({ title, message, href, label, requiredDocuments }: { title: string; message: string; href: string; label: string; requiredDocuments: string[] }) {
   return (
     <>
       <div className="flex flex-col gap-1">
         <h2 className={headingClass}>{title}</h2>
         <p className="text-sm leading-[21px] text-body">{message}</p>
       </div>
+      {requiredDocuments.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-[13px] font-medium text-ink">Required Documents</p>
+          <ul className="list-disc pl-5 text-sm text-body">{requiredDocuments.map((document) => <li key={document}>{document}</li>)}</ul>
+        </div>
+      )}
       <Link href={href} className={buttonClass}>{label}</Link>
     </>
   );
@@ -96,12 +102,12 @@ function ApplyForm({ jobPostingId, requiredDocuments, access }: { jobPostingId: 
 }
 
 /** The side card of a Job detail page: the Applicant's profile summary, the Documents the role requires and the submit action. */
-export function ApplyCard({ jobPostingId, requiredDocuments, access }: { jobPostingId: string; title: string; requiredDocuments: string[]; access: ApplyAccess }) {
+export function ApplyCard({ jobPostingId, requiredDocuments, access }: { jobPostingId: string; requiredDocuments: string[]; access: ApplyAccess }) {
   return (
     <aside className={cardClass}>
-      {access.kind === "signed-out" ? <Gate title="Sign in to apply" message="Sign in as an Applicant before applying to this Job Posting." href="/careers/signin" label="Sign in" /> : null}
-      {access.kind === "unverified" ? <Gate title="Verify your email to apply" message="Verify your Applicant email address before submitting an Application." href="/careers/verify-email" label="Verify email" /> : null}
-      {access.kind === "no-profile" ? <Gate title="Complete your profile to apply" message="Save your Applicant profile before submitting an Application." href="/careers/complete-profile" label="Complete profile" /> : null}
+      {access.kind === "signed-out" ? <Gate title="Sign in to apply" message="Sign in as an Applicant before applying to this Job Posting." href="/careers/signin" label="Sign in" requiredDocuments={requiredDocuments} /> : null}
+      {access.kind === "unverified" ? <Gate title="Verify your email to apply" message="Verify your Applicant email address before submitting an Application." href="/careers/verify-email" label="Verify email" requiredDocuments={requiredDocuments} /> : null}
+      {access.kind === "no-profile" ? <Gate title="Complete your profile to apply" message="Save your Applicant profile before submitting an Application." href="/careers/complete-profile" label="Complete profile" requiredDocuments={requiredDocuments} /> : null}
       {access.kind === "ready" ? <ApplyForm jobPostingId={jobPostingId} requiredDocuments={requiredDocuments} access={access} /> : null}
     </aside>
   );
