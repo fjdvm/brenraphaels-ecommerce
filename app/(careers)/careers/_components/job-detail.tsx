@@ -28,6 +28,26 @@ function Chip({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   );
 }
 
+/** A headed checklist section, omitted when there are no items (including Postings that predate the field). */
+function CheckList({ heading, items }: { heading: string; items: string[] | undefined }) {
+  if (!items?.length) return null;
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className={sectionHeadingClass}>{heading}</h2>
+      <ul className="flex flex-col gap-3">
+        {items.map((item) => (
+          <li key={item} className="flex items-start gap-2.5 leading-[26px] text-ink">
+            <span aria-hidden className="mt-[5px] flex size-4 shrink-0 items-center justify-center rounded-full bg-lavender-soft">
+              <Check className="size-2.5 text-primary" />
+            </span>
+            {item}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** Back link, title and the department, location, employment type and deadline chips, as in the design. */
 export function JobDetailHeader({ posting, children }: { posting: JobPosting; children?: ReactNode }) {
   return (
@@ -52,7 +72,7 @@ export function JobDetailHeader({ posting, children }: { posting: JobPosting; ch
   );
 }
 
-/** About the role, then What we're looking for (omitted when the Job Posting has no requirements), with an optional side card. */
+/** About the role, then What you'll do, What we're looking for and What you'll get (each omitted when the Job Posting has no items), with an optional side card. */
 export function JobDetailBody({ posting, aside, children }: { posting: JobPosting; aside?: ReactNode; children?: ReactNode }) {
   const requirements = requirementItems(posting.requirements);
 
@@ -63,21 +83,9 @@ export function JobDetailBody({ posting, aside, children }: { posting: JobPostin
           <h2 className={sectionHeadingClass}>About the role</h2>
           <p className="whitespace-pre-line leading-[26px] text-body">{posting.description}</p>
         </section>
-        {requirements.length > 0 && (
-          <section className="flex flex-col gap-3">
-            <h2 className={sectionHeadingClass}>What we’re looking for</h2>
-            <ul className="flex flex-col gap-3">
-              {requirements.map((item) => (
-                <li key={item} className="flex items-start gap-2.5 leading-[26px] text-ink">
-                  <span aria-hidden className="mt-[5px] flex size-4 shrink-0 items-center justify-center rounded-full bg-lavender-soft">
-                    <Check className="size-2.5 text-primary" />
-                  </span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        <CheckList heading="What you’ll do" items={posting.responsibilities} />
+        <CheckList heading="What we’re looking for" items={requirements} />
+        <CheckList heading="What you’ll get" items={posting.benefits} />
         {children}
       </div>
       {aside}

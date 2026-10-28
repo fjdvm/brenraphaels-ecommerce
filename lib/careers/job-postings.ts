@@ -14,6 +14,8 @@ export type JobPosting = {
   deadline: Date;
   requiredDocuments: string[];
   screeningCriteria: string[];
+  responsibilities: string[];
+  benefits: string[];
 };
 
 export type JobPostingStore = {
@@ -47,6 +49,8 @@ function asJobPosting(posting: typeof jobPostings.$inferSelect): JobPosting {
     deadline: posting.deadline,
     requiredDocuments: posting.requiredDocuments,
     screeningCriteria: posting.screeningCriteria,
+    responsibilities: posting.responsibilities,
+    benefits: posting.benefits,
   };
 }
 
