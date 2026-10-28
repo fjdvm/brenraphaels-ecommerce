@@ -21,13 +21,23 @@ export function CareersListSkeleton() {
 /** Shown while a single job posting and applicant session resolve. */
 export function CareersDetailSkeleton() {
   return (
-    <article className="mx-auto max-w-4xl px-5 py-12 sm:px-8 lg:py-20" aria-hidden="true">
-      <Skeleton className="h-4 w-32" />
-      <Skeleton className="mt-8 h-4 w-48" />
-      <Skeleton className="mt-3 h-12 w-3/4" />
-      <Skeleton className="mt-4 h-6 w-64" />
-      <Skeleton className="mt-6 h-12 w-32 rounded-full" />
-      <Skeleton className="mt-10 h-40 w-full" />
+    <article aria-hidden="true">
+      <div className="bg-surface-container-low">
+        <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-3.5 px-5 py-8 sm:px-10 lg:px-40">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-12 w-full max-w-[560px]" />
+          <div className="flex flex-wrap gap-2.5">
+            <Skeleton className="h-[34px] w-28 rounded-full" />
+            <Skeleton className="h-[34px] w-44 rounded-full" />
+            <Skeleton className="h-[34px] w-24 rounded-full" />
+            <Skeleton className="h-[34px] w-40 rounded-full" />
+          </div>
+        </div>
+      </div>
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-5 pb-[72px] pt-10 sm:px-10 lg:px-40">
+        <Skeleton className="h-28 w-full" />
+        <Skeleton className="h-44 w-full" />
+      </div>
     </article>
   );
 }
