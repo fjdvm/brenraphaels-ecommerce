@@ -11,24 +11,22 @@ const reasons = [
 /** The three reasons to work here; the header's "Life at Bren Raphael's" link scrolls here. */
 export function WhyWorkWithUs() {
   return (
-    <section id="life" className="scroll-mt-6 bg-surface-soft">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-5 py-16 sm:px-10 lg:px-[160px]">
-        <div className="flex flex-col gap-2">
-          <p className={eyebrowClass}>Life at Bren Raphael&apos;s</p>
-          <h2 className="font-serif text-3xl leading-[1.2] text-primary sm:text-[32px]">Why work with us</h2>
-        </div>
-        <ul className="grid gap-5 md:grid-cols-3">
-          {reasons.map(({ icon: Icon, title, text }) => (
-            <li key={title} className="flex flex-col items-start gap-3 rounded-2xl border border-line bg-white p-6">
-              <span aria-hidden className="flex size-11 items-center justify-center rounded-xl bg-lavender-soft text-primary">
-                <Icon className="size-[22px]" strokeWidth={1.5} />
-              </span>
-              <h3 className="font-serif text-lg leading-[1.3] text-primary">{title}</h3>
-              <p className="text-[15px] leading-[23px] tracking-[0.35px] text-body">{text}</p>
-            </li>
-          ))}
-        </ul>
+    <section id="life" className="mx-auto w-full max-w-[1440px] scroll-mt-6 px-5 pb-[100px] pt-20 sm:px-10">
+      <div className="flex flex-col gap-4">
+        <p className={eyebrowClass}>Life at Bren Raphael&apos;s</p>
+        <h2 className="font-serif text-3xl leading-[1.2] text-primary sm:text-[40px]">Why work with us</h2>
       </div>
+      <ul className="mt-6 grid gap-5 md:grid-cols-3">
+        {reasons.map(({ icon: Icon, title, text }) => (
+          <li key={title} className="flex flex-col items-start gap-3 rounded-[40px] bg-surface-soft p-[30px]">
+            <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-primary text-white">
+              <Icon className="size-[18px]" strokeWidth={1.5} />
+            </span>
+            <h3 className="font-serif text-lg leading-[1.35] text-primary">{title}</h3>
+            <p className="text-sm leading-normal tracking-[0.35px] text-body">{text}</p>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
