@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { HeroCarousel } from "@/components/features/careers/hero-carousel";
+import { HowHiringWorks } from "@/components/features/careers/how-hiring-works";
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
 import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
@@ -166,6 +167,8 @@ export default function CareersPage(props: CareersPageProps) {
           ))}
         </ul>
       </section>
+
+      <HowHiringWorks />
     </>
   );
 }

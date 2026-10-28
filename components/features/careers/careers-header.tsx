@@ -7,6 +7,7 @@ import { CareersLogo } from "@/components/features/careers/careers-logo";
 import { CareersNavLinks } from "@/components/features/careers/careers-nav-links";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AccountMenu } from "@/components/shared/account-menu";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { SignOutButton } from "@/components/shared/sign-out-button";
 import { careersSession } from "@/lib/careers/auth";
@@ -92,29 +93,27 @@ export async function CareersHeader() {
           aria-label="Careers"
           className="order-last flex w-full flex-col items-stretch gap-1 lg:order-none lg:w-auto lg:flex-1 lg:flex-row lg:flex-wrap lg:items-center lg:justify-center lg:gap-x-9"
         >
-          <CareersNavLinks signedIn={Boolean(applicant)} />
+          <CareersNavLinks />
         </nav>
         <div className={sideClass}>
           {shopLink}
           {applicant ? (
             <>
+              <Button asChild variant="pill-outline" size="pill-sm">
+                <Link href="/careers/applications">My applications</Link>
+              </Button>
               <NotificationBell href="/careers/notifications" className="relative flex p-2 text-ink hover:text-primary" size={22} unread={unread} />
-              <span className="flex items-center gap-2.5">
-                <span
-                  aria-hidden
-                  className="flex size-9 items-center justify-center rounded-full bg-primary text-[13px] font-medium tracking-[0.35px] text-white"
-                >
-                  {initials(applicant.fullName, applicant.email)}
-                </span>
-                <span className="hidden text-[15px] tracking-[0.35px] text-ink sm:inline">
-                  {applicant.fullName.trim().split(/\s+/)[0] || applicant.email}
-                </span>
-              </span>
-              <SignOutButton
-                action={signOutApplicantAction}
-                className="flex items-center text-ink hover:no-underline [&>svg]:size-5"
-                icon={<LogOut aria-hidden />}
-                iconOnly
+              <AccountMenu
+                menu="careers"
+                initials={initials(applicant.fullName, applicant.email)}
+                firstName={applicant.fullName.trim().split(/\s+/)[0] || applicant.email}
+                signOut={
+                  <SignOutButton
+                    action={signOutApplicantAction}
+                    className="flex w-full items-center gap-3 px-5 py-2.5 hover:bg-surface-container-low hover:no-underline [&>svg]:size-[18px]"
+                    icon={<LogOut aria-hidden />}
+                  />
+                }
               />
             </>
           ) : (

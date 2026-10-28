@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
-import { accountMenuItems } from "@/components/shared/account-menu-items";
+import { accountMenuItems, careersAccountMenuItems } from "@/components/shared/account-menu-items";
 
 /** The signed-in Customer's avatar and first name; opens a menu to their account pages. Closes on Escape, a click away or choosing a link. */
-export function AccountMenu({ initials, firstName, signOut }: { initials: string; firstName: string; signOut: ReactNode }) {
+export function AccountMenu({ initials, firstName, signOut, menu = "customer" }: { initials: string; firstName: string; signOut: ReactNode; menu?: "customer" | "careers" }) {
+  const items = menu === "careers" ? careersAccountMenuItems : accountMenuItems;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -49,7 +50,7 @@ export function AccountMenu({ initials, firstName, signOut }: { initials: string
       {/* Stays mounted while closed so the sign-out confirmation survives the menu hiding behind it. */}
       <div className={open ? "absolute right-0 top-full z-10 pt-3" : "hidden"}>
           <ul className="min-w-56 overflow-hidden rounded-3xl border border-outline-variant/60 bg-surface py-2 text-on-surface shadow-lg">
-            {accountMenuItems.map(({ href, label, icon: Icon }) => (
+            {items.map(({ href, label, icon: Icon }) => (
               <li key={href}>
                 <Link
                   href={href}
