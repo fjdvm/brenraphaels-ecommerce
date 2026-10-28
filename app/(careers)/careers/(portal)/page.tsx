@@ -13,7 +13,7 @@ import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { parseJobFilter } from "@/lib/validators/careers";
 import { FilterField, FilterForm } from "@/app/(careers)/careers/_components/filter-form";
-import { JobPostingsList } from "@/app/(careers)/careers/_components/job-postings-list";
+import { JobPostingsList, OpenRolesHeading } from "@/app/(careers)/careers/_components/job-postings-list";
 import { SubmitButton } from "@/app/(careers)/careers/_components/submit-button";
 import { CareersListSkeleton } from "@/app/(careers)/careers/_components/skeletons";
 
@@ -50,13 +50,8 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
   const [postings, options] = await Promise.all([store.listOpen(filters), store.listOpenFilterOptions()]);
 
   return (
-    <div className="flex flex-col gap-[30px]">
-      <div className="flex flex-col gap-4">
-        <p className={eyebrowClass}>Open roles</p>
-        <h2 className="font-serif text-3xl leading-[1.2] text-primary sm:text-[40px]">
-          {postings.length} {postings.length === 1 ? "position" : "positions"} open
-        </h2>
-      </div>
+    <div className="flex flex-col gap-6">
+      <OpenRolesHeading count={postings.length} />
 
       <FilterForm
         chips={[
