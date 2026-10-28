@@ -90,6 +90,18 @@ export function CareersApplicationsSkeleton() {
   );
 }
 
+/** Mirrors the header and stepper of a single Application page. */
+export function CareersApplicationSkeleton() {
+  return (
+    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-5 pt-[50px] sm:px-10 lg:px-40" aria-hidden="true">
+      <Skeleton className="h-5 w-32" />
+      <Skeleton className="h-[48px] w-full max-w-[480px]" />
+      <Skeleton className="h-5 w-full max-w-[420px]" />
+      <Skeleton className="h-[160px] rounded-2xl sm:h-[76px]" />
+    </div>
+  );
+}
+
 /** Mirrors the toolbar row and inbox card of the notifications page. */
 export function CareersNotificationsSkeleton() {
   return (

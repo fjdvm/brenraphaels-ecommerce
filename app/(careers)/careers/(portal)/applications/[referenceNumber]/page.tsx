@@ -6,7 +6,7 @@ import { requireApplicant } from "@/lib/careers/current-applicant";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { ApplicationHeader, applicationDate } from "@/app/(careers)/careers/_components/application-header";
 import { ApplicationStepper } from "@/app/(careers)/careers/_components/application-stepper";
-import { CareersApplicationsSkeleton } from "@/app/(careers)/careers/_components/skeletons";
+import { CareersApplicationSkeleton } from "@/app/(careers)/careers/_components/skeletons";
 
 type ApplicationPageProps = { params: Promise<{ referenceNumber: string }> };
 
@@ -25,7 +25,7 @@ async function ApplicationPageContent({ params }: ApplicationPageProps) {
 
 export default function ApplicationPage(props: ApplicationPageProps) {
   return (
-    <Suspense fallback={<CareersApplicationsSkeleton />}>
+    <Suspense fallback={<CareersApplicationSkeleton />}>
       <ApplicationPageContent {...props} />
     </Suspense>
   );
