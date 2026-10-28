@@ -1,9 +1,10 @@
-import { ArrowRight, Heart, Star, User } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
 import { HeroImages } from "@/components/features/careers/hero-images";
 import { HowHiringWorks } from "@/components/features/careers/how-hiring-works";
+import { WhyWorkWithUs } from "@/components/features/careers/why-work-with-us";
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
 import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
@@ -19,12 +20,6 @@ import { CareersListSkeleton } from "@/app/(careers)/careers/_components/skeleto
 type CareersPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-const reasons = [
-  { icon: Heart, title: "A family business", text: "Grow with a team built on family, faith and perseverance." },
-  { icon: Star, title: "Proudly Filipino", text: "Help bring authentic ube flavors closer to every home." },
-  { icon: User, title: "Real impact", text: "Support local communities and better income for Filipino farmers." },
-];
 
 function Filter({ label, name, allLabel, options, selected }: {
   label: string;
@@ -130,23 +125,7 @@ export default function CareersPage(props: CareersPageProps) {
         </Suspense>
       </section>
 
-      <section id="life" className="mx-auto w-full max-w-[1440px] scroll-mt-6 px-5 pb-[100px] pt-20 sm:px-10">
-        <div className="flex flex-col gap-4">
-          <p className={eyebrowClass}>Life at Bren Raphael&apos;s</p>
-          <h2 className="font-serif text-3xl leading-[1.2] text-primary sm:text-[40px]">Why work with us</h2>
-        </div>
-        <ul className="mt-[30px] grid gap-5 md:grid-cols-3">
-          {reasons.map(({ icon: Icon, title, text }) => (
-            <li key={title} className="flex flex-col items-start gap-3.5 rounded-[40px] bg-surface-soft p-9">
-              <span aria-hidden className="flex size-[52px] items-center justify-center rounded-full bg-white text-primary">
-                <Icon className="size-[23px]" strokeWidth={1.5} />
-              </span>
-              <h3 className="font-serif text-[22px] leading-[1.3] text-primary">{title}</h3>
-              <p className="text-sm leading-normal tracking-[0.35px] text-body">{text}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <WhyWorkWithUs />
 
       <HowHiringWorks />
     </>
