@@ -9,6 +9,7 @@ import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
 import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Select } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { parseJobFilter } from "@/lib/validators/careers";
@@ -31,7 +32,7 @@ function Filter({ label, name, allLabel, options, selected }: {
   return (
     <FilterField name={name}>
       <label htmlFor={`filter-${name}`} className={fieldLabelClass}>{label}</label>
-      <Select id={`filter-${name}`} name={name} defaultValue={selected ?? ""} className={fieldClass}>
+      <Select id={`filter-${name}`} name={name} defaultValue={selected ?? ""} className={cn(fieldClass, "rounded-[10px] px-3.5 py-[11px]")}>
         <option value="">{allLabel}</option>
         {options.map((option) => <option key={option}>{option}</option>)}
       </Select>
@@ -59,19 +60,19 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
           { name: "employmentType", label: "Type", selected: filters.employmentType },
           { name: "location", label: "Location", selected: filters.location },
         ]}
-        className="flex flex-col gap-4 rounded-[40px] border border-line bg-white p-6 lg:flex-row lg:items-end"
+        className="flex flex-col gap-4 rounded-2xl bg-surface-soft p-4 lg:flex-row lg:items-end lg:gap-3"
       >
         <Filter label="Department" name="department" allLabel="All departments" options={options.departments} selected={filters.department} />
         <Filter label="Employment type" name="employmentType" allLabel="All types" options={options.employmentTypes} selected={filters.employmentType} />
         <Filter label="Location" name="location" allLabel="All locations" options={options.locations} selected={filters.location} />
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1">
           <SubmitButton
             pendingLabel="Filtering…"
-            className="inline-flex items-center justify-center rounded-full bg-primary px-9 py-4 text-lg tracking-[0.45px] text-white transition-colors hover:bg-primary-container"
+            className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-[9px] text-sm font-medium tracking-[0.35px] text-white transition-colors hover:bg-primary-container"
           >
             Filter roles
           </SubmitButton>
-          <Button asChild variant="link" size="link-sm">
+          <Button asChild variant="link" size="link-sm" className="px-3">
             <Link href="/careers">Clear</Link>
           </Button>
         </div>
