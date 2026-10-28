@@ -27,8 +27,10 @@ export default function ApplicantSignUpPage() {
   const errors = state.fieldErrors ?? {};
   const values = state.values ?? {};
   return (
-    <AuthCard className="max-w-[540px]">
-      <AuthHeading eyebrow="Careers portal" title="Become an applicant" />
+    <AuthCard className="max-w-[540px] rounded-none border-0 bg-transparent p-0 sm:p-0">
+      <AuthHeading eyebrow="Careers portal" title="Become an applicant">
+        It takes a minute. You only need to do this once.
+      </AuthHeading>
       <form action={action} className="flex flex-col gap-[22px]" noValidate>
         <div className="grid gap-[22px] sm:grid-cols-2 sm:gap-4">
           <Field id="signup-first-name" label="First name" required error={errors.firstName?.[0]}>
@@ -52,12 +54,12 @@ export default function ApplicantSignUpPage() {
             <PasswordInput {...fieldProps("signup-confirm-password", errors.confirmPassword?.[0])} required name="confirmPassword" autoComplete="new-password" minLength={8} maxLength={128} className={fieldClass} />
           </Field>
         </div>
-        <ul aria-label="Password rules" className="flex flex-wrap gap-2">
+        <ul aria-label="Password rules" className="flex flex-col gap-2.5 rounded-[10px] bg-surface-soft p-4">
           {passwordRules.map((rule) => {
             const met = rule.met(password);
             return (
-              <li key={rule.label} className={cn("flex items-center gap-1.5 rounded-full bg-surface-soft py-1.5 pl-3 pr-3.5 text-xs tracking-[0.35px] text-body", met && "bg-lavender text-primary")}>
-                <Check aria-hidden className={cn("size-3.5", !met && "opacity-40")} />
+              <li key={rule.label} className={cn("flex items-center gap-2 text-xs tracking-[0.35px] text-body", met && "text-primary")}>
+                <Check aria-hidden className={cn("size-3.5 rounded-full border border-line p-0.5", met ? "border-primary bg-primary text-white" : "text-transparent")} />
                 {rule.label}
                 <span className="sr-only">{met ? " (met)" : " (not met yet)"}</span>
               </li>
