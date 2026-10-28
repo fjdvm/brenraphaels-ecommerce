@@ -43,6 +43,13 @@
       "when": 1793116555419,
       "tag": "0005_applicant_job_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793193683901,
+      "tag": "0006_job_responsibilities_benefits",
+      "breakpoints": true
     }
   ]
 }

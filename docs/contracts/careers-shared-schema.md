@@ -24,6 +24,8 @@ properties use camelCase. All columns are NOT NULL unless marked nullable.
 | `department` | text | Required | Required |
 | `description` | text | Required | Required |
 | `requirements` | text | Required | Required |
+| `responsibilities` | jsonb | Array of strings, default `[]` | Array of strings, default `[]` |
+| `benefits` | jsonb | Array of strings, default `[]` | Array of strings, default `[]` |
 | `employment_type` | text | Required | Required |
 | `location` | text | Required | Required |
 | `deadline` | timestamptz | Required | No column |
@@ -86,3 +88,11 @@ saved choice (or a retryable message), and never accepts a target Applicant id.
 The profile store's `find` includes `jobAlertsOptIn`; ordinary profile saves
 preserve the existing preference. This backend ticket does not add the profile
 toggle UI.
+
+## Responsibilities and Benefits
+
+HRMS [#100](https://github.com/fjdvm/hrms/issues/100) adds optional lists of text
+to both Job Postings and Job Templates. Omit either column to use its empty-array
+default; NULL is not accepted. Existing rows receive empty lists while all
+previous content, status, deadlines and timestamps remain unchanged. Careers
+retains both columns in its schema declaration.
