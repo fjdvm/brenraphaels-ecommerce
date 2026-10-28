@@ -52,32 +52,35 @@ export function JobDetailHeader({ posting, children }: { posting: JobPosting; ch
   );
 }
 
-/** About the role, then What we're looking for (omitted when the Job Posting has no requirements). */
-export function JobDetailBody({ posting, children }: { posting: JobPosting; children?: ReactNode }) {
+/** About the role, then What we're looking for (omitted when the Job Posting has no requirements), with an optional side card. */
+export function JobDetailBody({ posting, aside, children }: { posting: JobPosting; aside?: ReactNode; children?: ReactNode }) {
   const requirements = requirementItems(posting.requirements);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-5 pb-[72px] pt-10 sm:px-10 lg:px-40">
-      <section className="flex flex-col gap-3">
-        <h2 className={sectionHeadingClass}>About the role</h2>
-        <p className="whitespace-pre-line leading-[26px] text-body">{posting.description}</p>
-      </section>
-      {requirements.length > 0 && (
+    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-12 px-5 pb-[72px] pt-10 sm:px-10 lg:flex-row lg:items-start lg:px-40">
+      <div className="flex min-w-0 flex-1 flex-col gap-8">
         <section className="flex flex-col gap-3">
-          <h2 className={sectionHeadingClass}>What we’re looking for</h2>
-          <ul className="flex flex-col gap-3">
-            {requirements.map((item) => (
-              <li key={item} className="flex items-start gap-2.5 leading-[26px] text-ink">
-                <span aria-hidden className="mt-[5px] flex size-4 shrink-0 items-center justify-center rounded-full bg-lavender-soft">
-                  <Check className="size-2.5 text-primary" />
-                </span>
-                {item}
-              </li>
-            ))}
-          </ul>
+          <h2 className={sectionHeadingClass}>About the role</h2>
+          <p className="whitespace-pre-line leading-[26px] text-body">{posting.description}</p>
         </section>
-      )}
-      {children}
+        {requirements.length > 0 && (
+          <section className="flex flex-col gap-3">
+            <h2 className={sectionHeadingClass}>What we’re looking for</h2>
+            <ul className="flex flex-col gap-3">
+              {requirements.map((item) => (
+                <li key={item} className="flex items-start gap-2.5 leading-[26px] text-ink">
+                  <span aria-hidden className="mt-[5px] flex size-4 shrink-0 items-center justify-center rounded-full bg-lavender-soft">
+                    <Check className="size-2.5 text-primary" />
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {children}
+      </div>
+      {aside}
     </div>
   );
 }

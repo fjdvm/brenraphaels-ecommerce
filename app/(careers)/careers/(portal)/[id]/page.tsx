@@ -1,15 +1,27 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { careersSession } from "@/lib/careers/auth";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
+import { createApplicantDocumentStore } from "@/lib/careers/documents";
+import { createApplicantProfileStore } from "@/lib/careers/profile";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { jobPostingIdField } from "@/lib/validators/application";
 import { JobDetailBody, JobDetailHeader } from "@/app/(careers)/careers/_components/job-detail";
+import { ApplyCard, type ApplyAccess } from "@/app/(careers)/careers/_components/apply-card";
 import { CareersDetailSkeleton } from "@/app/(careers)/careers/_components/skeletons";
 
 type JobPostingPageProps = { params: Promise<{ id: string }> };
+
+async function applyAccess(applicant: Awaited<ReturnType<typeof careersSession>>, database: ReturnType<typeof getCareersDatabase>): Promise<ApplyAccess> {
+  if (!applicant) return { kind: "signed-out" };
+  if (!applicant.verified) return { kind: "unverified" };
+  const [profile, documents] = await Promise.all([
+    createApplicantProfileStore(database).find(applicant.userId),
+    createApplicantDocumentStore(database).list(applicant.userId),
+  ]);
+  return profile ? { kind: "ready", email: applicant.email, profile, documents } : { kind: "no-profile" };
+}
 
 async function JobPostingPageContent({ params }: JobPostingPageProps) {
   const id = jobPostingIdField.safeParse((await params).id);
@@ -19,25 +31,16 @@ async function JobPostingPageContent({ params }: JobPostingPageProps) {
     careersSession(),
   ]);
   if (!posting) notFound();
+  const database = getCareersDatabase();
+  const access = await applyAccess(applicant, database);
 
   return (
     <article>
-      <JobDetailHeader posting={posting}>
-        <Link
-          href={applicant ? `/careers/${posting.id}/apply` : "/careers/signin"}
-          className="mt-2 inline-block rounded-full bg-primary px-6 py-3 font-semibold text-on-primary"
-        >
-          Apply
-        </Link>
-      </JobDetailHeader>
-      <JobDetailBody posting={posting}>
-        {posting.requiredDocuments.length > 0 && (
-          <section className="flex flex-col gap-3">
-            <h2 className="text-xl font-semibold text-ink">Required Documents</h2>
-            <ul className="list-disc pl-5 text-body">{posting.requiredDocuments.map((document) => <li key={document}>{document}</li>)}</ul>
-          </section>
-        )}
-      </JobDetailBody>
+      <JobDetailHeader posting={posting} />
+      <JobDetailBody
+        posting={posting}
+        aside={<ApplyCard jobPostingId={posting.id} title={posting.title} requiredDocuments={posting.requiredDocuments} access={access} />}
+      />
     </article>
   );
 }
