@@ -1,7 +1,7 @@
 "use client";
 
 import { Briefcase, Calendar, Check, FileText, Upload, X } from "lucide-react";
-import { useActionState, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useActionState, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
@@ -177,7 +177,31 @@ function SkillTags({ skills, setSkills, error }: { skills: string[]; setSkills: 
 }
 
 function Documents({ profileSaved, documents }: { profileSaved: boolean; documents: Document[] }) {
-  const [state, action, pending] = useActionState(submitApplicantDocument, {});
+  const [message, setMessage] = useState<string>();
+  const [pending, setPending] = useState(false);
+
+  /** Server steps and the direct PUT to file-storage; only a confirmed Document is claimed as uploaded. */
+  async function upload(file: File) {
+    if (file.size === 0) return setMessage("Choose a file to upload.");
+    setPending(true);
+    setMessage(undefined);
+    try {
+      const form = new FormData();
+      form.set("document", file);
+      setMessage((await submitApplicantDocument({}, form)).message);
+    } catch {
+      setMessage("We couldn't upload that Document. Try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function drop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file && profileSaved && !pending) void upload(file);
+  }
+
   return (
     <section className={cn(cardClass, "gap-4")}>
       <h2 className={cardTitleClass}>Documents<RequiredMark /></h2>
@@ -196,8 +220,10 @@ function Documents({ profileSaved, documents }: { profileSaved: boolean; documen
           ))}
         </ul>
       ) : null}
-      <form action={action} noValidate>
+      <form noValidate onSubmit={(event) => event.preventDefault()}>
         <label
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={drop}
           className={cn(
             "flex items-center gap-4 rounded-[3px] border border-dashed border-primary bg-lavender-soft p-6 focus-within:ring-2 focus-within:ring-ring",
             profileSaved && !pending ? "cursor-pointer" : "cursor-not-allowed opacity-60",
@@ -221,12 +247,16 @@ function Documents({ profileSaved, documents }: { profileSaved: boolean; documen
             type="file"
             accept=".pdf,.doc,.docx,image/jpeg,image/png"
             disabled={!profileSaved || pending}
-            onChange={(event) => event.currentTarget.form?.requestSubmit()}
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = "";
+              if (file) void upload(file);
+            }}
             className="sr-only"
           />
         </label>
       </form>
-      {state.message ? <p className="text-sm tracking-[0.35px] text-body" role="status">{state.message}</p> : null}
+      {message ? <p className="text-sm tracking-[0.35px] text-body" role="status">{message}</p> : null}
     </section>
   );
 }
