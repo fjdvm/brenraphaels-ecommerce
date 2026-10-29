@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { ApplicationHeader } from "../app/(careers)/careers/_components/application-header";
+import { ApplicationOffer } from "../app/(careers)/careers/_components/application-offer";
 import { ApplicationStepper } from "../app/(careers)/careers/_components/application-stepper";
 import { ApplicationStageDetails } from "../app/(careers)/careers/_components/application-stage-details";
 import { ApplicationSubmission } from "../app/(careers)/careers/_components/application-submission";
@@ -70,5 +71,18 @@ describe("Interview stage", () => {
     const markup = renderToStaticMarkup(<ApplicationSubmission appliedAt={new Date("2026-10-18T00:00:00Z")} documents={[]} profile={{ summary: null, skills: "", location: null }} />);
     expect(markup).toContain("Submitted 18 Oct 2026");
     for (const hidden of ["Documents", "About you", "Skills", "Location"]) expect(markup).not.toContain(hidden);
+  });
+});
+
+describe("Offer stage", () => {
+  test("shows the offer status from existing data and no actions", () => {
+    const markup = renderToStaticMarkup(<ApplicationOffer status="Offer" updatedAt={new Date("2026-10-29T00:00:00Z")} jobTitle="Production Assistant" />);
+    for (const text of ["love to have you on the team", "Production Assistant", "Offer", "29 Oct 2026"]) expect(markup).toContain(text);
+    for (const hidden of ["Accept", "Decline", "<button", "Monthly pay", "Start date", "Messages"]) expect(markup).not.toContain(hidden);
+  });
+
+  test("copes with a missing Job Posting", () => {
+    const markup = renderToStaticMarkup(<ApplicationOffer status="Offer" updatedAt={new Date("2026-10-29T00:00:00Z")} jobTitle={null} />);
+    expect(markup).toContain("Your offer is on its way.");
   });
 });

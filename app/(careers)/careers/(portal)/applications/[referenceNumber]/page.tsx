@@ -5,6 +5,7 @@ import { createApplicationStore } from "@/lib/careers/applications";
 import { requireApplicant } from "@/lib/careers/current-applicant";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { ApplicationHeader, applicationDate } from "@/app/(careers)/careers/_components/application-header";
+import { ApplicationOffer } from "@/app/(careers)/careers/_components/application-offer";
 import { ApplicationStageDetails } from "@/app/(careers)/careers/_components/application-stage-details";
 import { ApplicationSubmission } from "@/app/(careers)/careers/_components/application-submission";
 import { ApplicationStepper } from "@/app/(careers)/careers/_components/application-stepper";
@@ -26,7 +27,10 @@ async function ApplicationPageContent({ params }: ApplicationPageProps) {
       <ApplicationHeader application={application} />
       <ApplicationStepper status={application.status} appliedOn={applicationDate.format(application.appliedAt)} />
       {application.status === "Interview" ? <ApplicationStageDetails status={application.status} updatedAt={submission.updatedAt} /> : null}
-      {application.status === "Interview" ? <ApplicationSubmission appliedAt={application.appliedAt} documents={submission.documents} profile={submission.profile} /> : null}
+      {application.status === "Offer" ? <ApplicationOffer status={application.status} updatedAt={submission.updatedAt} jobTitle={application.title} /> : null}
+      {application.status === "Interview" || application.status === "Offer" ? (
+        <ApplicationSubmission appliedAt={application.appliedAt} documents={submission.documents} profile={submission.profile} />
+      ) : null}
     </section>
   );
 }
