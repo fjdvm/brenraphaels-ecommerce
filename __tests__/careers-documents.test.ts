@@ -53,6 +53,7 @@ test.each([
   [{ ...pdf, size: 10 * 1024 * 1024 + 1 }, "10 MB"],
   [{ ...pdf, name: "../resume.pdf" }, "Use letters"],
   [{ ...pdf, name: "a\u0000.pdf" }, "invisible"],
+  [{ ...pdf, contentType: "application/p\u200bdf" }, "invisible"],
 ])("refuses invalid metadata before creating a File", async (input, message) => {
   expect(await prepareApplicantDocumentUpload(input)).toEqual({ message: expect.stringContaining(message) });
   expect(files.files.size).toBe(0);

@@ -17,7 +17,7 @@ export const documentUploadSchema = z.object({
   }),
   contentType: textField("File type", {
     min: 1, max: 100, pattern: /^(application\/(pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document)|image\/(jpeg|png))$/,
-    patternMessage: "Upload a PDF, Word document, or image (JPEG or PNG).",
+    patternMessage: "Upload a PDF, Word document, or image (JPEG or PNG).", rejectInvisible: true,
   }),
   size: z.number().int().positive("Choose a file to upload.").max(10 * 1024 * 1024, "Documents must be 10 MB or smaller."),
 }).refine((file) => extensions[file.contentType]?.includes(file.name.split(".").at(-1)?.toLowerCase() ?? ""), {
