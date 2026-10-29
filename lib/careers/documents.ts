@@ -1,13 +1,53 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import { cleanFileName, cleanText } from "../validators/sanitize";
+import { documentUploadSchema } from "../validators/document";
+import type { DocumentFiles } from "./document-files";
 import { applicantDocuments } from "./schema";
 
-const acceptedTypes = new Set(["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "image/jpeg", "image/png"]);
-const acceptedExtension = /\.(pdf|docx?|jpe?g|png)$/i;
-const maximumNameLength = 200;
-const maximumBytes = 10 * 1024 * 1024;
-export type ApplicantDocumentStore = { save(document: { applicantId: string; name: string; contentType: string; size: number; pathname: string }): Promise<void>; list(applicantId: string): Promise<Array<{ id: number; name: string; contentType: string; size: number }>> };
-export function createApplicantDocumentStore<TQueryResult extends PgQueryResultHKT, TSchema extends Record<string, unknown>>(db: PgDatabase<TQueryResult, TSchema>): ApplicantDocumentStore { return { async save(document) { await db.insert(applicantDocuments).values({ applicantId: document.applicantId, name: document.name, contentType: document.contentType, size: document.size, blobPathname: document.pathname }).onConflictDoNothing(); }, async list(applicantId) { return db.select({ id: applicantDocuments.id, name: applicantDocuments.name, contentType: applicantDocuments.contentType, size: applicantDocuments.size }).from(applicantDocuments).where(eq(applicantDocuments.applicantId, applicantId)).orderBy(asc(applicantDocuments.id)); } }; }
-export function validateApplicantDocument(file: File) { if (!acceptedTypes.has(file.type)) throw new Error("Upload a PDF, Word document, or image (JPEG or PNG)."); if (!acceptedExtension.test(cleanText(file.name))) throw new Error("Upload a file ending in .pdf, .doc, .docx, .jpg, .jpeg or .png."); if (cleanText(file.name).length > maximumNameLength) throw new Error(`File names must be ${maximumNameLength} characters or fewer.`); if (file.size === 0) throw new Error("Choose a file to upload."); if (file.size > maximumBytes) throw new Error("Documents must be 10 MB or smaller."); }
-export async function uploadApplicantDocument(file: File, dependencies: { applicantId: string; store: ApplicantDocumentStore; put(pathname: string, body: File, options: { access: "private"; addRandomSuffix: true }): Promise<{ pathname: string }> }) { validateApplicantDocument(file); const name = cleanText(file.name); const safeName = cleanFileName(name); const blob = await dependencies.put(`applicants/${dependencies.applicantId}/${safeName}`, file, { access: "private", addRandomSuffix: true }); await dependencies.store.save({ applicantId: dependencies.applicantId, name, contentType: file.type, size: file.size, pathname: blob.pathname }); }
+type DocumentMetadata = { name: string; contentType: string; size: number };
+export type ApplicantDocumentStore = {
+  pending(document: DocumentMetadata & { applicantId: string; fileId: string }): Promise<number>;
+  find(id: number, applicantId: string): Promise<{ fileId: string | null; confirmedAt: Date | null } | undefined>;
+  markUsable(id: number, applicantId: string): Promise<void>;
+  list(applicantId: string): Promise<Array<DocumentMetadata & { id: number }>>;
+};
+export function createApplicantDocumentStore<TQueryResult extends PgQueryResultHKT, TSchema extends Record<string, unknown>>(db: PgDatabase<TQueryResult, TSchema>): ApplicantDocumentStore {
+  return {
+    async pending(document) {
+      const [saved] = await db.insert(applicantDocuments).values(document).returning({ id: applicantDocuments.id });
+      return saved.id;
+    },
+    async find(id, applicantId) {
+      const [document] = await db.select({ fileId: applicantDocuments.fileId, confirmedAt: applicantDocuments.confirmedAt }).from(applicantDocuments)
+        .where(and(eq(applicantDocuments.id, id), eq(applicantDocuments.applicantId, applicantId)));
+      return document;
+    },
+    async markUsable(id, applicantId) {
+      await db.update(applicantDocuments).set({ confirmedAt: new Date() })
+        .where(and(eq(applicantDocuments.id, id), eq(applicantDocuments.applicantId, applicantId)));
+    },
+    async list(applicantId) {
+      return db.select({ id: applicantDocuments.id, name: applicantDocuments.name, contentType: applicantDocuments.contentType, size: applicantDocuments.size })
+        .from(applicantDocuments).where(and(eq(applicantDocuments.applicantId, applicantId), isNotNull(applicantDocuments.fileId), isNotNull(applicantDocuments.confirmedAt)))
+        .orderBy(asc(applicantDocuments.id));
+    },
+  };
+}
+
+type Dependencies = { applicantId: string; store: ApplicantDocumentStore; files: DocumentFiles };
+export async function prepareApplicantDocument(input: unknown, { applicantId, store, files }: Dependencies) {
+  const parsed = documentUploadSchema.safeParse(input);
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  const pending = await files.prepare(parsed.data);
+  const documentId = await store.pending({ ...parsed.data, applicantId, fileId: pending.fileId });
+  return { documentId, uploadUrl: pending.uploadUrl };
+}
+export async function confirmApplicantDocument(id: unknown, { applicantId, store, files }: Dependencies) {
+  if (typeof id !== "number" || !Number.isSafeInteger(id) || id <= 0) throw new Error("Choose a valid Document.");
+  const document = await store.find(id, applicantId);
+  if (!document?.fileId) throw new Error("Document not found.");
+  if (document.confirmedAt) return;
+  await files.confirm(document.fileId);
+  await files.link(document.fileId, id);
+  await store.markUsable(id, applicantId);
+}

@@ -33,7 +33,7 @@ export const applicantWorkHistory = pgTable("applicant_work_history", {
 export const applicantDocuments = pgTable("applicant_documents", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   applicantId: text("applicant_id").notNull().references(() => applicantProfiles.applicantId, { onDelete: "cascade" }),
-  name: text("name").notNull(), contentType: text("content_type").notNull(), size: integer("size").notNull(), blobPathname: text("blob_pathname").notNull().unique(), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  name: text("name").notNull(), contentType: text("content_type").notNull(), size: integer("size").notNull(), fileId: text("file_id").unique(), confirmedAt: timestamp("confirmed_at", { withTimezone: true }), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 /** Job Postings authored directly by HRMS in the shared database. */

@@ -50,6 +50,13 @@
       "when": 1793193683901,
       "tag": "0006_job_responsibilities_benefits",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793296259933,
+      "tag": "0007_massive_exiles",
+      "breakpoints": true
     }
   ]
 }

@@ -1,12 +1,12 @@
 "use server";
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { careersSession } from "@/lib/careers/auth";
 import { createApplicationStore, syncApplicationProfileSnapshots } from "@/lib/careers/applications";
 import { getCareersDatabase } from "@/lib/careers/db";
-import { createApplicantDocumentStore, uploadApplicantDocument } from "@/lib/careers/documents";
+import { createApplicantDocumentStore, prepareApplicantDocument, confirmApplicantDocument } from "@/lib/careers/documents";
+import { gatewayDocumentFiles } from "@/lib/careers/document-files";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { createApplicantProfileStore, saveApplicantProfile } from "@/lib/careers/profile";
 function entries(formData: FormData, key: string) { return formData.getAll(key).map((value) => String(value)); }
@@ -91,7 +91,46 @@ export async function submitApplicantProfile(_previous: ApplicantProfileActionSt
   }
   redirect("/careers/profile");
 }
-export async function submitApplicantDocument(_previous: ApplicantProfileActionState, formData: FormData): Promise<ApplicantProfileActionState> { const identity = await careersSession(); const file = formData.get("document"); if (!identity || !(file instanceof File)) return { message: "Choose a Document to upload." }; const token = process.env.CAREERS_BLOB_READ_WRITE_TOKEN; if (!token) return { message: "Document uploads are not configured yet." }; try { await uploadApplicantDocument(file, { applicantId: identity.userId, store: createApplicantDocumentStore(getCareersDatabase()), put: (pathname, body, options) => put(pathname, body, { ...options, token }) }); revalidatePath("/careers/profile"); return { message: "Document uploaded." }; } catch (error) { return { message: error instanceof Error ? error.message : "We couldn't upload that Document." }; } }
+/** Validates metadata and returns a signed address for a pending Document. */
+export async function prepareApplicantDocumentUpload(input: unknown): Promise<{ documentId: number; uploadUrl: string } | { message: string }> {
+  const identity = await careersSession();
+  if (!identity) return { message: "Please sign in to upload a Document." };
+  if (!process.env.API_GATEWAY_URL || !process.env.API_GATEWAY_CALLER_KEY) return { message: "Document uploads are not configured yet." };
+  try {
+    return await prepareApplicantDocument(input, { applicantId: identity.userId, store: createApplicantDocumentStore(getCareersDatabase()), files: gatewayDocumentFiles() });
+  } catch (error) {
+    return { message: error instanceof Error ? error.message : "We couldn't upload that Document." };
+  }
+}
+
+/** Ownership comes from the session; usability follows confirmation and linking. */
+export async function confirmApplicantDocumentUpload(documentId: unknown): Promise<ApplicantProfileActionState> {
+  const identity = await careersSession();
+  if (!identity) return { message: "Please sign in to upload a Document." };
+  if (!process.env.API_GATEWAY_URL || !process.env.API_GATEWAY_CALLER_KEY) return { message: "Document uploads are not configured yet." };
+  try {
+    await confirmApplicantDocument(documentId, { applicantId: identity.userId, store: createApplicantDocumentStore(getCareersDatabase()), files: gatewayDocumentFiles() });
+    revalidatePath("/careers", "layout");
+    return { message: "Document uploaded." };
+  } catch (error) {
+    return { message: error instanceof Error ? error.message : "We couldn't upload that Document." };
+  }
+}
+
+/** The existing form delegates to the two-step server path. */
+export async function submitApplicantDocument(_previous: ApplicantProfileActionState, formData: FormData): Promise<ApplicantProfileActionState> {
+  const file = formData.get("document");
+  if (!(file instanceof File)) return { message: "Choose a Document to upload." };
+  const pending = await prepareApplicantDocumentUpload({ name: file.name, contentType: file.type, size: file.size });
+  if ("message" in pending) return pending;
+  try {
+    const response = await fetch(pending.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+    if (!response.ok) return { message: "We couldn't upload that Document. Try again." };
+    return await confirmApplicantDocumentUpload(pending.documentId);
+  } catch {
+    return { message: "We couldn't upload that Document. Try again." };
+  }
+}
 
 /** Save immediately; ownership always comes from the authenticated session. */
 export async function setApplicantJobAlerts(input: unknown): Promise<{ jobAlertsOptIn: boolean } | { message: string }> {
