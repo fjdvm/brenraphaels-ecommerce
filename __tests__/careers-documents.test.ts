@@ -10,7 +10,9 @@ vi.mock("@/lib/careers/db", () => ({ getCareersDatabase: mocks.database }));
 vi.mock("@/lib/careers/document-files", () => ({ gatewayDocumentFiles: mocks.files }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
-import { prepareApplicantDocumentUpload, confirmApplicantDocumentUpload, submitApplicantDocument } from "@/app/(careers)/careers/(portal)/profile/actions";
+import { prepareApplicantDocumentUpload, confirmApplicantDocumentUpload } from "@/app/(careers)/careers/(portal)/profile/actions";
+
+import { submitApplicantDocument } from "@/app/(careers)/careers/(portal)/profile/document-upload";
 
 let client: PGlite;
 let files: FakeDocumentFiles;
@@ -91,11 +93,11 @@ test("both steps require a signed-in Applicant", async () => {
   expect(files.files.size).toBe(0);
 });
 
-test("the existing upload form sends bytes only to the signed address then confirms", async () => {
+test("the browser uploads exactly 5 MB only to the signed address then confirms", async () => {
   const send = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
   vi.stubGlobal("fetch", send);
   const form = new FormData();
-  form.set("document", new File(["resume"], "resume.pdf", { type: "application/pdf" }));
+  form.set("document", new File([new Uint8Array(5 * 1024 * 1024)], "resume.pdf", { type: "application/pdf" }));
   expect(await submitApplicantDocument({}, form)).toEqual({ message: "Document uploaded." });
   expect(send).toHaveBeenCalledWith("https://files.test/file-1/upload?signed", { method: "PUT", headers: { "Content-Type": "application/pdf" }, body: expect.any(File) });
   expect(await store.list("a-1")).toHaveLength(1);

@@ -12,7 +12,8 @@ import { cn } from "@/lib/utils";
 import { DOCUMENT_MAX_SIZE_MB } from "@/lib/validators/document";
 
 import { Field, RequiredMark, fieldProps } from "@/app/(careers)/careers/_components/field";
-import { submitApplicantDocument, submitApplicantProfile } from "./actions";
+import { submitApplicantProfile } from "./actions";
+import { submitApplicantDocument } from "./document-upload";
 import { JobAlertsToggle } from "./job-alerts-toggle";
 import { profileStrength } from "./profile-strength";
 

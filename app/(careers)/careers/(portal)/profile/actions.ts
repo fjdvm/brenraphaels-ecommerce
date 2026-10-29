@@ -117,21 +117,6 @@ export async function confirmApplicantDocumentUpload(documentId: unknown): Promi
   }
 }
 
-/** The existing form delegates to the two-step server path. */
-export async function submitApplicantDocument(_previous: ApplicantProfileActionState, formData: FormData): Promise<ApplicantProfileActionState> {
-  const file = formData.get("document");
-  if (!(file instanceof File)) return { message: "Choose a Document to upload." };
-  const pending = await prepareApplicantDocumentUpload({ name: file.name, contentType: file.type, size: file.size });
-  if ("message" in pending) return pending;
-  try {
-    const response = await fetch(pending.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-    if (!response.ok) return { message: "We couldn't upload that Document. Try again." };
-    return await confirmApplicantDocumentUpload(pending.documentId);
-  } catch {
-    return { message: "We couldn't upload that Document. Try again." };
-  }
-}
-
 /** Save immediately; ownership always comes from the authenticated session. */
 export async function setApplicantJobAlerts(input: unknown): Promise<{ jobAlertsOptIn: boolean } | { message: string }> {
   const identity = await careersSession();
