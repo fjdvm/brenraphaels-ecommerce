@@ -32,6 +32,13 @@ export type ApplicationSummary = {
   employmentType: string | null;
 };
 
+/** What the Application page needs beyond the summary: when the status last changed and what was submitted. */
+export type ApplicationSubmissionDetail = {
+  updatedAt: Date;
+  documents: ApplicationDocument[];
+  profile: Pick<ApplicantProfile, "summary" | "skills" | "location">;
+};
+
 export type ApplicationStore = {
   findForApplicantAndPosting(applicantId: string, jobPostingId: string): Promise<Application | undefined>;
   insert(application: Omit<Application, "createdAt" | "updatedAt">): Promise<void>;
@@ -39,6 +46,8 @@ export type ApplicationStore = {
   listSummariesForApplicant(applicantId: string): Promise<ApplicationSummary[]>;
   /** One of the Applicant's own Applications by Reference number; undefined if it doesn't exist or belongs to someone else. */
   findSummaryForApplicant(applicantId: string, referenceNumber: string): Promise<ApplicationSummary | undefined>;
+  /** The submitted snapshot of one of the Applicant's own Applications; undefined if it doesn't exist or belongs to someone else. */
+  findSubmissionForApplicant(applicantId: string, referenceNumber: string): Promise<ApplicationSubmissionDetail | undefined>;
   /** Application status keyed by Job Posting id, for marking roles already applied to. */
   statusesByPostingForApplicant(applicantId: string): Promise<Record<string, ApplicationStatus>>;
   withdraw(referenceNumber: string, applicantId: string): Promise<ApplicationStatus | undefined>;
@@ -115,6 +124,16 @@ export function createApplicationStore<TQueryResult extends PgQueryResultHKT, TS
         .where(and(eq(applications.applicantId, applicantId), eq(applications.referenceNumber, referenceNumber)))
         .limit(1);
       return summary;
+    },
+    async findSubmissionForApplicant(applicantId, referenceNumber) {
+      const [row] = await db
+        .select()
+        .from(applications)
+        .where(and(eq(applications.applicantId, applicantId), eq(applications.referenceNumber, referenceNumber)))
+        .limit(1);
+      if (!row) return undefined;
+      const { summary, skills, location } = asApplication(row).profileSnapshot;
+      return { updatedAt: row.updatedAt, documents: asApplication(row).documentsSnapshot, profile: { summary, skills, location } };
     },
     async statusesByPostingForApplicant(applicantId) {
       const rows = await db

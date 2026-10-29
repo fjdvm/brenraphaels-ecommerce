@@ -3,6 +3,8 @@ import { describe, expect, test } from "vitest";
 
 import { ApplicationHeader } from "../app/(careers)/careers/_components/application-header";
 import { ApplicationStepper } from "../app/(careers)/careers/_components/application-stepper";
+import { ApplicationStageDetails } from "../app/(careers)/careers/_components/application-stage-details";
+import { ApplicationSubmission } from "../app/(careers)/careers/_components/application-submission";
 import type { ApplicationSummary } from "../lib/careers/applications";
 
 const application = (overrides: Partial<ApplicationSummary> = {}): ApplicationSummary => ({
@@ -42,5 +44,31 @@ describe("Application stepper", () => {
 
   test("has no current step once the Application is closed", () => {
     expect(renderToStaticMarkup(<ApplicationStepper status="Rejected" appliedOn="18 Oct 2026" />)).not.toContain("aria-current");
+  });
+});
+
+describe("Interview stage", () => {
+  test("shows stage details from the status and no actions or Messages", () => {
+    const markup = renderToStaticMarkup(<ApplicationStageDetails status="Interview" updatedAt={new Date("2026-10-21T00:00:00Z")} />);
+    expect(markup).toContain("Interview stage");
+    expect(markup).toContain("21 Oct 2026");
+    for (const hidden of ["Join", "Reschedule", "Messages", "<button"]) expect(markup).not.toContain(hidden);
+  });
+
+  test("What you sent shows documents, applied date and the Applicant's answers", () => {
+    const markup = renderToStaticMarkup(
+      <ApplicationSubmission
+        appliedAt={new Date("2026-10-18T00:00:00Z")}
+        documents={[{ id: 1, name: "Resume.pdf", contentType: "application/pdf", size: 254000, requiredFor: "Resume" }]}
+        profile={{ summary: "I love working in a kitchen.", skills: "Baking", location: "Quezon City" }}
+      />,
+    );
+    for (const text of ["What you sent", "Submitted 18 Oct 2026", "Resume.pdf", "248 KB", "I love working in a kitchen.", "Baking"]) expect(markup).toContain(text);
+  });
+
+  test("hides sections with no data", () => {
+    const markup = renderToStaticMarkup(<ApplicationSubmission appliedAt={new Date("2026-10-18T00:00:00Z")} documents={[]} profile={{ summary: null, skills: "", location: null }} />);
+    expect(markup).toContain("Submitted 18 Oct 2026");
+    for (const hidden of ["Documents", "About you", "Skills", "Location"]) expect(markup).not.toContain(hidden);
   });
 });
