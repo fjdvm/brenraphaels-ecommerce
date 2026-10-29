@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
+import { ApplicationDocuments } from "../app/(careers)/careers/_components/application-documents";
 import { ApplicationHeader } from "../app/(careers)/careers/_components/application-header";
 import { ApplicationOffer } from "../app/(careers)/careers/_components/application-offer";
 import { ApplicationStepper } from "../app/(careers)/careers/_components/application-stepper";
@@ -84,5 +85,24 @@ describe("Offer stage", () => {
   test("copes with a missing Job Posting", () => {
     const markup = renderToStaticMarkup(<ApplicationOffer status="Offer" updatedAt={new Date("2026-10-29T00:00:00Z")} jobTitle={null} />);
     expect(markup).toContain("Your offer is on its way.");
+  });
+});
+
+describe("Offer stage documents", () => {
+  test("lists the submitted documents by name, read-only", () => {
+    const markup = renderToStaticMarkup(
+      <ApplicationDocuments
+        documents={[
+          { id: 1, name: "Resume.pdf", contentType: "application/pdf", size: 254000, requiredFor: "Resume" },
+          { id: 2, name: "Valid_ID.png", contentType: "image/png", size: 90000, requiredFor: "Valid government ID" },
+        ]}
+      />,
+    );
+    for (const text of ["Resume.pdf", "Valid_ID.png", "Sent with your application", "Submitted"]) expect(markup).toContain(text);
+    for (const hidden of ["<button", "<input", "Upload"]) expect(markup).not.toContain(hidden);
+  });
+
+  test("is hidden when there are no documents", () => {
+    expect(renderToStaticMarkup(<ApplicationDocuments documents={[]} />)).toBe("");
   });
 });
