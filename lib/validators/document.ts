@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { textField } from "./fields";
 
+export const DOCUMENT_MAX_SIZE_MB = 5;
+const documentMaxSizeBytes = DOCUMENT_MAX_SIZE_MB * 1024 * 1024;
+
 const extensions: Record<string, string[]> = {
   "application/pdf": ["pdf"],
   "application/msword": ["doc"],
@@ -19,7 +22,7 @@ export const documentUploadSchema = z.object({
     min: 1, max: 100, pattern: /^(application\/(pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document)|image\/(jpeg|png))$/,
     patternMessage: "Upload a PDF, Word document, or image (JPEG or PNG).", rejectInvisible: true,
   }),
-  size: z.number().int().positive("Choose a file to upload.").max(10 * 1024 * 1024, "Documents must be 10 MB or smaller."),
+  size: z.number().int().positive("Choose a file to upload.").max(documentMaxSizeBytes, `Documents must be ${DOCUMENT_MAX_SIZE_MB} MB or smaller.`),
 }).refine((file) => extensions[file.contentType]?.includes(file.name.split(".").at(-1)?.toLowerCase() ?? ""), {
   message: "The file extension must match its type (.pdf, .doc, .docx, .jpg, .jpeg or .png).", path: ["name"],
 });

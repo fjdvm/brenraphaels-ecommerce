@@ -50,7 +50,7 @@ test.each([
   [{ ...pdf, name: "virus.exe" }, "extension must match"],
   [{ ...pdf, name: "image.png" }, "extension must match"],
   [{ ...pdf, size: 0 }, "Choose a file"],
-  [{ ...pdf, size: 10 * 1024 * 1024 + 1 }, "10 MB"],
+  [{ ...pdf, size: 5 * 1024 * 1024 + 1 }, "Documents must be 5 MB or smaller."],
   [{ ...pdf, name: "../resume.pdf" }, "Use letters"],
   [{ ...pdf, name: "a\u0000.pdf" }, "invisible"],
   [{ ...pdf, contentType: "application/p\u200bdf" }, "invisible"],
@@ -99,4 +99,11 @@ test("the existing upload form sends bytes only to the signed address then confi
   expect(await submitApplicantDocument({}, form)).toEqual({ message: "Document uploaded." });
   expect(send).toHaveBeenCalledWith("https://files.test/file-1/upload?signed", { method: "PUT", headers: { "Content-Type": "application/pdf" }, body: expect.any(File) });
   expect(await store.list("a-1")).toHaveLength(1);
+});
+
+test("accepts exactly 5 MB through preparation and confirmation", async () => {
+  const pending = await prepareApplicantDocumentUpload({ ...pdf, size: 5 * 1024 * 1024 });
+  expect(pending).toEqual({ documentId: 1, uploadUrl: "https://files.test/file-1/upload?signed" });
+  expect(await confirmApplicantDocumentUpload(1)).toEqual({ message: "Document uploaded." });
+  expect(await store.list("a-1")).toEqual([{ ...pdf, id: 1, size: 5 * 1024 * 1024 }]);
 });

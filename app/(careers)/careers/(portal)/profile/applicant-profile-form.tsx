@@ -9,6 +9,7 @@ import { fieldClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
 import type { ApplicantProfile } from "@/lib/careers/profile";
 import { cn } from "@/lib/utils";
+import { DOCUMENT_MAX_SIZE_MB } from "@/lib/validators/document";
 
 import { Field, RequiredMark, fieldProps } from "@/app/(careers)/careers/_components/field";
 import { submitApplicantDocument, submitApplicantProfile } from "./actions";
@@ -209,7 +210,7 @@ function Documents({ profileSaved, documents }: { profileSaved: boolean; documen
               {pending ? "Uploading…" : "Drop a file or browse"}
             </span>
             <span className="block text-xs tracking-[0.35px] text-muted">
-              {profileSaved ? "PDF, Word, JPEG or PNG · up to 10 MB" : "Save your profile first, then upload your documents."}
+              {profileSaved ? `PDF, Word, JPEG or PNG · up to ${DOCUMENT_MAX_SIZE_MB} MB` : "Save your profile first, then upload your documents."}
             </span>
           </span>
           <input
