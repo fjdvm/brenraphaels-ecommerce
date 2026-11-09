@@ -1,5 +1,7 @@
 @AGENTS.md
 
+Follow the Git workflow and Checks and PR completion rules in AGENTS.md for every ticket, including instruction-file changes.
+
 ## Agent skills
 
 ### Issue tracker
