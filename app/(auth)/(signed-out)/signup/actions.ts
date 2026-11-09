@@ -1,5 +1,7 @@
 "use server";
 
+import { allowAuthAttempt, authRateLimitMessage } from "@/lib/customer/auth-rate-limit";
+
 import { z } from "zod";
 import { redirect } from "next/navigation";
 
@@ -22,6 +24,10 @@ export type SignUpResult = {
 };
 
 export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
+  if (!(await allowAuthAttempt("sign-up"))) {
+    return { formError: authRateLimitMessage };
+  }
+
   const parsed = customerSignUpSchema.safeParse(signUpFormValues(formData));
 
   if (!parsed.success) {

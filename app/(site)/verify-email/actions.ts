@@ -1,5 +1,7 @@
 "use server";
 
+import { allowAuthAttempt, authRateLimitMessage } from "@/lib/customer/auth-rate-limit";
+
 import { scheduleStaffSignal } from "@/lib/notifications/staff-signal";
 
 import {
@@ -30,6 +32,10 @@ export async function resendVerificationEmail(
   _previousState: ResendVerificationState,
   formData: FormData,
 ): Promise<ResendVerificationState> {
+  if (!(await allowAuthAttempt("resend-verification"))) {
+    return { message: authRateLimitMessage };
+  }
+
   const email = emailField.safeParse(formData.get("email"));
   if (!email.success) {
     return { message: "Enter a valid email address." };
