@@ -39,7 +39,7 @@ docker run -d --name "$app" --network "$network" -p 127.0.0.1::3000 \
   -e API_GATEWAY_CALLER_KEY=smoke-gateway-key \
   -e CRON_SECRET=smoke-cron-secret "$image" >/dev/null
 app_port=$(docker port "$app" 3000/tcp | cut -d: -f2)
-curl --fail --silent --show-error --retry 20 --retry-connrefused --retry-delay 1 "http://127.0.0.1:$app_port/api/health"
+curl --fail --silent --show-error --retry 20 --retry-all-errors --retry-delay 1 "http://127.0.0.1:$app_port/api/health"
 docker rm -f "$app" >/dev/null
 docker run -d --name "$app" --network "$network" -p 127.0.0.1::3000 \
   -e DATABASE_URL="postgresql://smoke:smoke@$database:5432/storefront" \
@@ -50,5 +50,5 @@ docker run -d --name "$app" --network "$network" -p 127.0.0.1::3000 \
   -e API_GATEWAY_CALLER_KEY=smoke-gateway-key \
   -e CRON_SECRET=smoke-cron-secret "$image" >/dev/null
 app_port=$(docker port "$app" 3000/tcp | cut -d: -f2)
-curl --fail --silent --show-error --retry 20 --retry-connrefused --retry-delay 1 "http://127.0.0.1:$app_port/api/health"
+curl --fail --silent --show-error --retry 20 --retry-all-errors --retry-delay 1 "http://127.0.0.1:$app_port/api/health"
 SMOKE_BASE_URL="http://127.0.0.1:$app_port" CRON_SECRET=smoke-cron-secret node scripts/container/smoke.mjs

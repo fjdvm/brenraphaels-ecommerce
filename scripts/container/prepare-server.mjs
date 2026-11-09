@@ -12,7 +12,7 @@ if (process.env.PRODUCT_IMAGE_ORIGIN) {
   if (origin.protocol !== 'https:' || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) {
     throw new Error('PRODUCT_IMAGE_ORIGIN must be an HTTPS origin without a path, credentials, query or fragment.');
   }
-  nextConfig.images.remotePatterns = [{ protocol: 'https', hostname: origin.hostname, port: origin.port, pathname: '/**' }];
+  nextConfig.images.remotePatterns = [{ protocol: 'https', hostname: origin.hostname, port: origin.port, pathname: '/**', search: '' }];
 }
 `;
 writeFileSync(path, source.replace(marker, runtimeImages + marker));
