@@ -6,6 +6,7 @@ import { productImageOrigin } from "./lib/catalog/product-image-host";
 const imageOrigin = productImageOrigin();
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   // Support attachments and payment screenshots still use Server Actions.
   // Careers Documents upload bytes directly from the browser to file-storage.
   experimental: {
