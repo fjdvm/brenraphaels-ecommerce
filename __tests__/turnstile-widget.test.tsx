@@ -9,13 +9,13 @@ import { TurnstileWidget } from "@/components/features/auth/turnstile-widget";
 
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-test("publishes a token and clears expired, failed, and consumed challenges", () => {
-  vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "1x00000000000000000000AA");
+test("publishes a token and clears expired, failed, and consumed challenges", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ turnstileSiteKey: "1x00000000000000000000AA" })));
   const renderWidget = vi.fn().mockReturnValue("widget-id");
   const remove = vi.fn();
   vi.stubGlobal("turnstile", { render: renderWidget, remove });
   const { container, rerender, unmount } = render(<form><TurnstileWidget resetKey={0} /></form>);
-  act(() => screen.getByText("Load security check").click());
+  await act(async () => screen.getByText("Load security check").click());
   const options = renderWidget.mock.calls[0][1];
   expect(options.sitekey).toBe("1x00000000000000000000AA");
   const form = container.querySelector("form")!;

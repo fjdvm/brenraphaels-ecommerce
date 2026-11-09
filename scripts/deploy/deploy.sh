@@ -29,12 +29,12 @@ python3 scripts/deploy/render-container-app.py "$manifest"
 az containerapp create -g "$RESOURCE_GROUP" -n "$CONTAINER_APP" --yaml "$manifest" --output none
 revision="$CONTAINER_APP--$REVISION_SUFFIX"
 ready=false
-for attempt in $(seq 1 60); do
+for attempt in $(seq 1 120); do
   state=$(az containerapp revision show -g "$RESOURCE_GROUP" -n "$CONTAINER_APP" --revision "$revision" --query properties.healthState -o tsv)
   latest=$(az containerapp show -g "$RESOURCE_GROUP" -n "$CONTAINER_APP" --query properties.latestReadyRevisionName -o tsv)
   # Revision health and the app's ready-revision pointer propagate separately.
   if [ "$state" = Healthy ] && [ "$latest" = "$revision" ]; then ready=true; break; fi
-  sleep 10
+  sleep 5
 done
 if [ "$ready" != true ]; then
   echo "::error::Timed out waiting for $revision: health=$state, latest ready revision=$latest"

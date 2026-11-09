@@ -7,6 +7,9 @@ async function response(path, options) {
 const health = await response('/api/health');
 assert.equal(health.status, 200);
 assert.deepEqual(await health.json(), { status: 'ok' });
+const config = await response('/api/public-config');
+assert.equal(config.status, 200);
+assert.deepEqual(await config.json(), { turnstileSiteKey: '1x00000000000000000000AA' });
 const home = await response('/');
 assert.equal(home.status, 200);
 const html = await home.text();

@@ -3,8 +3,7 @@
 Build with Docker (Node 24, standalone Next.js server):
 
 ```sh
-docker build --build-arg NEXT_PUBLIC_SITE_URL=https://shop.example.com \
-  --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=YOUR_PUBLIC_SITE_KEY -t storefront:local .
+docker build -t storefront:local .
 docker run --rm --env-file .env.production -p 3000:3000 storefront:local
 ```
 
@@ -12,9 +11,9 @@ Use `.env.production.example` as the key inventory. Supply DATABASE_URL,
 NEON_AUTH_BASE_URL and NEON_AUTH_COOKIE_SECRET at runtime for the storefront;
 configure the listed integration keys for the features you enable. The Careers
 portal uses its own database and Auth keys. Never include real env files in the
-build context. The public site URL and Turnstile site key are build arguments. The site URL
-must also be supplied at runtime for server-generated email links. Supply
-TURNSTILE_SECRET_KEY only at runtime. For disposable smoke builds, use Cloudflare's
+build context. The public site URL and Turnstile site key are runtime values. The widget reads
+only the public key from `/api/public-config`; no credentials enter its response. Supply
+TURNSTILE_SECRET_KEY only at runtime. For disposable smoke runs, use Cloudflare's
 public test site key `1x00000000000000000000AA`; the smoke runner supplies the
 matching test secret, never a production credential.
 
@@ -37,8 +36,11 @@ The file-metadata gateway is a local fixture; its remote image is Google’s pub
 WebP sample at www.gstatic.com, so that check requires outbound HTTPS. It removes
 its containers and network on exit. No production database is used or migrated.
 
-The Storefront container workflow runs type checking, lint, the unchanged test
-suite, image build and these smoke checks for PRs and main. It records the
-uncompressed image size and rejects images at or above 400 MiB. It builds and
-checks main, then publishes and deploys the production image to Azure (see
-[Azure deployment](./azure-deployment.md)).
+The Storefront container workflow classifies changes first. Documentation-only
+PRs pass `ci-gate` without a build or deploy. Code PRs run typecheck, lint and unit
+tests in parallel with one image build, the 400 MiB size limit and HTTP smoke checks.
+The smoke runner uses Node fetch; it has no Playwright browser to install or cache.
+On main, checks run alongside the production build; deploy waits for both and
+never repeats smoke checks. PRs read the shared `ecommerce-production` dependency
+cache, which main exports after deployment. Next's build cache mount is restored
+on PRs and saved by main. See [Azure deployment](./azure-deployment.md).
