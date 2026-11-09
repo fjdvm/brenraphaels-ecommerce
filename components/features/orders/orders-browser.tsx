@@ -317,6 +317,13 @@ function OrderDetails({
           {order.status === "awaiting payment" ? " We'll email you once it's verified." : null}
         </p>
       ) : null}
+      {order.paymentProof && (order.paymentProof.screenshotFileId || order.paymentProof.screenshotPathname) ? (
+        <p className="text-sm">
+          <a className="text-primary underline underline-offset-4" href={`/api/orders/${order.id}/payment-proof`} rel="noopener" target="_blank">
+            View your payment screenshot
+          </a>
+        </p>
+      ) : null}
 
       {(order.status === "delivered" || order.status === "received") ? <OrderFeedbackForm feedback={feedback} orderId={order.id} /> : null}
 

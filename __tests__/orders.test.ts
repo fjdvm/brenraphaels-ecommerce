@@ -3,7 +3,8 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { customers, productImages, products, sizes } from "../lib/db/schema";
+import { eq } from "drizzle-orm";
+import { customers, orders, productImages, products, sizes } from "../lib/db/schema";
 import { createOrderStore, placeOrderAndNotify } from "../lib/orders/orders";
 import { createCartStore } from "../lib/orders/cart";
 
@@ -391,17 +392,37 @@ describe("Order", () => {
 
     const updated = await store.submitPaymentProof("customer-1", placed.id, {
       gcashReferenceNumber: "1234567890",
-      screenshotPathname: "payment-proofs/1/receipt.png",
+      screenshotFileId: "file-1",
     });
 
     expect(updated).toMatchObject({
       status: "awaiting payment",
       paymentProof: {
         gcashReferenceNumber: "1234567890",
-        screenshotPathname: "payment-proofs/1/receipt.png",
+        screenshotFileId: "file-1",
       },
     });
     await expect(store.advance(placed.id, { status: "paid", staffId: "staff-17", staffName: "Ana Cruz" })).resolves.toMatchObject({ status: "paid" });
+  });
+
+  test("a payment proof records the file-storage File id, and the screenshot reader finds it or the legacy pathname", async () => {
+    const database = drizzle(client);
+    const cart = createCartStore(database);
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const store = createOrderStore(database);
+    const placed = await store.place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
+
+    const updated = await store.submitPaymentProof("customer-1", placed.id, {
+      gcashReferenceNumber: "1234567890",
+      screenshotFileId: "file-9",
+    });
+
+    expect(updated.paymentProof).toMatchObject({ screenshotFileId: "file-9", screenshotPathname: null });
+    await expect(store.getPaymentProofScreenshot("customer-1", placed.id)).resolves.toEqual({ fileId: "file-9" });
+    await expect(store.getPaymentProofScreenshot("customer-2", placed.id)).resolves.toBeUndefined();
+
+    await database.update(orders).set({ paymentProofFileId: null, paymentProofScreenshotPathname: "payment-proofs/1/old.png" }).where(eq(orders.id, placed.id));
+    await expect(store.getPaymentProofScreenshot("customer-1", placed.id)).resolves.toEqual({ pathname: "payment-proofs/1/old.png" });
   });
 
   test("only accepts payment proof for a confirmed GCash Order belonging to the Customer", async () => {

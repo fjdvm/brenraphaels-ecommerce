@@ -1,4 +1,5 @@
 import { textField } from "../validators/fields";
+import type { TicketFiles } from "../support/ticket-files";
 import { cleanFileName } from "../validators/sanitize";
 
 export const gcashReferenceNumberField = textField("GCash reference number", {
@@ -23,23 +24,13 @@ export function validatePaymentProofScreenshot(file: File) {
   }
 }
 
-/** Uploads the screenshot privately, namespaced by Order so it can never be guessed. */
-export async function uploadPaymentProofScreenshot(
-  file: File,
-  dependencies: {
-    orderId: number;
-    put(
-      pathname: string,
-      body: File,
-      options: { access: "private"; addRandomSuffix: true },
-    ): Promise<{ pathname: string }>;
-  },
-): Promise<string> {
+/** Stores the screenshot as a Private File in file-storage and returns its id. */
+export async function uploadPaymentProofScreenshot(file: File, files: Pick<TicketFiles, "upload">): Promise<string> {
   validatePaymentProofScreenshot(file);
-  const safeName = cleanFileName(file.name);
-  const blob = await dependencies.put(`payment-proofs/${dependencies.orderId}/${safeName}`, file, {
-    access: "private",
-    addRandomSuffix: true,
+
+  return files.upload({
+    filename: cleanFileName(file.name),
+    contentType: file.type,
+    bytes: new Uint8Array(await file.arrayBuffer()),
   });
-  return blob.pathname;
 }
