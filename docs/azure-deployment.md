@@ -84,7 +84,7 @@ migrations using the repo's Drizzle migration process before deployment.
 List retained revisions (no secret values):
 
 ```sh
-az containerapp revision list -g rg-brenraphaels -n ca-ecommerce \
+az containerapp revision list --all -g rg-brenraphaels -n ca-ecommerce \
   --query '[].{name:name,active:properties.active,health:properties.healthState,image:properties.template.containers[0].image}' -o table
 ```
 
