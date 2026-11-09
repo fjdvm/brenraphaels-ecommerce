@@ -36,4 +36,5 @@ its containers and network on exit. No production database is used or migrated.
 The Storefront container workflow runs type checking, lint, the unchanged test
 suite, image build and these smoke checks for PRs and main. It records the
 uncompressed image size and rejects images at or above 400 MiB. It builds and
-checks main without changing the current deployment provider.
+checks main, then publishes and deploys the production image to Azure (see
+[Azure deployment](./azure-deployment.md)).
