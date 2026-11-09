@@ -1,18 +1,15 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const {
-  checkBotId,
   signUpCustomer,
   requestCustomerPasswordReset,
   resendCustomerVerification,
 } = vi.hoisted(() => ({
-  checkBotId: vi.fn(),
   signUpCustomer: vi.fn(),
   requestCustomerPasswordReset: vi.fn(),
   resendCustomerVerification: vi.fn(),
 }));
 
-vi.mock("botid/server", () => ({ checkBotId }));
 vi.mock("@/lib/customer/sign-up", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/customer/sign-up")>()),
   signUpCustomer,
@@ -35,30 +32,20 @@ import { submitForgotPassword } from "@/app/(auth)/(signed-out)/forgot-password/
 import { submitSignUp } from "@/app/(auth)/(signed-out)/signup/actions";
 import { resendVerificationEmail } from "@/app/(site)/verify-email/actions";
 
-describe("BotID-protected auth actions", () => {
+describe("customer auth form actions", () => {
   beforeEach(() => {
-    checkBotId.mockResolvedValue({ isBot: true });
     signUpCustomer.mockReset();
     requestCustomerPasswordReset.mockReset();
     resendCustomerVerification.mockReset();
   });
 
-  test("refuses an unchecked sign-up before creating a login", async () => {
-    await expect(submitSignUp(new FormData())).resolves.toEqual({
-      formError: "Please try again from your browser.",
-    });
+  test("sign-up reports field errors without creating a login", async () => {
+    const result = await submitSignUp(new FormData());
+    expect(result.fieldErrors).toBeDefined();
     expect(signUpCustomer).not.toHaveBeenCalled();
   });
 
-  test("refuses an unchecked password-reset request before sending email", async () => {
-    await expect(
-      submitForgotPassword({}, new FormData()),
-    ).resolves.toEqual({ message: "Please try again from your browser." });
-    expect(requestCustomerPasswordReset).not.toHaveBeenCalled();
-  });
-
-  test("lets a request with a valid check through to the operation", async () => {
-    checkBotId.mockResolvedValue({ isBot: false });
+  test("password-reset request reaches the operation", async () => {
     requestCustomerPasswordReset.mockResolvedValue({ status: "requested" });
     const formData = new FormData();
     formData.set("email", "shopper@example.com");
@@ -69,10 +56,10 @@ describe("BotID-protected auth actions", () => {
     expect(requestCustomerPasswordReset).toHaveBeenCalledTimes(1);
   });
 
-  test("refuses an unchecked verification resend before sending email", async () => {
+  test("verification resend rejects an invalid email before sending", async () => {
     await expect(
       resendVerificationEmail({}, new FormData()),
-    ).resolves.toEqual({ message: "Please try again from your browser." });
+    ).resolves.toEqual({ message: "Enter a valid email address." });
     expect(resendCustomerVerification).not.toHaveBeenCalled();
   });
 });

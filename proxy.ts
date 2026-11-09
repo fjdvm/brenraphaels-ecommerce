@@ -29,9 +29,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Skip Neon Auth and webhook endpoints, Next.js internals, static files and the
-    // BotID challenge script (149e9513-…; withBotId rewrites it). Signed-out Visitors
-    // must be able to load it, or their form submissions carry no BotID check.
-    "/((?!api/|_next/|149e9513-01fa-4fb0-aad4-566afd725d1b/|favicon.ico|icon.jpeg|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:jpe?g|png|svg|webp|ico)$).*)",
+    // Skip Neon Auth and webhook endpoints, Next.js internals and static files.
+    "/((?!api/|_next/|favicon.ico|icon.jpeg|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:jpe?g|png|svg|webp|ico)$).*)",
   ],
 };
