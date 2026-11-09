@@ -6,7 +6,8 @@ SHA-tagged image to `ghcr.io/fjdvm/brenraphaels-ecommerce` using the workflow's
 `GITHUB_TOKEN`. PRs run validation only. The deploy job uses the immutable digest,
 Azure OIDC login and `GHCR_PULL_TOKEN` for private image pulls. It creates
 `ca-ecommerce` on its first run in `rg-brenraphaels` / `cae-brenraphaels`, Indonesia
-Central. Deploys are serialized; failed validation never deploys.
+Central. Deploys are serialized and superseded main commits are skipped after acquiring
+the deployment lock; failed validation never deploys.
 
 The only build argument is `NEXT_PUBLIC_SITE_URL=https://shop.buildwrite.me`.
 Until the domain is bound, use the default HTTPS address printed in the workflow

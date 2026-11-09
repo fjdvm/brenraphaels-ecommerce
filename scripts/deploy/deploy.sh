@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Smoke jobs finish independently. Once holding the deployment lock, skip a
+# superseded push so it cannot replace a newer main revision.
+latest_main=$(git ls-remote --exit-code origin refs/heads/main | cut -f1)
+if [ "$latest_main" != "$GITHUB_SHA" ]; then
+  echo 'Skipped superseded main commit; no Azure configuration changed.' >> "$GITHUB_STEP_SUMMARY"
+  exit 0
+fi
 export AZURE_CORE_ONLY_SHOW_ERRORS=true
 export CONTAINER_ENVIRONMENT_ID
 CONTAINER_ENVIRONMENT_ID=$(az containerapp env show -g "$RESOURCE_GROUP" -n cae-brenraphaels --query id -o tsv)
