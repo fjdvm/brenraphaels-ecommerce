@@ -31,13 +31,16 @@ revision="$CONTAINER_APP--$REVISION_SUFFIX"
 ready=false
 for attempt in $(seq 1 60); do
   state=$(az containerapp revision show -g "$RESOURCE_GROUP" -n "$CONTAINER_APP" --revision "$revision" --query properties.healthState -o tsv)
-  if [ "$state" = Healthy ]; then ready=true; break; fi
+  latest=$(az containerapp show -g "$RESOURCE_GROUP" -n "$CONTAINER_APP" --query properties.latestReadyRevisionName -o tsv)
+  # Revision health and the app's ready-revision pointer propagate separately.
+  if [ "$state" = Healthy ] && [ "$latest" = "$revision" ]; then ready=true; break; fi
   sleep 10
 done
-test "$ready" = true
+if [ "$ready" != true ]; then
+  echo "::error::Timed out waiting for $revision: health=$state, latest ready revision=$latest"
+  exit 1
+fi
 fqdn=$(az containerapp show -g "$RESOURCE_GROUP" -n "$CONTAINER_APP" --query properties.configuration.ingress.fqdn -o tsv)
-latest=$(az containerapp show -g "$RESOURCE_GROUP" -n "$CONTAINER_APP" --query properties.latestReadyRevisionName -o tsv)
-test "$latest" = "$revision"
 curl --fail --silent --show-error --retry 6 --retry-all-errors "https://$fqdn/api/health"
 {
   echo '### Storefront deployment'
