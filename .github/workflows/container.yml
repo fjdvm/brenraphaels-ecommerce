@@ -26,7 +26,9 @@ jobs:
           context: .
           load: true
           tags: storefront:smoke
-          build-args: NEXT_PUBLIC_SITE_URL=http://localhost:3000
+          build-args: |
+            NEXT_PUBLIC_SITE_URL=http://localhost:3000
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Record and limit uncompressed image size
@@ -71,7 +73,9 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.image.outputs.name }}:${{ github.sha }}
-          build-args: NEXT_PUBLIC_SITE_URL=https://shop.buildwrite.me
+          build-args: |
+            NEXT_PUBLIC_SITE_URL=https://shop.buildwrite.me
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
           cache-from: type=gha,scope=ecommerce-production
           cache-to: type=gha,mode=max,scope=ecommerce-production
       - uses: azure/login@v2

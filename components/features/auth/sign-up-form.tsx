@@ -1,5 +1,7 @@
 "use client";
 
+import { TurnstileWidget } from "@/components/features/auth/turnstile-widget";
+
 import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState, useTransition, type FormEvent } from "react";
@@ -51,6 +53,7 @@ const newTab = { target: "_blank", rel: "noopener noreferrer" } as const;
 
 export function SignUpForm({ provinces }: { provinces: string[] }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const [challengeAttempt, setChallengeAttempt] = useState(0);
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [email, setEmail] = useState<string>();
@@ -85,7 +88,7 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
 
     setFormError(undefined);
     startTransition(async () => {
-      const outcome = await submitSignUp(formData);
+      const outcome = await submitSignUp(formData).finally(() => setChallengeAttempt((attempt) => attempt + 1));
       if (outcome.formError) {
         setFormError(outcome.formError);
         return;
@@ -178,6 +181,8 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
         <div data-step="2" hidden={step !== 2} className="flex flex-col gap-[22px]">
           <PreferenceFields errors={errors} />
         </div>
+
+        {step === lastStep ? <TurnstileWidget resetKey={challengeAttempt} /> : null}
 
         {formError ? <AuthError>{formError}</AuthError> : null}
 

@@ -7,8 +7,9 @@ FROM dependencies AS build
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 ARG NEXT_PUBLIC_SITE_URL
-# All service credentials are runtime values. No env files enter the context.
-RUN test -n "$NEXT_PUBLIC_SITE_URL" && npm run build && node scripts/container/prepare-server.mjs
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+# Public keys are inlined at build time. All service credentials are runtime values. No env files enter the context.
+RUN test -n "$NEXT_PUBLIC_SITE_URL" && test -n "$NEXT_PUBLIC_TURNSTILE_SITE_KEY" && npm run build && node scripts/container/prepare-server.mjs
 
 FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS runtime
 WORKDIR /app
