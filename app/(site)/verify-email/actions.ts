@@ -11,7 +11,6 @@ import { createVerificationTokenStore } from "@/lib/customer/verification-token-
 import { getDatabase } from "@/lib/db";
 import { emailField } from "@/lib/validators/fields";
 import { neonVerificationAuth } from "@/lib/neon-auth/server";
-import { botIdFailureMessage, hasValidBotIdCheck } from "@/lib/security/botid";
 
 export type ResendVerificationState = {
   message?: string;
@@ -31,10 +30,6 @@ export async function resendVerificationEmail(
   _previousState: ResendVerificationState,
   formData: FormData,
 ): Promise<ResendVerificationState> {
-  if (!(await hasValidBotIdCheck())) {
-    return { message: botIdFailureMessage };
-  }
-
   const email = emailField.safeParse(formData.get("email"));
   if (!email.success) {
     return { message: "Enter a valid email address." };
