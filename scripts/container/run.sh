@@ -52,3 +52,14 @@ docker run -d --name "$app" --network "$network" -p 127.0.0.1::3000 \
 app_port=$(docker port "$app" 3000/tcp | cut -d: -f2)
 curl --fail --silent --show-error --retry 20 --retry-all-errors --retry-delay 1 "http://127.0.0.1:$app_port/api/health"
 SMOKE_BASE_URL="http://127.0.0.1:$app_port" CRON_SECRET=smoke-cron-secret node scripts/container/smoke.mjs
+
+# Read only these public action IDs from the built image; never print the manifest
+# (it also contains Next's encryption key).
+auth_actions=$(docker exec "$app" node -e '
+  const manifest = require("./.next/server/server-reference-manifest.json");
+  const names = ["submitSignUp", "submitForgotPassword", "resendVerificationEmail"];
+  console.log(JSON.stringify(Object.fromEntries(Object.entries(manifest.node)
+    .filter(([, action]) => names.includes(action.exportedName))
+    .map(([id, action]) => [action.exportedName, id]))));
+')
+SMOKE_BASE_URL="http://127.0.0.1:$app_port" SMOKE_AUTH_ACTIONS="$auth_actions" node scripts/container/auth-rate-limit.mjs
