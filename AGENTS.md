@@ -8,28 +8,31 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## Git workflow: worktree, then merge to main
+## Git workflow: worktree and pull request
 
-Never commit on `main` in the primary checkout. Do every change in its own git worktree on its own **local** branch, merge that branch into `main` locally, then push `main`. Work branches never go to the remote: only `main` is pushed, and pushing `main` triggers the Vercel production deployment. This keeps parallel agents (Claude, Codex, Cursor) from stepping on each other.
-
-1. **Start**: from the primary checkout, `git fetch origin` and `git worktree add ../brenraphaels-ecommerce-worktrees/<branch> -b <branch> origin/main --no-track`. The branch is local only: never `git push` it, never set an upstream, never open a PR from it. Branch names: `issue-<number>-<short-slug>` (e.g. `issue-2-tooling-app-shell`). Work only inside that worktree.
-2. **Set up the worktree**: run `npm install` there (`node_modules` is not shared) and copy or re-pull the git-ignored env files (`vercel env pull`). Never commit env files.
-3. **Commit** on the branch as often as you like. One issue per branch; reference it in the commit message (`Refs #<number>`). Credit both agents as contributors by ending every commit message with these trailers:
+1. **Start**: from the primary checkout, run `git fetch origin` and `git worktree add ../brenraphaels-ecommerce-worktrees/<branch> -b <branch> origin/main --no-track`. Use `issue-<number>-<short-slug>` for the branch. Work only in your own worktree, including for instruction-file changes; leave the primary checkout's changes untouched.
+2. **Set up**: run `npm ci` in the worktree. Copy or re-pull git-ignored env files when needed. Never commit env files.
+3. **Commit** on the worktree branch, one ticket at a time. Reference the ticket's repository and issue number when it lives elsewhere. End each commit message with:
    ```
    Co-Authored-By: Claude <noreply@anthropic.com>
    Co-Authored-By: Codex <noreply@openai.com>
    ```
-4. **Before merging**: `git fetch origin && git rebase origin/main` on the branch, then run the tests, `npm run lint` and `npm run build`. All must pass. If the rebase conflicts, resolve them in the worktree, not on `main`.
-5. **Merge**: as soon as the implementation is done and step 4 passes, merge automatically; no separate request is needed. In the primary checkout, `git switch main && git pull --ff-only origin main`, then `git merge --ff-only <branch>` (after the rebase this is always a fast-forward; if it is not, go back to step 4). Merging is local only and does not push. Do not use `--no-verify`, and do not force-push.
-6. **Push**: before pushing, apply any pending Drizzle migrations to the production database (`npm run db:migrate`, with `DATABASE_URL_UNPOOLED` from `vercel env pull --environment=production` if it isn't already loaded) — a migration that merges into `main` but never runs against production is a silent outage, since the deployed code will assume a schema that isn't there yet. Then `git push origin main` (the only branch ever pushed), only after step 5 succeeds and only when the user has asked you to push. The push deploys to production through Vercel, so make sure step 4 passed first. After a successful push, automatically close the implemented issue with a comment that links the commit; no separate closure request is needed.
-7. **Clean up**: once the merge in step 5 succeeds, automatically remove the worktree and delete the branch; do not leave finished worktrees behind and do not wait for a push. Run `git worktree remove ../brenraphaels-ecommerce-worktrees/<branch>` and `git branch -d <branch>` from the primary checkout (not from inside the worktree). If the merge did not happen, keep the worktree. There is no remote branch to delete.
+4. **Before every push**, run local typecheck (`npx next typegen` then `npx tsc --noEmit`) and unit tests (`npm test -- --maxWorkers=2`), matching `.github/workflows/container.yml`. Push only when both pass. Push the ticket branch and open or update its PR against `main`.
+5. **Complete**: enable squash auto-merge with `gh pr merge <PR> --auto --squash`. Stop when GitHub accepts auto-merge; implementation is done at that point, without waiting for merge or deployment. Keep the worktree while the PR is pending.
 
-Rules that hold throughout:
-- Exception for rule changes: edits to the rules themselves (`AGENTS.md`, `CLAUDE.md`) need no worktree and no branch. Make them directly on `main` in the primary checkout and commit them automatically, without asking. Pushing is still only done when the user asks.
-- Do not run destructive database migrations on the shared Neon `dev` branch while another agent might be using it; if you need isolation, create a Neon branch for your worktree and point that worktree's `DATABASE_URL` at it.
-- Do not edit files inside another agent's worktree.
-- If `main` moved while you worked, rebase again rather than merging `main` into your branch.
-- Right after merging into the primary checkout (step 5) or removing a worktree (step 7), the editor's TS server and Next's `.next` type cache can lag behind the files that just changed: false "Cannot find module" diagnostics, or a `next build` that fails only inside `.next/types`/`.next/dev/types` against routes that no longer exist. Don't trust either — `rm -rf .next` and rerun `npm run build` (and `npm run lint`) in the primary checkout to get the true result before treating it as a real error.
+### Checks and PR completion
+
+- If waiting for PR checks is unavoidable, use one blocking `gh pr checks <PR> --watch --fail-fast` command. Never loop on status commands.
+- Never wait for the production deploy. GitHub's failed-workflow notification emails the owner; Azure retains the previous revision if deployment fails.
+- Track any required live-production check in a separate verification ticket (`ready-for-human` or its own ticket), rather than waiting as part of implementation.
+
+### Shared worktree safety
+
+- For schema-changing tickets, apply required production Drizzle migrations with `npm run db:migrate` before enabling auto-merge, using the production `DATABASE_URL_UNPOOLED` from `vercel env pull --environment=production`. Never commit env files.
+
+- Do not run destructive database migrations on the shared Neon `dev` branch while another agent might be using it; use an isolated Neon branch when needed.
+- Do not edit files inside another agent's worktree or force-push.
+- Branch protection does not require an up-to-date branch; `main` checks the merged code. Rebase only when needed to resolve conflicts.
 
 ## Input validation
 
