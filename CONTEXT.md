@@ -75,7 +75,7 @@ How a Customer will pay for an Order: Cash on Delivery, settled in cash when the
 _Avoid_: Payment type
 
 **Payment proof**:
-A GCash reference number, and optionally a screenshot, a Customer submits against their Order as evidence of payment. Staff verify it in CREOMS; this app neither verifies it nor decides whether the Order is `paid`.
+A GCash reference number, and optionally a screenshot, a Customer submits against their Order as evidence of payment. The screenshot is a Private File in file-storage (`orders.payment_proof_file_id`); proofs from before file-storage keep a legacy Vercel Blob pathname, still shown. Staff verify it in CREOMS; this app neither verifies it nor decides whether the Order is `paid`.
 _Avoid_: Payment confirmation, receipt
 
 **Catalog**:

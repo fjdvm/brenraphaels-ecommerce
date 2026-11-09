@@ -53,7 +53,7 @@ describe("orderFilterOf", () => {
   });
 
   test("a GCash Order that already has proof is not waiting on payment", () => {
-    const proof = { gcashReferenceNumber: "1", screenshotPathname: null, submittedAt: new Date() };
+    const proof = { gcashReferenceNumber: "1", screenshotPathname: null, screenshotFileId: null, submittedAt: new Date() };
     expect(orderFilterOf(order({ status: "confirmed", paymentMethod: "gcash", paymentProof: proof }))).toBe("processing");
   });
 });
@@ -74,7 +74,7 @@ describe("orderBadges", () => {
   });
 
   test("capitalises multi-word statuses", () => {
-    expect(orderBadges(order({ status: "awaiting payment", paymentMethod: "gcash", paymentProof: { gcashReferenceNumber: "1", screenshotPathname: null, submittedAt: new Date() } }))[0].text).toBe("Awaiting payment");
+    expect(orderBadges(order({ status: "awaiting payment", paymentMethod: "gcash", paymentProof: { gcashReferenceNumber: "1", screenshotPathname: null, screenshotFileId: null, submittedAt: new Date() } }))[0].text).toBe("Awaiting payment");
   });
 });
 

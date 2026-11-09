@@ -58,7 +58,10 @@ export type DeliveryAddress = {
 /** A GCash reference number, and optionally a screenshot, submitted as evidence of payment. */
 export type PaymentProof = {
   gcashReferenceNumber: string;
+  /** Legacy Vercel Blob pathname, for proofs submitted before file-storage. */
   screenshotPathname: string | null;
+  /** Private File id in file-storage, for newer proofs. */
+  screenshotFileId: string | null;
   submittedAt: Date;
 };
 
@@ -92,8 +95,11 @@ export type PlaceOrderInput = {
 
 export type SubmitPaymentProofInput = {
   gcashReferenceNumber: string;
-  screenshotPathname?: string;
+  screenshotFileId?: string;
 };
+
+/** Where an Order's payment-proof screenshot lives: file-storage, or legacy Vercel Blob. */
+export type StoredPaymentScreenshot = { fileId: string } | { pathname: string };
 
 export type AdvanceOrderInput = {
   status: OrderStatus;
@@ -121,6 +127,7 @@ export type OrderStore = {
     orderId: number,
     input: SubmitPaymentProofInput,
   ): Promise<Order>;
+  getPaymentProofScreenshot(customerId: string, orderId: number): Promise<StoredPaymentScreenshot | undefined>;
 };
 
 export type OrderMailer = {
@@ -212,6 +219,7 @@ export function createOrderStore<
         : {
           gcashReferenceNumber: row.gcashReferenceNumber,
           screenshotPathname: row.paymentProofScreenshotPathname,
+          screenshotFileId: row.paymentProofFileId,
           submittedAt: row.paymentProofSubmittedAt,
         },
     };
@@ -367,7 +375,7 @@ export function createOrderStore<
       .set({
         status: "awaiting payment",
         gcashReferenceNumber: input.gcashReferenceNumber,
-        paymentProofScreenshotPathname: input.screenshotPathname ?? null,
+        paymentProofFileId: input.screenshotFileId ?? null,
         paymentProofSubmittedAt: new Date(),
       })
       // Keep a concurrent submission from overwriting one that just landed.
@@ -376,6 +384,17 @@ export function createOrderStore<
     if (!updatedOrder) throw new Error("Order status changed before payment proof could be submitted.");
 
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
+  }
+
+  /** The Customer's own payment-proof screenshot: its File id, else a legacy Blob pathname. */
+  async function getPaymentProofScreenshot(customerId: string, orderId: number): Promise<StoredPaymentScreenshot | undefined> {
+    const [row] = await db
+      .select({ fileId: orders.paymentProofFileId, pathname: orders.paymentProofScreenshotPathname })
+      .from(orders)
+      .where(and(eq(orders.id, orderId), eq(orders.customerId, customerId)));
+    if (row?.fileId) return { fileId: row.fileId };
+    if (row?.pathname) return { pathname: row.pathname };
+    return undefined;
   }
 
   async function customerEmailForOrder(orderId: number): Promise<string | undefined> {
@@ -486,5 +505,5 @@ export function createOrderStore<
     });
   }
 
-  return { place, listForCustomer, advance, cancel, customerEmailForOrder, customerIdForOrder, submitPaymentProof };
+  return { place, listForCustomer, advance, cancel, customerEmailForOrder, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot };
 }

@@ -157,7 +157,10 @@ export const orders = pgTable("orders", {
   // submits once the Order is confirmed. This app stores it but never verifies
   // it or marks the Order paid itself — that happens via the internal API.
   gcashReferenceNumber: text("gcash_reference_number"),
+  /** Legacy Vercel Blob pathname; new proofs use `paymentProofFileId`. */
   paymentProofScreenshotPathname: text("payment_proof_screenshot_pathname"),
+  /** Private file-storage File id of the screenshot. */
+  paymentProofFileId: text("payment_proof_file_id"),
   paymentProofSubmittedAt: timestamp("payment_proof_submitted_at", { withTimezone: true }),
   /** Opaque br-auth-service Staff id and display-name snapshot; never a foreign key. */
   paidById: text("paid_by_id"),

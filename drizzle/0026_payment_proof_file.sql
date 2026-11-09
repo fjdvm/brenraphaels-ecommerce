@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD COLUMN "payment_proof_file_id" text;

@@ -1,6 +1,5 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -17,8 +16,9 @@ import { queueFeedbackThankYou } from "@/lib/notifications/gateway";
 import { orderFeedbackInput } from "@/lib/orders/feedback-input";
 import { createOrderReceiptStore, OrderReceiptConflictError, OrderReceiptNotFoundError } from "@/lib/orders/receipt";
 import { createOrderStore, OrderTransitionError, type Order } from "@/lib/orders/orders";
-import { gcashReferenceNumberField, uploadPaymentProofScreenshot } from "@/lib/orders/payment-proof";
+import { gcashReferenceNumberField, uploadPaymentProofScreenshot, validatePaymentProofScreenshot } from "@/lib/orders/payment-proof";
 import { liveOrdersUrl } from "@/lib/orders/live";
+import { gatewayTicketFiles } from "@/lib/support/ticket-files";
 import { positiveIntegerField } from "@/lib/validators/fields";
 
 export type PaymentProofState = {
@@ -96,29 +96,26 @@ export async function submitPaymentProof(
     return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
   }
 
-  let screenshotPathname: string | undefined;
+  let screenshotFileId: string | undefined;
   const screenshot = formData.get("screenshot");
   if (screenshot instanceof File && screenshot.size > 0) {
-    const token = process.env.ORDERS_BLOB_READ_WRITE_TOKEN;
-    if (!token) {
-      return {
-        message: "Screenshot uploads aren't available right now. Submit your reference number without one, or try again later.",
-      };
-    }
     try {
-      screenshotPathname = await uploadPaymentProofScreenshot(screenshot, {
-        orderId,
-        put: (pathname, body, options) => put(pathname, body, { ...options, token }),
-      });
+      validatePaymentProofScreenshot(screenshot);
     } catch (error) {
       return { message: error instanceof Error ? error.message : "We couldn't upload that screenshot." };
+    }
+    try {
+      screenshotFileId = await uploadPaymentProofScreenshot(screenshot, gatewayTicketFiles());
+    } catch (error) {
+      console.error("A payment-proof screenshot could not be stored in file-storage", error);
+      return { message: "We couldn't upload that screenshot. Submit your reference number without one, or try again later." };
     }
   }
 
   try {
     await createOrderStore(getDatabase()).submitPaymentProof(customer.userId, orderId, {
       gcashReferenceNumber: parsed.data.gcashReferenceNumber,
-      screenshotPathname,
+      screenshotFileId,
     });
   } catch (error) {
     return { message: error instanceof Error ? error.message : "We couldn't submit your payment proof." };
