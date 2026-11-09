@@ -1,5 +1,7 @@
 "use server";
 
+import { verifyTurnstile, turnstileErrorMessage } from "@/lib/customer/turnstile";
+
 import { allowAuthAttempt, authRateLimitMessage } from "@/lib/customer/auth-rate-limit";
 
 import { z } from "zod";
@@ -24,6 +26,10 @@ export type SignUpResult = {
 };
 
 export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
+  if (!(await verifyTurnstile(formData))) {
+    return { formError: turnstileErrorMessage };
+  }
+
   if (!(await allowAuthAttempt("sign-up"))) {
     return { formError: authRateLimitMessage };
   }

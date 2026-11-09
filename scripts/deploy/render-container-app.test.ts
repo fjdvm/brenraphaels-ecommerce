@@ -32,6 +32,30 @@ describe("Azure deployment manifest CLI", () => {
       encoding: "utf8",
     });
   }
+  it("requires the private Turnstile key and binds it to the runtime container", () => {
+    const result = render({ ...secrets, TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA" });
+    expect(result.status).toBe(0);
+    const manifest = JSON.parse(readFileSync(output, "utf8"));
+    expect(manifest.properties.configuration.secrets).toContainEqual({
+      name: "turnstile-secret-key", value: "1x0000000000000000000000000000000AA",
+    });
+    expect(manifest.properties.template.containers[0].env).toContainEqual({
+      name: "TURNSTILE_SECRET_KEY", secretRef: "turnstile-secret-key",
+    });
+    rmSync(output);
+    const missing = render({ ...secrets, TURNSTILE_SECRET_KEY: "" });
+    expect(missing.status).not.toBe(0);
+    expect(missing.stderr).toContain("TURNSTILE_SECRET_KEY");
+    expect(existsSync(output)).toBe(false);
+  });
+
+  it("passes the public site key into smoke and production builds", () => {
+    const workflow = readFileSync(path.join(root, ".github/workflows/container.yml"), "utf8");
+    expect(workflow).toContain("NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA");
+    expect(workflow).toContain("NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}");
+    expect(readFileSync(path.join(root, "Dockerfile"), "utf8")).toContain("ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY");
+  });
+
   it("creates a private manifest for a healthy, always-on revision with rollback retention", () => {
     const result = render();
     expect(result.status).toBe(0);

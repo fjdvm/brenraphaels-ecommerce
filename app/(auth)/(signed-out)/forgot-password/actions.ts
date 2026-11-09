@@ -1,5 +1,7 @@
 "use server";
 
+import { verifyTurnstile, turnstileErrorMessage } from "@/lib/customer/turnstile";
+
 import { allowAuthAttempt, authRateLimitMessage } from "@/lib/customer/auth-rate-limit";
 
 import { requestCustomerPasswordReset } from "@/lib/customer/password-reset";
@@ -15,6 +17,10 @@ export async function submitForgotPassword(
   _previousState: ForgotPasswordFormState,
   formData: FormData,
 ): Promise<ForgotPasswordFormState> {
+  if (!(await verifyTurnstile(formData))) {
+    return { message: turnstileErrorMessage };
+  }
+
   if (!(await allowAuthAttempt("forgot-password"))) {
     return { message: authRateLimitMessage };
   }

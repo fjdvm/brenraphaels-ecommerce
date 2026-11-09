@@ -37,6 +37,7 @@ docker run -d --name "$app" --network "$network" -p 127.0.0.1::3000 \
   -e PRODUCT_IMAGE_ORIGIN=https://www.gstatic.com \
   -e API_GATEWAY_URL="http://$gateway:8080" \
   -e API_GATEWAY_CALLER_KEY=smoke-gateway-key \
+  -e TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA \
   -e CRON_SECRET=smoke-cron-secret "$image" >/dev/null
 app_port=$(docker port "$app" 3000/tcp | cut -d: -f2)
 curl --fail --silent --show-error --retry 20 --retry-all-errors --retry-delay 1 "http://127.0.0.1:$app_port/api/health"
@@ -48,6 +49,7 @@ docker run -d --name "$app" --network "$network" -p 127.0.0.1::3000 \
   -e PRODUCT_IMAGE_ORIGIN=https://www.gstatic.com \
   -e API_GATEWAY_URL="http://$gateway:8080" \
   -e API_GATEWAY_CALLER_KEY=smoke-gateway-key \
+  -e TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA \
   -e CRON_SECRET=smoke-cron-secret "$image" >/dev/null
 app_port=$(docker port "$app" 3000/tcp | cut -d: -f2)
 curl --fail --silent --show-error --retry 20 --retry-all-errors --retry-delay 1 "http://127.0.0.1:$app_port/api/health"

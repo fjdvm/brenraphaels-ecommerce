@@ -1,5 +1,7 @@
 "use client";
 
+import { TurnstileWidget } from "@/components/features/auth/turnstile-widget";
+
 import { ArrowRight, Store } from "lucide-react";
 import Link from "next/link";
 import { useActionState } from "react";
@@ -72,6 +74,7 @@ export function ForgotPasswordForm() {
             required
           />
         </div>
+        <TurnstileWidget resetKey={state} />
         {state.message ? <AuthError>{state.message}</AuthError> : null}
         <Button variant="pill" size="pill-lg" className="w-full" disabled={pending} type="submit">
           {pending ? "Sending…" : "Send reset link"}

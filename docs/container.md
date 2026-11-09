@@ -3,7 +3,8 @@
 Build with Docker (Node 24, standalone Next.js server):
 
 ```sh
-docker build --build-arg NEXT_PUBLIC_SITE_URL=https://shop.example.com -t storefront:local .
+docker build --build-arg NEXT_PUBLIC_SITE_URL=https://shop.example.com \
+  --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=YOUR_PUBLIC_SITE_KEY -t storefront:local .
 docker run --rm --env-file .env.production -p 3000:3000 storefront:local
 ```
 
@@ -11,8 +12,11 @@ Use `.env.production.example` as the key inventory. Supply DATABASE_URL,
 NEON_AUTH_BASE_URL and NEON_AUTH_COOKIE_SECRET at runtime for the storefront;
 configure the listed integration keys for the features you enable. The Careers
 portal uses its own database and Auth keys. Never include real env files in the
-build context. The public site URL is the only build argument and must also be
-supplied at runtime for server-generated email links.
+build context. The public site URL and Turnstile site key are build arguments. The site URL
+must also be supplied at runtime for server-generated email links. Supply
+TURNSTILE_SECRET_KEY only at runtime. For disposable smoke builds, use Cloudflare's
+public test site key `1x00000000000000000000AA`; the smoke runner supplies the
+matching test secret, never a production credential.
 
 The image runs as the unprivileged Node user, listens on 0.0.0.0:3000, and exposes
 `/api/health` for process liveness without a database or Auth request. Override

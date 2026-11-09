@@ -1,5 +1,7 @@
 "use server";
 
+import { verifyTurnstile, turnstileErrorMessage } from "@/lib/customer/turnstile";
+
 import { allowAuthAttempt, authRateLimitMessage } from "@/lib/customer/auth-rate-limit";
 
 import { scheduleStaffSignal } from "@/lib/notifications/staff-signal";
@@ -32,6 +34,10 @@ export async function resendVerificationEmail(
   _previousState: ResendVerificationState,
   formData: FormData,
 ): Promise<ResendVerificationState> {
+  if (!(await verifyTurnstile(formData))) {
+    return { message: turnstileErrorMessage };
+  }
+
   if (!(await allowAuthAttempt("resend-verification"))) {
     return { message: authRateLimitMessage };
   }

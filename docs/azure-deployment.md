@@ -9,7 +9,9 @@ Azure OIDC login and `GHCR_PULL_TOKEN` for private image pulls. It creates
 Central. Deploys are serialized and superseded main commits are skipped after acquiring
 the deployment lock; failed validation never deploys.
 
-The only build argument is `NEXT_PUBLIC_SITE_URL=https://shop.buildwrite.me`.
+The build arguments are `NEXT_PUBLIC_SITE_URL=https://shop.buildwrite.me` and
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` from the GitHub repository variable. The site key
+is public and inlined in the browser bundle; changing it requires a rebuild.
 Until the domain is bound, use the default HTTPS address printed in the workflow
 summary. The site continues using its existing Cloudflare gateway runtime URLs.
 Domain binding and gateway cutover are separate tickets. Existing custom-domain
@@ -24,10 +26,12 @@ Repository secrets for deployment infrastructure:
 - `GHCR_PULL_TOKEN`: classic PAT with only `read:packages`. The shared token from
   authentication issue #181 has no expiry; rotate all its consumers together.
 
-Repository variable: `GHCR_USERNAME=fjdvm`.
+Repository variables: `GHCR_USERNAME=fjdvm` and `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
+(the Cloudflare `storefront` widget site key, hostnames `shop.buildwrite.me` and
+`localhost`, Managed mode).
 
 `.env.production.example` is the complete application key inventory. Each
-configured key is a GitHub repository secret, copied at deploy time into an Azure
+configured server key is a GitHub repository secret, copied at deploy time into an Azure
 Container Apps secret and referenced by the container environment. Never pass
 credentials as build arguments, commit env files, print the manifest, enable shell
 tracing, or upload manifest artifacts. The renderer creates a private temporary
@@ -45,7 +49,7 @@ Required application secrets:
   `PORT` (3000).
 - Storefront: `DATABASE_URL`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`,
   `UNSUBSCRIBE_SECRET`, `CREOMS_SERVICE_SECRET`, `CRON_SECRET`,
-  `CUSTOMER_NOTIFICATION_CRON_SECRET`, `PRODUCT_IMAGE_ORIGIN`.
+  `CUSTOMER_NOTIFICATION_CRON_SECRET`, `PRODUCT_IMAGE_ORIGIN`, `TURNSTILE_SECRET_KEY`.
 - Careers: `CAREERS_DATABASE_URL`, `CAREERS_NEON_AUTH_BASE_URL`,
   `CAREERS_NEON_AUTH_COOKIE_SECRET`.
 - Email: `BREVO_SMTP_HOST`, `BREVO_SMTP_PORT`, `BREVO_SMTP_USER`, `BREVO_SMTP_KEY`,
@@ -105,3 +109,22 @@ Wait for the copied revision to become Healthy and latest-ready as above. Secret
 are app-scoped: restoring a revision does not restore older secret values. Rotate
 or restore those separately with approval. Revert the bad commit on `main` for a
 permanent fix; a later push deploys the current code again.
+
+## Turnstile verification
+
+Sign-up (the final step), forgot-password, and verification-email resend display
+Cloudflare Turnstile. Every action verifies `cf-turnstile-response` with Siteverify
+before rate limiting, field validation, database work, or email sending. Missing,
+invalid, expired or reused tokens and verification outages return the existing
+form error shape and ask the visitor to retry. Challenges renew after submissions.
+The secret is required by the deployment renderer and reaches the container only
+through an Azure secret reference; never pass it as a build argument.
+
+For local testing, set `NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA`
+and `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA` (always pass), or
+`TURNSTILE_SECRET_KEY=2x0000000000000000000000000000000AA` (always fail).
+Use the dummy token `XXXX.DUMMY.TOKEN.XXXX` for server tests. CI smoke builds use
+the public test site key; production builds use the repository variable and the
+production runtime secret. Never configure test keys in production.
+See [Cloudflare's test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/)
+and [server verification](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/).

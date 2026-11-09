@@ -1,5 +1,7 @@
 "use client";
 
+import { TurnstileWidget } from "@/components/features/auth/turnstile-widget";
+
 import { useActionState } from "react";
 
 import { resendVerificationEmail, type ResendVerificationState } from "@/app/(site)/verify-email/actions";
@@ -36,6 +38,7 @@ export function ResendVerificationForm({
         defaultValue={defaultEmail}
         required
       />
+      <TurnstileWidget resetKey={state} />
       <Button className="w-full" disabled={pending} type="submit">
         {pending ? "Sending…" : "Send a new verification email"}
       </Button>
