@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const { autoCompleteResolvedTicketsAndNotify, createTicketStore, getDatabase } = vi.hoisted(() => ({
@@ -42,5 +43,27 @@ describe("auto-complete Tickets cron route", () => {
 
   test("is registered to run once a day", () => {
     expect(vercelConfig.crons).toContainEqual({ path: "/api/cron/auto-complete-tickets", schedule: expect.stringMatching(/^\d+ \d+ \* \* \*$/) });
+  });
+
+  describe("GitHub Actions schedule", () => {
+    const workflow = readFileSync(".github/workflows/auto-complete-tickets.yml", "utf8");
+
+    test("runs daily at 01:00 UTC and can be triggered manually", () => {
+      expect(workflow).toContain('cron: "0 1 * * *"');
+      expect(workflow).toContain("workflow_dispatch:");
+    });
+
+    test("fails clearly when STOREFRONT_URL or CRON_SECRET is missing", () => {
+      expect(workflow).toMatch(/vars\.STOREFRONT_URL/);
+      expect(workflow).toMatch(/secrets\.CRON_SECRET/);
+      expect(workflow).toMatch(/::error::.*STOREFRONT_URL/);
+      expect(workflow).toMatch(/::error::.*CRON_SECRET/);
+    });
+
+    test("calls the cron route with the bearer secret and retries", () => {
+      expect(workflow).toContain("Authorization: Bearer $CRON_SECRET");
+      expect(workflow).toContain("/api/cron/auto-complete-tickets");
+      expect(workflow).toContain("--retry 2");
+    });
   });
 });
