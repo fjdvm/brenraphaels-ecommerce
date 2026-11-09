@@ -6,6 +6,7 @@ import re
 import sys
 
 secrets = json.loads(os.environ['DEPLOY_SECRETS'])
+secrets['NEXT_PUBLIC_TURNSTILE_SITE_KEY'] = os.environ.get('NEXT_PUBLIC_TURNSTILE_SITE_KEY') or secrets.get('NEXT_PUBLIC_TURNSTILE_SITE_KEY', '')
 keys = re.findall(r'^([A-Z_]+)=', Path('.env.production.example').read_text(), re.M)
 # GitHub reserves the GITHUB_ prefix for its own settings.
 for key in keys:
@@ -13,7 +14,7 @@ for key in keys:
         secrets[key] = secrets.get('STOREFRONT_' + key, '')
 # Optional integrations stay absent when not configured; never send empty secrets.
 required = [
-    'NEXT_PUBLIC_SITE_URL', 'DATABASE_URL', 'NEON_AUTH_BASE_URL',
+    'NEXT_PUBLIC_SITE_URL', 'NEXT_PUBLIC_TURNSTILE_SITE_KEY', 'DATABASE_URL', 'NEON_AUTH_BASE_URL',
     'NEON_AUTH_COOKIE_SECRET', 'CAREERS_DATABASE_URL', 'CAREERS_NEON_AUTH_BASE_URL',
     'CAREERS_NEON_AUTH_COOKIE_SECRET', 'BREVO_SMTP_HOST', 'BREVO_SMTP_PORT',
     'BREVO_SMTP_USER', 'BREVO_SMTP_KEY', 'EMAIL_FROM_ADDRESS', 'EMAIL_FROM_NAME',

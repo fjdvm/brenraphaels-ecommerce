@@ -49,11 +49,15 @@ describe("Azure deployment manifest CLI", () => {
     expect(existsSync(output)).toBe(false);
   });
 
-  it("passes the public site key into smoke and production builds", () => {
-    const workflow = readFileSync(path.join(root, ".github/workflows/container.yml"), "utf8");
-    expect(workflow).toContain("NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA");
-    expect(workflow).toContain("NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}");
-    expect(readFileSync(path.join(root, "Dockerfile"), "utf8")).toContain("ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY");
+  it("requires the public site key at runtime", () => {
+    expect(render().status).toBe(0);
+    const manifest = JSON.parse(readFileSync(output, "utf8"));
+    expect(manifest.properties.template.containers[0].env).toContainEqual({
+      name: "NEXT_PUBLIC_TURNSTILE_SITE_KEY", secretRef: "next-public-turnstile-site-key",
+    });
+    rmSync(output);
+    expect(render({ ...secrets, NEXT_PUBLIC_TURNSTILE_SITE_KEY: "" }).status).not.toBe(0);
+    expect(existsSync(output)).toBe(false);
   });
 
   it("creates a private manifest for a healthy, always-on revision with rollback retention", () => {

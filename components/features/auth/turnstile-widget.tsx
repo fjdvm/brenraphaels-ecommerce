@@ -26,7 +26,19 @@ export function TurnstileWidget({ resetKey }: { resetKey: unknown }) {
   const token = useRef<HTMLInputElement>(null);
   const message = useRef<HTMLParagraphElement>(null);
   const [ready, setReady] = useState(false);
-  const sitekey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const [sitekey, setSitekey] = useState<string>();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/public-config", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Security check unavailable");
+        const config = await response.json();
+        if (typeof config.turnstileSiteKey === "string") setSitekey(config.turnstileSiteKey);
+      })
+      .catch(() => { /* The unavailable message remains visible; submissions fail closed. */ });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (!ready || !sitekey || !container.current || !window.turnstile) return;

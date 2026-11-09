@@ -37,6 +37,8 @@ docker run -d --name "$app" --network "$network" -p 127.0.0.1::3000 \
   -e PRODUCT_IMAGE_ORIGIN=https://www.gstatic.com \
   -e API_GATEWAY_URL="http://$gateway:8080" \
   -e API_GATEWAY_CALLER_KEY=smoke-gateway-key \
+  -e NEXT_PUBLIC_SITE_URL=http://localhost:3000 \
+  -e NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA \
   -e TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA \
   -e CRON_SECRET=smoke-cron-secret "$image" >/dev/null
 app_port=$(docker port "$app" 3000/tcp | cut -d: -f2)
@@ -49,6 +51,8 @@ docker run -d --name "$app" --network "$network" -p 127.0.0.1::3000 \
   -e PRODUCT_IMAGE_ORIGIN=https://www.gstatic.com \
   -e API_GATEWAY_URL="http://$gateway:8080" \
   -e API_GATEWAY_CALLER_KEY=smoke-gateway-key \
+  -e NEXT_PUBLIC_SITE_URL=http://localhost:3000 \
+  -e NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA \
   -e TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA \
   -e CRON_SECRET=smoke-cron-secret "$image" >/dev/null
 app_port=$(docker port "$app" 3000/tcp | cut -d: -f2)

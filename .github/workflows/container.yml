@@ -7,9 +7,46 @@ on:
 permissions:
   contents: read
 jobs:
-  container-smoke:
+  changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 2
+    outputs:
+      classification: ${{ steps.classify.outputs.classification }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Classify changes
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          classification=code
+          if [ "$EVENT_NAME" = pull_request ] || [ "$EVENT_NAME" = push ]; then
+            base="$BASE_SHA"
+            if [ "$EVENT_NAME" = pull_request ]; then
+              base=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
+            fi
+            # New branches have no before commit; fail safe to full checks.
+            if [ "$base" != 0000000000000000000000000000000000000000 ]; then
+              # Include both sides of renames and deleted files; preserve unusual filenames.
+              git diff --name-only --no-renames -z "$base" "$HEAD_SHA" > "$RUNNER_TEMP/changed-paths"
+              mapfile -d '' -t changed_paths < "$RUNNER_TEMP/changed-paths"
+              classification=$(node scripts/ci/classify-changes.mjs "${changed_paths[@]}")
+            fi
+          fi
+          echo "classification=$classification" >> "$GITHUB_OUTPUT"
+          echo "Change classification: $classification" >> "$GITHUB_STEP_SUMMARY"
+
+  checks:
+    needs: changes
+    if: needs.changes.outputs.classification == 'code'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,46 +54,118 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx next typegen && npx tsc --noEmit
+      - run: npx next typegen
+      - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm test -- --maxWorkers=2
+
+  container-smoke:
+    needs: changes
+    if: needs.changes.outputs.classification == 'code' && github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - uses: docker/setup-buildx-action@v3
+      - name: Restore Next.js build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/next-build-cache
+          key: ${{ runner.os }}-ecommerce-next-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ecommerce-next-${{ hashFiles('package-lock.json') }}-
+      - name: Inject Next.js cache mount
+        uses: reproducible-containers/buildkit-cache-dance@ca04d1a0e0018e28a060ec9f87518ddc453b4460 # v3.3.0
+        with:
+          cache-map: '{"${{ runner.temp }}/next-build-cache": "/app/.next/cache"}'
+          scratch-dir: ${{ runner.temp }}/cache-dance
+          skip-extraction: true
       - uses: docker/build-push-action@v6
         with:
           context: .
           load: true
           tags: storefront:smoke
-          build-args: |
-            NEXT_PUBLIC_SITE_URL=http://localhost:3000
-            NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # PRs only read the dependency cache published by main.
+          cache-from: type=gha,scope=ecommerce-production
       - name: Record and limit uncompressed image size
         run: |
           bytes=$(docker image inspect storefront:smoke --format '{{.Size}}')
           echo "Storefront image: $bytes bytes (limit 400 MiB)" | tee -a "$GITHUB_STEP_SUMMARY"
           test "$bytes" -lt 419430400
-      - name: Smoke test production container
+      - name: Smoke test against disposable PostgreSQL
         run: bash scripts/container/run.sh
 
-  deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: container-smoke
+  ci-gate:
+    name: ci-gate
+    if: always()
+    needs: [changes, checks, container-smoke, production-image]
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    concurrency:
-      group: ecommerce-production
-      cancel-in-progress: false
+    timeout-minutes: 1
+    steps:
+      - name: Require every check to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          CLASSIFICATION: ${{ needs.changes.outputs.classification }}
+          CHECKS_RESULT: ${{ needs.checks.result }}
+          CONTAINER_RESULT: ${{ needs.container-smoke.result }}
+          IMAGE_RESULT: ${{ needs.production-image.result }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          test "$CHANGES_RESULT" = success
+          case "$CLASSIFICATION" in
+            docs-only)
+              test "$CHECKS_RESULT" = skipped
+              test "$CONTAINER_RESULT" = skipped
+              test "$IMAGE_RESULT" = skipped
+              ;;
+            code)
+              test "$CHECKS_RESULT" = success
+              if [ "$EVENT_NAME" = push ]; then
+                test "$CONTAINER_RESULT" = skipped
+                test "$IMAGE_RESULT" = success
+              else
+                test "$CONTAINER_RESULT" = success
+                test "$IMAGE_RESULT" = skipped
+              fi
+              ;;
+            *) exit 1 ;;
+          esac
+
+  production-image:
+    needs: changes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.classification == 'code'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
-      id-token: write
-    env:
-      RESOURCE_GROUP: rg-brenraphaels
-      CONTAINER_APP: ca-ecommerce
+    outputs:
+      image: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
+      # Extract before saving in post steps after a successful main build.
+      # PR jobs use restore-only above; Docker cache still publishes after deploy.
+      - name: Cache Next.js build data
+        id: next-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/next-build-cache
+          key: ${{ runner.os }}-ecommerce-next-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ecommerce-next-${{ hashFiles('package-lock.json') }}-
+      - name: Persist Next.js cache mount
+        uses: reproducible-containers/buildkit-cache-dance@ca04d1a0e0018e28a060ec9f87518ddc453b4460 # v3.3.0
+        with:
+          cache-map: '{"${{ runner.temp }}/next-build-cache": "/app/.next/cache"}'
+          scratch-dir: ${{ runner.temp }}/cache-dance
+          skip-extraction: ${{ steps.next-cache.outputs.cache-hit == 'true' }}
       - name: Resolve image name
         id: image
         shell: bash
@@ -73,11 +182,24 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.image.outputs.name }}:${{ github.sha }}
-          build-args: |
-            NEXT_PUBLIC_SITE_URL=https://shop.buildwrite.me
-            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
           cache-from: type=gha,scope=ecommerce-production
-          cache-to: type=gha,mode=max,scope=ecommerce-production
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.classification == 'code'
+    needs: [changes, checks, production-image, ci-gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    concurrency:
+      group: ecommerce-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RESOURCE_GROUP: rg-brenraphaels
+      CONTAINER_APP: ca-ecommerce
+    steps:
+      - uses: actions/checkout@v4
       - uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -88,5 +210,16 @@ jobs:
         env:
           DEPLOY_SECRETS: ${{ toJSON(secrets) }}
           GHCR_USERNAME: ${{ vars.GHCR_USERNAME }}
-          STOREFRONT_IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          STOREFRONT_IMAGE: ${{ needs.production-image.outputs.image }}
         run: bash scripts/deploy/deploy.sh
+      - uses: docker/setup-buildx-action@v3
+      # Export the dependency target, not the runtime image: mode=min on the
+      # runtime target would omit npm ci, because dependencies is an intermediate stage.
+      - name: Publish dependency cache after deploy
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: dependencies
+          cache-from: type=gha,scope=ecommerce-production
+          cache-to: type=gha,mode=min,scope=ecommerce-production

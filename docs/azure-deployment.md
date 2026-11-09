@@ -1,17 +1,18 @@
 # Storefront on Azure Container Apps
 
-Every push to `main` runs the Storefront container workflow: type check, lint,
-full tests, Docker size limit and HTTP smoke checks, then builds and pushes a
-SHA-tagged image to `ghcr.io/fjdvm/brenraphaels-ecommerce` using the workflow's
+Code pushes to `main` run typecheck, lint and tests in parallel with one production
+image build and push to `ghcr.io/fjdvm/brenraphaels-ecommerce` using the workflow's
 `GITHUB_TOKEN`. PRs run validation only. The deploy job uses the immutable digest,
 Azure OIDC login and `GHCR_PULL_TOKEN` for private image pulls. It creates
 `ca-ecommerce` on its first run in `rg-brenraphaels` / `cae-brenraphaels`, Indonesia
 Central. Deploys are serialized and superseded main commits are skipped after acquiring
 the deployment lock; failed validation never deploys.
 
-The build arguments are `NEXT_PUBLIC_SITE_URL=https://shop.buildwrite.me` and
-`NEXT_PUBLIC_TURNSTILE_SITE_KEY` from the GitHub repository variable. The site key
-is public and inlined in the browser bundle; changing it requires a rebuild.
+The image has no build arguments. `NEXT_PUBLIC_SITE_URL` is supplied at runtime;
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` is taken from the existing repository variable
+and bound at runtime. Changing the key requires a new revision, not an image rebuild.
+Code PRs smoke-test the same image shape; docs-only changes skip checks and deploy,
+with the always-running `ci-gate` recording success. Main does not repeat smoke tests.
 Until the domain is bound, use the default HTTPS address printed in the workflow
 summary. The site continues using its existing Cloudflare gateway runtime URLs.
 Domain binding and gateway cutover are separate tickets. Existing custom-domain
@@ -123,8 +124,8 @@ through an Azure secret reference; never pass it as a build argument.
 For local testing, set `NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA`
 and `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA` (always pass), or
 `TURNSTILE_SECRET_KEY=2x0000000000000000000000000000000AA` (always fail).
-Use the dummy token `XXXX.DUMMY.TOKEN.XXXX` for server tests. CI smoke builds use
-the public test site key; production builds use the repository variable and the
+Use the dummy token `XXXX.DUMMY.TOKEN.XXXX` for server tests. CI smoke containers use
+the public test site key; production containers use the repository variable and the
 production runtime secret. Never configure test keys in production.
 See [Cloudflare's test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/)
 and [server verification](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/).
