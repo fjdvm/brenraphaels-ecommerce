@@ -61,7 +61,7 @@ export function TurnstileWidget({ resetKey }: { resetKey: unknown }) {
       />
       <div ref={container} aria-label="Security check" />
       <input ref={token} type="hidden" name="cf-turnstile-response" defaultValue="" />
-      <p ref={message} role="alert" className="text-sm text-error">
+      <p ref={message} role="alert" className="text-sm text-red-700">
         {sitekey ? "" : "The security check is unavailable. Please try again later."}
       </p>
     </div>
