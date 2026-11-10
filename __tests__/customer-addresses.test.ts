@@ -1,6 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import {
@@ -12,12 +11,12 @@ import {
   setCustomerDefaultAddress,
   updateCustomerAddress,
 } from "../lib/customer/addresses";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 
 beforeEach(async () => {
-  client = new PGlite();
-  await migrate(drizzle(client), { migrationsFolder: "drizzle" });
+  client = await createTestDatabase();
   await client.query(`
     insert into customers (id, first_name, last_name, full_name, email, contact_number, marketing_opt_in)
     values ('customer-1', 'Jane', 'Doe', 'Jane Doe', 'jane@example.com', '09171234567', true)

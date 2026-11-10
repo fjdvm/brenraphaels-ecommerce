@@ -1,11 +1,11 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from "vitest";
 
 import { customers, orders, orderLines, orderReturns, orderReturnImages, orderReturnItems } from "../lib/db/schema";
 import { createOrderStore } from "../lib/orders/orders";
 import { listCustomerReturns } from "../lib/returns/customer-reads";
+import { createTestDatabase } from "./helpers/test-database";
 
 const { currentVisitor, getDatabase } = vi.hoisted(() => ({ currentVisitor: vi.fn(), getDatabase: vi.fn() }));
 vi.mock("../lib/customer/current-visitor", () => ({ currentVisitor }));
@@ -16,9 +16,8 @@ let client: PGlite;
 let db: ReturnType<typeof drizzle>;
 
 beforeAll(async () => {
-  client = new PGlite();
+  client = await createTestDatabase();
   db = drizzle(client);
-  await migrate(db, { migrationsFolder: "drizzle" });
 });
 afterAll(async () => { await client.close(); });
 

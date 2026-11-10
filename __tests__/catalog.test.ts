@@ -1,18 +1,17 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { products, productImages, sizes } from "../lib/db/schema";
 import { createCatalogStore } from "../lib/catalog/catalog";
 import { formatPeso } from "../lib/catalog/currency";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 const shopFiles = { publicUrl: async (slug: string, id: string) => `https://images.example/${slug}/${id}` };
 
 beforeEach(async () => {
-  client = new PGlite();
-  await migrate(drizzle(client), { migrationsFolder: "drizzle" });
+  client = await createTestDatabase();
 });
 
 afterEach(async () => {

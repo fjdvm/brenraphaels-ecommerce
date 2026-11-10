@@ -1,18 +1,19 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { customers, orderLines, orderReturnItems, orderReturns, orders } from "../lib/db/schema";
 import { createOrderStore } from "../lib/orders/orders";
 import { createReturnOfferStore } from "../lib/returns/return-offers";
+import { createTestDatabase } from "./helpers/test-database";
 
-const client = new PGlite();
-const db = drizzle(client);
+let client: PGlite;
+let db: ReturnType<typeof drizzle>;
 const deliveredAt = new Date("2026-10-24T08:00:00Z");
 
 beforeAll(async () => {
-  await migrate(db, { migrationsFolder: "drizzle" });
+  client = await createTestDatabase();
+  db = drizzle(client);
   await db.insert(customers).values({ id: "c1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
     email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
 });

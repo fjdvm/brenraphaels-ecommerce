@@ -1,6 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { customers, orders, orderReturns, returnStatuses } from "../lib/db/schema";
@@ -10,15 +9,19 @@ import { parseInternalOrderStatusUpdate } from "../lib/orders/internal-status";
 import { orderBadges, orderFilterOf, orderTrackerSteps } from "../lib/orders/order-view";
 import { createOrderStore, orderStatuses, type OrderStatus } from "../lib/orders/orders";
 import { createOrderReceiptStore, OrderReceiptConflictError, OrderReceiptNotFoundError } from "../lib/orders/receipt";
+import { createTestDatabase } from "./helpers/test-database";
 
-const client = new PGlite();
-const db = drizzle(client);
+let client: PGlite;
+let db: ReturnType<typeof drizzle>;
 const deliveredAt = new Date("2026-10-01T12:00:00Z");
-const receipt = createOrderReceiptStore(db);
-const store = createOrderStore(db);
+let receipt: ReturnType<typeof createOrderReceiptStore>;
+let store: ReturnType<typeof createOrderStore>;
 
 beforeAll(async () => {
-  await migrate(db, { migrationsFolder: "drizzle" });
+  client = await createTestDatabase();
+  db = drizzle(client);
+  receipt = createOrderReceiptStore(db);
+  store = createOrderStore(db);
   await db.insert(customers).values({ id: "customer-1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
     email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
 });

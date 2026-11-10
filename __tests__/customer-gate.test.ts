@@ -1,9 +1,9 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { VisitorSession } from "../lib/customer/visitor";
+import { createTestDatabase } from "./helpers/test-database";
 
 // Only the framework edges are replaced: the session, the database handle, and
 // Next.js's redirect() (which throws) and headers().
@@ -33,9 +33,8 @@ let client: PGlite;
 const jane = { userId: "neon-user-1", email: "jane@example.com", fullName: "Jane Doe" };
 
 beforeEach(async () => {
-  client = new PGlite();
+  client = await createTestDatabase();
   database = drizzle(client);
-  await migrate(database, { migrationsFolder: "drizzle" });
   session = null;
   returnPath = null;
 });

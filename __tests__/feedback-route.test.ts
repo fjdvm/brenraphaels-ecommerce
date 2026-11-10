@@ -1,6 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const sessions = vi.hoisted(() => ({
@@ -14,6 +13,7 @@ vi.mock("@/lib/careers/auth", () => ({ careersSession: sessions.applicant }));
 vi.mock("@/lib/db", () => ({ getDatabase: database.getDatabase }));
 
 import { POST } from "../app/api/feedback/route";
+import { createTestDatabase } from "./helpers/test-database";
 
 const validReport = {
   type: "bug",
@@ -52,8 +52,7 @@ function stubGithub() {
 let client: PGlite;
 
 beforeEach(async () => {
-  client = new PGlite();
-  await migrate(drizzle(client), { migrationsFolder: "drizzle" });
+  client = await createTestDatabase();
   database.getDatabase.mockReturnValue(drizzle(client));
 });
 

@@ -2,7 +2,6 @@ import "next/dist/server/node-environment-baseline";
 import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { IncrementalCache } from "next/dist/server/lib/incremental-cache";
 import FileSystemCache from "next/dist/server/lib/incremental-cache/file-system-cache";
@@ -12,14 +11,14 @@ import { workAsyncStorage } from "next/dist/server/app-render/work-async-storage
 import { createCatalogStore } from "../lib/catalog/catalog";
 import { gatewayProductImages, refreshProductImages } from "../lib/catalog/product-images";
 import { products, productImages, sizes } from "../lib/db/schema";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 let cache: IncrementalCache;
 const slug = `jam-${randomUUID()}`;
 
 beforeEach(async () => {
-  client = new PGlite();
-  await migrate(drizzle(client), { migrationsFolder: "drizzle" });
+  client = await createTestDatabase();
   cache = new IncrementalCache({
     dev: false, requestHeaders: {}, flushToDisk: false, maxMemoryCacheSize: 1024 * 1024,
     CurCacheHandler: FileSystemCache,

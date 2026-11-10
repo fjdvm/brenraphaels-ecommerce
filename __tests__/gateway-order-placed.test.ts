@@ -1,11 +1,11 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { addresses, customers, products, sizes } from "../lib/db/schema";
 import { createCartStore } from "../lib/orders/cart";
 import { createOrderStore } from "../lib/orders/orders";
+import { createTestDatabase } from "./helpers/test-database";
 
 const { getDatabase, requireCustomer, sendOrderPlacedEmail, after } = vi.hoisted(() => ({
   getDatabase: vi.fn(),
@@ -34,10 +34,9 @@ beforeEach(async () => {
   requireCustomer.mockResolvedValue({ userId: "customer-1", email: "jane@example.com" });
   sendOrderPlacedEmail.mockReset().mockResolvedValue(undefined);
   vi.spyOn(console, "error").mockImplementation(() => {});
-  client = new PGlite();
+  client = await createTestDatabase();
   const database = drizzle(client);
   getDatabase.mockReturnValue(database);
-  await migrate(database, { migrationsFolder: "drizzle" });
   await database.insert(customers).values({
     id: "customer-1", firstName: "Jane", lastName: "Doe", fullName: "Jane Doe",
     email: "jane@example.com", contactNumber: "09171234567", marketingOptIn: false,
