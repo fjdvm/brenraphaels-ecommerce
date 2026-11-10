@@ -26,6 +26,20 @@ npm run db:migrate  # apply migrations
 npm test            # includes an in-memory PGlite migration harness
 ```
 
+### Writing database-backed tests
+
+Get a fresh, migrated, isolated database from `__tests__/helpers/test-database.ts`
+instead of building a `PGlite` and running the migrator yourself. Vitest's
+`globalSetup` (`__tests__/helpers/migrated-snapshot.ts`) migrates once per run and
+snapshots the result to the OS temp directory; each call loads its own copy, so
+test time does not grow with the number of migrations. Measured full `npm test`
+on one 8-core machine: 415.8 s before the snapshot (`7dd420b`), 190.0 s after
+(`78d5f82`), about 2.2x faster.
+
+**Watch mode caveat:** the snapshot is built once when the run starts. After you
+add a migration, restart `npm run test:watch`, or tests keep using the old schema.
+`npm test` rebuilds it every run, so it is always current.
+
 ## Deployment
 
 The storefront runs on **Azure Container Apps**, using a standalone Next.js Node
