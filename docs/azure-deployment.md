@@ -60,10 +60,32 @@ Required application secrets:
 
 Other inventory keys are optional and omitted when unset: direct migration URLs,
 previous CREOMS signing key, GitHub feedback settings, optional Blob settings,
-HR-ATS settings and the Careers Caller key. Unconfigured integrations keep their
-existing disabled behavior. The deployment does not provision Vercel Queues or
-change external cron schedules. Vercel project OIDC tokens are not portable Azure
-credentials and must not be copied into this deployment.
+the Careers Caller key. Unconfigured integrations keep their
+existing disabled behavior. Careers applications are saved in the shared database with no outbound delivery
+or Vercel Queue. No Vercel deployment configuration is needed.
+
+## Scheduled jobs and legacy files
+
+GitHub Actions calls the existing cron routes with bearer authorization using the
+`CRON_SECRET` repository secret and `STOREFRONT_URL` repository variable (set to
+`https://shop.buildwrite.me`). The workflows support manual dispatch as well:
+
+- `auto-complete-tickets.yml`: daily at 01:00 UTC.
+- `feedback-requests.yml`: daily at 02:00 UTC.
+- Existing delivery-photo retention and customer-notification workflows continue
+  on their own schedules and use their existing configuration.
+
+There are no Vercel cron entries. Keep `@vercel/blob` and any needed Blob token:
+legacy payment-proof and Ticket attachment reads and the catalog import script
+still use Blob. New payment-proof uploads use file-storage through the gateway;
+existing Blob files are not copied as part of this cleanup.
+
+Feedback reports work without `VERCEL_*` variables: environment falls back to
+`NODE_ENV` (or `unknown`), and version falls back to `unknown`. When present,
+`VERCEL_ENV`, `VERCEL_GIT_COMMIT_SHA` and `VERCEL_DEPLOYMENT_ID` only label reports;
+they are not required Azure secrets.
+
+## Provisioning secrets
 
 Before provisioning or rotating secrets from the owner's local env files, get the
 owner's approval. Send values to `gh secret set KEY` through stdin without echoing
