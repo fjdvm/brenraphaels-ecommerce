@@ -9,6 +9,7 @@ import { addCustomerAddress, createAddressStore, customerAddressSchema } from "@
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { sendOrderPlacedEmail } from "@/lib/email/order-placed-email";
+import { scheduleOrdersChanged } from "@/lib/orders/staff-signal";
 import { sendOrderPlacedSignal } from "@/lib/notifications/gateway";
 import {
   fulfillmentMethods,
@@ -72,6 +73,7 @@ export async function placeOrder(input: unknown) {
     orderStore: createOrderStore(getDatabase()),
     mailer: { send: sendOrderPlacedEmail },
   });
+  scheduleOrdersChanged();
   // The Order is committed. A slow or failed signal must never delay checkout.
   after(async () => {
     try {

@@ -1,3 +1,4 @@
+import { scheduleOrdersChanged } from "@/lib/orders/staff-signal";
 import { ZodError } from "zod";
 
 import { getDatabase } from "@/lib/db";
@@ -24,6 +25,7 @@ export async function POST(request: Request, context: RouteContext<"/api/interna
     if (decision.status === "refunded") await verifyRefundProof(decision.refundProofFileId, returnId);
     const db = getDatabase();
     const updated = await createReturnStore(db).transition(returnId, actor, decision);
+    scheduleOrdersChanged();
     await publishAfterCommit(updated.customerId, {
       type: "return.updated", orderId: String(updated.orderId), returnId: String(updated.id),
     }, publishCustomerOrderEvent);

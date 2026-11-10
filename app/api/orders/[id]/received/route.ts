@@ -1,3 +1,4 @@
+import { scheduleOrdersChanged } from "@/lib/orders/staff-signal";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { createOrderReceiptStore, OrderReceiptConflictError, OrderReceiptNotFoundError } from "@/lib/orders/receipt";
@@ -23,6 +24,7 @@ export async function POST(request: Request, context: RouteContext<"/api/orders/
 
   try {
     const result = await createOrderReceiptStore(getDatabase()).markReceived(visitor.customer.userId, orderId.data);
+    scheduleOrdersChanged();
     return Response.json(result);
   } catch (error) {
     if (error instanceof OrderReceiptNotFoundError) {
