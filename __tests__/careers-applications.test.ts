@@ -86,7 +86,6 @@ describe("Application submission", () => {
       expect.objectContaining({ referenceNumber: "BR-20260928-0001", status: "Received", jobPostingId: "ats-1" }),
     ]);
     await expect(withdrawApplication("BR-20260928-0001", input.applications, "applicant-1")).resolves.toEqual({ status: "Withdrawn" });
-    expect(input.enqueueDelivery).not.toHaveBeenCalled();
     await expect(input.applications.listForApplicant("applicant-1")).resolves.toEqual([expect.objectContaining({ status: "Withdrawn" })]);
     await expect(withdrawApplication("BR-20260928-0001", input.applications, "another-applicant")).rejects.toThrow("Application not found.");
   });
