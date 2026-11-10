@@ -8,6 +8,8 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL(".", import.meta.url)) },
   },
   test: {
+    // Migrates once per run and snapshots the database for createTestDatabase().
+    globalSetup: ["./__tests__/helpers/migrated-snapshot.ts"],
     // Booting in-memory Postgres (PGlite) can exceed 5s when files run in parallel.
     testTimeout: 30_000,
     hookTimeout: 30_000,

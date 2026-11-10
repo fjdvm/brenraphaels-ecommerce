@@ -1,18 +1,17 @@
 import { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { customers, orders, tickets } from "../lib/db/schema";
 import { autoCompleteResolvedTicketsAndNotify, completeTicketAndNotify, createTicketStore, openTicketAndNotify } from "../lib/support/tickets";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 
 beforeEach(async () => {
-  client = new PGlite();
+  client = await createTestDatabase();
   const database = drizzle(client);
-  await migrate(database, { migrationsFolder: "drizzle" });
   await database.insert(customers).values([
     {
       id: "customer-1",
