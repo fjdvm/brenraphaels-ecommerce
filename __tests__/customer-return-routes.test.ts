@@ -1,8 +1,8 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test, vi } from "vitest";
 import { customers, orders, orderLines, orderReturns, orderReturnHistory } from "../lib/db/schema";
+import { createTestDatabase } from "./helpers/test-database";
 
 const { currentVisitor, getDatabase, revalidatePath, prepare, read } = vi.hoisted(() => ({
   currentVisitor: vi.fn(), getDatabase: vi.fn(), revalidatePath: vi.fn(), prepare: vi.fn(), read: vi.fn(),
@@ -30,9 +30,8 @@ function json(body: unknown) {
 const input = () => ({ orderLineIds: [lineId], reason: "damaged", note: "Broken seal.", preferredResolution: "refund", photoUploadTokens: ["photo-1"] });
 
 beforeAll(async () => {
-  client = new PGlite();
+  client = await createTestDatabase();
   db = drizzle(client);
-  await migrate(db, { migrationsFolder: "drizzle" });
 });
 beforeEach(async () => {
   vi.clearAllMocks();

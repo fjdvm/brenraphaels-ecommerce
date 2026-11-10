@@ -1,6 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test, vi } from "vitest";
 
@@ -8,6 +7,7 @@ import { customerNotifications, customers, orders, orderLines, orderReturnHistor
 import { createCustomerReturns } from "../lib/returns/customer-returns";
 import { createReturnStore } from "../lib/returns/returns";
 import { createOrderReceiptStore } from "../lib/orders/receipt";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 let db: ReturnType<typeof drizzle>;
@@ -20,9 +20,8 @@ const request = () => ({ orderLineIds: lineIds, reason: "damaged", note: "  Brok
 const service = () => createCustomerReturns(db, { files, now: () => at });
 
 beforeAll(async () => {
-  client = new PGlite();
+  client = await createTestDatabase();
   db = drizzle(client);
-  await migrate(db, { migrationsFolder: "drizzle" });
 });
 beforeEach(async () => {
   await client.exec("TRUNCATE customers CASCADE");

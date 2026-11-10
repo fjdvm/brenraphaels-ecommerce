@@ -1,12 +1,12 @@
 import sharp from "sharp";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { customers, orders, orderReturns, orderReturnHistory } from "../lib/db/schema";
 import { creomsReturnCredential, mintCreomsCredential } from "../lib/orders/creoms-credential";
 import { POST } from "../app/api/internal/returns/[id]/status/route";
+import { createTestDatabase } from "./helpers/test-database";
 
 const afterTasks = vi.hoisted(() => [] as Array<() => Promise<void>>);
 vi.mock("next/server", () => ({ after: (task: () => Promise<void>) => { afterTasks.push(task); } }));
@@ -33,10 +33,9 @@ beforeEach(async () => {
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.test");
   vi.stubEnv("API_GATEWAY_URL", "https://gateway.test");
   vi.stubEnv("API_GATEWAY_CALLER_KEY", "storefront-key");
-  client = new PGlite();
+  client = await createTestDatabase();
   db = drizzle(client);
   database.get.mockReturnValue(db);
-  await migrate(db, { migrationsFolder: "drizzle" });
   await db.insert(customers).values({ id: "customer-1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
     email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
   const [order] = await db.insert(orders).values({ customerId: "customer-1", status: "delivered", fulfillmentMethod: "pickup",

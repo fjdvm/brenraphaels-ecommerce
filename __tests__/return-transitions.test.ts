@@ -1,10 +1,10 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, expect, test } from "vitest";
 
 import { customers, orders, orderReturns, orderReturnHistory } from "../lib/db/schema";
 import { createReturnStore } from "../lib/returns/returns";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 let db: ReturnType<typeof drizzle>;
@@ -13,9 +13,8 @@ const at = new Date("2026-10-24T08:00:00Z");
 const staff = { type: "staff" as const, id: "ana", name: "Ana Reyes" };
 
 beforeEach(async () => {
-  client = new PGlite();
+  client = await createTestDatabase();
   db = drizzle(client);
-  await migrate(db, { migrationsFolder: "drizzle" });
   await db.insert(customers).values({ id: "customer-1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
     email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
   const [order] = await db.insert(orders).values({ customerId: "customer-1", status: "delivered", fulfillmentMethod: "pickup",

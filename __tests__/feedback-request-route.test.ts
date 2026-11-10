@@ -1,9 +1,9 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { customers, feedbackRequests, orderFeedback, orders } from "../lib/db/schema";
+import { createTestDatabase } from "./helpers/test-database";
 
 const { getDatabase, sendFeedbackRequest, writeAuditEvent } = vi.hoisted(() => ({
   getDatabase: vi.fn(),
@@ -31,9 +31,8 @@ beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(now);
   vi.stubEnv("CRON_SECRET", "s3cret");
-  client = new PGlite();
+  client = await createTestDatabase();
   const database = drizzle(client);
-  await migrate(database, { migrationsFolder: "drizzle" });
   await database.insert(customers).values([
     { id: "customer-1", firstName: "Jane", lastName: "Doe", fullName: "Jane Doe", email: "jane@example.com", contactNumber: "09171234567", marketingOptIn: false },
     { id: "customer-2", firstName: "John", lastName: "Doe", fullName: "John Doe", email: "john@example.com", contactNumber: "09181234567", marketingOptIn: false },

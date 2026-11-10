@@ -1,6 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { customers, orders } from "../lib/db/schema";
@@ -9,13 +8,13 @@ import {
   OrderFeedbackNotAvailableError,
   createOrderFeedbackStore,
 } from "../lib/orders/feedback";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 
 beforeEach(async () => {
-  client = new PGlite();
+  client = await createTestDatabase();
   const database = drizzle(client);
-  await migrate(database, { migrationsFolder: "drizzle" });
   await database.insert(customers).values([
     { id: "customer-1", firstName: "Jane", lastName: "Doe", fullName: "Jane Doe", email: "jane@example.com", contactNumber: "09171234567", marketingOptIn: false },
     { id: "customer-2", firstName: "John", lastName: "Doe", fullName: "John Doe", email: "john@example.com", contactNumber: "09181234567", marketingOptIn: false },

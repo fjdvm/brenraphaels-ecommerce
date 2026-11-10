@@ -1,6 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -10,6 +9,7 @@ import {
   signUpCustomer,
   type CustomerSignUp,
 } from "../lib/customer/sign-up";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 
@@ -30,8 +30,7 @@ const validSignUp: CustomerSignUp = {
 };
 
 beforeEach(async () => {
-  client = new PGlite();
-  await migrate(drizzle(client), { migrationsFolder: "drizzle" });
+  client = await createTestDatabase();
 });
 
 afterEach(async () => {

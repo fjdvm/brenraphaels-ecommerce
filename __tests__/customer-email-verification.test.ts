@@ -1,6 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -9,12 +8,12 @@ import {
 } from "../lib/customer/email-verification";
 import { createVerificationResendStore } from "../lib/customer/verification-resend-store";
 import { createVerificationTokenStore } from "../lib/customer/verification-token-store";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 
 beforeEach(async () => {
-  client = new PGlite();
-  await migrate(drizzle(client), { migrationsFolder: "drizzle" });
+  client = await createTestDatabase();
 });
 
 afterEach(async () => {

@@ -1,6 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { customers, orders } from "../lib/db/schema";
@@ -8,6 +7,7 @@ import { mintCreomsCredential } from "../lib/orders/creoms-credential";
 import { createOrderStore } from "../lib/orders/orders";
 import { GET as retryNotifications } from "../app/api/cron/customer-notifications/route";
 import { POST } from "../app/api/internal/orders/[id]/status/route";
+import { createTestDatabase } from "./helpers/test-database";
 
 const mocks = vi.hoisted(() => ({ database: vi.fn(), email: vi.fn(), afterTasks: [] as Array<() => Promise<void>> }));
 vi.mock("next/server", () => ({ after: (task: () => Promise<void>) => { mocks.afterTasks.push(task); } }));
@@ -26,11 +26,10 @@ beforeEach(async () => {
   vi.stubEnv("API_GATEWAY_CALLER_KEY", "storefront-key");
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.test");
   vi.stubEnv("CUSTOMER_NOTIFICATION_CRON_SECRET", "cron-key");
-  client = new PGlite();
+  client = await createTestDatabase();
   db = drizzle(client);
   mocks.database.mockReturnValue(db);
   mocks.email.mockResolvedValue(undefined);
-  await migrate(db, { migrationsFolder: "drizzle" });
   await db.insert(customers).values({ id: "customer-1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
     email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
   const [order] = await db.insert(orders).values({ customerId: "customer-1", status: "dispatched", fulfillmentMethod: "delivery",

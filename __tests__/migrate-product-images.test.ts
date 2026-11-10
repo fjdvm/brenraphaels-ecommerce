@@ -1,10 +1,10 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import sharp from "sharp";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { productImages, products } from "../lib/db/schema";
 import { migrateProductImages, retryingFetch } from "../scripts/migrate-product-images.mjs";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 let db: ReturnType<typeof drizzle>;
@@ -16,8 +16,7 @@ const gateway = { baseUrl: "https://gateway.test", callerKey: "test-key", public
 const source = "https://store.public.blob.vercel-storage.com/catalog/jam.png";
 
 beforeEach(async () => {
-  client = new PGlite(); db = drizzle(client);
-  await migrate(db, { migrationsFolder: "drizzle" });
+  client = await createTestDatabase(); db = drizzle(client);
   await db.insert(products).values({ slug: "jam", name: "Jam", description: "Ube" });
   await db.insert(productImages).values({ productSlug: "jam", url: source, alt: "Jam", position: 0 });
   bytes = new Uint8Array(await sharp({ create: { width: 2, height: 2, channels: 3, background: "white" } }).png().toBuffer());

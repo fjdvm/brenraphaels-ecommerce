@@ -1,6 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { completeCustomerProfile } from "../lib/customer/complete-profile";
@@ -11,6 +10,7 @@ import {
 import { createCustomerStore } from "../lib/customer/sign-up";
 import { classifyVisitor } from "../lib/customer/visitor";
 import { createVisitorStore } from "../lib/customer/visitor-store";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 
@@ -34,8 +34,7 @@ const validDetails: CompleteProfileInput = {
 };
 
 beforeEach(async () => {
-  client = new PGlite();
-  await migrate(drizzle(client), { migrationsFolder: "drizzle" });
+  client = await createTestDatabase();
 });
 
 afterEach(async () => {

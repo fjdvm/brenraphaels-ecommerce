@@ -1,7 +1,6 @@
 import { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import {
@@ -10,6 +9,7 @@ import {
   unsubscribeToken,
 } from "../lib/customer/unsubscribe";
 import { customers } from "../lib/db/schema";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 let db: ReturnType<typeof drizzle>;
@@ -18,9 +18,8 @@ const secret = "test-secret-at-least-32-characters-long";
 const siteUrl = "https://store.example";
 
 beforeEach(async () => {
-  client = new PGlite();
+  client = await createTestDatabase();
   db = drizzle(client);
-  await migrate(db, { migrationsFolder: "drizzle" });
   await db.insert(customers).values([customer("customer-1", true), customer("customer-2", true)]);
 });
 

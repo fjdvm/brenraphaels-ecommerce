@@ -1,6 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test, vi } from "vitest";
 
 import { customerNotifications, customers, orders, products, sizes, ticketMessages, tickets } from "../lib/db/schema";
@@ -8,12 +7,12 @@ import { sendPendingCustomerNotifications } from "../lib/notifications/outbox";
 import { createCartStore } from "../lib/orders/cart";
 import { createOrderStore } from "../lib/orders/orders";
 import { createFeedbackRequestStore, sendDueFeedbackRequests } from "../lib/orders/feedback-requests";
+import { createTestDatabase } from "./helpers/test-database";
 
 let client: PGlite;
 let db: ReturnType<typeof drizzle>;
 beforeAll(async () => {
-  client = new PGlite(); db = drizzle(client);
-  await migrate(db, { migrationsFolder: "drizzle" });
+  client = await createTestDatabase(); db = drizzle(client);
 });
 beforeEach(async () => {
   await client.exec("TRUNCATE customers CASCADE");
