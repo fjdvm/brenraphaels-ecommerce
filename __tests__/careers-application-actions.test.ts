@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { careersSession, submitApplication, withdrawApplication, createApplicationStore, createApplicantProfileStore, createApplicantDocumentStore, createJobPostingStore, sendApplicationReceivedEmail, enqueueApplicationDelivery, revalidatePath } = vi.hoisted(() => ({
-  careersSession: vi.fn(), submitApplication: vi.fn(), withdrawApplication: vi.fn(), createApplicationStore: vi.fn(), createApplicantProfileStore: vi.fn(), createApplicantDocumentStore: vi.fn(), createJobPostingStore: vi.fn(), sendApplicationReceivedEmail: vi.fn(), enqueueApplicationDelivery: vi.fn(), revalidatePath: vi.fn(),
+const { careersSession, submitApplication, withdrawApplication, createApplicationStore, createApplicantProfileStore, createApplicantDocumentStore, createJobPostingStore, sendApplicationReceivedEmail, revalidatePath } = vi.hoisted(() => ({
+  careersSession: vi.fn(), submitApplication: vi.fn(), withdrawApplication: vi.fn(), createApplicationStore: vi.fn(), createApplicantProfileStore: vi.fn(), createApplicantDocumentStore: vi.fn(), createJobPostingStore: vi.fn(), sendApplicationReceivedEmail: vi.fn(), revalidatePath: vi.fn(),
 }));
 
 vi.mock("@/lib/careers/auth", () => ({ careersSession }));
@@ -10,7 +10,6 @@ vi.mock("@/lib/careers/db", () => ({ getCareersDatabase: vi.fn(() => "database")
 vi.mock("@/lib/careers/profile", () => ({ createApplicantProfileStore }));
 vi.mock("@/lib/careers/documents", () => ({ createApplicantDocumentStore }));
 vi.mock("@/lib/careers/job-postings", () => ({ createJobPostingStore }));
-vi.mock("@/lib/careers/hr-ats-delivery", () => ({ enqueueApplicationDelivery }));
 vi.mock("@/lib/email/application-received-email", () => ({ sendApplicationReceivedEmail }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
@@ -42,7 +41,7 @@ describe("Application action", () => {
     await expect(submitApplicationAction({}, formData)).resolves.toEqual({ referenceNumber: "BR-20260928-0001" });
     expect(submitApplication).toHaveBeenCalledWith(
       { jobPostingId: "ats-1", documentIds: [7], consent: true },
-      expect.objectContaining({ identity, applications: "applications", profile: "profile", documents: "documents", postings: "postings", sendConfirmationEmail: sendApplicationReceivedEmail, enqueueDelivery: enqueueApplicationDelivery }),
+      expect.objectContaining({ identity, applications: "applications", profile: "profile", documents: "documents", postings: "postings", sendConfirmationEmail: sendApplicationReceivedEmail }),
     );
   });
 
@@ -64,7 +63,7 @@ describe("Application action", () => {
 
     await withdrawApplicationAction(formData);
 
-    expect(withdrawApplication).toHaveBeenCalledWith("BR-20260928-0001", "applications", "applicant-1", enqueueApplicationDelivery);
+    expect(withdrawApplication).toHaveBeenCalledWith("BR-20260928-0001", "applications", "applicant-1");
     expect(revalidatePath).toHaveBeenCalledWith("/careers/applications");
   });
 

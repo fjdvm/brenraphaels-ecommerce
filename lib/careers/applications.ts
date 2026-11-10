@@ -2,7 +2,6 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import type { ApplicantDocumentStore } from "./documents";
-import type { ApplicationDeliveryEvent } from "./hr-ats-delivery";
 import type { JobPostingStore } from "./job-postings";
 import type { ApplicantProfile, ApplicantProfileStore } from "./profile";
 import { applications, jobPostings } from "./schema";
@@ -177,7 +176,6 @@ type SubmissionDependencies = {
   applications: ApplicationStore;
   makeReferenceNumber(): string;
   sendConfirmationEmail(recipient: string, application: { referenceNumber: string; jobTitle: string }): Promise<void>;
-  enqueueDelivery(event: ApplicationDeliveryEvent): Promise<void>;
 };
 
 export async function submitApplication(input: { jobPostingId: string; documentIds: number[]; consent: boolean }, dependencies: SubmissionDependencies) {
@@ -216,18 +214,6 @@ export async function submitApplication(input: { jobPostingId: string; documentI
     throw error;
   }
   try {
-    await dependencies.enqueueDelivery({
-      type: "application.submitted",
-      referenceNumber,
-      jobPostingId: posting.id,
-      profileSnapshot: profile,
-      documentsSnapshot: selectedDocuments as ApplicationDocument[],
-      consentedAt: consentedAt.toISOString(),
-    });
-  } catch (error) {
-    console.error("Could not enqueue Application for HR-ATS delivery", error);
-  }
-  try {
     await dependencies.sendConfirmationEmail(dependencies.identity.email, { referenceNumber, jobTitle: posting.title });
     return { referenceNumber, confirmationEmailSent: true };
   } catch {
@@ -259,15 +245,9 @@ export async function withdrawApplication(
   referenceNumber: string,
   store: ApplicationStore,
   applicantId: string,
-  enqueueDelivery: (event: ApplicationDeliveryEvent) => Promise<void>,
 ) {
   const status = await store.withdraw(referenceNumber, applicantId);
   if (!status) throw new Error("Application not found.");
   if (status !== "Withdrawn") throw new Error("This Application has reached a final status and cannot be withdrawn.");
-  try {
-    await enqueueDelivery({ type: "application.withdrawn", referenceNumber });
-  } catch (error) {
-    console.error("Could not enqueue Application withdrawal for HR-ATS delivery", error);
-  }
   return { status };
 }

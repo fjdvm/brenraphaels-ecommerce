@@ -46,13 +46,13 @@ function dependencies(overrides: Record<string, unknown> = {}) {
     applications: createApplicationStore(drizzle(client)),
     makeReferenceNumber: vi.fn().mockReturnValue("BR-20260928-0001"),
     sendConfirmationEmail: vi.fn().mockResolvedValue(undefined),
-    enqueueDelivery: vi.fn().mockResolvedValue(undefined),
+    enqueueDelivery: vi.fn().mockResolvedValue(undefined), // Legacy delivery boundary must stay unused.
     ...overrides,
   };
 }
 
 describe("Application submission", () => {
-  test("records a verified Applicant's complete local Application and emails its permanent Reference number", async () => {
+  test("saves a verified Applicant's Application and emails its Reference number without outbound delivery", async () => {
     const input = dependencies();
 
     await expect(submitApplication({ jobPostingId: "ats-1", documentIds: [7], consent: true }, input)).resolves.toEqual({ referenceNumber: "BR-20260928-0001", confirmationEmailSent: true });
@@ -64,14 +64,7 @@ describe("Application submission", () => {
       },
     ]);
     expect(input.sendConfirmationEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ referenceNumber: "BR-20260928-0001", jobTitle: "Pastry Chef" }));
-    expect(input.enqueueDelivery).toHaveBeenCalledWith({
-      type: "application.submitted",
-      referenceNumber: "BR-20260928-0001",
-      jobPostingId: "ats-1",
-      profileSnapshot: profile,
-      documentsSnapshot: [{ ...documents[0], requiredFor: "Resume" }],
-      consentedAt: expect.any(String),
-    });
+    expect(input.enqueueDelivery).not.toHaveBeenCalled();
   });
 
   test("blocks unverified, incomplete, missing-document, duplicate, and non-consenting submissions locally", async () => {
@@ -92,17 +85,9 @@ describe("Application submission", () => {
     await expect(input.applications.listForApplicant("applicant-1")).resolves.toEqual([
       expect.objectContaining({ referenceNumber: "BR-20260928-0001", status: "Received", jobPostingId: "ats-1" }),
     ]);
-    await expect(withdrawApplication("BR-20260928-0001", input.applications, "applicant-1", input.enqueueDelivery)).resolves.toEqual({ status: "Withdrawn" });
-    expect(input.enqueueDelivery).toHaveBeenCalledWith({ type: "application.withdrawn", referenceNumber: "BR-20260928-0001" });
-    await expect(withdrawApplication("BR-20260928-0001", input.applications, "another-applicant", input.enqueueDelivery)).rejects.toThrow("Application not found.");
-  });
-
-  test("does not withdraw an Application again, or enqueue a delivery, if enqueuing already failed once", async () => {
-    const input = dependencies({ enqueueDelivery: vi.fn().mockRejectedValue(new Error("Vercel Queues unavailable")) });
-    await submitApplication({ jobPostingId: "ats-1", documentIds: [7], consent: true }, input);
-
-    await expect(withdrawApplication("BR-20260928-0001", input.applications, "applicant-1", input.enqueueDelivery)).resolves.toEqual({ status: "Withdrawn" });
-    expect((await client.query("select status from applications")).rows).toEqual([{ status: "Withdrawn" }]);
+    await expect(withdrawApplication("BR-20260928-0001", input.applications, "applicant-1")).resolves.toEqual({ status: "Withdrawn" });
+    await expect(input.applications.listForApplicant("applicant-1")).resolves.toEqual([expect.objectContaining({ status: "Withdrawn" })]);
+    await expect(withdrawApplication("BR-20260928-0001", input.applications, "another-applicant")).rejects.toThrow("Application not found.");
   });
 
   test("does not let an Applicant withdraw an Application after a final decision", async () => {
@@ -110,7 +95,7 @@ describe("Application submission", () => {
     await submitApplication({ jobPostingId: "ats-1", documentIds: [7], consent: true }, input);
     await client.exec("update applications set status = 'Rejected' where reference_number = 'BR-20260928-0001'");
 
-    await expect(withdrawApplication("BR-20260928-0001", input.applications, "applicant-1", input.enqueueDelivery)).rejects.toThrow(
+    await expect(withdrawApplication("BR-20260928-0001", input.applications, "applicant-1")).rejects.toThrow(
       "This Application has reached a final status and cannot be withdrawn.",
     );
   });
@@ -120,14 +105,6 @@ describe("Application submission", () => {
 
     await expect(submitApplication({ jobPostingId: "ats-1", documentIds: [7], consent: true }, input)).resolves.toEqual({ referenceNumber: "BR-20260928-0001", confirmationEmailSent: false });
     expect((await client.query("select reference_number, status from applications")).rows).toEqual([{ reference_number: "BR-20260928-0001", status: "Received" }]);
-  });
-
-  test("records the Application and still emails the Applicant if enqueuing HR-ATS delivery fails", async () => {
-    const input = dependencies({ enqueueDelivery: vi.fn().mockRejectedValue(new Error("Vercel Queues unavailable")) });
-
-    await expect(submitApplication({ jobPostingId: "ats-1", documentIds: [7], consent: true }, input)).resolves.toEqual({ referenceNumber: "BR-20260928-0001", confirmationEmailSent: true });
-    expect((await client.query("select reference_number, status from applications")).rows).toEqual([{ reference_number: "BR-20260928-0001", status: "Received" }]);
-    expect(input.sendConfirmationEmail).toHaveBeenCalled();
   });
 });
 
