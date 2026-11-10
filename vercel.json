@@ -1,6 +1,0 @@
-{
-  "crons": [
-    { "path": "/api/cron/auto-complete-tickets", "schedule": "0 1 * * *" },
-    { "path": "/api/cron/feedback-requests", "schedule": "0 2 * * *" }
-  ]
-}

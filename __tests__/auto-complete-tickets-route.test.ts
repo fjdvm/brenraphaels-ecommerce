@@ -12,7 +12,6 @@ vi.mock("@/lib/email/ticket-auto-completed-email", () => ({ sendTicketAutoComple
 vi.mock("@/lib/support/tickets", () => ({ autoCompleteResolvedTicketsAndNotify, createTicketStore }));
 
 import { GET } from "@/app/api/cron/auto-complete-tickets/route";
-import vercelConfig from "../vercel.json";
 
 const request = (authorization?: string) =>
   new Request("http://localhost/api/cron/auto-complete-tickets", { headers: authorization ? { authorization } : {} });
@@ -39,10 +38,6 @@ describe("auto-complete Tickets cron route", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ completed: 2 });
-  });
-
-  test("is registered to run once a day", () => {
-    expect(vercelConfig.crons).toContainEqual({ path: "/api/cron/auto-complete-tickets", schedule: expect.stringMatching(/^\d+ \d+ \* \* \*$/) });
   });
 
   describe("GitHub Actions schedule", () => {

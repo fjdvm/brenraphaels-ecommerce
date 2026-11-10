@@ -16,7 +16,6 @@ vi.mock("@/lib/notifications/gateway", () => ({ sendFeedbackRequest, sendAppNoti
 vi.mock("@/lib/audit/gateway", () => ({ writeAuditEvent }));
 
 import { GET } from "@/app/api/cron/feedback-requests/route";
-import vercelConfig from "../vercel.json";
 
 const now = new Date("2026-10-20T01:00:00Z");
 const daysAgo = (days: number, extraMinutes = 0) => new Date(now.getTime() - days * 86_400_000 + extraMinutes * 60_000);
@@ -192,9 +191,5 @@ describe("Feedback request cron route", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ sent: 1 });
     expect(await requestsSent()).toEqual([due.id]);
-  });
-
-  test("is registered to run once a day", () => {
-    expect(vercelConfig.crons).toContainEqual({ path: "/api/cron/feedback-requests", schedule: expect.stringMatching(/^\d+ \d+ \* \* \*$/) });
   });
 });

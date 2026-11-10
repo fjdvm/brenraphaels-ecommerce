@@ -26,7 +26,7 @@ Next serializes its image allowlist at build time. `prepare-server.mjs` inserts
 startup configuration into the generated standalone server so PRODUCT_IMAGE_ORIGIN
 remains a runtime value with the same HTTPS-origin restrictions as the app. It
 fails the image build if Next changes that insertion point; check this when
-upgrading Next. Normal Vercel builds continue to use next.config.ts directly.
+upgrading Next. Local Next.js builds use next.config.ts directly.
 
 Run `CONTAINER_IMAGE=storefront:local bash scripts/container/run.sh` after building.
 It creates disposable PostgreSQL, applies the existing migrations there, seeds a
