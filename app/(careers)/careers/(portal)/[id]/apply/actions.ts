@@ -6,7 +6,6 @@ import { createApplicationStore, submitApplication } from "@/lib/careers/applica
 import { careersSession } from "@/lib/careers/auth";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { createApplicantDocumentStore } from "@/lib/careers/documents";
-import { enqueueApplicationDelivery } from "@/lib/careers/hr-ats-delivery";
 import { sendApplicationReceivedEmail } from "@/lib/email/application-received-email";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { createApplicantProfileStore } from "@/lib/careers/profile";
@@ -39,7 +38,6 @@ export async function submitApplicationAction(_previous: ApplicationActionState,
         applications: createApplicationStore(database),
         makeReferenceNumber,
         sendConfirmationEmail: sendApplicationReceivedEmail,
-        enqueueDelivery: enqueueApplicationDelivery,
       },
     );
     revalidatePath("/careers/applications");

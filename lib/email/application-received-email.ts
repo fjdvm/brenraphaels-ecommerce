@@ -1,6 +1,6 @@
 import { createBrevoTransport } from "./brevo-transport";
 
-/** Sends the local confirmation immediately; HR-ATS delivery is asynchronous. */
+/** Sends confirmation after the Application is saved in the shared Careers database. */
 export async function sendApplicationReceivedEmail(recipient: string, application: { referenceNumber: string; jobTitle: string }) {
   const { transport, sender } = createBrevoTransport();
   await transport.sendMail({
