@@ -1,3 +1,4 @@
+import { scheduleOrdersChanged } from "../orders/staff-signal";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { scheduleStaffSignal } from "../notifications/staff-signal";
@@ -33,6 +34,7 @@ export async function handleCustomerReturn(request: Request, idParam: string, ac
     const customerId = visitor.customer.userId;
     if (action === "upload") return Response.json(await service.prepareUpload(customerId, id.data, input), { status: 201 });
     const result = action === "cancel" ? await service.cancel(customerId, id.data) : await service.request(customerId, id.data, input);
+    scheduleOrdersChanged();
     if (action === "request") {
       scheduleStaffSignal("Return");
       await notifyReturnChange(getDatabase(), result);

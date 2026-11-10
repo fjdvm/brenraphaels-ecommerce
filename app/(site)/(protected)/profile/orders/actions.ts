@@ -1,5 +1,6 @@
 "use server";
 
+import { scheduleOrdersChanged } from "@/lib/orders/staff-signal";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -67,6 +68,7 @@ export async function cancelOrder(
     return { message: "We couldn't cancel this Order. Please try again." };
   }
 
+  scheduleOrdersChanged();
   try {
     await sendOrderCancelledEmail(customer.email, order);
   } catch (error) {
@@ -121,6 +123,7 @@ export async function submitPaymentProof(
     return { message: error instanceof Error ? error.message : "We couldn't submit your payment proof." };
   }
 
+  scheduleOrdersChanged();
   scheduleStaffSignal("Payment");
   revalidatePath("/profile/orders");
   return { message: "Payment proof submitted. We'll email you once it's verified." };
@@ -175,6 +178,7 @@ export async function markOrderReceived(orderId: number): Promise<OrderReceivedS
   }
 
   revalidatePath("/profile/orders");
+  scheduleOrdersChanged();
   return { received: true };
 }
 

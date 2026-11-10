@@ -110,7 +110,7 @@ test("confirms the saved Delivery photo before waiting for Customer notification
     expect(advance).toHaveBeenCalledTimes(1);
     expect(publishCustomerOrderEvent).not.toHaveBeenCalled();
     expect(sendOrderDeliveredEmail).not.toHaveBeenCalled();
-    const notifications = afterTasks.shift()!();
+    const notifications = Promise.all(afterTasks.splice(0).map(task => task()));
     await vi.waitFor(() => expect(publishCustomerOrderEvent).toHaveBeenCalledTimes(1));
     releasePublish();
     await notifications;
@@ -287,4 +287,15 @@ describe("Customer Order events", () => {
     ]);
     log.mockRestore();
   });
+});
+
+test("a committed status change signals Staff Orders independently of Customer delivery", async () => {
+  publishCustomerOrderEvent.mockRejectedValueOnce(new Error("Customer channel unavailable"));
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const response = await postAndNotify(statusRequest(), context);
+  expect(response.status).toBe(200);
+  expect(fetch).toHaveBeenCalledWith("https://gateway.test/notifications/orders/changed", expect.objectContaining({
+    method: "POST", body: "{}", headers: { Authorization: "Bearer storefront-key", "Content-Type": "application/json" },
+  }));
+  log.mockRestore();
 });

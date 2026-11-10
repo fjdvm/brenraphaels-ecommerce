@@ -8,6 +8,8 @@ import { customers, orders, orderReturns, orderReturnHistory } from "../lib/db/s
 import { creomsReturnCredential, mintCreomsCredential } from "../lib/orders/creoms-credential";
 import { POST } from "../app/api/internal/returns/[id]/status/route";
 
+const afterTasks = vi.hoisted(() => [] as Array<() => Promise<void>>);
+vi.mock("next/server", () => ({ after: (task: () => Promise<void>) => { afterTasks.push(task); } }));
 const database = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock("@/lib/db", () => ({ getDatabase: database.get }));
 const { publishCustomerOrderEvent } = vi.hoisted(() => ({ publishCustomerOrderEvent: vi.fn() }));
@@ -26,6 +28,7 @@ let bytes: Uint8Array;
 let calls: { url: string; init?: RequestInit }[];
 
 beforeEach(async () => {
+  afterTasks.length = 0;
   vi.stubEnv("CREOMS_SERVICE_SECRET", "k".repeat(40));
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.test");
   vi.stubEnv("API_GATEWAY_URL", "https://gateway.test");
@@ -282,4 +285,16 @@ test("a failed publish is logged and never fails or rolls back the committed dec
   // The Customer's email and Notification still go out.
   expect(calls.filter((c) => c.url.includes("/notifications/"))).toHaveLength(2);
   log.mockRestore();
+});
+
+
+test("a committed Return decision invalidates Staff Orders without a payload", async () => {
+  const id = await requested("replacement");
+  expect((await call(id, { status: "approved", ...staff })).status).toBe(200);
+  for (const task of afterTasks.splice(0)) await task();
+  expect(calls).toContainEqual({ url: "https://gateway.test/notifications/orders/changed", init: expect.objectContaining({ body: "{}" }) });
+  calls.length = 0;
+  expect((await call(id, { status: "approved", ...staff })).status).toBe(409);
+  expect(afterTasks).toHaveLength(0);
+  expect(calls).toHaveLength(0);
 });

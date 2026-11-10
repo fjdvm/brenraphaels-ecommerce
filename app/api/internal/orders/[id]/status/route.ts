@@ -1,3 +1,4 @@
+import { scheduleOrdersChanged } from "@/lib/orders/staff-signal";
 import { after } from "next/server";
 import { ZodError } from "zod";
 
@@ -49,6 +50,7 @@ export async function POST(
     if (update.status === "delivered") await verifyDeliveryPhoto(update.deliveryPhotoFileId);
     const orderStore = createOrderStore(getDatabase());
     const order = await orderStore.advance(orderId, update);
+    scheduleOrdersChanged();
     // Confirm the committed change before email or gateway latency can exhaust CREOMS's timeout.
     after(async () => {
       await publishAfterCommit(
