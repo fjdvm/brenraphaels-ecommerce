@@ -1,4 +1,4 @@
-import { ArrowRight, Briefcase, Clock, MapPin } from "lucide-react";
+import { ArrowRight, Briefcase, Clock, MapPin, Search } from "lucide-react";
 import Link from "next/link";
 
 import { eyebrowClass } from "@/components/features/about/section-heading";
@@ -8,24 +8,44 @@ import type { JobPosting } from "@/lib/careers/job-postings";
 const chipClass = "flex items-center gap-1.5 rounded-full bg-surface-soft px-2.5 py-1 text-xs tracking-[0.35px] text-body";
 
 /** Eyebrow, section title and the number of Open Job Postings, as in the design. */
-export function OpenRolesHeading({ count }: { count: number }) {
+export function OpenRolesHeading({ count, filtered = false }: { count: number; filtered?: boolean }) {
   return (
     <div className="flex flex-col gap-2">
       <p className={eyebrowClass}>Open roles</p>
       <h2 className="font-serif text-3xl leading-[1.2] text-primary sm:text-[32px]">
-        {count} {count === 1 ? "position" : "positions"} open
+        {count} {count === 1 ? "position" : "positions"} {filtered ? "match" : "open"}
       </h2>
     </div>
   );
 }
 
 /** `applicationStatuses` maps Job Posting id to the signed-in Applicant's Application status; omit it for signed-out visitors. */
-export function JobPostingsList({ jobs, applicationStatuses = {} }: { jobs: JobPosting[]; applicationStatuses?: Record<string, string> }) {
+export function JobPostingsList({ jobs, applicationStatuses = {}, filtered = false }: { jobs: JobPosting[]; applicationStatuses?: Record<string, string>; filtered?: boolean }) {
   if (jobs.length === 0) {
     return (
-      <p className="rounded-2xl border border-line bg-white px-6 py-8 text-sm tracking-[0.35px] text-body">
-        There are no open Job Postings matching those filters.
-      </p>
+      <div className="flex flex-col items-center gap-3 rounded-[40px] border border-line bg-white px-6 py-12 text-center">
+        <span aria-hidden className="grid size-11 place-items-center rounded-full bg-lavender text-primary">
+          <Search className="size-5" />
+        </span>
+        <h3 className="font-serif text-[22px] leading-[1.3] text-primary">
+          {filtered ? "No roles match these filters" : "No open roles right now"}
+        </h3>
+        <p className="max-w-xl text-sm tracking-[0.35px] text-body">
+          {filtered
+            ? "Try another department or employment type, or get an email when a matching role opens."
+            : "There are no open Job Postings at the moment. Check back soon, or get an email when a role opens."}
+        </p>
+        <div className="mt-2 flex flex-wrap justify-center gap-3">
+          {filtered ? (
+            <Button asChild variant="pill" size="pill-sm">
+              <Link href="/careers">Clear filters</Link>
+            </Button>
+          ) : null}
+          <Button asChild variant="pill-outline" size="pill-sm">
+            <Link href="/careers/profile">Email me new roles</Link>
+          </Button>
+        </div>
+      </div>
     );
   }
 

@@ -37,7 +37,16 @@ describe("Open role cards", () => {
   test("shows an empty state with no roles", () => {
     const markup = renderToStaticMarkup(<JobPostingsList jobs={[]} />);
     expect(markup).not.toContain("<li ");
-    expect(markup).toContain("There are no open Job Postings");
+    expect(markup).toContain("No open roles right now");
+    expect(markup).not.toContain("Clear filters");
+  });
+
+  test("says no roles match the filters and offers to clear them", () => {
+    const markup = renderToStaticMarkup(<JobPostingsList jobs={[]} filtered />);
+    expect(markup).toContain("No roles match these filters");
+    expect(markup).toContain("Clear filters");
+    expect(markup).toContain('href="/careers"');
+    expect(renderToStaticMarkup(<OpenRolesHeading count={0} filtered />)).toContain("0 positions match");
   });
 });
 
