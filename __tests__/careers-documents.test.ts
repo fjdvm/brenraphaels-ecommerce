@@ -33,8 +33,7 @@ afterEach(async () => { await client.close(); vi.unstubAllEnvs(); vi.unstubAllGl
 
 const pdf = { name: "resume.pdf", contentType: "application/pdf", size: 10 };
 test.each([
-  ["resume.pdf", "application/pdf"], ["resume.doc", "application/msword"],
-  ["resume.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  ["resume.pdf", "application/pdf"],
   ["photo.jpg", "image/jpeg"], ["photo.PNG", "image/png"],
 ])("only lists %s after confirmation and linking", async (name, contentType) => {
   const pending = await prepareApplicantDocumentUpload({ ...pdf, name, contentType });
@@ -48,11 +47,13 @@ test.each([
 });
 
 test.each([
-  [{ ...pdf, contentType: "application/octet-stream" }, "PDF, Word"],
+  [{ ...pdf, contentType: "application/octet-stream" }, "PDF, JPG or PNG"],
+  [{ name: "resume.doc", contentType: "application/msword", size: 10 }, "PDF, JPG or PNG"],
+  [{ name: "resume.docx", contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 10 }, "PDF, JPG or PNG"],
   [{ ...pdf, name: "virus.exe" }, "extension must match"],
   [{ ...pdf, name: "image.png" }, "extension must match"],
   [{ ...pdf, size: 0 }, "Choose a file"],
-  [{ ...pdf, size: 5 * 1024 * 1024 + 1 }, "Documents must be 5 MB or smaller."],
+  [{ ...pdf, size: 10 * 1024 * 1024 + 1 }, "Documents must be 10 MB or smaller."],
   [{ ...pdf, name: "../resume.pdf" }, "Use letters"],
   [{ ...pdf, name: "a\u0000.pdf" }, "invisible"],
   [{ ...pdf, contentType: "application/p\u200bdf" }, "invisible"],
@@ -93,27 +94,27 @@ test("both steps require a signed-in Applicant", async () => {
   expect(files.files.size).toBe(0);
 });
 
-test("the browser uploads exactly 5 MB only to the signed address then confirms", async () => {
+test("the browser uploads exactly 10 MB only to the signed address then confirms", async () => {
   const send = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
   vi.stubGlobal("fetch", send);
   const form = new FormData();
-  form.set("document", new File([new Uint8Array(5 * 1024 * 1024)], "resume.pdf", { type: "application/pdf" }));
+  form.set("document", new File([new Uint8Array(10 * 1024 * 1024)], "resume.pdf", { type: "application/pdf" }));
   expect(await submitApplicantDocument({}, form)).toEqual({ message: "Document uploaded." });
   expect(send).toHaveBeenCalledWith("https://files.test/file-1/upload?signed", { method: "PUT", headers: { "Content-Type": "application/pdf" }, body: expect.any(File) });
   expect(await store.list("a-1")).toHaveLength(1);
 });
 
-test("accepts exactly 5 MB through preparation and confirmation", async () => {
-  const pending = await prepareApplicantDocumentUpload({ ...pdf, size: 5 * 1024 * 1024 });
+test("accepts exactly 10 MB through preparation and confirmation", async () => {
+  const pending = await prepareApplicantDocumentUpload({ ...pdf, size: 10 * 1024 * 1024 });
   expect(pending).toEqual({ documentId: 1, uploadUrl: "https://files.test/file-1/upload?signed" });
   expect(await confirmApplicantDocumentUpload(1)).toEqual({ message: "Document uploaded." });
-  expect(await store.list("a-1")).toEqual([{ ...pdf, id: 1, size: 5 * 1024 * 1024 }]);
+  expect(await store.list("a-1")).toEqual([{ ...pdf, id: 1, size: 10 * 1024 * 1024 }]);
 });
 
 test("an oversized or unsupported file is rejected without any upload request", async () => {
   const send = vi.fn();
   vi.stubGlobal("fetch", send);
-  for (const file of [new File([new Uint8Array(5 * 1024 * 1024 + 1)], "big.pdf", { type: "application/pdf" }), new File(["x"], "run.exe", { type: "application/octet-stream" })]) {
+  for (const file of [new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.pdf", { type: "application/pdf" }), new File(["x"], "run.exe", { type: "application/octet-stream" })]) {
     const form = new FormData();
     form.set("document", file);
     expect(await submitApplicantDocument({}, form)).toEqual({ message: expect.any(String) });

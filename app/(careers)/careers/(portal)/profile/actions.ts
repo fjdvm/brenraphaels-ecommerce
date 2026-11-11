@@ -5,6 +5,7 @@ import { careersSession } from "@/lib/careers/auth";
 import { createApplicationStore, syncApplicationProfileSnapshots } from "@/lib/careers/applications";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { createApplicantDocumentStore, prepareApplicantDocument, confirmApplicantDocument, openApplicantDocument } from "@/lib/careers/documents";
+import { documentUploadedMessage } from "@/lib/careers/upload-transport";
 import { gatewayDocumentFiles } from "@/lib/careers/document-files";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { createApplicantProfileStore, saveApplicantProfile } from "@/lib/careers/profile";
@@ -112,7 +113,7 @@ export async function confirmApplicantDocumentUpload(documentId: unknown): Promi
   try {
     await confirmApplicantDocument(documentId, { applicantId: identity.userId, store: createApplicantDocumentStore(getCareersDatabase()), files: gatewayDocumentFiles() });
     revalidatePath("/careers", "layout");
-    return { message: "Document uploaded." };
+    return { message: documentUploadedMessage };
   } catch (error) {
     return { message: error instanceof Error ? error.message : "We couldn't upload that Document." };
   }

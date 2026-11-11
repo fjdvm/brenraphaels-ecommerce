@@ -2,9 +2,10 @@ import { Check, Clock, Upload } from "lucide-react";
 
 import { requiredDocumentProgress, type RequiredDocument } from "@/lib/careers/application-offer";
 import type { ApplicationDocument } from "@/lib/careers/applications";
+import { UploadDocumentButton } from "./upload-document-button";
 
-/** Documents to submit: the required Documents HR-ATS reports, or, with none reported, the Documents already submitted. Upload is not available yet, so its buttons are disabled. */
-export function ApplicationDocuments({ documents, required }: { documents: ApplicationDocument[]; required?: RequiredDocument[] | null }) {
+/** Documents to submit: the required Documents HR-ATS reports, or, with none reported, the Documents already submitted. Upload opens the upload dialog. */
+export function ApplicationDocuments({ documents, required, dueLabel }: { documents: ApplicationDocument[]; required?: RequiredDocument[] | null; dueLabel?: string | null }) {
   const rows: RequiredDocument[] = required?.length
     ? required
     : documents.map((document) => ({ name: document.name, hint: "Sent with your application", status: "Submitted" }));
@@ -20,14 +21,14 @@ export function ApplicationDocuments({ documents, required }: { documents: Appli
           <h2 id="documents-heading" className="font-serif text-lg leading-[1.35] text-primary sm:text-[28px] sm:leading-[1.25]">
             Documents to submit
           </h2>
-          <p className="hidden text-sm tracking-[0.35px] text-body sm:block">Upload these so we can prepare your first day. Uploading here is coming soon.</p>
+          <p className="hidden text-sm tracking-[0.35px] text-body sm:block">Upload these so we can prepare your first day. PDF, JPG or PNG, up to 10 MB each.</p>
         </div>
         <p className="shrink-0 text-[13px] font-medium tracking-[0.35px] text-primary sm:text-sm">
           {done} of {total}
           <span className="hidden sm:inline"> done</span>
         </p>
       </div>
-      <p className="text-xs tracking-[0.35px] text-body sm:hidden">Uploading here is coming soon.</p>
+      <p className="text-xs tracking-[0.35px] text-body sm:hidden">PDF, JPG or PNG, up to 10 MB.</p>
       <div role="progressbar" aria-label="Documents done" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} className="h-1.5 overflow-hidden rounded bg-lavender sm:h-2">
         <div className="h-full rounded bg-primary" style={{ width: `${percent}%` }} />
       </div>
@@ -47,9 +48,7 @@ export function ApplicationDocuments({ documents, required }: { documents: Appli
               {row.hint ? <span className="hidden text-xs text-muted sm:block">{row.hint}</span> : null}
             </span>
             {row.status === "To upload" ? (
-              <button type="button" disabled className="rounded-full border border-primary px-[22px] py-2.5 text-sm font-medium tracking-[0.45px] text-primary disabled:opacity-50">
-                Upload
-              </button>
+              <UploadDocumentButton documentName={row.name} hint={row.hint} dueLabel={dueLabel} />
             ) : (
               <span className={`rounded-full px-3 py-1 text-xs font-medium tracking-[0.35px] ${row.status === "Submitted" ? "bg-success-soft text-success" : "bg-warning-soft text-warning"}`}>{row.status}</span>
             )}
