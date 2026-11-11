@@ -19,3 +19,16 @@ test("gateway failures do not claim success", async () => {
   const files = gatewayDocumentFiles({ baseUrl: "https://gateway.test", callerKey: "caller", fetch: vi.fn().mockResolvedValue(new Response(null, { status: 503 })) });
   await expect(files.confirm("file-1")).rejects.toThrow("couldn't upload");
 });
+
+test("an unreachable file-storage gives a retryable message, not the network error", async () => {
+  const files = gatewayDocumentFiles({ baseUrl: "https://gateway.test", callerKey: "caller", fetch: vi.fn().mockRejectedValue(new TypeError("fetch failed")) });
+  await expect(files.prepare({ name: "resume.pdf", contentType: "application/pdf", size: 10 })).rejects.toThrow("Try again");
+  await expect(files.confirm("file-1")).rejects.toThrow("Try again");
+});
+
+test.each([[undefined, "caller"], ["https://gateway.test", undefined]])("missing configuration sends nothing (%s, %s)", async (baseUrl, callerKey) => {
+  const send = vi.fn();
+  const files = gatewayDocumentFiles({ baseUrl: baseUrl ?? "", callerKey: callerKey ?? "", fetch: send });
+  await expect(files.confirm("file-1")).rejects.toThrow("not configured");
+  expect(send).not.toHaveBeenCalled();
+});

@@ -109,3 +109,30 @@ test("accepts exactly 5 MB through preparation and confirmation", async () => {
   expect(await confirmApplicantDocumentUpload(1)).toEqual({ message: "Document uploaded." });
   expect(await store.list("a-1")).toEqual([{ ...pdf, id: 1, size: 5 * 1024 * 1024 }]);
 });
+
+test("an oversized or unsupported file is rejected without any upload request", async () => {
+  const send = vi.fn();
+  vi.stubGlobal("fetch", send);
+  for (const file of [new File([new Uint8Array(5 * 1024 * 1024 + 1)], "big.pdf", { type: "application/pdf" }), new File(["x"], "run.exe", { type: "application/octet-stream" })]) {
+    const form = new FormData();
+    form.set("document", file);
+    expect(await submitApplicantDocument({}, form)).toEqual({ message: expect.any(String) });
+  }
+  expect(send).not.toHaveBeenCalled();
+  expect(files.files.size).toBe(0);
+});
+
+test("a failed browser upload leaves the Document unlisted and unconfirmed", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 403 })));
+  const form = new FormData();
+  form.set("document", new File(["x"], "resume.pdf", { type: "application/pdf" }));
+  expect(await submitApplicantDocument({}, form)).toEqual({ message: "We couldn't upload that Document. Try again." });
+  expect(await store.list("a-1")).toEqual([]);
+  expect(files.files.get("file-1")?.confirmed).toBe(false);
+});
+
+test("file-storage being down while preparing gives a retryable message and leaves no Document", async () => {
+  files.prepare = async () => { throw new Error("We couldn't upload that Document. Try again."); };
+  expect(await prepareApplicantDocumentUpload(pdf)).toEqual({ message: "We couldn't upload that Document. Try again." });
+  expect(await store.list("a-1")).toEqual([]);
+});
