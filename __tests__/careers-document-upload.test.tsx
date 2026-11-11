@@ -65,7 +65,7 @@ describe("Applicant uploads a Document", () => {
   });
 
   test.each([
-    ["wrong type", () => prepareApplicantDocumentUpload.mockResolvedValue({ message: "Upload a PDF, Word document, or image (JPEG or PNG)." }), "Upload a PDF, Word document, or image (JPEG or PNG)."],
+    ["wrong type", () => prepareApplicantDocumentUpload.mockResolvedValue({ message: "Upload a PDF, JPG or PNG file." }), "Upload a PDF, JPG or PNG file."],
     ["failed confirm", () => confirmApplicantDocumentUpload.mockResolvedValue({ message: "We couldn't upload that Document. Try again." }), "We couldn't upload that Document. Try again."],
     ["failed PUT", () => put.mockResolvedValue({ ok: false }), "We couldn't upload that Document. Try again."],
     ["network error on PUT", () => put.mockRejectedValue(new Error("offline")), "We couldn't upload that Document. Try again."],

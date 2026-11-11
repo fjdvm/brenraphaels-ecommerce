@@ -5,7 +5,8 @@ import { useCallback } from "react";
 import { Toaster, toast } from "sonner";
 
 /** What an action reports back: success, or a message to show with Retry. */
-export type ActionOutcome = { ok: true } | { ok: false; message: string };
+/** `cancelled`: the person stopped it themselves, so the card just goes away. */
+export type ActionOutcome = { ok: true } | { ok: false; message: string; cancelled?: boolean };
 
 export type ActionToastOptions = {
   /** Shown while the action runs, e.g. "Saving…". */
@@ -14,13 +15,13 @@ export type ActionToastOptions = {
   success: string;
   /** Fallback when the action fails without a message. */
   error?: string;
-  /** Runs the create, update or delete. Called again on Retry. */
-  task: () => Promise<ActionOutcome>;
+  /** Runs the create, update or delete. Called again on Retry. Call `report(percent)` only with a measured percentage. */
+  task: (report: (percent: number) => void) => Promise<ActionOutcome>;
 };
 
 const SUCCESS_MS = 4000;
 
-type CardState = { phase: "loading"; text: string } | { phase: "success"; text: string } | { phase: "error"; text: string; retry: () => void };
+type CardState = { phase: "loading"; text: string; percent?: number } | { phase: "success"; text: string } | { phase: "error"; text: string; retry: () => void };
 
 /** The one bottom-right card: progress (indeterminate, never a made-up percentage), then the result in the same card. */
 export function ActionToastCard({ state, onDismiss }: { state: CardState; onDismiss: () => void }) {
@@ -43,8 +44,17 @@ export function ActionToastCard({ state, onDismiss }: { state: CardState; onDism
         ) : null}
       </div>
       {state.phase === "loading" ? (
-        <div role="progressbar" aria-label={state.text} className="h-1 w-full overflow-hidden bg-white/15">
-          <div className="h-full w-1/3 animate-[action-toast-indeterminate_1.2s_ease-in-out_infinite] rounded-full bg-accent" />
+        <div
+          role="progressbar"
+          aria-label={state.text}
+          {...(state.percent === undefined ? {} : { "aria-valuemin": 0, "aria-valuemax": 100, "aria-valuenow": state.percent })}
+          className="h-1 w-full overflow-hidden bg-white/15"
+        >
+          {state.percent === undefined ? (
+            <div className="h-full w-1/3 animate-[action-toast-indeterminate_1.2s_ease-in-out_infinite] rounded-full bg-accent" />
+          ) : (
+            <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${state.percent}%` }} />
+          )}
         </div>
       ) : null}
     </div>
@@ -68,11 +78,12 @@ export async function runWithToast({ loading, success, error = "Something went w
     show(id, { phase: "loading", text: loading });
     let outcome: ActionOutcome;
     try {
-      outcome = await task();
+      outcome = await task((percent) => show(id, { phase: "loading", text: `${loading} ${Math.round(percent)}%`, percent }));
     } catch {
       outcome = { ok: false, message: error };
     }
-    if (outcome.ok) show(id, { phase: "success", text: success });
+    if (!outcome.ok && outcome.cancelled) toast.dismiss(id);
+    else if (outcome.ok) show(id, { phase: "success", text: success });
     else show(id, { phase: "error", text: outcome.message || error, retry: () => void attempt() });
     return outcome;
   };
