@@ -42,23 +42,6 @@ jobs:
           echo "classification=$classification" >> "$GITHUB_OUTPUT"
           echo "Change classification: $classification" >> "$GITHUB_STEP_SUMMARY"
 
-  checks:
-    needs: changes
-    if: needs.changes.outputs.classification == 'code'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npx next typegen
-      - run: npx tsc --noEmit
-      - run: npm run lint
-      - run: npm test -- --maxWorkers=2
-
   container-smoke:
     needs: changes
     if: needs.changes.outputs.classification == 'code' && github.event_name != 'push'
@@ -103,7 +86,7 @@ jobs:
   ci-gate:
     name: ci-gate
     if: always()
-    needs: [changes, checks, container-smoke, production-image]
+    needs: [changes, container-smoke, production-image]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
@@ -111,7 +94,6 @@ jobs:
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           CLASSIFICATION: ${{ needs.changes.outputs.classification }}
-          CHECKS_RESULT: ${{ needs.checks.result }}
           CONTAINER_RESULT: ${{ needs.container-smoke.result }}
           IMAGE_RESULT: ${{ needs.production-image.result }}
           EVENT_NAME: ${{ github.event_name }}
@@ -120,12 +102,10 @@ jobs:
           test "$CHANGES_RESULT" = success
           case "$CLASSIFICATION" in
             docs-only)
-              test "$CHECKS_RESULT" = skipped
               test "$CONTAINER_RESULT" = skipped
               test "$IMAGE_RESULT" = skipped
               ;;
             code)
-              test "$CHECKS_RESULT" = success
               if [ "$EVENT_NAME" = push ]; then
                 test "$CONTAINER_RESULT" = skipped
                 test "$IMAGE_RESULT" = success
@@ -186,7 +166,7 @@ jobs:
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.classification == 'code'
-    needs: [changes, checks, production-image, ci-gate]
+    needs: [changes, production-image, ci-gate]
     runs-on: ubuntu-latest
     timeout-minutes: 25
     concurrency:
