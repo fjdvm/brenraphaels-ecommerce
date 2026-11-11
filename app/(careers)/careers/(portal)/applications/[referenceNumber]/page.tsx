@@ -7,6 +7,7 @@ import { requireApplicant } from "@/lib/careers/current-applicant";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { ApplicationHeader, applicationDate } from "@/app/(careers)/careers/_components/application-header";
 import { ApplicationDocuments } from "@/app/(careers)/careers/_components/application-documents";
+import { offerRepliesEnabled } from "@/lib/careers/offer-reply";
 import { ApplicationOffer } from "@/app/(careers)/careers/_components/application-offer";
 import { ApplicationInterview } from "@/app/(careers)/careers/_components/application-interview";
 import { ApplicationSubmission } from "@/app/(careers)/careers/_components/application-submission";
@@ -46,7 +47,7 @@ async function ApplicationPageContent({ params }: ApplicationPageProps) {
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-col gap-5 lg:flex-1">
           {application.status === "Interview" ? <ApplicationInterview interview={submission.interview} /> : null}
-          {application.status === "Offer" ? <ApplicationOffer jobTitle={application.title} offer={submission.offer} /> : null}
+          {application.status === "Offer" ? <ApplicationOffer jobTitle={application.title} offer={submission.offer} referenceNumber={application.referenceNumber} repliesEnabled={offerRepliesEnabled()} /> : null}
           {application.status === "Offer" ? <ApplicationDocuments documents={submission.documents} required={submission.requiredDocuments} /> : null}
           {application.status === "Interview" || application.status === "Offer" ? (
             <ApplicationSubmission appliedAt={application.appliedAt} documents={application.status === "Offer" ? [] : submission.documents} profile={submission.profile} />

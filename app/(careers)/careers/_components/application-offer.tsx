@@ -3,8 +3,7 @@ import { FileText, Heart } from "lucide-react";
 import { formatMonthlyPay, toBeConfirmed, type ApplicationOffer as OfferTerms } from "@/lib/careers/application-offer";
 
 import { applicationDate } from "./application-header";
-
-const comingSoon = "Replying to an offer here is coming soon. We'll email you the details.";
+import { OfferReplyControls } from "./offer-reply-controls";
 
 function Term({ label, value }: { label: string; value: string }) {
   return (
@@ -15,8 +14,8 @@ function Term({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Offer card: monthly pay, start date, schedule, reply-by date and letter from the optional Offer terms. Replying is not available yet, so Accept, Decline and View are disabled. */
-export function ApplicationOffer({ jobTitle, offer }: { jobTitle: string | null; offer?: OfferTerms | null }) {
+/** Offer card: monthly pay, start date, schedule, reply-by date and letter from the optional Offer terms. Accept and Decline work only while `repliesEnabled` is on; View is not available yet. */
+export function ApplicationOffer({ jobTitle, offer, referenceNumber = "", repliesEnabled = false }: { jobTitle: string | null; offer?: OfferTerms | null; referenceNumber?: string; repliesEnabled?: boolean }) {
   const replyBy = offer?.replyBy ? applicationDate.format(offer.replyBy) : null;
   const date = (value?: Date | null) => (value ? applicationDate.format(value) : toBeConfirmed);
   return (
@@ -54,15 +53,11 @@ export function ApplicationOffer({ jobTitle, offer }: { jobTitle: string | null;
           View
         </button>
       </div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <button type="button" disabled className="rounded-full bg-primary px-9 py-4 text-lg tracking-[0.45px] text-white disabled:opacity-50">
-          Accept offer
-        </button>
-        <button type="button" disabled className="rounded-full border border-primary px-9 py-4 text-lg tracking-[0.45px] text-primary disabled:opacity-50">
-          Decline
-        </button>
-        <p className="text-sm tracking-[0.35px] text-muted sm:ml-auto sm:text-right">{replyBy ? `Reply by ${replyBy}. ` : ""}{comingSoon}</p>
-      </div>
+      <OfferReplyControls
+        referenceNumber={referenceNumber}
+        enabled={repliesEnabled}
+        offer={{ monthlyPay: formatMonthlyPay(offer?.monthlyPay), startDate: date(offer?.startDate), schedule: offer?.schedule?.trim() || toBeConfirmed, replyBy, jobTitle }}
+      />
     </section>
   );
 }

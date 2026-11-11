@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createApplicationStore, withdrawApplication } from "@/lib/careers/applications";
 import { careersSession } from "@/lib/careers/auth";
 import { getCareersDatabase } from "@/lib/careers/db";
-import { applicationReferenceNumberField } from "@/lib/validators/application";
+import { offerRepliesEnabled, replyToOffer, stubOfferReplyGateway, type OfferReplyOutcome } from "@/lib/careers/offer-reply";
+import { applicationReferenceNumberField, offerDeclineReasonField } from "@/lib/validators/application";
 
 export type WithdrawOutcome = { ok: true } | { ok: false; message: string };
 
@@ -24,4 +25,30 @@ export async function withdrawApplicationAction(formData: FormData): Promise<Wit
   } finally {
     revalidatePath("/careers/applications");
   }
+}
+
+async function reply(formData: FormData, kind: "accept" | "decline"): Promise<OfferReplyOutcome> {
+  const applicant = await careersSession();
+  if (!applicant) return { ok: false, message: "Please sign in to reply to your offer." };
+  const referenceNumber = applicationReferenceNumberField.safeParse(formData.get("referenceNumber"));
+  if (!referenceNumber.success) return { ok: false, message: "Choose a valid Application to reply to." };
+  const target = { applicantId: applicant.userId, referenceNumber: referenceNumber.data };
+  if (kind === "accept") return replyToOffer({ kind, ...target }, { enabled: offerRepliesEnabled(), gateway: stubOfferReplyGateway });
+  const reason = offerDeclineReasonField.safeParse(formData.get("reason"));
+  if (!reason.success) return { ok: false, message: reason.error.issues[0]?.message ?? "Check your reason and try again." };
+  return replyToOffer({ kind, reason: reason.data, ...target }, { enabled: offerRepliesEnabled(), gateway: stubOfferReplyGateway });
+}
+
+/** Accepts the signed-in Applicant's Offer. Does nothing while the offer-replies flag is off. */
+export async function acceptOfferAction(formData: FormData): Promise<OfferReplyOutcome> {
+  const outcome = await reply(formData, "accept");
+  if (outcome.ok) revalidatePath("/careers/applications");
+  return outcome;
+}
+
+/** Declines the signed-in Applicant's Offer, with an optional reason. Does nothing while the flag is off. */
+export async function declineOfferAction(formData: FormData): Promise<OfferReplyOutcome> {
+  const outcome = await reply(formData, "decline");
+  if (outcome.ok) revalidatePath("/careers/applications");
+  return outcome;
 }

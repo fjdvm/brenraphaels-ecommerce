@@ -167,10 +167,16 @@ describe("Offer card", () => {
     expect(markup.replace(/<[^>]*>/g, " ")).not.toMatch(/₱|\b20\d\d\b/);
   });
 
-  test("Accept offer, Decline and View are disabled with a coming-soon note", () => {
+  test("with the flag off, Accept offer, Decline and View are disabled with the Coming soon note", () => {
     const markup = renderToStaticMarkup(<ApplicationOffer jobTitle="X" offer={fullOffer} />);
     for (const label of ["Accept offer", "Decline", "View"]) expect(markup).toMatch(new RegExp(`<button[^>]*disabled[^>]*>\\s*${label}`));
-    expect(markup).toContain("coming soon");
+    expect(markup).toContain("Coming soon. We&#x27;ll email you the details.");
+  });
+
+  test("with the flag on, Accept offer and Decline are enabled and the note is gone", () => {
+    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle="X" offer={fullOffer} referenceNumber="BR-APP-1" repliesEnabled />);
+    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*>\s*(Accept offer|Decline)/);
+    expect(markup).not.toContain("Coming soon");
   });
 });
 
