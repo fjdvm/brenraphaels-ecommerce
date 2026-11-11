@@ -127,7 +127,9 @@ export async function openApplicantDocumentLink(documentId: unknown): Promise<{ 
     const url = await openApplicantDocument(documentId, { applicantId: identity.userId, store: createApplicantDocumentStore(getCareersDatabase()), files: gatewayDocumentFiles() });
     return { url };
   } catch (error) {
-    return { message: error instanceof Error ? error.message : "We couldn't open that Document. Try again." };
+    // Only messages written for the Applicant reach the browser.
+    const known = ["Document not found.", "Choose a valid Document.", "We couldn't open that Document. Try again."];
+    return { message: error instanceof Error && known.includes(error.message) ? error.message : "We couldn't open that Document. Try again." };
   }
 }
 

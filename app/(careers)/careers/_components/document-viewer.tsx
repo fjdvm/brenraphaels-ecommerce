@@ -15,7 +15,8 @@ type LinkState = { status: "loading" } | { status: "ready"; url: string } | { st
 export function documentKind({ contentType }: Pick<ViewableDocument, "contentType">) {
   if (contentType.startsWith("image/")) return "image" as const;
   if (contentType === "application/pdf") return "pdf" as const;
-  return "word" as const;
+  if (contentType === "application/msword" || contentType.includes("wordprocessingml")) return "word" as const;
+  return "file" as const;
 }
 
 export function documentSize(size: number) {
@@ -41,7 +42,7 @@ function Stage({ document, link, retry }: { document: ViewableDocument; link: Li
   if (link.status === "error") return <Message onRetry={retry}>{link.message}</Message>;
   const kind = documentKind(document);
   // The link is short-lived: a file that no longer loads gets a new link, not a dead page.
-  if (broken && kind !== "word") return <Message onRetry={() => { setBroken(false); retry(); }}>{OPEN_FAILED}</Message>;
+  if (broken && (kind === "image" || kind === "pdf")) return <Message onRetry={() => { setBroken(false); retry(); }}>{OPEN_FAILED}</Message>;
   if (kind === "image") {
     // eslint-disable-next-line @next/next/no-img-element -- signed file-storage address, shown at its natural size
     return <img src={link.url} alt={document.name} onError={() => setBroken(true)} className="h-auto max-h-full w-auto max-w-full object-contain sm:rounded-[32px]" />;
@@ -54,7 +55,7 @@ function Stage({ document, link, retry }: { document: ViewableDocument; link: Li
       <span aria-hidden className="flex size-14 items-center justify-center rounded-full bg-lavender text-primary"><FileText className="size-6" strokeWidth={1.5} /></span>
       <div className="flex min-w-0 flex-col gap-1">
         <p className="break-words font-medium text-ink">{document.name}</p>
-        <p className="text-xs text-muted">Word · {documentSize(document.size)}</p>
+        <p className="text-xs text-muted">{kind === "word" ? "Word" : "File"} · {documentSize(document.size)}</p>
       </div>
       <a href={link.url} download={document.name} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-medium text-white hover:opacity-90">
         <Download aria-hidden className="size-4" />Download
@@ -99,7 +100,7 @@ export function DocumentViewer({ documents, index, onIndexChange }: { documents:
   const items: PhotoViewerItem[] = documents.map((document) => ({
     key: String(document.id),
     caption: document.name,
-    stage: document.id === currentId ? <Stage document={document} link={links[document.id]} retry={() => void load(document.id)} /> : null,
+    stage: document.id === currentId ? <Stage key={document.id} document={document} link={links[document.id]} retry={() => void load(document.id)} /> : null,
     thumbnail: <span aria-hidden className="flex size-full items-center justify-center bg-lavender text-primary"><FileText className="size-6" strokeWidth={1.5} /></span>,
   }));
 

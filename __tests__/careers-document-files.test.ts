@@ -39,5 +39,5 @@ test("viewUrl asks the gateway for a signed address and retries are clean on fai
   expect(await files.viewUrl("file-1")).toBe("https://signed.test/view");
   expect(send.mock.calls[0][0]).toBe("https://gateway.test/files/file-1");
   expect(send.mock.calls[0][1]!.method).toBe("GET");
-  await expect(files.viewUrl("file-1")).rejects.toThrow("Try again");
+  await expect(files.viewUrl("file-1")).rejects.toThrow("couldn't open that Document. Try again");
 });

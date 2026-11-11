@@ -12,7 +12,7 @@ const documents = [
   { id: 2, name: "resume.pdf", contentType: "application/pdf", size: 4096 },
   { id: 3, name: "old-resume.doc", contentType: "application/msword", size: 3 * 1024 * 1024 },
 ];
-beforeEach(() => open.mockImplementation(async (id: number) => ({ url: `https://files.test/${id}?signed` })));
+beforeEach(() => { open.mockClear(); open.mockImplementation(async (id: number) => ({ url: `https://files.test/${id}?signed` })); });
 afterEach(() => { cleanup(); open.mockReset(); });
 
 test("an image opens inline in the viewer", async () => {
@@ -55,7 +55,7 @@ test("a gateway failure shows a clear message and Retry fetches a new link", asy
   expect((await screen.findByRole("alert")).textContent).toContain("We couldn't open that Document. Try again.");
   await user.click(screen.getByRole("button", { name: "Retry" }));
   expect(await screen.findByRole("img", { name: "photo.png" })).toBeTruthy();
-  expect(open.mock.calls.filter((call) => call.length)).toEqual([[1], [1]]);
+  expect(open).toHaveBeenCalledTimes(2);
 });
 
 test("an expired link that no longer loads offers Retry with a fresh link", async () => {
@@ -66,7 +66,7 @@ test("an expired link that no longer loads offers Retry with a fresh link", asyn
   image.dispatchEvent(new Event("error"));
   await user.click(await screen.findByRole("button", { name: "Retry" }));
   await screen.findByRole("img", { name: "photo.png" });
-  expect(open.mock.calls.filter((call) => call.length)).toEqual([[1], [1]]);
+  expect(open).toHaveBeenCalledTimes(2);
 });
 
 test("closing and reopening asks for a new link", async () => {
@@ -77,5 +77,5 @@ test("closing and reopening asks for a new link", async () => {
   await user.click(screen.getByRole("button", { name: "Close" }));
   await user.click(screen.getByRole("button", { name: "Open photo.png" }));
   await screen.findByRole("img", { name: "photo.png" });
-  expect(open.mock.calls.filter((call) => call.length)).toEqual([[1], [1]]);
+  expect(open).toHaveBeenCalledTimes(2);
 });

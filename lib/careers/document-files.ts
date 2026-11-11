@@ -12,9 +12,9 @@ export function gatewayDocumentFiles({
   callerKey = process.env.API_GATEWAY_CALLER_KEY,
   fetch: send = fetch,
 }: { baseUrl?: string; callerKey?: string; fetch?: typeof fetch } = {}): DocumentFiles {
-  async function call<T>(path: string, body?: unknown, method = "POST"): Promise<T> {
+  async function call<T>(path: string, body?: unknown, method = "POST", failure = "We couldn't upload that Document. Try again."): Promise<T> {
     if (!baseUrl || !callerKey) throw new Error("Document uploads are not configured yet.");
-    const retryable = new Error("We couldn't upload that Document. Try again.");
+    const retryable = new Error(failure);
     const response = await send(`${baseUrl.replace(/\/$/, "")}/files${path}`, {
       method,
       headers: { Authorization: `Bearer ${callerKey}`, "Content-Type": "application/json" },
@@ -38,7 +38,7 @@ export function gatewayDocumentFiles({
       });
     },
     async viewUrl(fileId) {
-      const { url } = await call<{ url?: string }>(`/${encodeURIComponent(fileId)}`, undefined, "GET");
+      const { url } = await call<{ url?: string }>(`/${encodeURIComponent(fileId)}`, undefined, "GET", "We couldn't open that Document. Try again.");
       if (!url) throw new Error("We couldn't open that Document. Try again.");
       return url;
     },

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { DocumentViewer, documentKind, documentSize, type ViewableDocument } from "./document-viewer";
 
-const kindLabel = { image: "Image", pdf: "PDF", word: "Word" } as const;
+const kindLabel = { image: "Image", pdf: "PDF", word: "Word", file: "File" } as const;
 
 /** The Applicant's Documents; each row opens in the viewer, and Previous/next moves across this list. */
 export function DocumentList({ documents, label = "Documents", note, className }: { documents: ViewableDocument[]; label?: string; note?: string; className?: string }) {
