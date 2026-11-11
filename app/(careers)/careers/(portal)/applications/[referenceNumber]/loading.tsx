@@ -1,5 +1,5 @@
-import { CareersApplicationSkeleton } from "@/app/(careers)/careers/_components/skeletons";
+import { ApplicationPageSkeleton } from "@/app/(careers)/careers/_components/application-skeleton";
 
 export default function Loading() {
-  return <CareersApplicationSkeleton />;
+  return <ApplicationPageSkeleton />;
 }

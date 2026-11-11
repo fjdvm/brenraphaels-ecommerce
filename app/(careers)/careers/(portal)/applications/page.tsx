@@ -6,14 +6,12 @@ import { eyebrowClass } from "@/components/features/about/section-heading";
 import { HowHiringWorks } from "@/components/features/careers/how-hiring-works";
 import { Button } from "@/components/ui/button";
 import { applicationProgress } from "@/lib/careers/application-progress";
-import { canWithdrawApplication, createApplicationStore } from "@/lib/careers/applications";
+import { createApplicationStore } from "@/lib/careers/applications";
 import { requireApplicant } from "@/lib/careers/current-applicant";
 import { getCareersDatabase } from "@/lib/careers/db";
 
-import { SubmitButton } from "@/app/(careers)/careers/_components/submit-button";
 import { CareersApplicationsSkeleton } from "@/app/(careers)/careers/_components/skeletons";
 import { ApplicationProgressStrip } from "@/app/(careers)/careers/_components/application-progress-strip";
-import { withdrawApplicationAction } from "./actions";
 
 const appliedDate = new Intl.DateTimeFormat("en-PH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Manila" });
 
@@ -66,17 +64,6 @@ async function ApplicationsList() {
               <p className="text-sm tracking-[0.35px] text-body">{details.join(" · ")}</p>
               <p className="text-xs tracking-[0.35px] text-body">Reference number: {application.referenceNumber}</p>
             </div>
-            {canWithdrawApplication(application.status) ? (
-              <form action={withdrawApplicationAction} className="shrink-0">
-                <input type="hidden" name="referenceNumber" value={application.referenceNumber} />
-                <SubmitButton
-                  pendingLabel="Withdrawing…"
-                  className="rounded-full border border-primary px-[22px] py-2.5 text-sm font-medium tracking-wide text-primary hover:bg-lavender-soft"
-                >
-                  Withdraw Application
-                </SubmitButton>
-              </form>
-            ) : null}
             </div>
             <ApplicationProgressStrip progress={progress} />
           </li>
