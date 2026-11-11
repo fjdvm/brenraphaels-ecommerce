@@ -146,34 +146,60 @@ describe("Interview stage", () => {
   });
 });
 
-describe("Offer stage", () => {
-  test("shows the offer status from existing data and no actions", () => {
-    const markup = renderToStaticMarkup(<ApplicationOffer status="Offer" updatedAt={new Date("2026-10-29T00:00:00Z")} jobTitle="Production Assistant" />);
-    for (const text of ["love to have you on the team", "Production Assistant", "Offer", "29 Oct 2026"]) expect(markup).toContain(text);
-    for (const hidden of ["Accept", "Decline", "<button", "Monthly pay", "Start date", "Messages"]) expect(markup).not.toContain(hidden);
+const fullOffer = { monthlyPay: 21500, startDate: new Date("2026-12-01T00:00:00Z"), schedule: "Tue–Sun · 7 AM – 4 PM", replyBy: new Date("2026-11-20T00:00:00Z"), letterName: "Letter-A.pdf" };
+
+describe("Offer card", () => {
+  test("shows every term it is given and the reply-by date", () => {
+    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle="Production Assistant" offer={fullOffer} />);
+    for (const text of ["love to have you on the team", "Production Assistant", "Monthly pay", "₱21,500", "1 Dec 2026", "Tue–Sun · 7 AM – 4 PM", "20 Nov 2026", "Letter-A.pdf"]) expect(markup).toContain(text);
+    expect(markup).not.toContain("To be confirmed");
   });
 
-  test("copes with a missing Job Posting", () => {
-    const markup = renderToStaticMarkup(<ApplicationOffer status="Offer" updatedAt={new Date("2026-10-29T00:00:00Z")} jobTitle={null} />);
-    expect(markup).toContain("Your offer is on its way.");
+  test("a partial Offer shows only what is known and the rest as To be confirmed", () => {
+    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle="Production Assistant" offer={{ monthlyPay: 21500 }} />);
+    expect(markup).toContain("₱21,500");
+    expect(markup.match(/To be confirmed/g)?.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("with no Offer data nothing is invented", () => {
+    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle={null} offer={null} />);
+    expect(markup).toContain("To be confirmed");
+    expect(markup.replace(/<[^>]*>/g, " ")).not.toMatch(/₱|\b20\d\d\b/);
+  });
+
+  test("Accept offer, Decline and View are disabled with a coming-soon note", () => {
+    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle="X" offer={fullOffer} />);
+    for (const label of ["Accept offer", "Decline", "View"]) expect(markup).toMatch(new RegExp(`<button[^>]*disabled[^>]*>\\s*${label}`));
+    expect(markup).toContain("coming soon");
   });
 });
 
-describe("Offer stage documents", () => {
-  test("lists the submitted documents by name, read-only", () => {
-    const markup = renderToStaticMarkup(
-      <ApplicationDocuments
-        documents={[
-          { id: 1, name: "Resume.pdf", contentType: "application/pdf", size: 254000, requiredFor: "Resume" },
-          { id: 2, name: "Valid_ID.png", contentType: "image/png", size: 90000, requiredFor: "Valid government ID" },
-        ]}
-      />,
-    );
-    for (const text of ["Resume.pdf", "Valid_ID.png", "Sent with your application", "Submitted"]) expect(markup).toContain(text);
-    for (const hidden of ["<button", "<input", "Upload"]) expect(markup).not.toContain(hidden);
+describe("Documents to submit", () => {
+  const required = [
+    { name: "Résumé", hint: "Sent with your application", status: "Submitted" as const },
+    { name: "NBI clearance", hint: "Not older than 6 months", status: "In review" as const },
+    { name: "Health certificate", hint: null, status: "To upload" as const },
+    { name: "SSS number", status: "To upload" as const },
+  ];
+
+  test("lists each required Document with status, hint and progress", () => {
+    const markup = renderToStaticMarkup(<ApplicationDocuments documents={[]} required={required} />);
+    for (const text of ["Documents to submit", "2 of 4", "Résumé", "Submitted", "In review", "Not older than 6 months", "Health certificate"]) expect(markup).toContain(text);
   });
 
-  test("is hidden when there are no documents", () => {
+  test("every Upload button is disabled", () => {
+    const markup = renderToStaticMarkup(<ApplicationDocuments documents={[]} required={required} />);
+    expect(markup.match(/<button/g)).toHaveLength(2);
+    expect(markup.match(/<button[^>]*disabled/g)).toHaveLength(2);
+  });
+
+  test("with no required list it shows the submitted Documents as Submitted, read-only", () => {
+    const markup = renderToStaticMarkup(<ApplicationDocuments documents={[{ id: 1, name: "Resume.pdf", contentType: "application/pdf", size: 254000, requiredFor: "Resume" }]} />);
+    for (const text of ["Resume.pdf", "Submitted", "1 of 1"]) expect(markup).toContain(text);
+    expect(markup).not.toContain("<button");
+  });
+
+  test("is hidden when there is nothing to show", () => {
     expect(renderToStaticMarkup(<ApplicationDocuments documents={[]} />)).toBe("");
   });
 });

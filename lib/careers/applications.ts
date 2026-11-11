@@ -1,6 +1,7 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
+import type { ApplicationOffer, RequiredDocument } from "./application-offer";
 import type { ApplicantDocumentStore } from "./documents";
 import type { JobPostingStore } from "./job-postings";
 import type { ApplicantProfile, ApplicantProfileStore } from "./profile";
@@ -49,6 +50,9 @@ export type ApplicationSubmissionDetail = {
   interview?: Interview;
   documents: ApplicationDocument[];
   profile: Pick<ApplicantProfile, "summary" | "skills" | "location">;
+  /** Offer terms and required Documents, when HR-ATS provides them; the store does not populate them yet. */
+  offer?: ApplicationOffer | null;
+  requiredDocuments?: RequiredDocument[] | null;
 };
 
 export type ApplicationStore = {
