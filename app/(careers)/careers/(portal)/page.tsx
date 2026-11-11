@@ -35,7 +35,7 @@ function Filter({ label, name, allLabel, options, selected }: {
   return (
     <FilterField>
       <label htmlFor={`filter-${name}`} className={fieldLabelClass}>{label}</label>
-      <Select id={`filter-${name}`} name={name} defaultValue={selected ?? ""} className={cn(fieldClass, "rounded-[10px] px-3.5 py-[11px]")}>
+      <Select id={`filter-${name}`} name={name} defaultValue={selected ?? ""} className={cn(fieldClass, "rounded-none px-3.5 py-[11px]")}>
         <option value="">{allLabel}</option>
         {options.map((option) => <option key={option}>{option}</option>)}
       </Select>
@@ -68,7 +68,7 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
         ]}
         selected={filters}
         postings={allOpen.map(({ department, employmentType, location }) => ({ department, employmentType, location }))}
-        className="flex flex-col gap-4 rounded-[40px] border border-line bg-white p-4 lg:flex-row lg:items-end lg:gap-3"
+        className="flex flex-col gap-4 border border-line bg-white p-4 lg:flex-row lg:items-end lg:gap-3"
       >
         <Filter label="Department" name="department" allLabel="All departments" options={options.departments} selected={filters.department} />
         <Filter label="Employment type" name="employmentType" allLabel="All types" options={options.employmentTypes} selected={filters.employmentType} />
@@ -81,7 +81,7 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
             options={options.locations.map((location) => ({ value: location, label: location }))}
             defaultValue={filters.location}
             className="gap-2"
-            inputClassName="rounded-[10px] px-3.5 py-[11px]"
+            inputClassName="rounded-none px-3.5 py-[11px]"
           />
         </FilterField>
         <div className="flex items-center gap-1">

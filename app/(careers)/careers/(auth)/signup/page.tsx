@@ -4,7 +4,8 @@ import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useState } from "react";
 
-import { AuthCard, AuthError, AuthHeading, authLinkClass } from "@/components/features/auth/auth-card";
+import { AuthError, authLinkClass } from "@/components/features/auth/auth-card";
+import { ApplicantAuthCard, ApplicantAuthHeading } from "@/components/features/careers/applicant-auth-card";
 import { buttonVariants } from "@/components/ui/button";
 import { fieldClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
@@ -27,11 +28,11 @@ export default function ApplicantSignUpPage() {
   const errors = state.fieldErrors ?? {};
   const values = state.values ?? {};
   return (
-    <AuthCard className="max-w-[540px] rounded-none border-0 bg-transparent p-0 sm:p-0">
-      <AuthHeading eyebrow="Careers portal" title="Become an applicant">
+    <ApplicantAuthCard>
+      <ApplicantAuthHeading title="Become an applicant">
         It takes a minute. You only need to do this once.
-      </AuthHeading>
-      <form action={action} className="flex flex-col gap-[22px]" noValidate>
+      </ApplicantAuthHeading>
+      <form action={action} className="flex flex-col gap-[18px] sm:gap-[22px]" noValidate>
         <div className="grid gap-[22px] sm:grid-cols-2 sm:gap-4">
           <Field id="signup-first-name" label="First name" required error={errors.firstName?.[0]}>
             <Input {...fieldProps("signup-first-name", errors.firstName?.[0])} required name="firstName" defaultValue={values.firstName} autoComplete="given-name" maxLength={100} className={fieldClass} />
@@ -54,12 +55,12 @@ export default function ApplicantSignUpPage() {
             <PasswordInput {...fieldProps("signup-confirm-password", errors.confirmPassword?.[0])} required name="confirmPassword" autoComplete="new-password" minLength={8} maxLength={128} className={fieldClass} />
           </Field>
         </div>
-        <ul aria-label="Password rules" className="flex flex-col gap-2.5 rounded-[10px] bg-surface-soft p-4">
+        <ul aria-label="Password rules" className="flex flex-wrap gap-2">
           {passwordRules.map((rule) => {
             const met = rule.met(password);
             return (
-              <li key={rule.label} className={cn("flex items-center gap-2 text-xs tracking-[0.35px] text-body", met && "text-primary")}>
-                <Check aria-hidden className={cn("size-3.5 rounded-full border border-line p-0.5", met ? "border-primary bg-primary text-white" : "text-transparent")} />
+              <li key={rule.label} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs tracking-[0.35px]", met ? "bg-green-100 text-green-700" : "bg-surface-soft text-muted")}>
+                <Check aria-hidden className="size-3.5 shrink-0" />
                 {rule.label}
                 <span className="sr-only">{met ? " (met)" : " (not met yet)"}</span>
               </li>
@@ -76,6 +77,6 @@ export default function ApplicantSignUpPage() {
         Already an applicant?{" "}
         <Link className={authLinkClass} href="/careers/signin">Sign in</Link>
       </p>
-    </AuthCard>
+    </ApplicantAuthCard>
   );
 }

@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { fieldLabelClass } from "@/components/ui/field-styles";
@@ -27,7 +28,7 @@ export function Field({ id, label, required, error, hint, children }: { id: stri
       </label>
       {children}
       {hint && !error ? <p className="text-xs tracking-[0.35px] text-muted">{hint}</p> : null}
-      {error ? <p id={`${id}-error`} className="text-sm text-red-700" role="alert">{error}</p> : null}
+      {error ? <p id={`${id}-error`} className="flex items-center gap-1.5 text-xs tracking-[0.35px] text-red-700" role="alert"><X aria-hidden className="size-3.5 shrink-0" />{error}</p> : null}
     </div>
   );
 }
