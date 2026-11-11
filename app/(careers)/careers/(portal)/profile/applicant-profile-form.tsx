@@ -1,7 +1,7 @@
 "use client";
 
 import { Briefcase, Calendar, Check, FileText, Upload, X } from "lucide-react";
-import { Suspense, useActionState, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useActionState, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,11 @@ import { cn } from "@/lib/utils";
 import { DOCUMENT_MAX_SIZE_MB } from "@/lib/validators/document";
 
 import { Field, RequiredMark, fieldProps } from "@/app/(careers)/careers/_components/field";
-import { submitApplicantProfile } from "./actions";
+import { submitApplicantProfile, type ApplicantProfileActionState } from "./actions";
 import { submitApplicantDocument } from "./document-upload";
 import { JobAlertsToggle } from "./job-alerts-toggle";
 import { profileStrength } from "./profile-strength";
-import { ProfileSavedToast } from "./profile-saved-toast";
+import { runWithToast } from "../../_components/action-toast";
 
 type Document = { id: number; name: string; contentType: string; size: number };
 type Education = ApplicantProfile["education"][number];
@@ -286,8 +286,25 @@ function ProfileStrength({ percent, steps }: ReturnType<typeof profileStrength>)
   );
 }
 
+/** Saves behind the shared result card: "Saving…", then "Profile saved", or the error with Retry. Field errors stay inline. */
+async function saveProfileWithToast(previous: ApplicantProfileActionState, formData: FormData): Promise<ApplicantProfileActionState> {
+  let latest: ApplicantProfileActionState = previous;
+  await runWithToast({
+    loading: "Saving…",
+    success: "Profile saved",
+    error: "We couldn't save your profile. Try again.",
+    task: async () => {
+      // Retry re-sends the same typed values.
+      latest = await submitApplicantProfile(previous, formData);
+      if (latest.saved) return { ok: true };
+      return { ok: false, message: latest.fieldErrors ? "Check the highlighted fields." : (latest.message ?? "") };
+    },
+  });
+  return latest;
+}
+
 export function ApplicantProfileForm({ heading, fullName, profile, documents = [], locations = [] }: { heading: string; fullName: string; profile?: ApplicantProfile & { jobAlertsOptIn?: boolean }; documents?: Document[]; locations?: string[] }) {
-  const [profileState, profileAction, profilePending] = useActionState(submitApplicantProfile, {});
+  const [profileState, profileAction, profilePending] = useActionState(saveProfileWithToast, {});
   const currentLocation = profileState.values?.location ?? profile?.location ?? "";
   // A stored value from before Location was a dropdown stays selectable until the Applicant picks another.
   const locationOptions = (currentLocation && !locations.includes(currentLocation) ? [currentLocation, ...locations] : locations).map((location) => ({ value: location, label: location }));
@@ -310,7 +327,6 @@ export function ApplicantProfileForm({ heading, fullName, profile, documents = [
 
   return (
     <section className="mx-auto w-full max-w-[1440px] px-4 pb-7 pt-6 sm:px-10 sm:pb-[100px] sm:pt-[50px]">
-      <Suspense fallback={null}><ProfileSavedToast /></Suspense>
       <div className="flex flex-col gap-2 sm:gap-4">
         <p className={eyebrowClass}>Careers</p>
         <h1 className="font-serif text-[28px] leading-tight text-primary sm:text-[54px] sm:leading-[1.2]">{heading}</h1>

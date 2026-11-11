@@ -92,7 +92,7 @@ describe("Applicant profile action", () => {
     );
   });
 
-  test("still saves and redirects if syncing the edit into unfrozen Applications fails", async () => {
+  test("still saves if syncing the edit into unfrozen Applications fails", async () => {
     const identity = { userId: "applicant-1", email: "jane@example.com" };
     careersSession.mockResolvedValue(identity);
     createApplicantProfileStore.mockReturnValue("profile-store");
@@ -103,7 +103,7 @@ describe("Applicant profile action", () => {
     const formData = new FormData();
     formData.set("fullName", "Jane Doe");
 
-    await expect(submitApplicantProfile({}, formData)).resolves.toBeUndefined();
+    await expect(submitApplicantProfile({}, formData)).resolves.toEqual({ saved: true });
     expect(saveApplicantProfile).toHaveBeenCalled();
   });
 
