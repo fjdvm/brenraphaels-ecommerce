@@ -46,6 +46,10 @@ _Avoid_: Locked, finalized
 Where an Application stands in HR-ATS's workflow — from `Received` through screening, exams, interviews, evaluation, offers, and hiring — mirrored here read-only via webhook. This app has no UI for acting on any status past `Received`, only for displaying it.
 _Avoid_: Application state
 
+**Interview** (Application):
+An invitation HR-ATS may attach to an Application at the Interview status: when, where (online or in person), meeting link or address, and interviewer. Careers only displays it; any value HR-ATS hasn't supplied reads "To be confirmed".
+_Avoid_: Meeting, appointment
+
 **Withdraw**:
 An Applicant ending their own Application before it reaches a final status (`Hired`, offer `Declined`/`Expired`, or `Rejected`). Allowed at any point — unlike editing the profile snapshot, which stops once the Application is Frozen.
 _Avoid_: Cancel, retract
