@@ -6,6 +6,13 @@ import { applicationDate } from "./application-header";
 
 type SubmittedProfile = { summary: string | null; skills: string; location: string | null };
 
+const shortDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Manila" });
+
+function fileType({ contentType, name }: ApplicationDocument) {
+  const extension = name.includes(".") ? name.split(".").pop() : undefined;
+  return (extension ?? contentType.split("/").pop() ?? "File").toUpperCase();
+}
+
 function Answer({ label, children }: { label: string; children: string }) {
   return (
     <div className="flex flex-col gap-1">
@@ -32,7 +39,7 @@ export function ApplicationSubmission({ appliedAt, documents, profile }: { appli
               <FileText aria-hidden className="size-5 shrink-0 text-primary" />
               <span className="flex flex-col leading-tight">
                 <span className="text-sm font-medium text-ink">{document.name}</span>
-                <span className="text-xs text-body">{Math.max(1, Math.round(document.size / 1024))} KB</span>
+                <span className="text-xs text-body">{fileType(document)} · {Math.max(1, Math.round(document.size / 1024))} KB · sent {shortDate.format(appliedAt)}</span>
               </span>
             </li>
           ))}

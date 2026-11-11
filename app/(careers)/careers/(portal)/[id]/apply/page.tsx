@@ -30,7 +30,7 @@ async function ApplyPageContent({ params }: ApplyPageProps) {
     createApplicantDocumentStore(database).list(applicant.userId),
   ]);
   if (!profile) return <Gate back={`/careers/${posting.id}`} title="Complete your profile to apply" message="Save your Applicant profile before submitting an Application." href="/careers/complete-profile" label="Complete profile" />;
-  return <section className="mx-auto max-w-2xl px-5 py-12 sm:px-8"><Link href={`/careers/${posting.id}`} className="font-semibold text-primary underline">← Back to Job Posting</Link><h1 className="mt-8 font-serif text-4xl text-primary">Apply for {posting.title}</h1><ApplicationForm jobPostingId={posting.id} title={posting.title} profile={profile} requiredDocuments={posting.requiredDocuments} documents={documents} /></section>;
+  return <section className="mx-auto max-w-2xl px-5 py-12 sm:px-8"><Link href={`/careers/${posting.id}`} className="font-semibold text-primary underline">← Back to Job Posting</Link><h1 className="mt-8 font-serif text-4xl text-primary">Apply for {posting.title}</h1><ApplicationForm jobPostingId={posting.id} title={posting.title} email={applicant.email} profile={profile} requiredDocuments={posting.requiredDocuments} documents={documents} /></section>;
 }
 
 function Gate({ back, title, message, href, label }: { back: string; title: string; message: string; href: string; label: string }) {

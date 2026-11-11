@@ -4,7 +4,8 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { AuthCard, AuthError, AuthHeading, authLinkClass } from "@/components/features/auth/auth-card";
+import { AuthError, authLinkClass } from "@/components/features/auth/auth-card";
+import { ApplicantAuthCard, ApplicantAuthHeading } from "@/components/features/careers/applicant-auth-card";
 import { buttonVariants } from "@/components/ui/button";
 import { fieldClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
@@ -18,11 +19,11 @@ export default function ApplicantSignInPage() {
   const [state, action] = useActionState(submitApplicantSignIn, {});
   const errors = state.fieldErrors ?? {};
   return (
-    <AuthCard className="max-w-[540px]">
-      <AuthHeading eyebrow="Careers portal" title="Applicant sign in">
+    <ApplicantAuthCard>
+      <ApplicantAuthHeading title="Applicant sign in">
         Welcome back — pick up where you left off.
-      </AuthHeading>
-      <form action={action} className="flex flex-col gap-[22px]" noValidate>
+      </ApplicantAuthHeading>
+      <form action={action} className="flex flex-col gap-[18px] sm:gap-[22px]" noValidate>
         <Field id="signin-email" label="Email address" required error={errors.email?.[0]}>
           <Input {...fieldProps("signin-email", errors.email?.[0])} required name="email" type="email" defaultValue={state.values?.email} autoComplete="email" autoCapitalize="none" spellCheck={false} maxLength={256} placeholder="you@example.com" className={fieldClass} />
         </Field>
@@ -30,7 +31,7 @@ export default function ApplicantSignInPage() {
           <PasswordInput {...fieldProps("signin-password", errors.password?.[0])} required name="password" autoComplete="current-password" maxLength={128} className={fieldClass} />
         </Field>
         <p className="text-right text-sm tracking-[0.35px]">
-          <Link className={authLinkClass} href="/careers/forgot-password">Forgot your password?</Link>
+          <Link className={authLinkClass} href="/careers/forgot-password"><span className="sm:hidden">Forgot password?</span><span className="hidden sm:inline">Forgot your password?</span></Link>
         </p>
         {state.message ? <AuthError>{state.message}</AuthError> : null}
         <SubmitButton pendingLabel="Signing in…" className={cn(buttonVariants({ variant: "pill", size: "pill-lg" }), "w-full")}>
@@ -38,14 +39,18 @@ export default function ApplicantSignInPage() {
           <ArrowRight aria-hidden className="size-5" />
         </SubmitButton>
       </form>
-      <div className="flex items-center gap-3 text-xs tracking-[0.35px] text-muted">
+      <div className="hidden items-center gap-3 text-xs tracking-[0.35px] text-muted sm:flex">
         <span aria-hidden className="h-px flex-1 bg-line" />
         First time applying?
         <span aria-hidden className="h-px flex-1 bg-line" />
       </div>
-      <Link href="/careers/signup" className={cn(buttonVariants({ variant: "pill-outline", size: "pill-lg" }), "w-full")}>
+      <Link href="/careers/signup" className={cn(buttonVariants({ variant: "pill-outline", size: "pill-lg" }), "hidden w-full sm:inline-flex")}>
         Become an applicant
       </Link>
-    </AuthCard>
+      <p className="text-center text-sm tracking-[0.35px] text-body sm:hidden">
+        New here?{" "}
+        <Link className={authLinkClass} href="/careers/signup">Become an applicant</Link>
+      </p>
+    </ApplicantAuthCard>
   );
 }

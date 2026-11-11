@@ -2,10 +2,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { ApplicationDocuments } from "../app/(careers)/careers/_components/application-documents";
+import { ApplicationEndState } from "../app/(careers)/careers/_components/application-end-state";
+import { ApplicationHelp, ApplicationMessages } from "../app/(careers)/careers/_components/application-side-panels";
 import { ApplicationHeader } from "../app/(careers)/careers/_components/application-header";
 import { ApplicationOffer } from "../app/(careers)/careers/_components/application-offer";
 import { ApplicationStepper } from "../app/(careers)/careers/_components/application-stepper";
-import { ApplicationStageDetails } from "../app/(careers)/careers/_components/application-stage-details";
+import { ApplicationInterview } from "../app/(careers)/careers/_components/application-interview";
 import { ApplicationSubmission } from "../app/(careers)/careers/_components/application-submission";
 import type { ApplicationSummary } from "../lib/careers/applications";
 
@@ -24,7 +26,7 @@ describe("Application header", () => {
   test("shows the back link, title, status chip, applied date and Reference number", () => {
     const markup = renderToStaticMarkup(<ApplicationHeader application={application()} />);
     expect(markup).toContain('href="/careers/applications"');
-    for (const text of ["Your applications", "<h1", "Production Assistant", "Interview", "Kitchen", "Applied 18 Oct 2026", "BR-APP-0412"]) {
+    for (const text of ["Your applications", "<h1", "Production Assistant", "Interview scheduled", "Kitchen", "Applied 18 Oct 2026", "BR-APP-0412"]) {
       expect(markup).toContain(text);
     }
   });
@@ -44,17 +46,86 @@ describe("Application stepper", () => {
     expect(markup).toContain("18 Oct 2026");
   });
 
-  test("has no current step once the Application is closed", () => {
-    expect(renderToStaticMarkup(<ApplicationStepper status="Rejected" appliedOn="18 Oct 2026" />)).not.toContain("aria-current");
+  test("dates only the steps already known", () => {
+    const markup = renderToStaticMarkup(<ApplicationStepper status="Interview" appliedOn="18 Oct" updatedOn="21 Oct" />);
+    expect(markup).toContain("18 Oct");
+    expect(markup).toContain("21 Oct");
+    expect(renderToStaticMarkup(<ApplicationStepper status="Received" appliedOn="18 Oct" />)).not.toContain("21 Oct");
+  });
+});
+
+describe("Closed Application", () => {
+  test.each([
+    ["Rejected", "Not selected"],
+    ["Withdrawn", "Withdrawn"],
+    ["Declined", "Offer declined"],
+    ["Expired", "Offer expired"],
+  ] as const)("%s shows its end state", (status, label) => {
+    const markup = renderToStaticMarkup(<ApplicationEndState status={status} closedOn="21 Oct 2026" />);
+    expect(markup).toContain(label);
+    expect(markup).toContain("21 Oct 2026");
+    expect(markup).not.toContain("aria-current");
+  });
+});
+
+describe("Side panels", () => {
+  test("Messages says there are none yet, and Questions? offers the hiring team", () => {
+    const markup = renderToStaticMarkup(
+      <>
+        <ApplicationMessages />
+        <ApplicationHelp />
+      </>,
+    );
+    for (const text of ["Messages", "No messages yet", "Questions?", "Message the team"]) expect(markup).toContain(text);
   });
 });
 
 describe("Interview stage", () => {
-  test("shows stage details from the status and no actions or Messages", () => {
-    const markup = renderToStaticMarkup(<ApplicationStageDetails status="Interview" updatedAt={new Date("2026-10-21T00:00:00Z")} />);
-    expect(markup).toContain("Interview stage");
-    expect(markup).toContain("21 Oct 2026");
-    for (const hidden of ["Join", "Reschedule", "Messages", "<button"]) expect(markup).not.toContain(hidden);
+  test("shows the full invitation", () => {
+    const markup = renderToStaticMarkup(
+      <ApplicationInterview
+        interview={{
+          startsAt: new Date("2026-11-05T07:00:00Z"),
+          endsAt: new Date("2026-11-05T07:30:00Z"),
+          mode: "online",
+          where: "Google Meet",
+          meetingLink: "https://meet.example.test/abc",
+          interviewer: "Pat Cruz · Head cook",
+        }}
+      />,
+    );
+    for (const text of ["You’re invited to an online interview", "Thursday, 5 Nov 2026", "3:00 – 3:30 PM", "Online · Google Meet", "meet.example.test/abc", "Pat Cruz · Head cook", "Before your interview"]) {
+      expect(markup).toContain(text);
+    }
+    expect(markup).not.toContain("To be confirmed");
+  });
+
+  test("shows an address for an in-person interview", () => {
+    const markup = renderToStaticMarkup(<ApplicationInterview interview={{ mode: "in-person", address: "12 Kitchen St, Quezon City" }} />);
+    expect(markup).toContain("invited to an in-person interview");
+    expect(markup).toContain("12 Kitchen St, Quezon City");
+  });
+
+  test("an in-person interview with no venue reads To be confirmed for Where", () => {
+    const markup = renderToStaticMarkup(<ApplicationInterview interview={{ mode: "in-person", address: "12 Kitchen St" }} />);
+    expect(markup).toMatch(/Where<\/dt><dd[^>]*>To be confirmed/);
+  });
+
+  test("reads To be confirmed for every missing value, and for no interview at all", () => {
+    for (const interview of [{ interviewer: "Pat Cruz" }, undefined]) {
+      const markup = renderToStaticMarkup(<ApplicationInterview interview={interview} />);
+      expect(markup).toContain("To be confirmed");
+      expect(markup).toContain("You’re invited to an interview");
+    }
+    expect(renderToStaticMarkup(<ApplicationInterview interview={undefined} />).match(/To be confirmed/g)).toHaveLength(4);
+  });
+
+  test("its three actions are disabled with a coming-soon note", () => {
+    const markup = renderToStaticMarkup(<ApplicationInterview interview={undefined} />);
+    for (const label of ["Join interview", "Add to calendar", "Need to reschedule?"]) expect(markup).toContain(label);
+    expect(markup.match(/<button[^>]*disabled/g)).toHaveLength(3);
+    expect(markup).toContain("coming soon");
+    expect(markup).not.toContain("<a ");
   });
 
   test("What you sent shows documents, applied date and the Applicant's answers", () => {
@@ -65,7 +136,7 @@ describe("Interview stage", () => {
         profile={{ summary: "I love working in a kitchen.", skills: "Baking", location: "Quezon City" }}
       />,
     );
-    for (const text of ["What you sent", "Submitted 18 Oct 2026", "Resume.pdf", "248 KB", "I love working in a kitchen.", "Baking"]) expect(markup).toContain(text);
+    for (const text of ["What you sent", "Submitted 18 Oct 2026", "Resume.pdf", "PDF · 248 KB · sent 18 Oct", "I love working in a kitchen.", "Baking"]) expect(markup).toContain(text);
   });
 
   test("hides sections with no data", () => {
@@ -75,34 +146,60 @@ describe("Interview stage", () => {
   });
 });
 
-describe("Offer stage", () => {
-  test("shows the offer status from existing data and no actions", () => {
-    const markup = renderToStaticMarkup(<ApplicationOffer status="Offer" updatedAt={new Date("2026-10-29T00:00:00Z")} jobTitle="Production Assistant" />);
-    for (const text of ["love to have you on the team", "Production Assistant", "Offer", "29 Oct 2026"]) expect(markup).toContain(text);
-    for (const hidden of ["Accept", "Decline", "<button", "Monthly pay", "Start date", "Messages"]) expect(markup).not.toContain(hidden);
+const fullOffer = { monthlyPay: 21500, startDate: new Date("2026-12-01T00:00:00Z"), schedule: "Tue–Sun · 7 AM – 4 PM", replyBy: new Date("2026-11-20T00:00:00Z"), letterName: "Letter-A.pdf" };
+
+describe("Offer card", () => {
+  test("shows every term it is given and the reply-by date", () => {
+    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle="Production Assistant" offer={fullOffer} />);
+    for (const text of ["love to have you on the team", "Production Assistant", "Monthly pay", "₱21,500", "1 Dec 2026", "Tue–Sun · 7 AM – 4 PM", "20 Nov 2026", "Letter-A.pdf"]) expect(markup).toContain(text);
+    expect(markup).not.toContain("To be confirmed");
   });
 
-  test("copes with a missing Job Posting", () => {
-    const markup = renderToStaticMarkup(<ApplicationOffer status="Offer" updatedAt={new Date("2026-10-29T00:00:00Z")} jobTitle={null} />);
-    expect(markup).toContain("Your offer is on its way.");
+  test("a partial Offer shows only what is known and the rest as To be confirmed", () => {
+    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle="Production Assistant" offer={{ monthlyPay: 21500 }} />);
+    expect(markup).toContain("₱21,500");
+    expect(markup.match(/To be confirmed/g)?.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("with no Offer data nothing is invented", () => {
+    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle={null} offer={null} />);
+    expect(markup).toContain("To be confirmed");
+    expect(markup.replace(/<[^>]*>/g, " ")).not.toMatch(/₱|\b20\d\d\b/);
+  });
+
+  test("Accept offer, Decline and View are disabled with a coming-soon note", () => {
+    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle="X" offer={fullOffer} />);
+    for (const label of ["Accept offer", "Decline", "View"]) expect(markup).toMatch(new RegExp(`<button[^>]*disabled[^>]*>\\s*${label}`));
+    expect(markup).toContain("coming soon");
   });
 });
 
-describe("Offer stage documents", () => {
-  test("lists the submitted documents by name, read-only", () => {
-    const markup = renderToStaticMarkup(
-      <ApplicationDocuments
-        documents={[
-          { id: 1, name: "Resume.pdf", contentType: "application/pdf", size: 254000, requiredFor: "Resume" },
-          { id: 2, name: "Valid_ID.png", contentType: "image/png", size: 90000, requiredFor: "Valid government ID" },
-        ]}
-      />,
-    );
-    for (const text of ["Resume.pdf", "Valid_ID.png", "Sent with your application", "Submitted"]) expect(markup).toContain(text);
-    for (const hidden of ["<button", "<input", "Upload"]) expect(markup).not.toContain(hidden);
+describe("Documents to submit", () => {
+  const required = [
+    { name: "Résumé", hint: "Sent with your application", status: "Submitted" as const },
+    { name: "NBI clearance", hint: "Not older than 6 months", status: "In review" as const },
+    { name: "Health certificate", hint: null, status: "To upload" as const },
+    { name: "SSS number", status: "To upload" as const },
+  ];
+
+  test("lists each required Document with status, hint and progress", () => {
+    const markup = renderToStaticMarkup(<ApplicationDocuments documents={[]} required={required} />);
+    for (const text of ["Documents to submit", "2 of 4", "Résumé", "Submitted", "In review", "Not older than 6 months", "Health certificate"]) expect(markup).toContain(text);
   });
 
-  test("is hidden when there are no documents", () => {
+  test("every Upload button is disabled", () => {
+    const markup = renderToStaticMarkup(<ApplicationDocuments documents={[]} required={required} />);
+    expect(markup.match(/<button/g)).toHaveLength(2);
+    expect(markup.match(/<button[^>]*disabled/g)).toHaveLength(2);
+  });
+
+  test("with no required list it shows the submitted Documents as Submitted, read-only", () => {
+    const markup = renderToStaticMarkup(<ApplicationDocuments documents={[{ id: 1, name: "Resume.pdf", contentType: "application/pdf", size: 254000, requiredFor: "Resume" }]} />);
+    for (const text of ["Resume.pdf", "Submitted", "1 of 1"]) expect(markup).toContain(text);
+    expect(markup).not.toContain("<button");
+  });
+
+  test("is hidden when there is nothing to show", () => {
     expect(renderToStaticMarkup(<ApplicationDocuments documents={[]} />)).toBe("");
   });
 });

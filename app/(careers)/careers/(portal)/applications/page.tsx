@@ -6,15 +6,13 @@ import { eyebrowClass } from "@/components/features/about/section-heading";
 import { HowHiringWorks } from "@/components/features/careers/how-hiring-works";
 import { Button } from "@/components/ui/button";
 import { applicationProgress } from "@/lib/careers/application-progress";
-import { canWithdrawApplication, createApplicationStore } from "@/lib/careers/applications";
+import { createApplicationStore } from "@/lib/careers/applications";
 import type { ApplicationSummary } from "@/lib/careers/applications";
 import { requireApplicant } from "@/lib/careers/current-applicant";
 import { getCareersDatabase } from "@/lib/careers/db";
 
-import { SubmitButton } from "@/app/(careers)/careers/_components/submit-button";
 import { CareersApplicationsSkeleton } from "@/app/(careers)/careers/_components/skeletons";
 import { ApplicationProgressStrip } from "@/app/(careers)/careers/_components/application-progress-strip";
-import { withdrawApplicationAction } from "./actions";
 
 const appliedDate = new Intl.DateTimeFormat("en-PH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Manila" });
 
@@ -122,17 +120,6 @@ function ApplicationCard({ application }: { application: ApplicationSummary }) {
             <ArrowRight aria-hidden className="size-4" />
           </Link>
         </Button>
-        {canWithdrawApplication(application.status) ? (
-          <form action={withdrawApplicationAction} className="sm:shrink-0">
-            <input type="hidden" name="referenceNumber" value={application.referenceNumber} />
-            <SubmitButton
-              pendingLabel="Withdrawing…"
-              className="w-full rounded-full border border-primary px-[22px] py-2.5 text-sm font-medium tracking-wide text-primary hover:bg-lavender-soft sm:w-auto"
-            >
-              Withdraw Application
-            </SubmitButton>
-          </form>
-        ) : null}
       </div>
     </li>
   );

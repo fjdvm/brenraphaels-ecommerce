@@ -16,6 +16,11 @@ export type JobPosting = {
   screeningCriteria: string[];
   responsibilities: string[];
   benefits: string[];
+  /** When HRMS announced the role; absent for roles never announced. */
+  postedAt?: Date;
+  /** Optional short pitch and vacancy count; HRMS does not write these yet, so the page hides them. */
+  tagline?: string;
+  openings?: number;
 };
 
 export type JobPostingStore = {
@@ -51,6 +56,7 @@ function asJobPosting(posting: typeof jobPostings.$inferSelect): JobPosting {
     screeningCriteria: posting.screeningCriteria,
     responsibilities: posting.responsibilities,
     benefits: posting.benefits,
+    postedAt: posting.announcedAt ?? undefined,
   };
 }
 

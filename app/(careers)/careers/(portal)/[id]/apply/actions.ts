@@ -11,7 +11,7 @@ import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { createApplicantProfileStore } from "@/lib/careers/profile";
 import { applicationConsentField, applicationDocumentIds, jobPostingIdField } from "@/lib/validators/application";
 
-export type ApplicationActionState = { message?: string; referenceNumber?: string };
+export type ApplicationActionState = { message?: string; referenceNumber?: string; sentAt?: string; confirmationEmailSent?: boolean };
 
 function makeReferenceNumber() {
   return `BR-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
@@ -43,6 +43,8 @@ export async function submitApplicationAction(_previous: ApplicationActionState,
     revalidatePath("/careers/applications");
     return {
       referenceNumber: result.referenceNumber,
+      sentAt: new Date().toISOString(),
+      confirmationEmailSent: result.confirmationEmailSent,
       message: result.confirmationEmailSent ? undefined : "Your Application was received, but we could not send the confirmation email. Keep your Reference number for your records.",
     };
   } catch (error) {

@@ -25,6 +25,21 @@ describe("Apply card", () => {
     expect(markup).toContain('href="/careers/profile"');
   });
 
+  test("shows profile completeness with the next step, and the résumé row", () => {
+    const markup = ready();
+    expect(markup).toContain("Profile 40% complete");
+    expect(markup).toContain("Add summary &amp; skills");
+    expect(markup).toContain("Resume.pdf");
+    expect(markup).toContain("From your profile");
+    expect(markup).toContain("Replace");
+  });
+
+  test("uses the new consent copy and the Your applications footnote", () => {
+    const markup = ready();
+    expect(markup).toContain("may use my information to review this application");
+    expect(markup).toContain("Your applications");
+  });
+
   test("asks for each required Document of the Job Posting", () => {
     const markup = ready();
     expect(markup).toContain("Résumé");
