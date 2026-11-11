@@ -275,3 +275,20 @@ html {
     scroll-behavior: auto;
   }
 }
+
+/* Careers redesign: the Figma palette and DM Sans apply under Careers only; the Storefront keeps the tokens above.
+   `body:has(...)` also covers the body itself and anything portalled to it (menus, dialogs). */
+.careers-theme,
+body:has(.careers-theme) {
+  --surface: #faf8fc;
+  --primary: #4a2373;
+  --tertiary: #3f2b5f;
+  --background: var(--surface);
+  --ring: var(--primary);
+}
+
+.careers-theme {
+  --font-hanken-sans: var(--font-dm-sans);
+  --font-sans: var(--font-dm-sans);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+}

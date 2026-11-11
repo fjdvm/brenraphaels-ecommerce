@@ -17,7 +17,7 @@ export function CareersAuthShell({ children }: { children: ReactNode }) {
     <div className="grid min-h-screen flex-1 lg:grid-cols-[minmax(0,680px)_1fr]">
       <aside
         data-theme="dark"
-        className="relative isolate flex flex-col justify-between gap-10 overflow-hidden bg-tertiary px-5 py-6 text-white sm:px-8 lg:sticky lg:top-0 lg:h-screen lg:px-[60px] lg:py-[50px]"
+        className="relative isolate flex flex-col justify-between gap-6 overflow-hidden bg-tertiary px-5 py-6 text-white sm:px-8 lg:sticky lg:top-0 lg:h-screen lg:px-[60px] lg:py-[50px]"
       >
         <Image
           src="/images/careers/team.jpg"
@@ -37,17 +37,17 @@ export function CareersAuthShell({ children }: { children: ReactNode }) {
           </Link>
         </div>
 
-        <div className="hidden flex-col gap-[22px] lg:flex">
+        <div className="flex flex-col gap-3 lg:gap-[22px]">
           <p className="text-xs font-medium uppercase leading-normal tracking-[0.15em] text-accent">
             Bren Raphael&apos;s Careers
           </p>
-          <p className="max-w-[560px] font-serif text-[54px] leading-[1.2]">
+          <p className="max-w-[560px] font-serif text-[28px] leading-[1.2] lg:text-[54px]">
             Grow with our small-batch kitchen.
           </p>
-          <p className="max-w-[460px] leading-[1.6] tracking-[0.35px] text-white/85">
+          <p className="hidden max-w-[460px] leading-[1.6] tracking-[0.35px] text-white/85 lg:block">
             Create one applicant profile, then apply to any open role in a few clicks.
           </p>
-          <ul className="flex flex-col gap-3.5 pt-2.5">
+          <ul className="hidden flex-col gap-3.5 pt-2.5 lg:flex">
             {perks.map(({ icon: Icon, label }) => (
               <li key={label} className="flex items-center gap-3 leading-[1.6] tracking-[0.35px]">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/[0.14]">
