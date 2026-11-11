@@ -3,16 +3,17 @@
 import { useActionState, useState } from "react";
 
 import { Field, RequiredMark, RequiredNote, fieldProps } from "@/app/(careers)/careers/_components/field";
+import { ApplicationSent } from "@/app/(careers)/careers/_components/application-sent";
 import { SubmitButton } from "@/app/(careers)/careers/_components/submit-button";
 import { submitApplicationAction } from "./actions";
 import type { ApplicantProfile } from "@/lib/careers/profile";
 
 type Document = { id: number; name: string };
 
-export function ApplicationForm({ jobPostingId, title, profile, requiredDocuments, documents }: { jobPostingId: string; title: string; profile: ApplicantProfile; requiredDocuments: string[]; documents: Document[] }) {
+export function ApplicationForm({ jobPostingId, title, email, profile, requiredDocuments, documents }: { jobPostingId: string; title: string; email: string; profile: ApplicantProfile; requiredDocuments: string[]; documents: Document[] }) {
   const [state, action] = useActionState(submitApplicationAction, {});
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>(() => requiredDocuments.map(() => ""));
-  if (state.referenceNumber) return <section className="mt-8 border border-primary bg-surface-card p-6"><h2 className="font-serif text-3xl text-primary">Application received</h2><p className="mt-3 text-on-surface-variant">Your permanent Reference number is <strong>{state.referenceNumber}</strong>. {state.message ?? "We&apos;ve sent a confirmation email."}</p></section>;
+  if (state.referenceNumber && state.sentAt) return <ApplicationSent firstName={profile.fullName.split(" ")[0]} role={title} referenceNumber={state.referenceNumber} sentAt={state.sentAt} emailedTo={state.confirmationEmailSent ? email : undefined} />;
 
   return <form action={action} className="mt-8 grid gap-6 border border-outline-variant bg-surface-card p-6">
     <RequiredNote />
