@@ -17,6 +17,7 @@ import {
   workDescriptionField,
 } from "../validators/careers";
 
+import { listCityLocations } from "../address/locations";
 import { applicantEducation, applicantProfiles, applicantWorkHistory } from "./schema";
 
 const monthsInOrder = (start: string | null, end: string | null) => !start || !end || start <= end;
@@ -45,15 +46,30 @@ const workHistory = z
     path: ["endedOn"],
   });
 
-export const applicantProfileSchema = z.object({
+let cityLocations: Set<string> | undefined;
+
+/** The Applicant profile, where Location must be a "City, Province" from the directory, or the value already stored. */
+export function applicantProfileSchemaFor(storedLocation?: string | null) {
+  return applicantProfileShape(
+    applicantLocationField.refine(
+      (location) => location === null || location === storedLocation || (cityLocations ??= new Set(listCityLocations())).has(location),
+      "Choose a location from the list",
+    ),
+  );
+}
+export const applicantProfileSchema = applicantProfileSchemaFor();
+
+function applicantProfileShape<TLocation extends z.ZodType<string | null>>(location: TLocation) {
+  return z.object({
   fullName: applicantFullNameField,
   phone: applicantPhoneField,
-  location: applicantLocationField,
+  location,
   summary: applicantSummaryField,
   skills: applicantSkillsField,
   education: z.array(education).max(20, "Add up to 20 education entries").default([]),
   workHistory: z.array(workHistory).max(30, "Add up to 30 work history entries").default([]),
-});
+  });
+}
 export type ApplicantProfileInput = z.input<typeof applicantProfileSchema>;
 export type ApplicantProfile = z.output<typeof applicantProfileSchema>;
 export type ApplicantProfileStore = {
@@ -91,7 +107,8 @@ export function createApplicantProfileStore<TQueryResult extends PgQueryResultHK
 }
 
 export async function saveApplicantProfile(input: ApplicantProfileInput, dependencies: { identity: { userId: string; email: string }; store: ApplicantProfileStore }) {
-  const profile = applicantProfileSchema.parse(input);
+  const stored = await dependencies.store.find(dependencies.identity.userId);
+  const profile = applicantProfileSchemaFor(stored?.location).parse(input);
   await dependencies.store.save({ ...profile, applicantId: dependencies.identity.userId, email: dependencies.identity.email.toLowerCase() });
   return profile;
 }

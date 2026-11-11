@@ -82,6 +82,11 @@ export function listCities(province: string): string[] {
   return (getDirectory().citiesByProvince.get(province) ?? []).map((city) => city.name);
 }
 
+/** Every city as one "City, Province" value, the way an Applicant profile stores its Location. */
+export function listCityLocations(): string[] {
+  return listProvinces().flatMap((province) => listCities(province).map((city) => `${city}, ${province}`));
+}
+
 export function listBarangays(province: string, city: string): string[] {
   const match = getDirectory().citiesByProvince.get(province)?.find((candidate) => candidate.name === city);
   if (!match) {

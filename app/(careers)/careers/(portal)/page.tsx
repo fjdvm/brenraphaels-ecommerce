@@ -8,6 +8,7 @@ import { WhyWorkWithUs } from "@/components/features/careers/why-work-with-us";
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
 import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
+import { Combobox } from "@/components/ui/combobox";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
@@ -68,7 +69,16 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
       >
         <Filter label="Department" name="department" allLabel="All departments" options={options.departments} selected={filters.department} />
         <Filter label="Employment type" name="employmentType" allLabel="All types" options={options.employmentTypes} selected={filters.employmentType} />
-        <Filter label="Location" name="location" allLabel="All locations" options={options.locations} selected={filters.location} />
+        <FilterField name="location">
+          <Combobox
+            label="Location"
+            name="location"
+            placeholder="All locations"
+            emptyMessage="No locations with open roles"
+            options={options.locations.map((location) => ({ value: location, label: location }))}
+            defaultValue={filters.location}
+          />
+        </FilterField>
         <div className="flex items-center gap-1">
           <SubmitButton
             pendingLabel="Filtering…"

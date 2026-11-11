@@ -43,7 +43,7 @@ describe("Applicant profile", () => {
       {
         fullName: "Jane Doe",
         phone: "09171234567",
-        location: "Quezon City",
+        location: "Quezon City, Metro Manila",
         summary: "Operations professional",
         skills: "Hiring, Excel",
         education: [{ school: "UP Diliman", qualification: "BA", fieldOfStudy: "Psychology" }],

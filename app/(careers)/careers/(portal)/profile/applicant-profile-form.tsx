@@ -6,6 +6,7 @@ import { useActionState, useState, type DragEvent, type KeyboardEvent, type Reac
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
 import { fieldClass } from "@/components/ui/field-styles";
+import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import type { ApplicantProfile } from "@/lib/careers/profile";
 import { cn } from "@/lib/utils";
@@ -284,8 +285,11 @@ function ProfileStrength({ percent, steps }: ReturnType<typeof profileStrength>)
   );
 }
 
-export function ApplicantProfileForm({ heading, fullName, profile, documents = [] }: { heading: string; fullName: string; profile?: ApplicantProfile & { jobAlertsOptIn?: boolean }; documents?: Document[] }) {
+export function ApplicantProfileForm({ heading, fullName, profile, documents = [], locations = [] }: { heading: string; fullName: string; profile?: ApplicantProfile & { jobAlertsOptIn?: boolean }; documents?: Document[]; locations?: string[] }) {
   const [profileState, profileAction, profilePending] = useActionState(submitApplicantProfile, {});
+  const currentLocation = profileState.values?.location ?? profile?.location ?? "";
+  // A stored value from before Location was a dropdown stays selectable until the Applicant picks another.
+  const locationOptions = (currentLocation && !locations.includes(currentLocation) ? [currentLocation, ...locations] : locations).map((location) => ({ value: location, label: location }));
   const [education, setEducation] = useState<Array<Education | undefined>>(profile?.education ?? []);
   const [workHistory, setWorkHistory] = useState<Array<WorkHistory | undefined>>(profile?.workHistory ?? []);
   const [skills, setSkills] = useState(() => splitSkills(profile?.skills));
@@ -326,9 +330,17 @@ export function ApplicantProfileForm({ heading, fullName, profile, documents = [
                   <Input {...fieldProps("phone", errors.phone)} name="phone" type="tel" autoComplete="tel" maxLength={30} placeholder="09XX XXX XXXX" defaultValue={values?.phone ?? profile?.phone ?? ""} className={fieldClass} />
                 </Field>
               </div>
-              <Field id="location" label="Location" error={errors.location}>
-                <Input {...fieldProps("location", errors.location)} name="location" maxLength={200} placeholder="City, Province" defaultValue={values?.location ?? profile?.location ?? ""} className={fieldClass} />
-              </Field>
+              <div className="grid gap-2">
+                <Combobox
+                  label="Location"
+                  name="location"
+                  placeholder="Search your city"
+                  emptyMessage="No matching city. Pick one from the list."
+                  options={locationOptions}
+                  defaultValue={currentLocation}
+                />
+                {errors.location ? <p className="text-sm text-red-700" role="alert">{errors.location}</p> : null}
+              </div>
             </section>
 
             <section className={cardClass}>
