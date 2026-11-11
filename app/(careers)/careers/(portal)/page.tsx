@@ -65,7 +65,7 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
           { name: "employmentType", label: "Type", selected: filters.employmentType },
           { name: "location", label: "Location", selected: filters.location },
         ]}
-        className="flex flex-col gap-4 rounded-2xl bg-surface-soft p-4 lg:flex-row lg:items-end lg:gap-3"
+        className="flex flex-col gap-4 rounded-[40px] border border-line bg-white p-4 lg:flex-row lg:items-end lg:gap-3"
       >
         <Filter label="Department" name="department" allLabel="All departments" options={options.departments} selected={filters.department} />
         <Filter label="Employment type" name="employmentType" allLabel="All types" options={options.employmentTypes} selected={filters.employmentType} />
@@ -77,6 +77,8 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
             emptyMessage="No locations with open roles"
             options={options.locations.map((location) => ({ value: location, label: location }))}
             defaultValue={filters.location}
+            className="gap-2"
+            inputClassName="rounded-[10px] px-3.5 py-[11px]"
           />
         </FilterField>
         <div className="flex items-center gap-1">
