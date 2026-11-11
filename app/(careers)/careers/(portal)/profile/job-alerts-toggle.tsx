@@ -1,36 +1,48 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 
+import { runWithToast } from "../../_components/action-toast";
 import { setApplicantJobAlerts } from "./actions";
 
 const cardClass = "flex flex-col gap-4 rounded-[40px] border border-line bg-white p-6 sm:p-10";
 
-/** Saves on change; a failed save restores the previous state and says why. */
+/** Saves on change behind the shared card; a failed save restores the previous state and the card says why, with Retry. */
 export function JobAlertsToggle({ initial, profileSaved }: { initial: boolean; profileSaved: boolean }) {
   const [enabled, setEnabled] = useState(initial);
-  const [error, setError] = useState<string>();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
 
-  function toggle() {
+  /** Shows the new choice at once; a failed save puts the previous one back, and the card's Retry tries the save again. */
+  async function toggle() {
     const previous = enabled;
     const next = !previous;
     setEnabled(next);
-    setError(undefined);
-    startTransition(async () => {
-      try {
-        const result = await setApplicantJobAlerts({ jobAlertsOptIn: next });
-        if ("message" in result) {
-          setEnabled(previous);
-          setError(result.message);
-        }
-      } catch {
-        setEnabled(previous);
-        setError("We couldn't save your job-alert preference. Try again.");
-      }
-    });
+    setPending(true);
+    try {
+      await runWithToast({
+        loading: "Saving…",
+        success: next ? "Job alerts turned on" : "Job alerts turned off",
+        error: "We couldn't save your job-alert preference. Try again.",
+        task: async () => {
+          setPending(true);
+          try {
+            const result = await setApplicantJobAlerts({ jobAlertsOptIn: next });
+            if ("message" in result) {
+              setEnabled(previous);
+              return { ok: false, message: result.message };
+            }
+            setEnabled(next);
+            return { ok: true };
+          } finally {
+            setPending(false);
+          }
+        },
+      });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -63,7 +75,7 @@ export function JobAlertsToggle({ initial, profileSaved }: { initial: boolean; p
         </button>
       </div>
       <p className="text-sm tracking-[0.35px] text-body" role="status">
-        {error ? <span className="text-red-700">{error}</span> : enabled ? "Job-alert emails are on." : "Job-alert emails are off."}
+        {enabled ? "Job-alert emails are on." : "Job-alert emails are off."}
       </p>
     </section>
   );

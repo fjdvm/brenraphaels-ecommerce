@@ -9,6 +9,7 @@ import { linkTarget } from "@/lib/notifications/inbox-view";
 import { relativeTime } from "@/lib/notifications/relative-time";
 import { cn } from "@/lib/utils";
 
+import { runWithToast } from "../../_components/action-toast";
 import { markAllApplicantNotificationsRead, markApplicantNotificationRead } from "./actions";
 
 /** The Applicant's stored inbox, newest first as the service returns it, with mark-read and mark-all-read. */
@@ -18,16 +19,44 @@ export function ApplicantNotificationsFeed({ items, now }: { items: InboxNotific
   const isUnread = (item: InboxNotification) => item.readAt === null && !justRead.has(item.id);
   const unreadCount = items.filter(isUnread).length;
 
+  const [busy, setBusy] = useState(false);
+
+  /** Shows `ids` as read now, then saves behind the shared card; a failure puts them back as unread and the card's Retry saves again. */
+  const markRead = (ids: string[], options: { loading: string; success: string; save: () => ReturnType<typeof markAllApplicantNotificationsRead> }) => {
+    const mark = (on: boolean) =>
+      setJustRead((current) => {
+        const next = new Set(current);
+        for (const id of ids) {
+          if (on) next.add(id);
+          else next.delete(id);
+        }
+        return next;
+      });
+    mark(true);
+    setBusy(true);
+    void runWithToast({
+      loading: options.loading,
+      success: options.success,
+      error: "We couldn't mark that as read. Try again.",
+      task: async () => {
+        setBusy(true);
+        try {
+          const result = await options.save();
+          mark(result.ok);
+          return result;
+        } finally {
+          setBusy(false);
+        }
+      },
+    }).finally(() => setBusy(false));
+  };
+
   /** Marks the row read before anything else, so a link that is slow or fails to open still leaves it read. */
   const read = (item: InboxNotification) => {
     if (!isUnread(item)) return;
-    setJustRead((current) => new Set(current).add(item.id));
-    void markApplicantNotificationRead(item.id);
+    markRead([item.id], { loading: "Marking as read…", success: "Marked as read", save: () => markApplicantNotificationRead(item.id) });
   };
-  const readAll = () => {
-    setJustRead(new Set(items.map((item) => item.id)));
-    void markAllApplicantNotificationsRead();
-  };
+  const readAll = () => markRead(items.filter(isUnread).map((item) => item.id), { loading: "Marking all as read…", success: "All marked as read", save: () => markAllApplicantNotificationsRead() });
 
   if (items.length === 0) {
     return (
@@ -51,7 +80,8 @@ export function ApplicantNotificationsFeed({ items, now }: { items: InboxNotific
         </p>
         <button
           className="text-sm font-medium tracking-[0.35px] text-primary hover:underline disabled:opacity-50 disabled:hover:no-underline"
-          disabled={unreadCount === 0}
+          disabled={unreadCount === 0 || busy}
+          aria-busy={busy}
           onClick={readAll}
           type="button"
         >

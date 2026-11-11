@@ -7,15 +7,20 @@ import { careersSession } from "@/lib/careers/auth";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { applicationReferenceNumberField } from "@/lib/validators/application";
 
-export async function withdrawApplicationAction(formData: FormData) {
+export type WithdrawOutcome = { ok: true } | { ok: false; message: string };
+
+/** Withdraws the signed-in Applicant's Application; says why when it could not, so the card can offer Retry. */
+export async function withdrawApplicationAction(formData: FormData): Promise<WithdrawOutcome> {
   const applicant = await careersSession();
+  if (!applicant) return { ok: false, message: "Please sign in to withdraw an application." };
   const referenceNumber = applicationReferenceNumberField.safeParse(formData.get("referenceNumber"));
-  if (!applicant || !referenceNumber.success) return;
+  if (!referenceNumber.success) return { ok: false, message: "Choose a valid Application to withdraw." };
   try {
     await withdrawApplication(referenceNumber.data, createApplicationStore(getCareersDatabase()), applicant.userId);
-  } catch {
-    // The dashboard only offers Withdraw while the Application is still withdrawable; a status
-    // change racing this submission is the only way this rejects, so just re-render the current state.
+    return { ok: true };
+  } catch (error) {
+    console.error("Application could not be withdrawn", error);
+    return { ok: false, message: "We couldn't withdraw your application. It may have already moved on." };
   } finally {
     revalidatePath("/careers/applications");
   }

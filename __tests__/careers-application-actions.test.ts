@@ -61,7 +61,7 @@ describe("Application action", () => {
     careersSession.mockResolvedValue({ userId: "applicant-1", email: "jane@example.com", verified: true });
     createApplicationStore.mockReturnValue("applications");
 
-    await withdrawApplicationAction(formData);
+    await expect(withdrawApplicationAction(formData)).resolves.toEqual({ ok: true });
 
     expect(withdrawApplication).toHaveBeenCalledWith("BR-20260928-0001", "applications", "applicant-1");
     expect(revalidatePath).toHaveBeenCalledWith("/careers/applications");
@@ -69,7 +69,18 @@ describe("Application action", () => {
 
   test("does not withdraw with an unauthenticated Applicant or invalid reference", async () => {
     careersSession.mockResolvedValue(null);
-    await withdrawApplicationAction(new FormData());
+    await expect(withdrawApplicationAction(new FormData())).resolves.toMatchObject({ ok: false });
     expect(withdrawApplication).not.toHaveBeenCalled();
+  });
+
+  test("reports a failed withdrawal so the card can offer Retry", async () => {
+    const formData = new FormData();
+    formData.set("referenceNumber", "BR-20260928-0001");
+    careersSession.mockResolvedValue({ userId: "applicant-1", email: "jane@example.com", verified: true });
+    withdrawApplication.mockRejectedValue(new Error("status moved on"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(withdrawApplicationAction(formData)).resolves.toMatchObject({ ok: false, message: expect.any(String) });
+    expect(revalidatePath).toHaveBeenCalledWith("/careers/applications");
   });
 });
