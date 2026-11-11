@@ -3,6 +3,8 @@ export type DocumentFiles = {
   prepare(file: { name: string; contentType: string; size: number }): Promise<{ fileId: string; uploadUrl: string }>;
   confirm(fileId: string): Promise<void>;
   link(fileId: string, documentId: number): Promise<void>;
+  /** A short-lived signed address to show or download the File from. */
+  viewUrl(fileId: string): Promise<string>;
 };
 
 export function gatewayDocumentFiles({
@@ -10,11 +12,11 @@ export function gatewayDocumentFiles({
   callerKey = process.env.API_GATEWAY_CALLER_KEY,
   fetch: send = fetch,
 }: { baseUrl?: string; callerKey?: string; fetch?: typeof fetch } = {}): DocumentFiles {
-  async function call<T>(path: string, body?: unknown): Promise<T> {
+  async function call<T>(path: string, body?: unknown, method = "POST", failure = "We couldn't upload that Document. Try again."): Promise<T> {
     if (!baseUrl || !callerKey) throw new Error("Document uploads are not configured yet.");
-    const retryable = new Error("We couldn't upload that Document. Try again.");
+    const retryable = new Error(failure);
     const response = await send(`${baseUrl.replace(/\/$/, "")}/files${path}`, {
-      method: "POST",
+      method,
       headers: { Authorization: `Bearer ${callerKey}`, "Content-Type": "application/json" },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     }).catch(() => { throw retryable; });
@@ -34,6 +36,11 @@ export function gatewayDocumentFiles({
       await call(`/${encodeURIComponent(fileId)}/links`, {
         system: "ECOM", entityType: "applicant-document", entityId: String(documentId), role: "document",
       });
+    },
+    async viewUrl(fileId) {
+      const { url } = await call<{ url?: string }>(`/${encodeURIComponent(fileId)}`, undefined, "GET", "We couldn't open that Document. Try again.");
+      if (!url) throw new Error("We couldn't open that Document. Try again.");
+      return url;
     },
   };
 }

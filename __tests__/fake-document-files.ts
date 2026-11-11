@@ -4,6 +4,8 @@ export class FakeDocumentFiles implements DocumentFiles {
   files = new Map<string, { name: string; contentType: string; size: number; visibility: "private"; retentionType: "permanent"; confirmed: boolean; documentId?: number }>();
   failConfirm = false;
   failLink = false;
+  failView = false;
+  viewed: string[] = [];
   async prepare(file: { name: string; contentType: string; size: number }) {
     const fileId = `file-${this.files.size + 1}`;
     this.files.set(fileId, { ...file, visibility: "private", retentionType: "permanent", confirmed: false });
@@ -16,5 +18,10 @@ export class FakeDocumentFiles implements DocumentFiles {
   async link(fileId: string, documentId: number) {
     if (this.failLink) throw new Error("Link failed");
     this.files.get(fileId)!.documentId = documentId;
+  }
+  async viewUrl(fileId: string) {
+    if (this.failView) throw new Error("We couldn't open that Document. Try again.");
+    this.viewed.push(fileId);
+    return `https://files.test/${fileId}/view?signed&expires=60`;
   }
 }

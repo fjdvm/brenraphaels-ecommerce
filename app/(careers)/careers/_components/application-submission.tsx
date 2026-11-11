@@ -1,17 +1,11 @@
-import { FileText } from "lucide-react";
-
 import type { ApplicationDocument } from "@/lib/careers/applications";
 
+import { DocumentList } from "./document-list";
 import { applicationDate } from "./application-header";
 
 type SubmittedProfile = { summary: string | null; skills: string; location: string | null };
 
 const shortDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Manila" });
-
-function fileType({ contentType, name }: ApplicationDocument) {
-  const extension = name.includes(".") ? name.split(".").pop() : undefined;
-  return (extension ?? contentType.split("/").pop() ?? "File").toUpperCase();
-}
 
 function Answer({ label, children }: { label: string; children: string }) {
   return (
@@ -33,17 +27,7 @@ export function ApplicationSubmission({ appliedAt, documents, profile }: { appli
         <p className="text-xs text-body">Submitted {applicationDate.format(appliedAt)}</p>
       </div>
       {documents.length ? (
-        <ul aria-label="Documents" className="flex flex-col gap-2">
-          {documents.map((document) => (
-            <li key={document.id} className="flex items-center gap-3 rounded-xl border border-line p-3">
-              <FileText aria-hidden className="size-5 shrink-0 text-primary" />
-              <span className="flex flex-col leading-tight">
-                <span className="text-sm font-medium text-ink">{document.name}</span>
-                <span className="text-xs text-body">{fileType(document)} · {Math.max(1, Math.round(document.size / 1024))} KB · sent {shortDate.format(appliedAt)}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <DocumentList documents={documents} note={`sent ${shortDate.format(appliedAt)}`} className="gap-2" />
       ) : null}
       {profile.summary || profile.skills || profile.location ? (
         <dl className="flex flex-col gap-3">

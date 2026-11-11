@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Calendar, Check, FileText, Upload, X } from "lucide-react";
+import { Briefcase, Calendar, Check, Upload, X } from "lucide-react";
 import { useActionState, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 
 import { eyebrowClass } from "@/components/features/about/section-heading";
@@ -15,6 +15,7 @@ import { DOCUMENT_ACCEPT, DOCUMENT_MAX_SIZE_MB } from "@/lib/validators/document
 import { Field, RequiredMark, fieldProps } from "@/app/(careers)/careers/_components/field";
 import { submitApplicantProfile, type ApplicantProfileActionState } from "./actions";
 import { submitApplicantDocument } from "./document-upload";
+import { DocumentList } from "../../_components/document-list";
 import { JobAlertsToggle } from "./job-alerts-toggle";
 import { profileStrength } from "./profile-strength";
 import { runWithToast } from "../../_components/action-toast";
@@ -30,18 +31,6 @@ const textareaClass = `${fieldClass} min-h-32 w-full border border-input bg-whit
 
 function splitSkills(skills: string | undefined) {
   return (skills ?? "").split(",").map((skill) => skill.trim()).filter(Boolean);
-}
-
-function documentSummary(document: Document) {
-  const kind = document.contentType.includes("pdf")
-    ? "PDF"
-    : document.contentType.includes("word")
-      ? "Word"
-      : document.contentType.startsWith("image/")
-        ? document.contentType.slice(6).toUpperCase()
-        : "File";
-  const size = document.size >= 1024 * 1024 ? `${(document.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(document.size / 1024))} KB`;
-  return `${kind} · ${size}`;
 }
 
 function SectionRow({ title, add, addLabel, children }: { title: string; add?: () => void; addLabel?: string; children?: ReactNode }) {
@@ -208,19 +197,7 @@ function Documents({ profileSaved, documents }: { profileSaved: boolean; documen
     <section className={cn(cardClass, "gap-4")}>
       <h2 className={cardTitleClass}>Documents<RequiredMark /></h2>
       {documents.length > 0 ? (
-        <ul className="grid gap-4">
-          {documents.map((document) => (
-            <li key={document.id} className="flex items-center gap-3.5 rounded-[3px] border border-line px-5 py-4">
-              <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-lavender text-primary">
-                <FileText className="size-[18px]" strokeWidth={1.5} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium tracking-[0.35px] text-ink">{document.name}</span>
-                <span className="block text-xs tracking-[0.35px] text-muted">{documentSummary(document)}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <DocumentList documents={documents} className="gap-4" />
       ) : null}
       <form noValidate onSubmit={(event) => event.preventDefault()}>
         <label

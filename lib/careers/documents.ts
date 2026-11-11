@@ -51,3 +51,10 @@ export async function confirmApplicantDocument(id: unknown, { applicantId, store
   await files.link(document.fileId, id);
   await store.markUsable(id, applicantId);
 }
+/** A short-lived signed link, issued only for a confirmed Document that belongs to the signed-in Applicant. */
+export async function openApplicantDocument(id: unknown, { applicantId, store, files }: Dependencies) {
+  if (typeof id !== "number" || !Number.isSafeInteger(id) || id <= 0) throw new Error("Choose a valid Document.");
+  const document = await store.find(id, applicantId);
+  if (!document?.fileId || !document.confirmedAt) throw new Error("Document not found.");
+  return files.viewUrl(document.fileId);
+}

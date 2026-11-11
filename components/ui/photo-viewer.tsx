@@ -3,18 +3,31 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import Image from "next/image";
-import { useRef, type KeyboardEvent, type TouchEvent } from "react";
+import { useRef, type KeyboardEvent, type ReactNode, type TouchEvent } from "react";
 
 import { cn } from "@/lib/utils";
 
-export type PhotoViewerItem = {
+export type PhotoViewerImage = {
   src: string;
   alt: string;
   caption: string;
   /** The photo's natural size, so it is shown at its own aspect ratio. */
   width: number;
   height: number;
+  key?: undefined;
 };
+
+/** Anything else (a PDF, a file card, a loading or error state) supplies its own stage and thumbnail. */
+export type PhotoViewerCustom = {
+  key: string;
+  caption: string;
+  stage: ReactNode;
+  thumbnail?: ReactNode;
+};
+
+export type PhotoViewerItem = PhotoViewerImage | PhotoViewerCustom;
+
+const itemKey = (item: PhotoViewerItem) => item.key ?? item.src;
 
 type PhotoViewerProps = {
   /** Accessible name of the dialog. */
@@ -23,6 +36,8 @@ type PhotoViewerProps = {
   /** The photo being shown, or null while the viewer is closed. */
   index: number | null;
   onIndexChange: (index: number | null) => void;
+  /** What the items are called in labels and hints; "photo" by default. */
+  noun?: string;
 };
 
 const roundButton =
@@ -33,7 +48,7 @@ const roundButton =
  * Controlled by `index`; opening and closing is the opener's state, so focus returns to whatever opened it.
  * Shared shell: Documents reuse it with their own items.
  */
-export function PhotoViewer({ label, items, index, onIndexChange }: PhotoViewerProps) {
+export function PhotoViewer({ label, items, index, onIndexChange, noun = "photo" }: PhotoViewerProps) {
   const touchStartX = useRef<number | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const open = index !== null && items[index] !== undefined;
@@ -98,27 +113,31 @@ export function PhotoViewer({ label, items, index, onIndexChange }: PhotoViewerP
                 {index > 0 && (
                   <button
                     type="button"
-                    aria-label="Previous photo"
+                    aria-label={`Previous ${noun}`}
                     onClick={() => goTo(index - 1)}
                     className={cn(roundButton, "absolute left-[84px] top-1/2 hidden size-14 -translate-y-1/2 bg-white text-primary sm:flex")}
                   >
                     <ChevronLeft aria-hidden className="size-[22px]" strokeWidth={1.5} />
                   </button>
                 )}
-                <Image
-                  key={current.src}
-                  src={current.src}
-                  alt={current.alt}
-                  width={current.width}
-                  height={current.height}
-                  sizes="(min-width: 640px) 1000px, 100vw"
-                  priority
-                  className="h-auto max-h-full w-auto max-w-full rounded-none object-contain sm:rounded-[32px]"
-                />
+                {current.key !== undefined ? (
+                  <div key={itemKey(current)} className="flex h-full w-full items-center justify-center">{current.stage}</div>
+                ) : (
+                  <Image
+                    key={current.src}
+                    src={current.src}
+                    alt={current.alt}
+                    width={current.width}
+                    height={current.height}
+                    sizes="(min-width: 640px) 1000px, 100vw"
+                    priority
+                    className="h-auto max-h-full w-auto max-w-full rounded-none object-contain sm:rounded-[32px]"
+                  />
+                )}
                 {index < last && (
                   <button
                     type="button"
-                    aria-label="Next photo"
+                    aria-label={`Next ${noun}`}
                     onClick={() => goTo(index + 1)}
                     className={cn(roundButton, "absolute right-[84px] top-1/2 hidden size-14 -translate-y-1/2 bg-white text-primary sm:flex")}
                   >
@@ -129,10 +148,10 @@ export function PhotoViewer({ label, items, index, onIndexChange }: PhotoViewerP
 
               <ul className="hidden justify-center gap-3 px-5 pb-9 pt-5 sm:flex">
                 {items.map((item, i) => (
-                  <li key={item.src}>
+                  <li key={itemKey(item)}>
                     <button
                       type="button"
-                      aria-label={`Show photo ${i + 1}: ${item.caption}`}
+                      aria-label={`Show ${noun} ${i + 1}: ${item.caption}`}
                       aria-current={i === index ? "true" : undefined}
                       onClick={() => onIndexChange(i)}
                       className={cn(
@@ -140,7 +159,11 @@ export function PhotoViewer({ label, items, index, onIndexChange }: PhotoViewerP
                         i === index ? "border-[3px] border-white" : "opacity-55 hover:opacity-80",
                       )}
                     >
-                      <Image src={item.src} alt="" fill sizes="96px" className="object-cover" />
+                      {item.key !== undefined ? (
+                        (item.thumbnail ?? null)
+                      ) : (
+                        <Image src={item.src} alt="" fill sizes="96px" className="object-cover" />
+                      )}
                     </button>
                   </li>
                 ))}
@@ -150,14 +173,14 @@ export function PhotoViewer({ label, items, index, onIndexChange }: PhotoViewerP
                 <ol aria-hidden className="flex items-center gap-1.5">
                   {items.map((item, i) => (
                     <li
-                      key={item.src}
+                      key={itemKey(item)}
                       className={cn("h-1.5 rounded-[3px]", i === index ? "w-5 bg-white" : "w-1.5 bg-muted")}
                     />
                   ))}
                 </ol>
                 <div className="flex w-full flex-col gap-1 px-5 text-sm tracking-[0.35px]">
                   <p className="font-medium text-white">{current.caption}</p>
-                  <p className="text-xs text-accent">Swipe for more photos · pinch to zoom</p>
+                  <p className="text-xs text-accent">Swipe for more {noun}s · pinch to zoom</p>
                 </div>
               </div>
             </>
