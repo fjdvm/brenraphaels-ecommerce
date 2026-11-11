@@ -6,6 +6,7 @@ import { eyebrowClass } from "@/components/features/about/section-heading";
 import { HowHiringWorks } from "@/components/features/careers/how-hiring-works";
 import { Button } from "@/components/ui/button";
 import { applicationProgress } from "@/lib/careers/application-progress";
+import { applicationStatusDisplay } from "@/lib/careers/application-status-display";
 import { createApplicationStore } from "@/lib/careers/applications";
 import type { ApplicationSummary } from "@/lib/careers/applications";
 import { requireApplicant } from "@/lib/careers/current-applicant";
@@ -27,13 +28,13 @@ function isClosed(application: ApplicationSummary) {
   return applicationProgress(application.status).closed;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const closed = applicationProgress(status).closed;
+function StatusBadge({ status }: { status: ApplicationSummary["status"] }) {
+  const { closed, label } = applicationStatusDisplay(status);
   return (
     <span
       className={`rounded-full px-3 py-1 text-xs font-medium tracking-[0.35px] ${closed ? "bg-warning-soft text-warning" : "bg-lavender text-primary"}`}
     >
-      {status}
+      {label}
     </span>
   );
 }
