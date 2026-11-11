@@ -89,7 +89,7 @@ export async function submitApplicantProfile(_previous: ApplicantProfileActionSt
     console.error("Saving Applicant profile failed", error);
     return { message: "We couldn't save your profile. Try again.", values };
   }
-  redirect("/careers/profile");
+  redirect("/careers/profile?saved=1");
 }
 /** Validates metadata and returns a signed address for a pending Document. */
 export async function prepareApplicantDocumentUpload(input: unknown): Promise<{ documentId: number; uploadUrl: string } | { message: string }> {

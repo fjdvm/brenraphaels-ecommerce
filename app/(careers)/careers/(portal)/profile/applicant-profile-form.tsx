@@ -1,12 +1,12 @@
 "use client";
 
 import { Briefcase, Calendar, Check, FileText, Upload, X } from "lucide-react";
-import { useActionState, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { Suspense, useActionState, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
-import { fieldClass } from "@/components/ui/field-styles";
 import { Combobox } from "@/components/ui/combobox";
+import { fieldClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
 import type { ApplicantProfile } from "@/lib/careers/profile";
 import { cn } from "@/lib/utils";
@@ -17,14 +17,15 @@ import { submitApplicantProfile } from "./actions";
 import { submitApplicantDocument } from "./document-upload";
 import { JobAlertsToggle } from "./job-alerts-toggle";
 import { profileStrength } from "./profile-strength";
+import { ProfileSavedToast } from "./profile-saved-toast";
 
 type Document = { id: number; name: string; contentType: string; size: number };
 type Education = ApplicantProfile["education"][number];
 type WorkHistory = ApplicantProfile["workHistory"][number];
 type Errors = Record<string, string | undefined>;
 
-const cardClass = "flex flex-col gap-5 rounded-[40px] border border-line bg-white p-6 sm:p-10";
-const cardTitleClass = "font-serif text-[22px] leading-[1.3] text-primary";
+const cardClass = "flex flex-col gap-5 rounded-[28px] border border-line bg-white px-5 py-6 sm:rounded-[40px] sm:p-10";
+const cardTitleClass = "font-serif text-lg leading-[1.35] text-primary sm:text-[22px] sm:leading-[1.3]";
 const textareaClass = `${fieldClass} min-h-32 w-full border border-input bg-white outline-none focus:ring-2 focus:ring-ring`;
 
 function splitSkills(skills: string | undefined) {
@@ -45,9 +46,9 @@ function documentSummary(document: Document) {
 
 function SectionRow({ title, add, addLabel, children }: { title: string; add?: () => void; addLabel?: string; children?: ReactNode }) {
   return (
-    <div className="flex items-center gap-[30px]">
+    <div className="flex items-center gap-2 sm:gap-[30px]">
       <h2 className={cardTitleClass}>{title}</h2>
-      <span aria-hidden className="h-px flex-1 bg-line" />
+      <span aria-hidden className="flex-1" />
       {add ? (
         <Button type="button" variant="pill-outline" size="pill-sm" onClick={add} aria-label={addLabel}>
           Add
@@ -264,9 +265,9 @@ function Documents({ profileSaved, documents }: { profileSaved: boolean; documen
 
 function ProfileStrength({ percent, steps }: ReturnType<typeof profileStrength>) {
   return (
-    <section className="flex flex-col gap-[18px] rounded-[40px] bg-primary p-6 text-white sm:p-10">
+    <section className="order-first flex flex-col gap-3 rounded-[28px] bg-primary px-5 py-[22px] text-white sm:gap-[18px] sm:rounded-[40px] sm:p-10 lg:order-none">
       <p className="text-xs font-medium uppercase leading-normal tracking-[0.15em] text-accent">Profile strength</p>
-      <p className="font-serif text-4xl leading-[1.2] sm:text-[40px]">{percent}% complete</p>
+      <p className="font-serif text-[22px] leading-[1.3] sm:text-[40px] sm:leading-[1.2]">{percent}% complete</p>
       <div role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Profile strength" className="h-2 overflow-hidden rounded bg-white">
         <div className="h-full rounded bg-accent" style={{ width: `${percent}%` }} />
       </div>
@@ -308,16 +309,17 @@ export function ApplicantProfileForm({ heading, fullName, profile, documents = [
   const strength = profileStrength({ profile, documentCount: documents.length });
 
   return (
-    <section className="mx-auto w-full max-w-[1440px] px-5 pb-[100px] pt-[50px] sm:px-10">
-      <div className="flex flex-col gap-4">
+    <section className="mx-auto w-full max-w-[1440px] px-4 pb-7 pt-6 sm:px-10 sm:pb-[100px] sm:pt-[50px]">
+      <Suspense fallback={null}><ProfileSavedToast /></Suspense>
+      <div className="flex flex-col gap-2 sm:gap-4">
         <p className={eyebrowClass}>Careers</p>
-        <h1 className="font-serif text-4xl leading-[1.2] text-primary sm:text-[54px]">{heading}</h1>
-        <p className="max-w-[520px] leading-[1.6] tracking-[0.35px] text-body">
+        <h1 className="font-serif text-[28px] leading-tight text-primary sm:text-[54px] sm:leading-[1.2]">{heading}</h1>
+        <p className="max-w-[520px] text-sm leading-normal tracking-[0.35px] text-body sm:text-base sm:leading-[1.6]">
           Keep this reusable information ready for future job postings.
         </p>
       </div>
 
-      <div className="mt-[30px] grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="mt-4 grid items-start gap-4 sm:mt-[30px] lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-10">
         <div className="flex flex-col gap-5">
           <form id="applicant-profile-form" action={profileAction} className="flex flex-col gap-5" noValidate>
             <section className={cardClass}>
@@ -371,12 +373,14 @@ export function ApplicantProfileForm({ heading, fullName, profile, documents = [
           <Documents profileSaved={Boolean(profile)} documents={documents} />
         </div>
 
-        <div className="flex flex-col gap-5 lg:sticky lg:top-6">
+        <div className="contents lg:flex lg:flex-col lg:gap-5 lg:sticky lg:top-6">
           <ProfileStrength {...strength} />
-          <Button type="submit" form="applicant-profile-form" variant="pill" size="pill-lg" disabled={profilePending} aria-busy={profilePending}>
-            {profilePending ? "Saving profile…" : "Save profile"}
-          </Button>
-          {profileState.message ? <p className="text-sm tracking-[0.35px] text-body" role="alert">{profileState.message}</p> : null}
+          <div className="order-last flex flex-col gap-5 lg:order-none">
+            <Button type="submit" form="applicant-profile-form" variant="pill" size="pill-lg" disabled={profilePending} aria-busy={profilePending}>
+              {profilePending ? "Saving profile…" : "Save profile"}
+            </Button>
+            {profileState.message ? <p className="text-sm tracking-[0.35px] text-body" role="alert">{profileState.message}</p> : null}
+          </div>
         </div>
       </div>
     </section>

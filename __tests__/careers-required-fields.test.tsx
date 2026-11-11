@@ -27,3 +27,19 @@ describe("Careers required-field markers", () => {
     expect(stars(renderToStaticMarkup(<ApplicantProfileForm heading="Profile" fullName="Jane" profile={profile} />))).toBe(6);
   });
 });
+
+describe("Applicant profile Location dropdown", () => {
+  const noProfile = { fullName: "Jane", phone: null, summary: null, skills: "", education: [], workHistory: [] };
+
+  it("renders Location as a searchable combobox that submits the chosen value", () => {
+    const html = renderToStaticMarkup(<ApplicantProfileForm heading="Profile" fullName="Jane" profile={{ ...noProfile, location: "Cebu City, Cebu" }} locations={["Cebu City, Cebu", "Manila, Metro Manila"]} />);
+    expect(html).toContain('role="combobox"');
+    expect(html).toContain('placeholder="Search your city"');
+    expect(html).toContain('name="location" value="Cebu City, Cebu"');
+  });
+
+  it("keeps a legacy free-text Location shown and submitted while unchanged", () => {
+    const html = renderToStaticMarkup(<ApplicantProfileForm heading="Profile" fullName="Jane" profile={{ ...noProfile, location: "Quezon City" }} locations={["Cebu City, Cebu"]} />);
+    expect(html).toContain('name="location" value="Quezon City"');
+  });
+});

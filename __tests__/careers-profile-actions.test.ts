@@ -125,3 +125,19 @@ describe("Applicant profile action", () => {
     expect(saveApplicantProfile).toHaveBeenCalledWith(expect.objectContaining({ education: [expect.objectContaining({ school: "UP" })] }), expect.anything());
   });
 });
+
+describe("Applicant profile Location errors", () => {
+  test("shows a rejected Location on the Location field and keeps what was typed", async () => {
+    careersSession.mockResolvedValue({ userId: "applicant-1", email: "jane@example.com" });
+    createApplicantProfileStore.mockReturnValue("profile-store");
+    saveApplicantProfile.mockRejectedValue(new z.ZodError([{ code: "custom", path: ["location"], message: "Choose a city from the list" }]));
+    const formData = new FormData();
+    formData.set("fullName", "Jane Doe");
+    formData.set("location", "Atlantis");
+
+    const state = await submitApplicantProfile({}, formData);
+
+    expect(state.fieldErrors).toEqual({ location: "Choose a city from the list" });
+    expect(state.values?.location).toBe("Atlantis");
+  });
+});
