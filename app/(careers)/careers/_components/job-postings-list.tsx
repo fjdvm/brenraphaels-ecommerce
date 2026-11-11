@@ -23,25 +23,25 @@ export function OpenRolesHeading({ count, filtered = false }: { count: number; f
 export function JobPostingsList({ jobs, applicationStatuses = {}, filtered = false }: { jobs: JobPosting[]; applicationStatuses?: Record<string, string>; filtered?: boolean }) {
   if (jobs.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-[40px] border border-line bg-white px-6 py-12 text-center">
-        <span aria-hidden className="grid size-11 place-items-center rounded-full bg-lavender text-primary">
-          <Search className="size-5" />
+      <div className="flex flex-col items-center gap-3.5 rounded-[40px] border border-line bg-white px-6 py-10 text-center sm:px-10 sm:py-14">
+        <span aria-hidden className="grid size-14 place-items-center rounded-full bg-lavender text-primary sm:size-16">
+          <Search className="size-6 sm:size-[26px]" />
         </span>
-        <h3 className="font-serif text-[22px] leading-[1.3] text-primary">
+        <h3 className="font-serif text-2xl leading-[1.25] text-primary sm:text-[28px]">
           {filtered ? "No roles match these filters" : "No open roles right now"}
         </h3>
-        <p className="max-w-xl text-sm tracking-[0.35px] text-body">
+        <p className="max-w-xl leading-[1.6] tracking-[0.35px] text-body">
           {filtered
             ? "Try another department or employment type, or get an email when a matching role opens."
             : "There are no open Job Postings at the moment. Check back soon, or get an email when a role opens."}
         </p>
-        <div className="mt-2 flex flex-wrap justify-center gap-3">
+        <div className="mt-2 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
           {filtered ? (
-            <Button asChild variant="pill" size="pill-sm">
+            <Button asChild variant="pill" size="pill-lg">
               <Link href="/careers">Clear filters</Link>
             </Button>
           ) : null}
-          <Button asChild variant="pill-outline" size="pill-sm">
+          <Button asChild variant="pill-outline" size="pill-lg">
             <Link href="/careers/profile">Email me new roles</Link>
           </Button>
         </div>
