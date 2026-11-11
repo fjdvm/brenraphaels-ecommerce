@@ -2,6 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { ApplicationDocuments } from "../app/(careers)/careers/_components/application-documents";
+import { ApplicationEndState } from "../app/(careers)/careers/_components/application-end-state";
+import { ApplicationHelp, ApplicationMessages } from "../app/(careers)/careers/_components/application-side-panels";
 import { ApplicationHeader } from "../app/(careers)/careers/_components/application-header";
 import { ApplicationOffer } from "../app/(careers)/careers/_components/application-offer";
 import { ApplicationStepper } from "../app/(careers)/careers/_components/application-stepper";
@@ -24,7 +26,7 @@ describe("Application header", () => {
   test("shows the back link, title, status chip, applied date and Reference number", () => {
     const markup = renderToStaticMarkup(<ApplicationHeader application={application()} />);
     expect(markup).toContain('href="/careers/applications"');
-    for (const text of ["Your applications", "<h1", "Production Assistant", "Interview", "Kitchen", "Applied 18 Oct 2026", "BR-APP-0412"]) {
+    for (const text of ["Your applications", "<h1", "Production Assistant", "Interview scheduled", "Kitchen", "Applied 18 Oct 2026", "BR-APP-0412"]) {
       expect(markup).toContain(text);
     }
   });
@@ -44,8 +46,37 @@ describe("Application stepper", () => {
     expect(markup).toContain("18 Oct 2026");
   });
 
-  test("has no current step once the Application is closed", () => {
-    expect(renderToStaticMarkup(<ApplicationStepper status="Rejected" appliedOn="18 Oct 2026" />)).not.toContain("aria-current");
+  test("dates only the steps already known", () => {
+    const markup = renderToStaticMarkup(<ApplicationStepper status="Interview" appliedOn="18 Oct" updatedOn="21 Oct" />);
+    expect(markup).toContain("18 Oct");
+    expect(markup).toContain("21 Oct");
+    expect(renderToStaticMarkup(<ApplicationStepper status="Received" appliedOn="18 Oct" />)).not.toContain("21 Oct");
+  });
+});
+
+describe("Closed Application", () => {
+  test.each([
+    ["Rejected", "Not selected"],
+    ["Withdrawn", "Withdrawn"],
+    ["Declined", "Offer declined"],
+    ["Expired", "Offer expired"],
+  ] as const)("%s shows its end state", (status, label) => {
+    const markup = renderToStaticMarkup(<ApplicationEndState status={status} closedOn="21 Oct 2026" />);
+    expect(markup).toContain(label);
+    expect(markup).toContain("21 Oct 2026");
+    expect(markup).not.toContain("aria-current");
+  });
+});
+
+describe("Side panels", () => {
+  test("Messages says there are none yet, and Questions? offers the hiring team", () => {
+    const markup = renderToStaticMarkup(
+      <>
+        <ApplicationMessages />
+        <ApplicationHelp />
+      </>,
+    );
+    for (const text of ["Messages", "No messages yet", "Questions?", "Message the team"]) expect(markup).toContain(text);
   });
 });
 
