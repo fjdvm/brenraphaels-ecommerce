@@ -1,4 +1,4 @@
-import { positiveIntegerField, textField } from "./fields";
+import { optionalTextField, positiveIntegerField, textField } from "./fields";
 
 const opaqueIdCharacters = /^[A-Za-z0-9_-]+$/;
 
@@ -26,3 +26,10 @@ export function applicationDocumentIds(values: FormDataEntryValue[]) {
     ? parsed.map((value) => value.data)
     : null;
 }
+
+/** Why an Applicant declines an Offer; optional, plain sentences only. */
+export const offerDeclineReasonField = optionalTextField({
+  max: 500,
+  pattern: /^[\p{L}\p{M}\p{N}\p{P}\p{Zs}]+$/u,
+  patternMessage: "Use letters, numbers and punctuation only.",
+});

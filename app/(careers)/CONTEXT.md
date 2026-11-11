@@ -53,3 +53,7 @@ _Avoid_: Meeting, appointment
 **Withdraw**:
 An Applicant ending their own Application before it reaches a final status (`Hired`, offer `Declined`/`Expired`, or `Rejected`). Allowed at any point — unlike editing the profile snapshot, which stops once the Application is Frozen.
 _Avoid_: Cancel, retract
+
+**Offer**:
+The job offer HR-ATS makes for an Application, with monthly pay, a start date, a schedule, a reply-by date and an offer letter. Any term HR-ATS has not provided yet is shown as "To be confirmed", never invented. Accept offer and Decline (with an optional reason) are built but switched off by the `CAREERS_OFFER_REPLIES_ENABLED` flag until HR-ATS provides the endpoints; while it is off they are visible, disabled, and say "Coming soon. We'll email you the details." Replies go through the offer-reply gateway (`lib/careers/offer-reply.ts`), which has only a stub for now.
+_Avoid_: Contract, job offer letter (the letter is one part of the Offer)
