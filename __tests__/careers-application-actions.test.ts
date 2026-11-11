@@ -38,7 +38,7 @@ describe("Application action", () => {
     createJobPostingStore.mockReturnValue("postings");
     submitApplication.mockResolvedValue({ referenceNumber: "BR-20260928-0001", confirmationEmailSent: true });
 
-    await expect(submitApplicationAction({}, formData)).resolves.toEqual({ referenceNumber: "BR-20260928-0001" });
+    await expect(submitApplicationAction({}, formData)).resolves.toEqual({ referenceNumber: "BR-20260928-0001", confirmationEmailSent: true, sentAt: expect.any(String) });
     expect(submitApplication).toHaveBeenCalledWith(
       { jobPostingId: "ats-1", documentIds: [7], consent: true },
       expect.objectContaining({ identity, applications: "applications", profile: "profile", documents: "documents", postings: "postings", sendConfirmationEmail: sendApplicationReceivedEmail }),
