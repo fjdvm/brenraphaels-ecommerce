@@ -34,7 +34,7 @@ describe("Applicant profile Location dropdown", () => {
   it("renders Location as a searchable combobox that submits the chosen value", () => {
     const html = renderToStaticMarkup(<ApplicantProfileForm heading="Profile" fullName="Jane" profile={{ ...noProfile, location: "Cebu City, Cebu" }} locations={["Cebu City, Cebu", "Manila, Metro Manila"]} />);
     expect(html).toContain('role="combobox"');
-    expect(html).toContain('placeholder="City, Province"');
+    expect(html).toContain('placeholder="Search your city"');
     expect(html).toContain('name="location" value="Cebu City, Cebu"');
   });
 

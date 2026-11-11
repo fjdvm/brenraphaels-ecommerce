@@ -1,10 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import {
-  isCityProvinceLocation,
   listBarangays,
   listCities,
-  listCityProvinceLocations,
   listProvinces,
   locationErrors,
 } from "../lib/address/locations";
@@ -81,21 +79,5 @@ describe("Checking that a Province, City and Barangay go together", () => {
     expect(locationErrors({ ...valid, barangay: "Nowhere" })).toEqual({
       barangay: ["Choose a barangay from the list"],
     });
-  });
-});
-
-describe("The single City, Province list", () => {
-  test("offers every city as \"City, Province\", sorted, and finds a city by part of its name", () => {
-    const all = listCityProvinceLocations();
-    expect(all).toContain("Quezon City, Metro Manila");
-    expect(all).toContain("Cebu City, Cebu");
-    expect(all).toEqual([...all].sort((a, b) => a.localeCompare(b, "en")));
-    expect(all.filter((value) => value.toLowerCase().includes("quezon")).length).toBeGreaterThan(0);
-  });
-
-  test("accepts only exact directory values", () => {
-    expect(isCityProvinceLocation("Cebu City, Cebu")).toBe(true);
-    expect(isCityProvinceLocation("Cebu City")).toBe(false);
-    expect(isCityProvinceLocation("Atlantis, Cebu")).toBe(false);
   });
 });

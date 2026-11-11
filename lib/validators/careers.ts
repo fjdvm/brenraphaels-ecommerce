@@ -10,6 +10,7 @@ import {
   personNameCharacterPatternMessage,
   textField,
 } from "./fields";
+import { listCityLocations } from "../address/locations";
 import { cleanList } from "./sanitize";
 
 /** Letters, digits and the punctuation that appears in school, employer, role and place names. */
@@ -35,6 +36,15 @@ export const applicantPhoneField = optionalPhoneField({
   patternMessage: "Enter a valid contact number using digits only (7 to 15, optional leading +)",
 }).transform(orNull);
 export const applicantLocationField = optionalTextField({ max: 200, pattern: titleCharacters, patternMessage: titleCharactersMessage }).transform(orNull);
+let cityLocations: Set<string> | undefined;
+
+/** Location must be a "City, Province" from the directory, or the value the Applicant already has stored. */
+export function applicantLocationFieldFor(storedLocation?: string | null) {
+  return applicantLocationField.refine(
+    (location) => location === null || location === storedLocation || (cityLocations ??= new Set(listCityLocations())).has(location),
+    "Choose a location from the list",
+  );
+}
 export const applicantSummaryField = multilineTextField("Professional summary", { max: 2_000, optional: true, pattern: proseCharacters, patternMessage: proseCharactersMessage }).transform(orNull);
 export const applicantSkillsField = z
   .string()

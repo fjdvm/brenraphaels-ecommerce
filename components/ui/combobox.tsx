@@ -18,6 +18,7 @@ type ComboboxProps = {
   emptyMessage?: string;
   disabled?: boolean;
   className?: string;
+  inputClassName?: string;
 };
 
 /** A searchable dropdown: type to filter, arrow keys and Enter or the mouse to choose, and a button to clear. */
@@ -30,6 +31,7 @@ export function Combobox({
   emptyMessage = "No matches found",
   disabled,
   className,
+  inputClassName,
 }: ComboboxProps) {
   const id = useId();
   const listId = `${id}-list`;
@@ -116,6 +118,7 @@ export function Combobox({
           className={cn(
             "w-full border bg-white pr-16 outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:bg-surface-container-low",
             fieldClass,
+            inputClassName,
           )}
         />
         <input type="hidden" name={name} value={value} />

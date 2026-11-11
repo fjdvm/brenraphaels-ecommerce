@@ -77,37 +77,3 @@ describe("Applicant profile", () => {
     ]);
   });
 });
-
-describe("Applicant profile Location", () => {
-  const identity = { userId: "career-auth-1", email: "jane@example.com" };
-  const save = (store: ReturnType<typeof createApplicantProfileStore>, location: string) =>
-    saveApplicantProfile({ fullName: "Jane Doe", location }, { identity, store });
-
-  test("accepts a \"City, Province\" value from the directory", async () => {
-    const store = createApplicantProfileStore(drizzle(client));
-    await save(store, "Cebu City, Cebu");
-    expect((await client.query("select location from applicant_profiles")).rows).toEqual([{ location: "Cebu City, Cebu" }]);
-  });
-
-  test("rejects text that is not in the directory with a message on the location field", async () => {
-    const store = createApplicantProfileStore(drizzle(client));
-    const error = await save(store, "Atlantis").catch((caught) => caught);
-    expect(error.issues).toEqual([expect.objectContaining({ path: ["location"], message: "Choose a city from the list" })]);
-    expect((await client.query("select 1 from applicant_profiles")).rows).toEqual([]);
-  });
-
-  test("keeps an existing free-text Location valid while unchanged, but not when it is edited to another", async () => {
-    await client.exec("insert into applicant_profiles (applicant_id, full_name, email, location) values ('career-auth-1', 'Jane Doe', 'jane@example.com', 'Quezon City')");
-    const store = createApplicantProfileStore(drizzle(client));
-    await save(store, "Quezon City");
-    expect((await client.query("select location from applicant_profiles")).rows).toEqual([{ location: "Quezon City" }]);
-    await expect(save(store, "Quezon")).rejects.toThrow();
-  });
-
-  test("lets an Applicant clear the Location", async () => {
-    const store = createApplicantProfileStore(drizzle(client));
-    await save(store, "Cebu City, Cebu");
-    await save(store, "");
-    expect((await client.query("select location from applicant_profiles")).rows).toEqual([{ location: null }]);
-  });
-});

@@ -18,8 +18,12 @@ _Avoid_: Confirmed, activated
 An Applicant's standing personal info, education, work history, skills, and Documents, built up over time and reused across Applications. Must be complete, along with a Job Posting's required Documents, before an Application can be submitted.
 _Avoid_: Resume, CV (a resume is one Document within the profile, not the profile itself)
 
+**Location** (Applicant profile):
+The city and province an Applicant says they are from, chosen from the list of Philippine cities rather than typed. Distinct from a Job Posting's location, which HRMS writes and which Applicants can only filter by.
+_Avoid_: Address, hometown
+
 **Document**:
-A file — resume, transcript, government ID, or whatever a Job Posting requires — an Applicant attaches to their profile, stored in this app's own file storage.
+A file — resume, transcript, government ID, or whatever a Job Posting requires — an Applicant attaches to their profile, kept in the company's file-storage service.
 _Avoid_: Attachment, upload
 
 **Job Posting**:

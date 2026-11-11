@@ -286,19 +286,11 @@ function ProfileStrength({ percent, steps }: ReturnType<typeof profileStrength>)
   );
 }
 
-/** Philippine "City, Province" choices; a saved free-text value outside them stays selectable while unchanged. */
-function LocationField({ locations, current, error }: { locations: string[]; current: string; error?: string }) {
-  const options = (current && !locations.includes(current) ? [current, ...locations] : locations).map((value) => ({ value, label: value }));
-  return (
-    <div className="grid gap-2">
-      <Combobox label="Location" name="location" options={options} defaultValue={current} placeholder="City, Province" emptyMessage="No matching city" />
-      {error ? <p className="text-sm text-red-700" role="alert">{error}</p> : null}
-    </div>
-  );
-}
-
 export function ApplicantProfileForm({ heading, fullName, profile, documents = [], locations = [] }: { heading: string; fullName: string; profile?: ApplicantProfile & { jobAlertsOptIn?: boolean }; documents?: Document[]; locations?: string[] }) {
   const [profileState, profileAction, profilePending] = useActionState(submitApplicantProfile, {});
+  const currentLocation = profileState.values?.location ?? profile?.location ?? "";
+  // A stored value from before Location was a dropdown stays selectable until the Applicant picks another.
+  const locationOptions = (currentLocation && !locations.includes(currentLocation) ? [currentLocation, ...locations] : locations).map((location) => ({ value: location, label: location }));
   const [education, setEducation] = useState<Array<Education | undefined>>(profile?.education ?? []);
   const [workHistory, setWorkHistory] = useState<Array<WorkHistory | undefined>>(profile?.workHistory ?? []);
   const [skills, setSkills] = useState(() => splitSkills(profile?.skills));
@@ -340,7 +332,17 @@ export function ApplicantProfileForm({ heading, fullName, profile, documents = [
                   <Input {...fieldProps("phone", errors.phone)} name="phone" type="tel" autoComplete="tel" maxLength={30} placeholder="09XX XXX XXXX" defaultValue={values?.phone ?? profile?.phone ?? ""} className={fieldClass} />
                 </Field>
               </div>
-              <LocationField key={values?.location ?? "saved"} locations={locations} current={values?.location ?? profile?.location ?? ""} error={errors.location} />
+              <div className="grid gap-2">
+                <Combobox
+                  label="Location"
+                  name="location"
+                  placeholder="Search your city"
+                  emptyMessage="No matching city. Pick one from the list."
+                  options={locationOptions}
+                  defaultValue={currentLocation}
+                />
+                {errors.location ? <p className="text-sm text-red-700" role="alert">{errors.location}</p> : null}
+              </div>
             </section>
 
             <section className={cardClass}>

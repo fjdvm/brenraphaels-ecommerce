@@ -37,7 +37,16 @@ describe("Open role cards", () => {
   test("shows an empty state with no roles", () => {
     const markup = renderToStaticMarkup(<JobPostingsList jobs={[]} />);
     expect(markup).not.toContain("<li ");
-    expect(markup).toContain("There are no open Job Postings");
+    expect(markup).toContain("No open roles right now");
+    expect(markup).not.toContain("Clear filters");
+  });
+
+  test("says no roles match the filters and offers to clear them", () => {
+    const markup = renderToStaticMarkup(<JobPostingsList jobs={[]} filtered />);
+    expect(markup).toContain("No roles match these filters");
+    expect(markup).toContain("Clear filters");
+    expect(markup).toContain('href="/careers"');
+    expect(renderToStaticMarkup(<OpenRolesHeading count={0} filtered />)).toContain("0 positions match");
   });
 });
 
@@ -66,12 +75,11 @@ describe("Open roles heading", () => {
   test("shows the design's heading and the role count", () => {
     const markup = renderToStaticMarkup(<OpenRolesHeading count={2} />);
     expect(markup).toContain("Open roles");
-    expect(markup).toContain("Find your place in our kitchen");
-    expect(markup).toContain("2 open roles");
+    expect(markup).toContain("2 positions open");
   });
 
   test("uses the singular for one role and zero for none", () => {
-    expect(renderToStaticMarkup(<OpenRolesHeading count={1} />)).toContain("1 open role<");
-    expect(renderToStaticMarkup(<OpenRolesHeading count={0} />)).toContain("0 open roles");
+    expect(renderToStaticMarkup(<OpenRolesHeading count={1} />)).toContain("1 position open");
+    expect(renderToStaticMarkup(<OpenRolesHeading count={0} />)).toContain("0 positions open");
   });
 });
