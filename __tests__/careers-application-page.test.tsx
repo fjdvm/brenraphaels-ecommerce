@@ -106,6 +106,11 @@ describe("Interview stage", () => {
     expect(markup).toContain("12 Kitchen St, Quezon City");
   });
 
+  test("an in-person interview with no venue reads To be confirmed for Where", () => {
+    const markup = renderToStaticMarkup(<ApplicationInterview interview={{ mode: "in-person", address: "12 Kitchen St" }} />);
+    expect(markup).toMatch(/Where<\/dt><dd[^>]*>To be confirmed/);
+  });
+
   test("reads To be confirmed for every missing value, and for no interview at all", () => {
     for (const interview of [{ interviewer: "Pat Cruz" }, undefined]) {
       const markup = renderToStaticMarkup(<ApplicationInterview interview={interview} />);

@@ -9,8 +9,8 @@ const dayFormat = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "nume
 const timeFormat = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: zone });
 
 function dayText(date: Date) {
-  const part = (type: string) => dayFormat.formatToParts(date).find((p) => p.type === type)?.value ?? "";
-  return `${part("weekday")}, ${part("day")} ${part("month")} ${part("year")}`;
+  const parts = Object.fromEntries(dayFormat.formatToParts(date).map(({ type, value }) => [type, value]));
+  return `${parts.weekday}, ${parts.day} ${parts.month} ${parts.year}`;
 }
 
 function timeText(startsAt: Date, endsAt?: Date) {
@@ -40,7 +40,7 @@ const checklist = ["Join 5 minutes early and test your camera and microphone.", 
 export function ApplicationInterview({ interview }: { interview?: Interview }) {
   const { startsAt, endsAt, mode, where, meetingLink, address, interviewer } = interview ?? {};
   const kind = mode === "online" ? "an online interview" : mode === "in-person" ? "an in-person interview" : "an interview";
-  const whereText = mode === "online" ? (where ? `Online · ${where}` : "Online") : (where ?? (mode === "in-person" ? "In person" : undefined));
+  const whereText = mode === "online" ? (where ? `Online · ${where}` : "Online") : where;
   const when = startsAt ? `${dayText(startsAt)} · ${timeText(startsAt, endsAt)}` : undefined;
   const disabled = "cursor-not-allowed rounded-full px-[22px] py-3 text-base tracking-[0.45px] opacity-50";
 
