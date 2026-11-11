@@ -4,7 +4,7 @@ import { z } from "zod";
 import { careersSession } from "@/lib/careers/auth";
 import { createApplicationStore, syncApplicationProfileSnapshots } from "@/lib/careers/applications";
 import { getCareersDatabase } from "@/lib/careers/db";
-import { createApplicantDocumentStore, prepareApplicantDocument, confirmApplicantDocument } from "@/lib/careers/documents";
+import { createApplicantDocumentStore, prepareApplicantDocument, confirmApplicantDocument, openApplicantDocument } from "@/lib/careers/documents";
 import { gatewayDocumentFiles } from "@/lib/careers/document-files";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
 import { createApplicantProfileStore, saveApplicantProfile } from "@/lib/careers/profile";
@@ -115,6 +115,19 @@ export async function confirmApplicantDocumentUpload(documentId: unknown): Promi
     return { message: "Document uploaded." };
   } catch (error) {
     return { message: error instanceof Error ? error.message : "We couldn't upload that Document." };
+  }
+}
+
+/** A fresh short-lived link per open; a Document that is not the session Applicant's is never linked. */
+export async function openApplicantDocumentLink(documentId: unknown): Promise<{ url: string } | { message: string }> {
+  const identity = await careersSession();
+  if (!identity) return { message: "Please sign in to open a Document." };
+  if (!process.env.API_GATEWAY_URL || !process.env.API_GATEWAY_CALLER_KEY) return { message: "Documents can't be opened yet." };
+  try {
+    const url = await openApplicantDocument(documentId, { applicantId: identity.userId, store: createApplicantDocumentStore(getCareersDatabase()), files: gatewayDocumentFiles() });
+    return { url };
+  } catch (error) {
+    return { message: error instanceof Error ? error.message : "We couldn't open that Document. Try again." };
   }
 }
 

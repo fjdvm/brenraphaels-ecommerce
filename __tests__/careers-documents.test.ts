@@ -10,7 +10,7 @@ vi.mock("@/lib/careers/db", () => ({ getCareersDatabase: mocks.database }));
 vi.mock("@/lib/careers/document-files", () => ({ gatewayDocumentFiles: mocks.files }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
-import { prepareApplicantDocumentUpload, confirmApplicantDocumentUpload } from "@/app/(careers)/careers/(portal)/profile/actions";
+import { prepareApplicantDocumentUpload, confirmApplicantDocumentUpload, openApplicantDocumentLink } from "@/app/(careers)/careers/(portal)/profile/actions";
 
 import { submitApplicantDocument } from "@/app/(careers)/careers/(portal)/profile/document-upload";
 
@@ -135,4 +135,33 @@ test("file-storage being down while preparing gives a retryable message and leav
   files.prepare = async () => { throw new Error("We couldn't upload that Document. Try again."); };
   expect(await prepareApplicantDocumentUpload(pdf)).toEqual({ message: "We couldn't upload that Document. Try again." });
   expect(await store.list("a-1")).toEqual([]);
+});
+
+test("opening a confirmed Document returns a fresh short-lived link each time", async () => {
+  await prepareApplicantDocumentUpload(pdf);
+  await confirmApplicantDocumentUpload(1);
+  expect(await openApplicantDocumentLink(1)).toEqual({ url: "https://files.test/file-1/view?signed&expires=60" });
+  await openApplicantDocumentLink(1);
+  expect(files.viewed).toEqual(["file-1", "file-1"]);
+});
+
+test("another Applicant's, unconfirmed and invalid Documents are never linked", async () => {
+  await prepareApplicantDocumentUpload(pdf);
+  expect(await openApplicantDocumentLink(1)).toEqual({ message: "Document not found." });
+  await confirmApplicantDocumentUpload(1);
+  mocks.session.mockResolvedValue({ userId: "a-2" });
+  expect(await openApplicantDocumentLink(1)).toEqual({ message: "Document not found." });
+  expect(await openApplicantDocumentLink("1")).toEqual({ message: "Choose a valid Document." });
+  mocks.session.mockResolvedValue(null);
+  expect(await openApplicantDocumentLink(1)).toEqual({ message: "Please sign in to open a Document." });
+  expect(files.viewed).toEqual([]);
+});
+
+test("a files gateway failure gives a retryable message", async () => {
+  await prepareApplicantDocumentUpload(pdf);
+  await confirmApplicantDocumentUpload(1);
+  files.failView = true;
+  expect(await openApplicantDocumentLink(1)).toEqual({ message: "We couldn't open that Document. Try again." });
+  files.failView = false;
+  expect(await openApplicantDocumentLink(1)).toEqual({ url: expect.stringContaining("signed") });
 });
