@@ -165,7 +165,13 @@ jobs:
           cache-from: type=gha,scope=ecommerce-production
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.classification == 'code'
+    # always() plus explicit results: the implicit success() also checks skipped
+    # ancestors (container-smoke is skipped on push) and would skip this job.
+    if: >-
+      always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && needs.changes.outputs.classification == 'code'
+      && needs.production-image.result == 'success'
+      && needs.ci-gate.result == 'success'
     needs: [changes, production-image, ci-gate]
     runs-on: ubuntu-latest
     timeout-minutes: 25
