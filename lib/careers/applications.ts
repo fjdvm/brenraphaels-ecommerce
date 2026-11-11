@@ -31,9 +31,22 @@ export type ApplicationSummary = {
   employmentType: string | null;
 };
 
+/** An interview invitation as HR-ATS would describe it. Every field is optional; Careers fills none of it in today. */
+export type Interview = {
+  startsAt?: Date;
+  endsAt?: Date;
+  mode?: "online" | "in-person";
+  /** Platform for an online interview (e.g. Google Meet), or the venue for an in-person one. */
+  where?: string;
+  meetingLink?: string;
+  address?: string;
+  interviewer?: string;
+};
+
 /** What the Application page needs beyond the summary: when the status last changed and what was submitted. */
 export type ApplicationSubmissionDetail = {
   updatedAt: Date;
+  interview?: Interview;
   documents: ApplicationDocument[];
   profile: Pick<ApplicantProfile, "summary" | "skills" | "location">;
 };

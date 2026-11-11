@@ -8,7 +8,7 @@ import { getCareersDatabase } from "@/lib/careers/db";
 import { ApplicationHeader, applicationDate } from "@/app/(careers)/careers/_components/application-header";
 import { ApplicationDocuments } from "@/app/(careers)/careers/_components/application-documents";
 import { ApplicationOffer } from "@/app/(careers)/careers/_components/application-offer";
-import { ApplicationStageDetails } from "@/app/(careers)/careers/_components/application-stage-details";
+import { ApplicationInterview } from "@/app/(careers)/careers/_components/application-interview";
 import { ApplicationSubmission } from "@/app/(careers)/careers/_components/application-submission";
 import { ApplicationStepper } from "@/app/(careers)/careers/_components/application-stepper";
 import { ApplicationEndState } from "@/app/(careers)/careers/_components/application-end-state";
@@ -45,7 +45,7 @@ async function ApplicationPageContent({ params }: ApplicationPageProps) {
       )}
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-col gap-5 lg:flex-1">
-          {application.status === "Interview" ? <ApplicationStageDetails status={application.status} updatedAt={submission.updatedAt} /> : null}
+          {application.status === "Interview" ? <ApplicationInterview interview={submission.interview} /> : null}
           {application.status === "Offer" ? <ApplicationOffer status={application.status} updatedAt={submission.updatedAt} jobTitle={application.title} /> : null}
           {application.status === "Offer" ? <ApplicationDocuments documents={submission.documents} /> : null}
           {application.status === "Interview" || application.status === "Offer" ? (
