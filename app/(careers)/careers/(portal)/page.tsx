@@ -8,6 +8,7 @@ import { WhyWorkWithUs } from "@/components/features/careers/why-work-with-us";
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
 import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
+import { Combobox } from "@/components/ui/combobox";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { createJobPostingStore } from "@/lib/careers/job-postings";
@@ -32,7 +33,7 @@ function Filter({ label, name, allLabel, options, selected }: {
   selected?: string;
 }) {
   return (
-    <FilterField name={name}>
+    <FilterField>
       <label htmlFor={`filter-${name}`} className={fieldLabelClass}>{label}</label>
       <Select id={`filter-${name}`} name={name} defaultValue={selected ?? ""} className={cn(fieldClass, "rounded-[10px] px-3.5 py-[11px]")}>
         <option value="">{allLabel}</option>
@@ -49,26 +50,40 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
     employmentType: parseJobFilter(query.employmentType),
     location: parseJobFilter(query.location),
   };
+  const isFiltered = Boolean(filters.department || filters.employmentType || filters.location);
   const db = getCareersDatabase();
   const store = createJobPostingStore(db);
-  const [postings, options, applicant] = await Promise.all([store.listOpen(filters), store.listOpenFilterOptions(), careersSession()]);
+  const [postings, allOpen, options, applicant] = await Promise.all([store.listOpen(filters), store.listOpen(), store.listOpenFilterOptions(), careersSession()]);
   const applicationStatuses = applicant ? await createApplicationStore(db).statusesByPostingForApplicant(applicant.userId) : {};
 
   return (
     <div className="flex flex-col gap-6">
-      <OpenRolesHeading count={postings.length} />
+      <OpenRolesHeading count={postings.length} filtered={isFiltered} />
 
       <FilterForm
-        chips={[
-          { name: "department", label: "Department", selected: filters.department },
-          { name: "employmentType", label: "Type", selected: filters.employmentType },
-          { name: "location", label: "Location", selected: filters.location },
+        groups={[
+          { name: "department", label: "Department", allLabel: "All", options: options.departments },
+          { name: "employmentType", label: "Employment type", allLabel: "All", options: options.employmentTypes },
+          { name: "location", label: "Location", allLabel: "All locations", options: options.locations },
         ]}
-        className="flex flex-col gap-4 rounded-2xl bg-surface-soft p-4 lg:flex-row lg:items-end lg:gap-3"
+        selected={filters}
+        postings={allOpen.map(({ department, employmentType, location }) => ({ department, employmentType, location }))}
+        className="flex flex-col gap-4 rounded-[40px] border border-line bg-white p-4 lg:flex-row lg:items-end lg:gap-3"
       >
         <Filter label="Department" name="department" allLabel="All departments" options={options.departments} selected={filters.department} />
         <Filter label="Employment type" name="employmentType" allLabel="All types" options={options.employmentTypes} selected={filters.employmentType} />
-        <Filter label="Location" name="location" allLabel="All locations" options={options.locations} selected={filters.location} />
+        <FilterField>
+          <Combobox
+            label="Location"
+            name="location"
+            placeholder="All locations"
+            emptyMessage="No locations with open roles"
+            options={options.locations.map((location) => ({ value: location, label: location }))}
+            defaultValue={filters.location}
+            className="gap-2"
+            inputClassName="rounded-[10px] px-3.5 py-[11px]"
+          />
+        </FilterField>
         <div className="flex items-center gap-1">
           <SubmitButton
             pendingLabel="Filtering…"
@@ -82,7 +97,7 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
         </div>
       </FilterForm>
 
-      <JobPostingsList jobs={postings} applicationStatuses={applicationStatuses} />
+      <JobPostingsList jobs={postings} applicationStatuses={applicationStatuses} filtered={isFiltered} />
     </div>
   );
 }
@@ -91,8 +106,8 @@ export default function CareersPage(props: CareersPageProps) {
   return (
     <>
       <section className="mx-auto w-full max-w-[1440px] px-5 pb-[100px] pt-[60px] sm:px-10">
-        <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-[60px]">
-          <div className="flex flex-col gap-7">
+        <div className="grid items-stretch gap-10 lg:grid-cols-2 lg:gap-[60px]">
+          <div className="flex flex-col justify-center gap-7 rounded-[40px] bg-lavender-soft p-8 sm:p-[60px]">
             <div className="flex max-w-[660px] flex-col gap-4">
               <p className={eyebrowClass}>Careers at Bren Raphael&apos;s</p>
               <h1 className="font-serif text-5xl leading-[1.1] text-primary sm:text-7xl">

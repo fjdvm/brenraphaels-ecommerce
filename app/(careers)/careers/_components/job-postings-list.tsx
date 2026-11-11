@@ -1,36 +1,51 @@
-import { ArrowRight, Clock, MapPin, Tag } from "lucide-react";
+import { ArrowRight, Briefcase, Clock, MapPin, Search } from "lucide-react";
 import Link from "next/link";
 
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { Button } from "@/components/ui/button";
 import type { JobPosting } from "@/lib/careers/job-postings";
 
-const detailClass = "flex items-center gap-1.5 text-sm tracking-[0.35px] text-body";
+const chipClass = "flex items-center gap-1.5 rounded-full bg-surface-soft px-2.5 py-1 text-xs tracking-[0.35px] text-body";
 
 /** Eyebrow, section title and the number of Open Job Postings, as in the design. */
-export function OpenRolesHeading({ count }: { count: number }) {
+export function OpenRolesHeading({ count, filtered = false }: { count: number; filtered?: boolean }) {
   return (
-    <div className="flex items-end gap-3">
-      <div className="flex flex-1 flex-col gap-2">
-        <p className={eyebrowClass}>Open roles</p>
-        <h2 className="font-serif text-3xl leading-[1.2] text-primary sm:text-[32px]">
-          Find your place in our kitchen
-        </h2>
-      </div>
-      <p className="shrink-0 text-sm font-medium tracking-[0.35px] text-body">
-        {count} open {count === 1 ? "role" : "roles"}
-      </p>
+    <div className="flex flex-col gap-2">
+      <p className={eyebrowClass}>Open roles</p>
+      <h2 className="font-serif text-3xl leading-[1.2] text-primary sm:text-[32px]">
+        {count} {count === 1 ? "position" : "positions"} {filtered ? "match" : "open"}
+      </h2>
     </div>
   );
 }
 
 /** `applicationStatuses` maps Job Posting id to the signed-in Applicant's Application status; omit it for signed-out visitors. */
-export function JobPostingsList({ jobs, applicationStatuses = {} }: { jobs: JobPosting[]; applicationStatuses?: Record<string, string> }) {
+export function JobPostingsList({ jobs, applicationStatuses = {}, filtered = false }: { jobs: JobPosting[]; applicationStatuses?: Record<string, string>; filtered?: boolean }) {
   if (jobs.length === 0) {
     return (
-      <p className="rounded-2xl border border-line bg-white px-6 py-8 text-sm tracking-[0.35px] text-body">
-        There are no open Job Postings matching those filters.
-      </p>
+      <div className="flex flex-col items-center gap-3 rounded-[40px] border border-line bg-white px-6 py-12 text-center">
+        <span aria-hidden className="grid size-11 place-items-center rounded-full bg-lavender text-primary">
+          <Search className="size-5" />
+        </span>
+        <h3 className="font-serif text-[22px] leading-[1.3] text-primary">
+          {filtered ? "No roles match these filters" : "No open roles right now"}
+        </h3>
+        <p className="max-w-xl text-sm tracking-[0.35px] text-body">
+          {filtered
+            ? "Try another department or employment type, or get an email when a matching role opens."
+            : "There are no open Job Postings at the moment. Check back soon, or get an email when a role opens."}
+        </p>
+        <div className="mt-2 flex flex-wrap justify-center gap-3">
+          {filtered ? (
+            <Button asChild variant="pill" size="pill-sm">
+              <Link href="/careers">Clear filters</Link>
+            </Button>
+          ) : null}
+          <Button asChild variant="pill-outline" size="pill-sm">
+            <Link href="/careers/profile">Email me new roles</Link>
+          </Button>
+        </div>
+      </div>
     );
   }
 
@@ -39,8 +54,11 @@ export function JobPostingsList({ jobs, applicationStatuses = {} }: { jobs: JobP
       {jobs.map((job) => (
         <li
           key={job.id}
-          className="flex flex-col gap-4 rounded-2xl border border-line bg-white px-6 py-[22px] sm:flex-row sm:items-center"
+          className="flex flex-col gap-4 rounded-[40px] border border-line bg-white px-6 py-[22px] sm:flex-row sm:items-center sm:gap-5"
         >
+          <span aria-hidden className="grid size-[50px] shrink-0 place-items-center rounded-full bg-lavender text-primary">
+            <Briefcase className="size-5" />
+          </span>
           <div className="flex min-w-0 flex-1 flex-col gap-2.5">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <h3 className="font-serif text-xl leading-[1.3] text-primary">{job.title}</h3>
@@ -48,17 +66,16 @@ export function JobPostingsList({ jobs, applicationStatuses = {} }: { jobs: JobP
                 <span className="rounded-full bg-lavender px-3 py-1 text-xs font-medium tracking-[0.35px] text-primary">{applicationStatuses[job.id]}</span>
               ) : null}
             </div>
-            <div className="flex flex-wrap items-center gap-x-[18px] gap-y-2">
-              <span className={detailClass}>
-                <Tag aria-hidden className="size-4" />
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-lavender px-2.5 py-1 text-xs font-medium tracking-[0.35px] text-primary">
                 {job.department}
               </span>
-              <span className={detailClass}>
-                <MapPin aria-hidden className="size-4" />
+              <span className={chipClass}>
+                <MapPin aria-hidden className="size-3.5" />
                 {job.location}
               </span>
-              <span className={detailClass}>
-                <Clock aria-hidden className="size-4" />
+              <span className={chipClass}>
+                <Clock aria-hidden className="size-3.5" />
                 {job.employmentType}
               </span>
             </div>
@@ -71,7 +88,7 @@ export function JobPostingsList({ jobs, applicationStatuses = {} }: { jobs: JobP
               </Link>
             </Button>
           ) : (
-            <Button asChild variant="pill" size="pill-sm" className="shrink-0 self-start sm:self-auto">
+            <Button asChild variant="pill-outline" size="pill-sm" className="shrink-0 self-start sm:self-auto">
               <Link href={`/careers/${job.id}`}>
                 View &amp; apply
                 <ArrowRight aria-hidden className="size-4" />

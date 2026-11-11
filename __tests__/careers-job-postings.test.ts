@@ -131,6 +131,25 @@ describe("HRMS-authored Job Postings", () => {
     await expect(store.findOpen("ats-456")).resolves.toBeUndefined();
   });
 
+  test("location options are distinct and come only from Open, not-past-deadline postings", async () => {
+    const db = drizzle(client);
+    const store = createJobPostingStore(db);
+    const base = {
+      title: "Role", department: "Kitchen", description: "d", requirements: "r", employmentType: "Full-time",
+      deadline: new Date("2030-03-01T00:00:00.000Z"), requiredDocuments: [], screeningCriteria: [], status: "open" as const,
+    };
+    await db.insert(jobPostings).values([
+      { ...base, id: "a", location: "Quezon City" },
+      { ...base, id: "b", location: "Quezon City" },
+      { ...base, id: "c", location: "Makati" },
+      { ...base, id: "d", location: "Cebu", status: "draft" },
+      { ...base, id: "e", location: "Davao", status: "closed" },
+      { ...base, id: "f", location: "Baguio", status: "filled" },
+      { ...base, id: "g", location: "Iloilo", deadline: new Date("2000-01-01T00:00:00.000Z") },
+    ]);
+    await expect(store.listOpenFilterOptions()).resolves.toMatchObject({ locations: ["Makati", "Quezon City"] });
+  });
+
   test("findById still returns a closed or expired Job Posting, unlike findOpen", async () => {
     const store = createJobPostingStore(drizzle(client));
     const posting = {

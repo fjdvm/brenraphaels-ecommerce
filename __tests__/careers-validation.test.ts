@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { applicantProfileSchema } from "../lib/careers/profile";
+import { applicantProfileSchema, applicantProfileSchemaFor } from "../lib/careers/profile";
 import { resetApplicantPassword, signInApplicant, requestApplicantPasswordReset, type ApplicantAuth } from "../lib/careers/identity";
 import { parseJobFilter } from "../lib/validators/careers";
 import { cleanList } from "../lib/validators/sanitize";
@@ -19,7 +19,7 @@ describe("Applicant profile validation", () => {
     const profile = applicantProfileSchema.parse({
       fullName: "  jane   DOE ",
       phone: "+63 (917) 123-4567",
-      location: "  Quezon   City ",
+      location: "  Quezon   City,  Metro Manila ",
       summary: "Line one  \r\n\r\nLine   two",
       skills: "Excel,  hiring , excel,, Baking",
       education: [{ school: " UP  Diliman ", qualification: "BA", fieldOfStudy: "", startedOn: "2015-06", completedOn: "2019-04" }],
@@ -28,12 +28,21 @@ describe("Applicant profile validation", () => {
     expect(profile).toMatchObject({
       fullName: "Jane Doe",
       phone: "+639171234567",
-      location: "Quezon City",
+      location: "Quezon City, Metro Manila",
       skills: "Excel, hiring, Baking",
       education: [{ school: "UP Diliman", fieldOfStudy: null, startedOn: "2015-06" }],
       workHistory: [{ title: "Coordinator", startedOn: null, description: null }],
     });
     expect(profile.summary).toBe("Line one\n\nLine two");
+  });
+
+  test("accepts only a directory city as Location, but keeps a stored legacy value valid", () => {
+    expect(applicantProfileSchema.safeParse({ fullName: "Jane Doe", location: "Quezon City, Metro Manila" }).success).toBe(true);
+    const typed = applicantProfileSchema.safeParse({ fullName: "Jane Doe", location: "Quezon City" });
+    expect(typed.error?.issues[0]).toMatchObject({ path: ["location"], message: "Choose a location from the list" });
+    expect(applicantProfileSchema.safeParse({ fullName: "Jane Doe", location: "Atlantis, Nowhere" }).success).toBe(false);
+    expect(applicantProfileSchemaFor("Quezon City").safeParse({ fullName: "Jane Doe", location: "Quezon City" }).success).toBe(true);
+    expect(applicantProfileSchemaFor("Quezon City").safeParse({ fullName: "Jane Doe", location: "Makati" }).success).toBe(false);
   });
 
   test("turns blank optional fields into null", () => {

@@ -8,7 +8,7 @@ const steps = [
 /** The four hiring steps; the header's "How hiring works" link scrolls here. */
 export function HowHiringWorks() {
   return (
-    <section id="how-hiring-works" className="mx-auto w-full max-w-[1440px] scroll-mt-6 px-5 pb-[100px] sm:px-10">
+    <section id="how-hiring-works" className="mx-auto w-full max-w-[1440px] scroll-mt-6 px-5 pb-[100px] pt-[60px] sm:px-10">
       <h2 className="font-serif text-[22px] leading-[1.3] text-primary">How hiring works</h2>
       <ol className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map((step, index) => (
