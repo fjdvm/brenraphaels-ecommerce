@@ -47,7 +47,7 @@ Where an Application stands in HR-ATS's workflow — from `Received` through scr
 _Avoid_: Application state
 
 **Interview** (Application):
-An invitation HR-ATS may attach to an Application at the Interview status: when, where (online or in person), meeting link or address, and interviewer. Careers only displays it; any value HR-ATS hasn't supplied reads "To be confirmed".
+An invitation HR-ATS may attach to an Application at the Interview status: when, where (online or in person), meeting link or address, and interviewer. Careers only displays it; any value HR-ATS hasn't supplied reads "To be confirmed". The Applicant can ask for a new time (a request for a preferred day and time plus an optional note, never a booking; one per Interview and none within 24 hours of it, enforced by HR-ATS). It is built but switched off by the same `CAREERS_OFFER_REPLIES_ENABLED` flag as the Offer replies: while off, "Need to reschedule?" is visible, disabled, and says "Coming soon. We'll email you the details.". Past days and years cannot be picked and the server rejects them. Requests go through the reschedule gateway (`lib/careers/interview-reschedule.ts`), which has only a stub for now.
 _Avoid_: Meeting, appointment
 
 **Withdraw**:
