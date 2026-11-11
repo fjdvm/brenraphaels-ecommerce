@@ -17,7 +17,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
    Co-Authored-By: Claude <noreply@anthropic.com>
    Co-Authored-By: Codex <noreply@openai.com>
    ```
-4. **Before every push**, run local typecheck (`npx next typegen` then `npx tsc --noEmit`) and unit tests (`npm test -- --maxWorkers=2`), matching `.github/workflows/container.yml`. Push only when both pass. Push the ticket branch and open or update its PR against `main`.
+4. **Before every push**, run local typecheck (`npx next typegen` then `npx tsc --noEmit`) and unit tests (`npm test -- --maxWorkers=2`), because CI only builds and deploys (`.github/workflows/container.yml`) and runs no tests. Also run `npm run lint` when you touched lint-relevant code. Push only when they pass. Push the ticket branch and open or update its PR against `main`.
 5. **Complete**: enable squash auto-merge with `gh pr merge <PR> --auto --squash`. Stop when GitHub accepts auto-merge; implementation is done at that point, without waiting for merge or deployment. Keep the worktree while the PR is pending.
 
 ### Checks and PR completion

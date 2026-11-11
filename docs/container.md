@@ -37,10 +37,10 @@ WebP sample at www.gstatic.com, so that check requires outbound HTTPS. It remove
 its containers and network on exit. No production database is used or migrated.
 
 The Storefront container workflow classifies changes first. Documentation-only
-PRs pass `ci-gate` without a build or deploy. Code PRs run typecheck, lint and unit
-tests in parallel with one image build, the 400 MiB size limit and HTTP smoke checks.
+PRs pass `ci-gate` without a build or deploy. Code PRs build the image, enforce the
+400 MiB size limit and run HTTP smoke checks. CI does not run typecheck, lint or unit
+tests; run them locally before pushing (see AGENTS.md).
 The smoke runner uses Node fetch; it has no Playwright browser to install or cache.
-On main, checks run alongside the production build; deploy waits for both and
-never repeats smoke checks. PRs read the shared `ecommerce-production` dependency
+On main, CI builds the production image and deploys it; it never repeats smoke checks. PRs read the shared `ecommerce-production` dependency
 cache, which main exports after deployment. Next's build cache mount is restored
 on PRs and saved by main. See [Azure deployment](./azure-deployment.md).
