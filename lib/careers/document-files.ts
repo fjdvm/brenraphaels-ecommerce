@@ -12,12 +12,13 @@ export function gatewayDocumentFiles({
 }: { baseUrl?: string; callerKey?: string; fetch?: typeof fetch } = {}): DocumentFiles {
   async function call<T>(path: string, body?: unknown): Promise<T> {
     if (!baseUrl || !callerKey) throw new Error("Document uploads are not configured yet.");
+    const retryable = new Error("We couldn't upload that Document. Try again.");
     const response = await send(`${baseUrl.replace(/\/$/, "")}/files${path}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${callerKey}`, "Content-Type": "application/json" },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-    if (!response.ok) throw new Error("We couldn't upload that Document. Try again.");
+    }).catch(() => { throw retryable; });
+    if (!response.ok) throw retryable;
     return (response.status === 204 ? undefined : await response.json()) as T;
   }
   return {
