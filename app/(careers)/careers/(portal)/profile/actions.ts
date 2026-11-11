@@ -1,6 +1,5 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { careersSession } from "@/lib/careers/auth";
 import { createApplicationStore, syncApplicationProfileSnapshots } from "@/lib/careers/applications";
@@ -13,6 +12,8 @@ function entries(formData: FormData, key: string) { return formData.getAll(key).
 export type ApplicantProfileActionState = {
   message?: string;
   fieldErrors?: Record<string, string>;
+  /** Set once the profile is stored; the form shows the result card. */
+  saved?: boolean;
   /** What was typed, so a rejected form keeps it instead of being reset. */
   values?: { fullName: string; phone: string; location: string; summary: string; skills: string; education: Array<Record<string, string>>; workHistory: Array<Record<string, string>> };
 };
@@ -89,7 +90,7 @@ export async function submitApplicantProfile(_previous: ApplicantProfileActionSt
     console.error("Saving Applicant profile failed", error);
     return { message: "We couldn't save your profile. Try again.", values };
   }
-  redirect("/careers/profile?saved=1");
+  return { saved: true };
 }
 /** Validates metadata and returns a signed address for a pending Document. */
 export async function prepareApplicantDocumentUpload(input: unknown): Promise<{ documentId: number; uploadUrl: string } | { message: string }> {
