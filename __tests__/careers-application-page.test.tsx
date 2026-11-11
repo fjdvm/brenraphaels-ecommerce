@@ -187,10 +187,12 @@ describe("Documents to submit", () => {
     for (const text of ["Documents to submit", "2 of 4", "Résumé", "Submitted", "In review", "Not older than 6 months", "Health certificate"]) expect(markup).toContain(text);
   });
 
-  test("every Upload button is disabled", () => {
+  test("each Document still to upload has its own Upload button, and the copy names the allowed formats", () => {
     const markup = renderToStaticMarkup(<ApplicationDocuments documents={[]} required={required} />);
     expect(markup.match(/<button/g)).toHaveLength(2);
-    expect(markup.match(/<button[^>]*disabled/g)).toHaveLength(2);
+    expect(markup).not.toMatch(/<button[^>]*disabled/);
+    expect(markup).toContain("PDF, JPG or PNG, up to 10 MB each.");
+    expect(markup).not.toContain("coming soon");
   });
 
   test("with no required list it shows the submitted Documents as Submitted, read-only", () => {
