@@ -32,6 +32,26 @@ describe("Job detail header", () => {
   });
 });
 
+describe("Job detail hero", () => {
+  test("shows the department and city as the eyebrow", () => {
+    expect(renderToStaticMarkup(<JobDetailHeader posting={posting()} />)).toContain("Operations · Quezon City");
+  });
+
+  test("shows tagline, openings and Posted date when present", () => {
+    const markup = renderToStaticMarkup(
+      <JobDetailHeader posting={posting({ tagline: "Pack with us.", openings: 2, postedAt: new Date("2026-10-20T00:00:00Z") })} />,
+    );
+    for (const text of ["Pack with us.", "2 openings", "Posted 20 Oct", "Share role"]) expect(markup).toContain(text);
+  });
+
+  test("hides tagline, openings and Posted date when there is no data", () => {
+    const markup = renderToStaticMarkup(<JobDetailHeader posting={posting()} />);
+    expect(markup).not.toContain("opening");
+    expect(markup).not.toContain("Posted");
+    expect(markup).toContain("Share role");
+  });
+});
+
 describe("Job detail body", () => {
   test("About the role shows the description", () => {
     const markup = renderToStaticMarkup(<JobDetailBody posting={posting()} />);

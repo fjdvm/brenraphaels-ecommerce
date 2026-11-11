@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, FileText } from "lucide-react";
 import Link from "next/link";
 import { useActionState, type ReactNode } from "react";
 
 import { submitApplicationAction } from "@/app/(careers)/careers/(portal)/[id]/apply/actions";
 import { RequiredMark, fieldProps } from "@/app/(careers)/careers/_components/field";
 import { SubmitButton } from "@/app/(careers)/careers/_components/submit-button";
+import { profileStrength } from "@/app/(careers)/careers/(portal)/profile/profile-strength";
 import { initialsOf } from "@/lib/customer/initials";
 import type { ApplicantProfile } from "@/lib/careers/profile";
 
@@ -19,11 +20,18 @@ export type ApplyAccess =
   | { kind: "no-profile" }
   | { kind: "ready"; email: string; profile: ApplicantProfile; documents: Document[] };
 
-const cardClass = "flex w-full shrink-0 flex-col gap-[18px] rounded-[20px] border border-line bg-white p-6 shadow-[0_12px_16px_rgba(61,28,92,0.08)] lg:w-[420px]";
-const headingClass = "text-xl font-semibold text-ink";
+const cardClass = "flex w-full shrink-0 scroll-mt-6 flex-col gap-5 rounded-[40px] border border-line bg-white px-6 pb-8 pt-9 sm:px-8 lg:w-[460px]";
+const headingClass = "font-serif text-[22px] leading-[1.3] text-primary";
 const labelClass = "flex gap-[3px] text-[13px] font-medium text-ink";
-const linkClass = "text-[13px] font-semibold text-primary";
-const buttonClass = "flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-[15px] font-semibold text-on-primary";
+const linkClass = "text-sm font-medium text-primary";
+const buttonClass = "flex w-full items-center justify-center gap-2.5 rounded-full bg-primary px-9 py-4 text-lg text-on-primary";
+
+const nextStepLabel: Record<string, string> = {
+  "Résumé uploaded": "Upload résumé",
+  "Summary & skills": "Add summary & skills",
+  Education: "Add education",
+  "Work history": "Add work history",
+};
 
 function Gate({ title, message, href, label, requiredDocuments }: { title: string; message: string; href: string; label: string; requiredDocuments: string[] }) {
   return (
@@ -61,22 +69,45 @@ function ApplyForm({ jobPostingId, requiredDocuments, access }: { jobPostingId: 
   if (state.referenceNumber) return <Received referenceNumber={state.referenceNumber} message={state.message} />;
   const missingDocuments = requiredDocuments.length > 0 && documents.length === 0;
   const contact = [email, profile.phone].filter(Boolean).join(" · ");
+  const strength = profileStrength({ profile, documentCount: documents.length });
+  const pending = strength.steps.find((step) => !step.done);
+  const nextStep = pending ? nextStepLabel[pending.label] : undefined;
 
   return (
-    <form action={action} className="flex flex-col gap-[18px]">
+    <form action={action} className="flex flex-col gap-5">
       <input type="hidden" name="jobPostingId" value={jobPostingId} />
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         <h2 className={headingClass}>Apply with your profile</h2>
-        <p className="text-sm leading-[21px] text-body">We’ll send your saved profile and selected Documents. Check them before you submit.</p>
+        <p className="text-sm leading-normal text-body">We’ll send your saved profile and résumé. Check them before you submit.</p>
       </div>
-      <div className="flex items-center gap-3 rounded-xl bg-surface-container-low py-3 pl-3 pr-3.5">
-        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-on-primary">{initialsOf(profile.fullName)}</span>
+      <div className="flex items-center gap-3.5 rounded-3xl bg-surface py-4 pl-4 pr-[18px]">
+        <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-medium text-on-primary">{initialsOf(profile.fullName)}</span>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="truncate text-[15px] font-semibold text-ink">{profile.fullName}</p>
+          <p className="truncate text-sm font-medium text-ink">{profile.fullName}</p>
           <p className="truncate text-xs text-muted">{contact}</p>
         </div>
         <Link href="/careers/profile" className={linkClass}>Edit</Link>
       </div>
+      <div className="flex flex-col gap-2 rounded-[20px] bg-lavender-soft px-4 py-3.5">
+        <div className="flex items-start gap-2 text-[13px] font-medium text-primary">
+          <p className="flex-1">Profile {strength.percent}% complete</p>
+          {nextStep ? <Link href="/careers/profile" className="shrink-0 underline">{nextStep}</Link> : null}
+        </div>
+        <div role="progressbar" aria-label="Profile completeness" aria-valuenow={strength.percent} aria-valuemin={0} aria-valuemax={100} className="h-1.5 w-full rounded bg-white">
+          <div className="h-1.5 rounded bg-primary" style={{ width: `${strength.percent}%` }} />
+        </div>
+        <p className="text-xs text-body">A complete profile helps our team get to know you faster.</p>
+      </div>
+      {documents[0] ? (
+        <div className="flex items-center gap-3.5 rounded-[20px] border border-line bg-white py-3.5 pl-3.5 pr-[18px]">
+          <span aria-hidden className="flex h-11 w-10 shrink-0 items-center justify-center rounded-xl bg-lavender-soft"><FileText className="size-[18px] text-primary" /></span>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <p className="truncate text-sm font-medium text-ink">{documents[0].name}</p>
+            <p className="text-xs text-muted">From your profile</p>
+          </div>
+          <Link href="/careers/profile" className={linkClass}>Replace</Link>
+        </div>
+      ) : null}
       {requiredDocuments.map((requiredDocument, index) => (
         <div key={`${requiredDocument}-${index}`} className="flex flex-col gap-1.5">
           <label htmlFor={`document-${index}`} className={labelClass}>{requiredDocument}<RequiredMark /></label>
@@ -87,16 +118,16 @@ function ApplyForm({ jobPostingId, requiredDocuments, access }: { jobPostingId: 
         </div>
       ))}
       {missingDocuments ? <p className="text-sm text-error">Upload the required Documents on your Applicant profile before submitting.</p> : null}
-      <label className="flex items-start gap-2.5 text-[13px] leading-[19px] text-body">
-        <input required name="privacyConsent" value="yes" type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" />
-        <span>I consent to Bren Raphael’s using my profile and selected Documents to process this Application.<RequiredMark /></span>
+      <label className="flex items-start gap-3 text-xs leading-normal text-body">
+        <input required name="privacyConsent" value="yes" type="checkbox" className="mt-0.5 size-[18px] shrink-0 accent-primary" />
+        <span>I agree that Bren Raphael’s may use my information to review this application, as explained in the <Link href="/privacy" className="underline">Privacy notice</Link>.<RequiredMark /></span>
       </label>
       {state.message ? <p role="alert" className="text-sm text-error">{state.message}</p> : null}
       <SubmitButton disabled={missingDocuments} pendingLabel="Submitting…" className={buttonClass}>
         Submit application
         <ArrowRight aria-hidden className="size-4" />
       </SubmitButton>
-      <p className="text-center text-xs text-muted">You can follow it anytime in My applications.</p>
+      <p className="text-center text-xs text-muted">You can follow it anytime in <Link href="/careers/applications" className="underline">Your applications</Link>.</p>
     </form>
   );
 }
@@ -104,7 +135,7 @@ function ApplyForm({ jobPostingId, requiredDocuments, access }: { jobPostingId: 
 /** The side card of a Job detail page: the Applicant's profile summary, the Documents the role requires and the submit action. */
 export function ApplyCard({ jobPostingId, requiredDocuments, access }: { jobPostingId: string; requiredDocuments: string[]; access: ApplyAccess }) {
   return (
-    <aside className={cardClass}>
+    <aside id="apply" className={cardClass}>
       {access.kind === "signed-out" ? <Gate title="Sign in to apply" message="Sign in as an Applicant before applying to this Job Posting." href="/careers/signin" label="Sign in" requiredDocuments={requiredDocuments} /> : null}
       {access.kind === "unverified" ? <Gate title="Verify your email to apply" message="Verify your Applicant email address before submitting an Application." href="/careers/verify-email" label="Verify email" requiredDocuments={requiredDocuments} /> : null}
       {access.kind === "no-profile" ? <Gate title="Complete your profile to apply" message="Save your Applicant profile before submitting an Application." href="/careers/complete-profile" label="Complete profile" requiredDocuments={requiredDocuments} /> : null}

@@ -1,15 +1,16 @@
-import { ArrowLeft, Calendar, Check, Clock, MapPin, Tag } from "lucide-react";
+import { ArrowLeft, Briefcase, Calendar, Check, Clock, MapPin } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { ShareRoleButton } from "@/app/(careers)/careers/_components/share-role-button";
 import type { JobPosting } from "@/lib/careers/job-postings";
 
 const chipClass =
-  "flex items-center gap-1.5 rounded-full border border-line bg-white py-1.5 pl-2.5 pr-3 text-[13px] font-medium text-ink";
-const sectionHeadingClass = "text-xl font-semibold text-ink";
+  "flex items-center gap-2 rounded-full bg-white py-2 pl-3 pr-3.5 text-sm text-body";
+const sectionHeadingClass = "font-serif text-[22px] leading-[1.3] text-primary";
 
-const formatDeadline = (deadline: Date) =>
-  deadline.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const formatDate = (date: Date, withYear: boolean) =>
+  date.toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(withYear ? { year: "numeric" } : {}), timeZone: "UTC" });
 
 /** One entry per non-blank line, minus any leading bullet marker the HR author typed. */
 export function requirementItems(requirements: string): string[] {
@@ -32,13 +33,13 @@ function Chip({ icon, children }: { icon: ReactNode; children: ReactNode }) {
 function CheckList({ heading, items }: { heading: string; items: string[] | undefined }) {
   if (!items?.length) return null;
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-4">
       <h2 className={sectionHeadingClass}>{heading}</h2>
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-4">
         {items.map((item) => (
-          <li key={item} className="flex items-start gap-2.5 leading-[26px] text-ink">
-            <span aria-hidden className="mt-[5px] flex size-4 shrink-0 items-center justify-center rounded-full bg-lavender-soft">
-              <Check className="size-2.5 text-primary" />
+          <li key={item} className="flex items-start gap-3.5 leading-[1.6] text-body">
+            <span aria-hidden className="mt-[3px] flex size-[22px] shrink-0 items-center justify-center rounded-full bg-lavender">
+              <Check className="size-[13px] text-primary" />
             </span>
             {item}
           </li>
@@ -48,40 +49,62 @@ function CheckList({ heading, items }: { heading: string; items: string[] | unde
   );
 }
 
-/** Back link, title and the department, location, employment type and deadline chips, as in the design. */
+/** Back link and the hero: eyebrow, title, optional tagline, chips and Share role. Rows without data are left out. */
 export function JobDetailHeader({ posting, children }: { posting: JobPosting; children?: ReactNode }) {
+  const iconClass = "size-4 text-primary";
   return (
-    <header className="bg-surface-container-low">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-3.5 px-5 py-8 sm:px-10 lg:px-40">
-        <Link href="/careers" className="flex items-center gap-1.5 text-sm font-semibold text-primary">
-          <ArrowLeft aria-hidden className="size-4" />
-          All open roles
-        </Link>
-        <h1 className="text-3xl font-bold text-ink sm:text-[40px]">{posting.title}</h1>
-        <ul className="flex flex-wrap items-center gap-2.5">
-          <Chip icon={<Tag aria-hidden className="size-[15px] text-primary" />}>{posting.department}</Chip>
-          <Chip icon={<MapPin aria-hidden className="size-[15px] text-primary" />}>{posting.location}</Chip>
-          <Chip icon={<Clock aria-hidden className="size-[15px] text-primary" />}>{posting.employmentType}</Chip>
-          <Chip icon={<Calendar aria-hidden className="size-[15px] text-primary" />}>
-            Apply by {formatDeadline(posting.deadline)}
-          </Chip>
-        </ul>
+    <header className="flex flex-col gap-6">
+      <Link href="/careers" className="flex items-center gap-2 text-sm font-medium text-primary">
+        <ArrowLeft aria-hidden className="size-[18px]" />
+        All open roles
+      </Link>
+      <div className="flex flex-col gap-6 rounded-[40px] bg-lavender-soft px-6 py-8 sm:px-10 sm:py-12 lg:flex-row lg:items-end lg:gap-10 lg:px-[60px] lg:py-14">
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-[18px]">
+          <p className="text-xs font-medium uppercase tracking-[0.12em] text-primary">
+            {posting.department} · {posting.location.split(",")[0]}
+          </p>
+          <h1 className="font-serif text-4xl leading-[1.2] text-primary sm:text-[54px]">{posting.title}</h1>
+          {posting.tagline ? <p className="leading-[1.6] text-body">{posting.tagline}</p> : null}
+          <ul className="flex flex-wrap gap-2">
+            <Chip icon={<MapPin aria-hidden className={iconClass} />}>{posting.location}</Chip>
+            <Chip icon={<Clock aria-hidden className={iconClass} />}>{posting.employmentType}</Chip>
+            {posting.openings ? (
+              <Chip icon={<Briefcase aria-hidden className={iconClass} />}>
+                {posting.openings} {posting.openings === 1 ? "opening" : "openings"}
+              </Chip>
+            ) : null}
+            <Chip icon={<Calendar aria-hidden className={iconClass} />}>
+              Apply by {formatDate(posting.deadline, true)}
+            </Chip>
+          </ul>
+        </div>
+        <div className="flex shrink-0 flex-row items-center gap-3 lg:flex-col lg:items-end lg:gap-2.5">
+          {posting.postedAt ? (
+            <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-body">
+              Posted {formatDate(posting.postedAt, false)}
+            </span>
+          ) : null}
+          <ShareRoleButton
+            title={posting.title}
+            className="rounded-full border border-primary px-[22px] py-2.5 text-sm font-medium text-primary"
+          />
+        </div>
         {children}
       </div>
     </header>
   );
 }
 
-/** About the role, then What you'll do, What we're looking for and What you'll get (each omitted when the Job Posting has no items), with an optional side card. */
+/** About the role, then What you'll do, What we're looking for and What you'll get (each omitted when empty), beside an optional Apply card. */
 export function JobDetailBody({ posting, aside, children }: { posting: JobPosting; aside?: ReactNode; children?: ReactNode }) {
   const requirements = requirementItems(posting.requirements);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-12 px-5 pb-[72px] pt-10 sm:px-10 lg:flex-row lg:items-start lg:px-40">
-      <div className="flex min-w-0 flex-1 flex-col gap-8">
-        <section className="flex flex-col gap-3">
+    <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+      <div className="flex min-w-0 flex-1 flex-col gap-9 rounded-[40px] border border-line bg-white px-6 py-8 sm:px-[52px] sm:py-12">
+        <section className="flex flex-col gap-4">
           <h2 className={sectionHeadingClass}>About the role</h2>
-          <p className="whitespace-pre-line leading-[26px] text-body">{posting.description}</p>
+          <p className="whitespace-pre-line leading-[1.6] text-body">{posting.description}</p>
         </section>
         <CheckList heading="What you’ll do" items={posting.responsibilities} />
         <CheckList heading="What we’re looking for" items={requirements} />
