@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -23,12 +23,19 @@ export function CareersHeaderShell({
   drawer: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
+    closeButton.current?.focus();
+    const button = menuButton.current;
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      button?.focus();
+    };
   }, [open]);
 
   return (
@@ -37,6 +44,7 @@ export function CareersHeaderShell({
       {nav}
       {actions}
       <button
+        ref={menuButton}
         type="button"
         aria-expanded={open}
         aria-controls="careers-header-menu"
@@ -57,6 +65,7 @@ export function CareersHeaderShell({
           className="absolute inset-y-0 right-0 flex w-[320px] max-w-[85vw] flex-col whitespace-normal rounded-l-[28px] bg-surface"
         >
           <button
+            ref={closeButton}
             type="button"
             aria-label="Close menu"
             onClick={() => setOpen(false)}

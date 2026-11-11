@@ -69,9 +69,9 @@ export function Combobox({
       if (!visible.length) return;
       const step = event.key === "ArrowDown" ? 1 : -1;
       setActive((current) => (current + step + visible.length) % visible.length);
-    } else if (event.key === "Enter" && open) {
+    } else if (event.key === "Enter" && open && visible[active]) {
       event.preventDefault();
-      if (visible[active]) choose(visible[active].value);
+      choose(visible[active].value);
     } else if (event.key === "Escape" && open) {
       event.preventDefault();
       setOpen(false);
