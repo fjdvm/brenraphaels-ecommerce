@@ -2,6 +2,8 @@ import { asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
+import { isCityProvinceLocation } from "../address/locations";
+
 import {
   applicantFullNameField,
   applicantLocationField,
@@ -92,6 +94,13 @@ export function createApplicantProfileStore<TQueryResult extends PgQueryResultHK
 
 export async function saveApplicantProfile(input: ApplicantProfileInput, dependencies: { identity: { userId: string; email: string }; store: ApplicantProfileStore }) {
   const profile = applicantProfileSchema.parse(input);
+  if (profile.location && !isCityProvinceLocation(profile.location)) {
+    // A Location saved before the directory existed stays valid while it is unchanged.
+    const current = await dependencies.store.find(dependencies.identity.userId);
+    if (current?.location !== profile.location) {
+      throw new z.ZodError([{ code: "custom", path: ["location"], message: "Choose a city from the list" }]);
+    }
+  }
   await dependencies.store.save({ ...profile, applicantId: dependencies.identity.userId, email: dependencies.identity.email.toLowerCase() });
   return profile;
 }

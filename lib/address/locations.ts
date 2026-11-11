@@ -82,6 +82,23 @@ export function listCities(province: string): string[] {
   return (getDirectory().citiesByProvince.get(province) ?? []).map((city) => city.name);
 }
 
+/** Every city as one "City, Province" value, sorted, for a single searchable list. */
+export function listCityProvinceLocations(): string[] {
+  const all: string[] = [];
+  for (const [province, cities] of getDirectory().citiesByProvince) {
+    for (const city of cities) all.push(`${city.name}, ${province}`);
+  }
+  return all.sort((a, b) => a.localeCompare(b, "en"));
+}
+
+let cityProvinceSet: Set<string> | undefined;
+
+/** Whether a value is exactly one of the "City, Province" directory entries. */
+export function isCityProvinceLocation(value: string): boolean {
+  cityProvinceSet ??= new Set(listCityProvinceLocations());
+  return cityProvinceSet.has(value);
+}
+
 export function listBarangays(province: string, city: string): string[] {
   const match = getDirectory().citiesByProvince.get(province)?.find((candidate) => candidate.name === city);
   if (!match) {
