@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import {
   applicantFullNameField,
-  applicantLocationField,
+  applicantLocationFieldFor,
   applicantPhoneField,
   applicantSkillsField,
   applicantSummaryField,
@@ -17,7 +17,6 @@ import {
   workDescriptionField,
 } from "../validators/careers";
 
-import { listCityLocations } from "../address/locations";
 import { applicantEducation, applicantProfiles, applicantWorkHistory } from "./schema";
 
 const monthsInOrder = (start: string | null, end: string | null) => !start || !end || start <= end;
@@ -46,16 +45,9 @@ const workHistory = z
     path: ["endedOn"],
   });
 
-let cityLocations: Set<string> | undefined;
-
-/** The Applicant profile, where Location must be a "City, Province" from the directory, or the value already stored. */
+/** The Applicant profile, where Location must be a directory city or the value already stored. */
 export function applicantProfileSchemaFor(storedLocation?: string | null) {
-  return applicantProfileShape(
-    applicantLocationField.refine(
-      (location) => location === null || location === storedLocation || (cityLocations ??= new Set(listCityLocations())).has(location),
-      "Choose a location from the list",
-    ),
-  );
+  return applicantProfileShape(applicantLocationFieldFor(storedLocation));
 }
 export const applicantProfileSchema = applicantProfileSchemaFor();
 

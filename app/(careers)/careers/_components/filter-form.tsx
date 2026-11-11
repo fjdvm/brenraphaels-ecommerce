@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 type Filters = { department: string; employmentType: string; location: string };
 type SheetGroup = { name: keyof Filters; label: string; allLabel: string; options: string[] };
 
-const chipClass = "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm tracking-[0.35px] transition";
+const filterChipClass = "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm tracking-[0.35px] transition";
 
 function search(filters: Partial<Filters>) {
   const params = new URLSearchParams();
@@ -55,7 +55,7 @@ export function FilterForm({ children, className, groups, selected, postings }: 
           {groups.map(({ name, label }) => (
             <DialogPrimitive.Trigger
               key={name}
-              className={cn(chipClass, selected[name] ? "border-primary bg-lavender text-primary" : "border-line text-ink hover:bg-lavender-soft", "shrink-0")}
+              className={cn(filterChipClass, selected[name] ? "border-primary bg-lavender text-primary" : "border-line text-ink hover:bg-lavender-soft", "shrink-0")}
             >
               {selected[name] || label}
               <ChevronDown aria-hidden className="size-4" />
@@ -82,7 +82,7 @@ export function FilterForm({ children, className, groups, selected, postings }: 
                       return (
                         <label
                           key={value || "all"}
-                          className={cn(chipClass, "cursor-pointer", checked ? "border-primary bg-lavender text-primary" : "border-line text-ink", "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary")}
+                          className={cn(filterChipClass, "cursor-pointer", checked ? "border-primary bg-lavender text-primary" : "border-line text-ink", "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary")}
                         >
                           <input
                             type="radio"
@@ -127,6 +127,6 @@ export function FilterForm({ children, className, groups, selected, postings }: 
 }
 
 /** One filter's field in the desktop filter bar. */
-export function FilterField({ children }: { name?: string; children: ReactNode }) {
+export function FilterField({ children }: { children: ReactNode }) {
   return <div className="flex min-w-0 flex-1 flex-col gap-2">{children}</div>;
 }

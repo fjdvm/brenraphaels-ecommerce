@@ -33,7 +33,7 @@ function Filter({ label, name, allLabel, options, selected }: {
   selected?: string;
 }) {
   return (
-    <FilterField name={name}>
+    <FilterField>
       <label htmlFor={`filter-${name}`} className={fieldLabelClass}>{label}</label>
       <Select id={`filter-${name}`} name={name} defaultValue={selected ?? ""} className={cn(fieldClass, "rounded-[10px] px-3.5 py-[11px]")}>
         <option value="">{allLabel}</option>
@@ -72,7 +72,7 @@ async function OpenRoles({ searchParams }: CareersPageProps) {
       >
         <Filter label="Department" name="department" allLabel="All departments" options={options.departments} selected={filters.department} />
         <Filter label="Employment type" name="employmentType" allLabel="All types" options={options.employmentTypes} selected={filters.employmentType} />
-        <FilterField name="location">
+        <FilterField>
           <Combobox
             label="Location"
             name="location"
