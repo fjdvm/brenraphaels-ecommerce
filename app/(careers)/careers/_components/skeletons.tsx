@@ -85,7 +85,9 @@ export function CareersApplicationsSkeleton() {
       <Skeleton className="h-[18px] w-16" />
       <Skeleton className="mt-4 h-[65px] w-full max-w-[480px]" />
       <Skeleton className="mt-4 h-[26px] w-full max-w-[480px]" />
-      <Skeleton className="mt-[30px] h-[477px] rounded-[40px]" />
+      <Skeleton className="mt-6 h-10 w-full max-w-[280px] rounded-full" />
+      <Skeleton className="mt-6 h-[260px] rounded-[28px] sm:h-[158px] sm:rounded-[40px]" />
+      <Skeleton className="mt-6 h-[260px] rounded-[28px] sm:h-[158px] sm:rounded-[40px]" />
     </div>
   );
 }
