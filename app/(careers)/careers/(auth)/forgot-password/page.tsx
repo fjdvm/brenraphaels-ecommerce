@@ -4,7 +4,8 @@ import { ArrowRight, Mail } from "lucide-react";
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { AuthCard, AuthHeading, authLinkClass } from "@/components/features/auth/auth-card";
+import { authLinkClass } from "@/components/features/auth/auth-card";
+import { ApplicantAuthCard, ApplicantAuthHeading } from "@/components/features/careers/applicant-auth-card";
 import { buttonVariants } from "@/components/ui/button";
 import { fieldClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
@@ -16,14 +17,14 @@ import { SubmitButton } from "@/app/(careers)/careers/_components/submit-button"
 export default function ApplicantForgotPasswordPage() {
   const [state, action] = useActionState(submitApplicantForgotPassword, {});
   return (
-    <AuthCard className="max-w-[540px]">
+    <ApplicantAuthCard>
       <span aria-hidden className="flex size-14 items-center justify-center rounded-full bg-lavender text-primary">
         <Mail className="size-6" strokeWidth={1.5} />
       </span>
-      <AuthHeading eyebrow="Careers portal" title="Reset password">
+      <ApplicantAuthHeading title="Reset password">
         Enter your applicant email and we&apos;ll send you a reset link.
-      </AuthHeading>
-      <form action={action} className="flex flex-col gap-[22px]" noValidate>
+      </ApplicantAuthHeading>
+      <form action={action} className="flex flex-col gap-[18px] sm:gap-[22px]" noValidate>
         <Field id="forgot-email" label="Email address" required error={state.fieldErrors?.email?.[0]}>
           <Input {...fieldProps("forgot-email", state.fieldErrors?.email?.[0])} required name="email" type="email" defaultValue={state.values?.email} autoComplete="email" autoCapitalize="none" spellCheck={false} maxLength={256} placeholder="you@example.com" className={fieldClass} />
         </Field>
@@ -37,6 +38,6 @@ export default function ApplicantForgotPasswordPage() {
         Remembered it?{" "}
         <Link className={authLinkClass} href="/careers/signin">Back to sign in</Link>
       </p>
-    </AuthCard>
+    </ApplicantAuthCard>
   );
 }

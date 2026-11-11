@@ -4,7 +4,8 @@ import { ArrowRight } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useActionState } from "react";
 
-import { AuthCard, AuthError, AuthHeading } from "@/components/features/auth/auth-card";
+import { AuthError } from "@/components/features/auth/auth-card";
+import { ApplicantAuthCard, ApplicantAuthHeading } from "@/components/features/careers/applicant-auth-card";
 import { buttonVariants } from "@/components/ui/button";
 import { fieldClass } from "@/components/ui/field-styles";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -18,12 +19,12 @@ export default function ApplicantResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <AuthCard aria-hidden="true" className="max-w-[540px]">
+        <ApplicantAuthCard aria-hidden="true">
           <Skeleton className="h-[88px] w-full" />
           <Skeleton className="h-[77px] w-full" />
           <Skeleton className="h-[77px] w-full" />
           <Skeleton className="h-[59px] w-full rounded-full" />
-        </AuthCard>
+        </ApplicantAuthCard>
       }
     >
       <ApplicantResetPasswordForm />
@@ -36,11 +37,11 @@ function ApplicantResetPasswordForm() {
   const token = useSearchParams().get("token") ?? "";
   const errors = state.fieldErrors ?? {};
   return (
-    <AuthCard className="max-w-[540px]">
-      <AuthHeading eyebrow="Careers portal" title="Choose a new password">
+    <ApplicantAuthCard>
+      <ApplicantAuthHeading title="Choose a new password">
         At least 8 characters with an uppercase letter, a number, and a special character.
-      </AuthHeading>
-      <form action={action} className="flex flex-col gap-[22px]" noValidate>
+      </ApplicantAuthHeading>
+      <form action={action} className="flex flex-col gap-[18px] sm:gap-[22px]" noValidate>
         <input name="token" type="hidden" value={token} />
         <Field id="reset-password" label="New password" required error={errors.password?.[0]}>
           <PasswordInput {...fieldProps("reset-password", errors.password?.[0])} required name="password" autoComplete="new-password" minLength={8} maxLength={128} className={fieldClass} />
@@ -54,6 +55,6 @@ function ApplicantResetPasswordForm() {
           <ArrowRight aria-hidden className="size-5" />
         </SubmitButton>
       </form>
-    </AuthCard>
+    </ApplicantAuthCard>
   );
 }
