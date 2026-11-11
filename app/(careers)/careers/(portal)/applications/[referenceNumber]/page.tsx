@@ -46,8 +46,8 @@ async function ApplicationPageContent({ params }: ApplicationPageProps) {
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-col gap-5 lg:flex-1">
           {application.status === "Interview" ? <ApplicationStageDetails status={application.status} updatedAt={submission.updatedAt} /> : null}
-          {application.status === "Offer" ? <ApplicationOffer status={application.status} updatedAt={submission.updatedAt} jobTitle={application.title} /> : null}
-          {application.status === "Offer" ? <ApplicationDocuments documents={submission.documents} /> : null}
+          {application.status === "Offer" ? <ApplicationOffer jobTitle={application.title} offer={submission.offer} /> : null}
+          {application.status === "Offer" ? <ApplicationDocuments documents={submission.documents} required={submission.requiredDocuments} /> : null}
           {application.status === "Interview" || application.status === "Offer" ? (
             <ApplicationSubmission appliedAt={application.appliedAt} documents={application.status === "Offer" ? [] : submission.documents} profile={submission.profile} />
           ) : null}
