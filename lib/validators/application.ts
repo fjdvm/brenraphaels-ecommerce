@@ -33,3 +33,13 @@ export const offerDeclineReasonField = optionalTextField({
   pattern: /^[\p{L}\p{M}\p{N}\p{P}\p{Zs}]+$/u,
   patternMessage: "Use letters, numbers and punctuation only.",
 });
+
+/** The optional note an Applicant adds to a reschedule request; plain sentences only. */
+export const rescheduleNoteField = optionalTextField({
+  max: 500,
+  pattern: /^[\p{L}\p{M}\p{N}\p{P}\p{Zs}]+$/u,
+  patternMessage: "Use letters, numbers and punctuation only.",
+});
+
+export const rescheduleDateField = textField("Day", { min: 10, max: 10, pattern: /^\d{4}-\d{2}-\d{2}$/, patternMessage: "Choose a day." });
+export const rescheduleTimeField = textField("Time", { min: 5, max: 5, pattern: /^\d{2}:\d{2}$/, patternMessage: "Choose a time." });

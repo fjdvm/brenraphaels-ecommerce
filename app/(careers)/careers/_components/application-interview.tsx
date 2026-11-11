@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 
 import type { Interview } from "@/lib/careers/applications";
 
+import { RescheduleInterview } from "./reschedule-interview";
+
 const TO_BE_CONFIRMED = "To be confirmed";
 const zone = "Asia/Manila";
 const dayFormat = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric", timeZone: zone });
@@ -36,8 +38,8 @@ function Detail({ icon, label, children }: { icon: ReactNode; label: string; chi
 
 const checklist = ["Join 5 minutes early and test your camera and microphone.", "Find a quiet, well-lit place.", "Have a valid ID ready."];
 
-/** The Interview-stage invitation. Every value comes from the optional Interview; nothing is invented, and gaps read "To be confirmed". The actions are placeholders until scheduling exists. */
-export function ApplicationInterview({ interview }: { interview?: Interview }) {
+/** The Interview-stage invitation. Every value comes from the optional Interview; nothing is invented, and gaps read "To be confirmed". Join and Add to calendar are placeholders until scheduling exists; Reschedule is a request behind the offer-replies flag. */
+export function ApplicationInterview({ interview, referenceNumber = "", rescheduleEnabled = false }: { interview?: Interview; referenceNumber?: string; rescheduleEnabled?: boolean }) {
   const { startsAt, endsAt, mode, where, meetingLink, address, interviewer } = interview ?? {};
   const kind = mode === "online" ? "an online interview" : mode === "in-person" ? "an in-person interview" : "an interview";
   const whereText = mode === "online" ? (where ? `Online · ${where}` : "Online") : where;
@@ -82,12 +84,9 @@ export function ApplicationInterview({ interview }: { interview?: Interview }) {
           <button type="button" disabled className={`${disabled} flex-1 border border-primary text-primary sm:flex-none`}>
             Add to calendar
           </button>
-          <button type="button" disabled className={`${disabled} flex-1 text-primary sm:ml-auto sm:flex-none sm:px-0`}>
-            <span className="sm:hidden">Reschedule</span>
-            <span className="hidden sm:inline">Need to reschedule?</span>
-          </button>
+          <RescheduleInterview referenceNumber={referenceNumber} enabled={rescheduleEnabled} />
         </div>
-        <p className="text-xs tracking-[0.35px] text-muted">Joining, calendar and rescheduling are coming soon. We’ll email you any changes.</p>
+        <p className="text-xs tracking-[0.35px] text-muted">Joining and the calendar are coming soon. We’ll email you any changes.</p>
       </div>
       <div className="flex flex-col gap-2.5 rounded-[28px] bg-lavender/60 p-5 sm:rounded-3xl sm:p-6">
         <h3 className="text-sm font-medium tracking-[0.35px] text-primary">Before your interview</h3>
