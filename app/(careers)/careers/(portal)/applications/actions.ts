@@ -8,6 +8,7 @@ import { getCareersDatabase } from "@/lib/careers/db";
 import { requestReschedule, stubInterviewRescheduleGateway, type RescheduleOutcome } from "@/lib/careers/interview-reschedule";
 import { createHrmsOfferReplyGateway, offerRepliesComingSoon, offerRepliesEnabled, replyToOffer, type OfferReplyOutcome } from "@/lib/careers/offer-reply";
 import { applicationReferenceNumberField, rescheduleDateField, rescheduleNoteField, rescheduleTimeField } from "@/lib/validators/application";
+import { createHrmsOfferDetailsGateway, saveOfferDetails, type SaveDetailsOutcome } from "@/lib/careers/offer-details";
 import { gatewayDocumentFiles } from "@/lib/careers/document-files";
 import { hrmsOfferDocumentGateway, offerDocumentFailedMessage, offerDocumentUploadedMessage, prepareOfferDocument, readRequestedDocuments, submitOfferDocument } from "@/lib/careers/offer-documents";
 
@@ -48,6 +49,25 @@ async function reply(formData: FormData, kind: "accept" | "decline"): Promise<Of
   // A reply is final, and an Offer that was never sent has nothing to answer. HRMS enforces the same rules.
   if (offer.status !== "Sent") return { ok: false, message: "This offer has already been answered. A reply is final." };
   return replyToOffer({ kind, applicantId: applicant.userId, offerId: offer.id }, { enabled: true, gateway: createHrmsOfferReplyGateway() });
+}
+
+/** Replaces the signed-in Applicant's "Your details" through HRMS. Optional; allowed while the Offer is Sent or Accepted, and HRMS refuses once hired. */
+export async function saveOfferDetailsAction(formData: FormData): Promise<SaveDetailsOutcome> {
+  const applicant = await careersSession();
+  if (!applicant) return { ok: false, message: "Please sign in to save your details." };
+  const referenceNumber = applicationReferenceNumberField.safeParse(formData.get("referenceNumber"));
+  if (!referenceNumber.success) return { ok: false, message: "Choose a valid Application." };
+  let offer;
+  try {
+    offer = await createApplicationStore(getCareersDatabase()).findOfferForApplicant(applicant.userId, referenceNumber.data);
+  } catch (error) {
+    console.error("Offer could not be read", error instanceof Error ? error.message : error);
+    return { ok: false, message: "We couldn't load your offer. Try again." };
+  }
+  if (!offer || offer.status === "Declined") return { ok: false, message: "We couldn't find an offer to save details for." };
+  const outcome = await saveOfferDetails({ applicantId: applicant.userId, offerId: offer.id, values: Object.fromEntries(formData) }, { gateway: createHrmsOfferDetailsGateway() });
+  if (outcome.ok) revalidatePath(`/careers/applications/${referenceNumber.data}`);
+  return outcome;
 }
 
 /** Accepts the signed-in Applicant's Offer through HRMS. Does nothing while the offer-replies flag is off. */
