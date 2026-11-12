@@ -11,6 +11,8 @@ import { ApplicationDocuments } from "@/app/(careers)/careers/_components/applic
 import { offerRepliesEnabled } from "@/lib/careers/offer-reply";
 import { readRequestedDocuments } from "@/lib/careers/offer-documents";
 import { ApplicationOffer } from "@/app/(careers)/careers/_components/application-offer";
+import { createHrmsOfferDetailsGateway, type OfferDetails } from "@/lib/careers/offer-details";
+import { OfferDetailsForm } from "@/app/(careers)/careers/_components/offer-details-form";
 import { ApplicationInterview } from "@/app/(careers)/careers/_components/application-interview";
 import { ApplicationSubmission } from "@/app/(careers)/careers/_components/application-submission";
 import { ApplicationStepper } from "@/app/(careers)/careers/_components/application-stepper";
@@ -36,6 +38,16 @@ async function ApplicationPageContent({ params }: ApplicationPageProps) {
   const progress = applicationProgress(application.status);
   const { view: offerView, showDocuments, outcomeStatus } = offerPresentation(application.status, submission.offer);
   const requested = showDocuments && offerView !== "hired" ? await readRequestedDocuments(getCareersDatabase(), applicant.userId, referenceNumber) : null;
+  // Your details is for an Offer still open to change: Sent or Accepted, never Declined, Withdrawn or Hired.
+  const detailsOpen = (offerView === "reply" || offerView === "accepted") && submission.offer;
+  let savedDetails: OfferDetails | null = null;
+  if (detailsOpen) {
+    try {
+      savedDetails = await createHrmsOfferDetailsGateway().read({ offerId: detailsOpen.id, applicantId: applicant.userId });
+    } catch (error) {
+      console.error("Your details could not be read", error instanceof Error ? error.message : "unknown error");
+    }
+  }
   const updatedOn = applicationDate.format(submission.updatedAt);
   return (
     <section className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-4 pb-[100px] pt-5 sm:px-10 sm:pt-10">
@@ -53,6 +65,7 @@ async function ApplicationPageContent({ params }: ApplicationPageProps) {
         <div className="flex min-w-0 flex-col gap-5 lg:flex-1">
           {application.status === "Interview" ? <ApplicationInterview interview={submission.interview} referenceNumber={application.referenceNumber} rescheduleEnabled={offerRepliesEnabled()} /> : null}
           {offerView && submission.offer ? <ApplicationOffer view={offerView} jobTitle={application.title} offer={submission.offer} referenceNumber={application.referenceNumber} repliesEnabled={offerRepliesEnabled()} /> : null}
+          {savedDetails ? <OfferDetailsForm referenceNumber={application.referenceNumber} initial={savedDetails} /> : null}
           {/* Once Hired the checklist is read-only: no required list means no Upload buttons. */}
           {showDocuments ? <ApplicationDocuments documents={submission.documents} required={offerView === "hired" ? undefined : requested?.documents ?? submission.requiredDocuments} referenceNumber={application.referenceNumber} /> : null}
           {application.status === "Interview" || application.status === "Offer" ? (
