@@ -50,7 +50,8 @@ async function ApplicationPageContent({ params }: ApplicationPageProps) {
         <div className="flex min-w-0 flex-col gap-5 lg:flex-1">
           {application.status === "Interview" ? <ApplicationInterview interview={submission.interview} referenceNumber={application.referenceNumber} rescheduleEnabled={offerRepliesEnabled()} /> : null}
           {offerView && submission.offer ? <ApplicationOffer view={offerView} jobTitle={application.title} offer={submission.offer} referenceNumber={application.referenceNumber} repliesEnabled={offerRepliesEnabled()} /> : null}
-          {showDocuments ? <ApplicationDocuments documents={submission.documents} required={submission.requiredDocuments} /> : null}
+          {/* Once Hired the checklist is read-only: no required list means no Upload buttons. */}
+          {showDocuments ? <ApplicationDocuments documents={submission.documents} required={offerView === "hired" ? undefined : submission.requiredDocuments} /> : null}
           {application.status === "Interview" || application.status === "Offer" ? (
             <ApplicationSubmission appliedAt={application.appliedAt} documents={application.status === "Offer" ? [] : submission.documents} profile={submission.profile} />
           ) : null}

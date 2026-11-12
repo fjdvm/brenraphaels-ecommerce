@@ -50,13 +50,13 @@ export type OfferView = "reply" | "accepted" | "declined" | "hired";
 
 /**
  * What the Application page shows for an Offer. Draft (no Offer read) shows nothing, and so does a withdrawn Application.
- * Accepted and Sent keep the document checklist; Declined has none. A declined Offer closes the Application as Rejected in HRMS,
+ * Sent and Accepted keep the document checklist, Hired keeps it read-only, and Declined has none. A declined Offer closes the Application as Rejected in HRMS,
  * so it still shows the Offer, with an "Offer declined" outcome rather than "Not selected".
  */
 export function offerPresentation(applicationStatus: string, offer: ApplicationOffer | undefined | null): { view: OfferView | null; showDocuments: boolean; outcomeStatus: string } {
   const outcomeStatus = offer?.status === "Declined" && applicationStatus === "Rejected" ? "Declined" : applicationStatus;
   if (!offer || applicationStatus === "Withdrawn") return { view: null, showDocuments: false, outcomeStatus };
-  if (applicationStatus === "Hired") return { view: "hired", showDocuments: false, outcomeStatus };
+  if (applicationStatus === "Hired") return { view: "hired", showDocuments: true, outcomeStatus };
   if (offer.status === "Declined") return { view: "declined", showDocuments: false, outcomeStatus };
   if (applicationStatus !== "Offer") return { view: null, showDocuments: false, outcomeStatus };
   return { view: offer.status === "Sent" ? "reply" : "accepted", showDocuments: true, outcomeStatus };

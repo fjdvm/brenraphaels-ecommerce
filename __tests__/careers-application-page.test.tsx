@@ -233,8 +233,8 @@ describe("What the Application page shows for an Offer", () => {
     expect(offerPresentation("Rejected", offer({ status: "Declined" }))).toEqual({ view: "declined", showDocuments: false, outcomeStatus: "Declined" });
   });
 
-  test("Hired welcomes aboard; the stepper stays on Offer until then", () => {
-    expect(offerPresentation("Hired", offer({ status: "Accepted" }))).toMatchObject({ view: "hired", showDocuments: false });
+  test("Hired welcomes aboard with a read-only checklist; the stepper stays on Offer until then", () => {
+    expect(offerPresentation("Hired", offer({ status: "Accepted" }))).toMatchObject({ view: "hired", showDocuments: true });
     expect(applicationProgress("Offer")).toMatchObject({ closed: false, step: 4 });
     expect(applicationProgress("Hired")).toMatchObject({ closed: false, step: 5 });
   });
