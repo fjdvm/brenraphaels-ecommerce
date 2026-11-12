@@ -1,11 +1,11 @@
 import { Check, Clock, Upload } from "lucide-react";
 
-import { requiredDocumentProgress, type RequiredDocument } from "@/lib/careers/application-offer";
+import { dueDateLabel, requiredDocumentProgress, type RequiredDocument } from "@/lib/careers/application-offer";
 import type { ApplicationDocument } from "@/lib/careers/applications";
 import { UploadDocumentButton } from "./upload-document-button";
 
 /** Documents to submit: the required Documents HR-ATS reports, or, with none reported, the Documents already submitted. Upload opens the upload dialog. */
-export function ApplicationDocuments({ documents, required, dueLabel }: { documents: ApplicationDocument[]; required?: RequiredDocument[] | null; dueLabel?: string | null }) {
+export function ApplicationDocuments({ documents, required, dueLabel, referenceNumber }: { documents: ApplicationDocument[]; required?: RequiredDocument[] | null; dueLabel?: string | null; referenceNumber?: string }) {
   const rows: RequiredDocument[] = required?.length
     ? required
     : documents.map((document) => ({ name: document.name, hint: "Sent with your application", status: "Submitted" }));
@@ -45,10 +45,11 @@ export function ApplicationDocuments({ documents, required, dueLabel }: { docume
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5 tracking-[0.35px]">
               <span className="text-sm font-medium text-ink">{row.name}</span>
+              {row.status === "To upload" && dueDateLabel(row.dueDate) ? <span className="text-xs text-muted">Due {dueDateLabel(row.dueDate)}</span> : null}
               {row.hint ? <span className="hidden text-xs text-muted sm:block">{row.hint}</span> : null}
             </span>
             {row.status === "To upload" ? (
-              <UploadDocumentButton documentName={row.name} hint={row.hint} dueLabel={dueLabel} />
+              <UploadDocumentButton documentName={row.name} hint={row.hint} dueLabel={dueDateLabel(row.dueDate) ?? dueLabel} offerDocument={row.type && referenceNumber ? { referenceNumber, type: row.type } : undefined} />
             ) : (
               <span className={`rounded-full px-3 py-1 text-xs font-medium tracking-[0.35px] ${row.status === "Submitted" ? "bg-success-soft text-success" : "bg-warning-soft text-warning"}`}>{row.status}</span>
             )}
