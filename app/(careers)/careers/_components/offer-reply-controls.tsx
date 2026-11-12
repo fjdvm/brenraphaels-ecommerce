@@ -41,7 +41,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Accept offer and Decline with their confirmations. While replies are switched off they are visible but disabled and no request is made. */
+/** Accept offer and Decline with their confirmations; the answer goes to HRMS. While replies are switched off they are visible but disabled and no request is made. */
 export function OfferReplyControls({ referenceNumber, enabled, offer }: { referenceNumber: string; enabled: boolean; offer: OfferSummary }) {
   const [dialog, setDialog] = useState<"accept" | "decline" | null>(null);
   const [agreed, setAgreed] = useState(false);
@@ -100,7 +100,7 @@ export function OfferReplyControls({ referenceNumber, enabled, offer }: { refere
             </dl>
             <label className="flex items-start gap-2.5 text-sm leading-[1.5] tracking-[0.35px] text-ink sm:gap-3">
               <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} className="mt-0.5 size-[18px] shrink-0 accent-primary" />
-              I&apos;ve read the offer letter and agree to its terms.
+              I&apos;ve read the offer terms and agree to them.
             </label>
             <p className="hidden items-start gap-2.5 rounded-2xl bg-lavender-soft px-3.5 py-3 text-xs leading-[1.5] tracking-[0.35px] text-primary sm:flex">
               <FileText aria-hidden className="mt-0.5 size-4 shrink-0" />
@@ -124,10 +124,6 @@ export function OfferReplyControls({ referenceNumber, enabled, offer }: { refere
           <input type="hidden" name="referenceNumber" value={referenceNumber} />
           <div className="flex flex-col gap-3.5 px-5 pb-4 pt-2 sm:gap-4 sm:px-8 sm:pb-6">
             <DialogDescription className="text-sm leading-[1.5] tracking-[0.35px] text-body">You&apos;re declining {role} at Bren Raphael&apos;s. This can&apos;t be undone.</DialogDescription>
-            <label className="flex flex-col gap-1.5 text-sm tracking-[0.35px] text-ink">
-              Reason (optional)
-              <textarea name="reason" maxLength={500} rows={3} className="rounded-2xl border border-line bg-white px-3.5 py-3 text-sm text-ink" />
-            </label>
           </div>
           <div className="flex flex-col gap-2 border-t border-line px-5 pb-7 pt-3 sm:flex-row-reverse sm:justify-start sm:gap-2.5 sm:px-8 sm:pb-6 sm:pt-[18px]">
             <button type="submit" disabled={pending} className="rounded-full bg-primary px-9 py-4 text-lg tracking-[0.45px] text-white disabled:cursor-not-allowed disabled:opacity-50 sm:px-[22px] sm:py-2.5 sm:text-sm sm:font-medium">

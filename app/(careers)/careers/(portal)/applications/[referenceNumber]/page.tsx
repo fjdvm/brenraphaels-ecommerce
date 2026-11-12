@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
+import { offerPresentation } from "@/lib/careers/application-offer";
 import { applicationProgress } from "@/lib/careers/application-progress";
 import { canWithdrawApplication, createApplicationStore } from "@/lib/careers/applications";
 import { requireApplicant } from "@/lib/careers/current-applicant";
@@ -31,12 +32,13 @@ async function ApplicationPageContent({ params }: ApplicationPageProps) {
   if (!application || !submission) notFound();
 
   const progress = applicationProgress(application.status);
+  const { view: offerView, showDocuments, outcomeStatus } = offerPresentation(application.status, submission.offer);
   const updatedOn = applicationDate.format(submission.updatedAt);
   return (
     <section className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-4 pb-[100px] pt-5 sm:px-10 sm:pt-10">
       <ApplicationHeader application={application} />
       {progress.closed ? (
-        <ApplicationEndState status={application.status} closedOn={updatedOn} />
+        <ApplicationEndState status={outcomeStatus} closedOn={updatedOn} />
       ) : (
         <ApplicationStepper
           status={application.status}
@@ -47,8 +49,8 @@ async function ApplicationPageContent({ params }: ApplicationPageProps) {
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-col gap-5 lg:flex-1">
           {application.status === "Interview" ? <ApplicationInterview interview={submission.interview} referenceNumber={application.referenceNumber} rescheduleEnabled={offerRepliesEnabled()} /> : null}
-          {application.status === "Offer" ? <ApplicationOffer jobTitle={application.title} offer={submission.offer} referenceNumber={application.referenceNumber} repliesEnabled={offerRepliesEnabled()} /> : null}
-          {application.status === "Offer" ? <ApplicationDocuments documents={submission.documents} required={submission.requiredDocuments} /> : null}
+          {offerView && submission.offer ? <ApplicationOffer view={offerView} jobTitle={application.title} offer={submission.offer} referenceNumber={application.referenceNumber} repliesEnabled={offerRepliesEnabled()} /> : null}
+          {showDocuments ? <ApplicationDocuments documents={submission.documents} required={submission.requiredDocuments} /> : null}
           {application.status === "Interview" || application.status === "Offer" ? (
             <ApplicationSubmission appliedAt={application.appliedAt} documents={application.status === "Offer" ? [] : submission.documents} profile={submission.profile} />
           ) : null}

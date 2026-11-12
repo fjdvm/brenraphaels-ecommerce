@@ -55,12 +55,15 @@ describe("Offer reply controls", () => {
     expect(acceptOfferAction).not.toHaveBeenCalled();
   });
 
-  test("decline takes an optional reason", async () => {
+  test("decline asks for confirmation and sends no reason", async () => {
     declineOfferAction.mockResolvedValue({ ok: true });
     render(<OfferReplyControls referenceNumber="BR-APP-1" enabled offer={offer} />);
     await userEvent.click(screen.getByRole("button", { name: "Decline" }));
+    expect(screen.getByText(/This can't be undone\./)).toBeTruthy();
+    expect(screen.queryByRole("textbox")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Yes, decline offer" }));
     await waitFor(() => expect(declineOfferAction).toHaveBeenCalledTimes(1));
-    expect((declineOfferAction.mock.calls[0][0] as FormData).get("reason")).toBe("");
+    expect((declineOfferAction.mock.calls[0][0] as FormData).get("referenceNumber")).toBe("BR-APP-1");
+    expect((declineOfferAction.mock.calls[0][0] as FormData).get("reason")).toBeNull();
   });
 });
