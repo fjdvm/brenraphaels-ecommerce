@@ -214,3 +214,66 @@ describe("Applicant profile edits and the Frozen rule", () => {
     ]);
   });
 });
+
+describe("Interview read from the shared database (#281)", () => {
+  const snapshot = JSON.stringify(profile);
+  async function apply(status = "Interview") {
+    await client.query(
+      `insert into applications (applicant_id, job_posting_id, reference_number, status, profile_snapshot, documents_snapshot, consented_at) values ('applicant-1', 'ats-1', 'BR-1', $1, $2, '[]', now())`,
+      [status, snapshot],
+    );
+  }
+  async function createInterviewTable() {
+    await client.exec(`
+      create table hrms_application_interviews (
+        id bigint generated always as identity primary key,
+        application_id integer not null unique,
+        starts_at timestamptz not null, ends_at timestamptz not null,
+        type text not null, interviewer_name text not null, location text not null default '',
+        meeting_link text, map_link text, province text, city text, address text,
+        private_notes text, score integer, result text
+      );`);
+  }
+
+  test("shows an online Interview's time, Interviewer and meeting link, never the score or notes", async () => {
+    await createInterviewTable();
+    await apply();
+    await client.exec(`insert into hrms_application_interviews (application_id, starts_at, ends_at, type, interviewer_name, meeting_link, private_notes, score)
+      values (1, '2026-11-20T02:00:00Z', '2026-11-20T02:30:00Z', 'Online', 'Pat Cruz', 'https://meet.google.com/abc', 'too quiet', 3)`);
+    const submission = await createApplicationStore(drizzle(client)).findSubmissionForApplicant("applicant-1", "BR-1");
+    expect(submission?.interview).toEqual({
+      startsAt: new Date("2026-11-20T02:00:00Z"),
+      endsAt: new Date("2026-11-20T02:30:00Z"),
+      mode: "online",
+      meetingLink: "https://meet.google.com/abc",
+      interviewer: "Pat Cruz",
+    });
+    expect(JSON.stringify(submission)).not.toMatch(/too quiet|score|notes/);
+  });
+
+  test("shows an in-person Interview's place, address and map link", async () => {
+    await createInterviewTable();
+    await apply();
+    await client.exec(`insert into hrms_application_interviews (application_id, starts_at, ends_at, type, interviewer_name, province, city, address, map_link)
+      values (1, '2026-11-20T02:00:00Z', '2026-11-20T02:30:00Z', 'In person', 'Pat Cruz', 'Metro Manila', 'Quezon City', '12 Kitchen St', 'https://maps.example/k')`);
+    const interview = (await createApplicationStore(drizzle(client)).findSubmissionForApplicant("applicant-1", "BR-1"))?.interview;
+    expect(interview).toMatchObject({ mode: "in-person", where: "Quezon City, Metro Manila", address: "12 Kitchen St", mapLink: "https://maps.example/k" });
+  });
+
+  test("a rescheduled Interview shows its new details (same row, updated)", async () => {
+    await createInterviewTable();
+    await apply();
+    await client.exec(`insert into hrms_application_interviews (application_id, starts_at, ends_at, type, interviewer_name, meeting_link)
+      values (1, '2026-11-20T02:00:00Z', '2026-11-20T02:30:00Z', 'Online', 'Pat Cruz', 'https://meet.google.com/abc')`);
+    await client.exec(`update hrms_application_interviews set starts_at = '2026-11-21T03:00:00Z', ends_at = '2026-11-21T03:30:00Z'`);
+    const interview = (await createApplicationStore(drizzle(client)).findSubmissionForApplicant("applicant-1", "BR-1"))?.interview;
+    expect(interview?.startsAt).toEqual(new Date("2026-11-21T03:00:00Z"));
+  });
+
+  test("has no Interview when none is booked, or when HRMS has not created its table yet", async () => {
+    await apply();
+    expect((await createApplicationStore(drizzle(client)).findSubmissionForApplicant("applicant-1", "BR-1"))?.interview).toBeUndefined();
+    await createInterviewTable();
+    expect((await createApplicationStore(drizzle(client)).findSubmissionForApplicant("applicant-1", "BR-1"))?.interview).toBeUndefined();
+  });
+});

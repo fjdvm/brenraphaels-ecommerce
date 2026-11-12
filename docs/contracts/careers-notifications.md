@@ -85,3 +85,15 @@ their original App claims. No Notifications were created by these checks.
 Production credentials do not configure local or Preview environments. Provision
 a dedicated credential there before testing against a live gateway; the inbox
 service tests supply their own HTTP gateway and require no credentials.
+
+## HRMS #266: Interview invite and reschedule (Careers #281)
+
+HRMS sends type `interview.invite` (as the HRMS Caller, to the Applicant's Neon
+Auth user id) when it books or reschedules an Interview. The inbox does not
+filter by type, so it lists and marks these read like any other Notification.
+The Application page reads the Interview itself from HRMS's
+`hrms_application_interviews` table in the shared database
+(`findSubmissionForApplicant`). It selects only the time, type, Interviewer
+name, meeting link, map link, province, city and address; the score, private
+notes and result are never read. Until HRMS has created the table the page
+reads as having no Interview. A reschedule updates the same row.

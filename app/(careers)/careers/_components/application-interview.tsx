@@ -40,7 +40,7 @@ const checklist = ["Join 5 minutes early and test your camera and microphone.", 
 
 /** The Interview-stage invitation. Every value comes from the optional Interview; nothing is invented, and gaps read "To be confirmed". Join and Add to calendar are placeholders until scheduling exists; Reschedule is a request behind the offer-replies flag. */
 export function ApplicationInterview({ interview, referenceNumber = "", rescheduleEnabled = false }: { interview?: Interview; referenceNumber?: string; rescheduleEnabled?: boolean }) {
-  const { startsAt, endsAt, mode, where, meetingLink, address, interviewer } = interview ?? {};
+  const { startsAt, endsAt, mode, where, meetingLink, address, mapLink, interviewer } = interview ?? {};
   const kind = mode === "online" ? "an online interview" : mode === "in-person" ? "an in-person interview" : "an interview";
   const whereText = mode === "online" ? (where ? `Online · ${where}` : "Online") : where;
   const when = startsAt ? `${dayText(startsAt)} · ${timeText(startsAt, endsAt)}` : undefined;
@@ -73,6 +73,11 @@ export function ApplicationInterview({ interview, referenceNumber = "", reschedu
               {meetingLink ? meetingLink.replace(/^https?:\/\//, "") : TO_BE_CONFIRMED}
             </Detail>
           )}
+          {mode === "in-person" && mapLink ? (
+            <Detail icon={<Send className="size-4" />} label="Map link">
+              {mapLink.replace(/^https?:\/\//, "")}
+            </Detail>
+          ) : null}
           <Detail icon={<User className="size-4" />} label="Interviewer">
             {interviewer ?? TO_BE_CONFIRMED}
           </Detail>
