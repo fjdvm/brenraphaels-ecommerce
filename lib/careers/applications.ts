@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import type { ApplicationOffer, RequiredDocument } from "./application-offer";
+import type { ApplicationOffer, OfferStatus, RequiredDocument } from "./application-offer";
 import type { ApplicantDocumentStore } from "./documents";
 import type { JobPostingStore } from "./job-postings";
 import type { ApplicantProfile, ApplicantProfileStore } from "./profile";
@@ -51,8 +51,9 @@ export type ApplicationSubmissionDetail = {
   interview?: Interview;
   documents: ApplicationDocument[];
   profile: Pick<ApplicantProfile, "summary" | "skills" | "location">;
-  /** Offer terms and required Documents, when HR-ATS provides them; the store does not populate them yet. */
-  offer?: ApplicationOffer | null;
+  /** The Offer HRMS has sent for this Application, read from the shared database. A Draft is never included. */
+  offer?: ApplicationOffer;
+  /** Required Documents at the Offer stage, when HR-ATS provides them; the store does not populate them yet. */
   requiredDocuments?: RequiredDocument[] | null;
 };
 
@@ -65,6 +66,8 @@ export type ApplicationStore = {
   findSummaryForApplicant(applicantId: string, referenceNumber: string): Promise<ApplicationSummary | undefined>;
   /** The submitted snapshot of one of the Applicant's own Applications; undefined if it doesn't exist or belongs to someone else. */
   findSubmissionForApplicant(applicantId: string, referenceNumber: string): Promise<ApplicationSubmissionDetail | undefined>;
+  /** The Offer HRMS sent for the Applicant's own Application, or undefined (no such Application, no Offer yet, or a Draft). */
+  findOfferForApplicant(applicantId: string, referenceNumber: string): Promise<ApplicationOffer | undefined>;
   /** Application status keyed by Job Posting id, for marking roles already applied to. */
   statusesByPostingForApplicant(applicantId: string): Promise<Record<string, ApplicationStatus>>;
   withdraw(referenceNumber: string, applicantId: string): Promise<ApplicationStatus | undefined>;
@@ -144,6 +147,56 @@ async function findInterview<TQueryResult extends PgQueryResultHKT, TSchema exte
   };
 }
 
+type OfferRow = {
+  id: number;
+  status: string;
+  monthly_salary: number;
+  start_date: string;
+  employment_type: string;
+  schedule: string;
+  probation: string;
+  reports_to: string;
+  branch: string;
+  sent_at: Date | string | null;
+  reply_by: string | null;
+  replied_at: Date | string | null;
+};
+
+const undefinedColumn = "42703";
+
+/**
+ * The Offer HRMS sent for an Application, read from the shared database (ADR-0002). Careers never writes it: replies go to HRMS.
+ * A Draft is not read, so the Applicant never sees an unfinished Offer. Selects only the Applicant-safe columns. Reads as none until
+ * HRMS has created its table and columns.
+ */
+async function findOffer<TQueryResult extends PgQueryResultHKT, TSchema extends Record<string, unknown>>(db: PgDatabase<TQueryResult, TSchema>, applicationId: number): Promise<ApplicationOffer | undefined> {
+  let rows: OfferRow[];
+  try {
+    const result = await db.execute(sql`select id, status, monthly_salary, start_date::text as start_date, employment_type, schedule, probation, reports_to, branch, sent_at, reply_by::text as reply_by, replied_at from hrms_offers where application_id = ${applicationId} and status in ('Sent', 'Accepted', 'Declined') limit 1`);
+    rows = (Array.isArray(result) ? result : (result as { rows?: OfferRow[] }).rows ?? []) as OfferRow[];
+  } catch (error) {
+    const code = (error as { code?: unknown; cause?: { code?: unknown } }).code ?? (error as { cause?: { code?: unknown } }).cause?.code;
+    if (code === undefinedTable || code === undefinedColumn || /hrms_offers.*does not exist|column .* does not exist/.test(String((error as Error).message))) return undefined;
+    throw error;
+  }
+  const row = rows[0];
+  if (!row) return undefined;
+  return {
+    id: Number(row.id),
+    status: row.status as OfferStatus,
+    monthlyPay: Number(row.monthly_salary),
+    startDate: row.start_date,
+    employmentType: row.employment_type,
+    schedule: row.schedule,
+    probation: row.probation,
+    reportsTo: row.reports_to,
+    branch: row.branch,
+    sentAt: row.sent_at ? new Date(row.sent_at) : null,
+    replyBy: row.reply_by,
+    repliedAt: row.replied_at ? new Date(row.replied_at) : null,
+  };
+}
+
 function selectSummaries<TQueryResult extends PgQueryResultHKT, TSchema extends Record<string, unknown>>(db: PgDatabase<TQueryResult, TSchema>) {
   return db
     .select({
@@ -189,8 +242,16 @@ export function createApplicationStore<TQueryResult extends PgQueryResultHKT, TS
         .limit(1);
       if (!row) return undefined;
       const { summary, skills, location } = asApplication(row).profileSnapshot;
-      const interview = await findInterview(db, row.id);
-      return { updatedAt: row.updatedAt, ...(interview ? { interview } : {}), documents: asApplication(row).documentsSnapshot, profile: { summary, skills, location } };
+      const [interview, offer] = await Promise.all([findInterview(db, row.id), findOffer(db, row.id)]);
+      return { updatedAt: row.updatedAt, ...(interview ? { interview } : {}), ...(offer ? { offer } : {}), documents: asApplication(row).documentsSnapshot, profile: { summary, skills, location } };
+    },
+    async findOfferForApplicant(applicantId, referenceNumber) {
+      const [row] = await db
+        .select({ id: applications.id })
+        .from(applications)
+        .where(and(eq(applications.applicantId, applicantId), eq(applications.referenceNumber, referenceNumber)))
+        .limit(1);
+      return row ? findOffer(db, row.id) : undefined;
     },
     async statusesByPostingForApplicant(applicantId) {
       const rows = await db

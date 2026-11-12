@@ -277,3 +277,79 @@ describe("Interview read from the shared database (#281)", () => {
     expect((await createApplicationStore(drizzle(client)).findSubmissionForApplicant("applicant-1", "BR-1"))?.interview).toBeUndefined();
   });
 });
+
+describe("Offer read from the shared database (#289)", () => {
+  const snapshot = JSON.stringify(profile);
+  async function apply(referenceNumber = "BR-1", applicantId = "applicant-1") {
+    await client.query(
+      `insert into applications (applicant_id, job_posting_id, reference_number, status, profile_snapshot, documents_snapshot, consented_at) values ($1, 'ats-1', $2, 'Offer', $3, '[]', now())`,
+      [applicantId, referenceNumber, snapshot],
+    );
+  }
+  async function createOfferTable() {
+    await client.exec(`
+      create table hrms_offers (
+        id integer generated always as identity primary key,
+        application_id integer not null unique,
+        status text not null default 'Draft',
+        monthly_salary integer not null, start_date date not null, employment_type text not null,
+        schedule text not null, probation text not null, reports_to text not null, branch text not null,
+        sent_at timestamptz, reply_by date, replied_at timestamptz,
+        created_by_name text not null default 'Ada'
+      );`);
+  }
+  const insertOffer = (status: string, applicationId = 1) => client.query(
+    `insert into hrms_offers (application_id, status, monthly_salary, start_date, employment_type, schedule, probation, reports_to, branch, sent_at, reply_by, replied_at)
+     values ($1, $2, 21500, '2026-12-01', 'Full-time', 'Tue–Sun', '6 months', 'Paolo Garcia', 'Cainta branch', '2026-11-05T02:00:00Z', '2026-11-20', $3)`,
+    [applicationId, status, status === "Sent" ? null : "2026-11-08T05:00:00Z"],
+  );
+  const store = () => createApplicationStore(drizzle(client));
+
+  test("reads a Sent Offer's complete terms, and no staff-only column", async () => {
+    await createOfferTable();
+    await apply();
+    await insertOffer("Sent");
+    const submission = await store().findSubmissionForApplicant("applicant-1", "BR-1");
+    expect(submission?.offer).toEqual({
+      id: 1, status: "Sent", monthlyPay: 21500, startDate: "2026-12-01", employmentType: "Full-time", schedule: "Tue–Sun",
+      probation: "6 months", reportsTo: "Paolo Garcia", branch: "Cainta branch", sentAt: new Date("2026-11-05T02:00:00Z"), replyBy: "2026-11-20", repliedAt: null,
+    });
+    expect(JSON.stringify(submission)).not.toMatch(/created_by|Ada/);
+  });
+
+  test("reads when an Accepted or Declined Offer was answered", async () => {
+    await createOfferTable();
+    await apply();
+    await insertOffer("Accepted");
+    expect((await store().findSubmissionForApplicant("applicant-1", "BR-1"))?.offer).toMatchObject({ status: "Accepted", repliedAt: new Date("2026-11-08T05:00:00Z") });
+    await client.query("update hrms_offers set status = 'Declined'");
+    expect((await store().findSubmissionForApplicant("applicant-1", "BR-1"))?.offer?.status).toBe("Declined");
+  });
+
+  test("a Draft is never shown", async () => {
+    await createOfferTable();
+    await apply();
+    await insertOffer("Draft");
+    expect((await store().findSubmissionForApplicant("applicant-1", "BR-1"))?.offer).toBeUndefined();
+    expect(await store().findOfferForApplicant("applicant-1", "BR-1")).toBeUndefined();
+  });
+
+  test("has no Offer when none exists, or when HRMS has not created its table or columns yet", async () => {
+    await apply();
+    expect((await store().findSubmissionForApplicant("applicant-1", "BR-1"))?.offer).toBeUndefined();
+    await client.exec("create table hrms_offers (id integer generated always as identity primary key, application_id integer not null, status text not null)");
+    await client.query("insert into hrms_offers (application_id, status) values (1, 'Sent')");
+    expect((await store().findSubmissionForApplicant("applicant-1", "BR-1"))?.offer).toBeUndefined();
+  });
+
+  test("finds the Offer only for the Applicant's own Application", async () => {
+    await createOfferTable();
+    await apply("BR-1", "applicant-1");
+    await apply("BR-2", "applicant-2");
+    await insertOffer("Sent", 1);
+    expect(await store().findOfferForApplicant("applicant-1", "BR-1")).toMatchObject({ id: 1, status: "Sent" });
+    expect(await store().findOfferForApplicant("applicant-2", "BR-1")).toBeUndefined();
+    expect(await store().findOfferForApplicant("applicant-1", "BR-2")).toBeUndefined();
+    expect(await store().findOfferForApplicant("applicant-2", "BR-2")).toBeUndefined();
+  });
+});

@@ -1,14 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-const { careersSession, revalidatePath } = vi.hoisted(() => ({ careersSession: vi.fn(), revalidatePath: vi.fn() }));
+const { careersSession, revalidatePath, findOfferForApplicant, reply } = vi.hoisted(() => ({
+  careersSession: vi.fn(), revalidatePath: vi.fn(), findOfferForApplicant: vi.fn(), reply: vi.fn(),
+}));
 
 vi.mock("@/lib/careers/auth", () => ({ careersSession }));
-vi.mock("@/lib/careers/applications", () => ({ createApplicationStore: vi.fn(), withdrawApplication: vi.fn() }));
+vi.mock("@/lib/careers/applications", () => ({ createApplicationStore: vi.fn(() => ({ findOfferForApplicant })), withdrawApplication: vi.fn() }));
 vi.mock("@/lib/careers/db", () => ({ getCareersDatabase: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath }));
+// The fake HRMS client: the real gateway's wire format is covered in its own test.
+vi.mock("@/lib/careers/offer-reply", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/careers/offer-reply")>()), createHrmsOfferReplyGateway: () => ({ reply }) }));
 
 import { acceptOfferAction, declineOfferAction } from "@/app/(careers)/careers/(portal)/applications/actions";
-import { stubOfferReplyGateway } from "@/lib/careers/offer-reply";
+import { OfferReplyRefusal } from "@/lib/careers/offer-reply";
 
 function form(values: Record<string, string>) {
   const formData = new FormData();
@@ -18,8 +22,8 @@ function form(values: Record<string, string>) {
 
 beforeEach(() => {
   careersSession.mockResolvedValue({ userId: "applicant-1" });
-  vi.spyOn(stubOfferReplyGateway, "accept").mockResolvedValue(undefined);
-  vi.spyOn(stubOfferReplyGateway, "decline").mockResolvedValue(undefined);
+  findOfferForApplicant.mockResolvedValue({ id: 42, status: "Sent" });
+  reply.mockResolvedValue(undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
 
@@ -30,44 +34,78 @@ afterEach(() => {
 });
 
 describe("flag off", () => {
-  test("accept and decline say Coming soon and never reach the gateway", async () => {
+  test("accept and decline say Coming soon and never reach HRMS", async () => {
     await expect(acceptOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toEqual({ ok: false, message: "Coming soon. We'll email you the details." });
     await expect(declineOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toMatchObject({ ok: false });
-    expect(stubOfferReplyGateway.accept).not.toHaveBeenCalled();
-    expect(stubOfferReplyGateway.decline).not.toHaveBeenCalled();
+    expect(reply).not.toHaveBeenCalled();
+    expect(findOfferForApplicant).not.toHaveBeenCalled();
   });
 });
 
 describe("flag on", () => {
   beforeEach(() => vi.stubEnv("CAREERS_OFFER_REPLIES_ENABLED", "true"));
 
-  test("accept goes through the gateway for the signed-in Applicant", async () => {
+  test("accept tells HRMS the signed-in Applicant accepted their own Offer", async () => {
     await expect(acceptOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toEqual({ ok: true });
-    expect(stubOfferReplyGateway.accept).toHaveBeenCalledWith({ applicantId: "applicant-1", referenceNumber: "BR-APP-1" });
+    expect(findOfferForApplicant).toHaveBeenCalledWith("applicant-1", "BR-APP-1");
+    expect(reply).toHaveBeenCalledWith({ offerId: 42, applicantId: "applicant-1", answer: "Accepted" });
     expect(revalidatePath).toHaveBeenCalledWith("/careers/applications");
+    expect(revalidatePath).toHaveBeenCalledWith("/careers/applications/BR-APP-1");
   });
 
-  test("decline sends the cleaned reason, which is optional", async () => {
-    await declineOfferAction(form({ referenceNumber: "BR-APP-1", reason: "  Found   another role. " }));
-    expect(stubOfferReplyGateway.decline).toHaveBeenLastCalledWith({ applicantId: "applicant-1", referenceNumber: "BR-APP-1", reason: "Found another role." });
+  test("decline tells HRMS the Applicant declined", async () => {
     await expect(declineOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toEqual({ ok: true });
-    expect(stubOfferReplyGateway.decline).toHaveBeenLastCalledWith({ applicantId: "applicant-1", referenceNumber: "BR-APP-1", reason: "" });
+    expect(reply).toHaveBeenCalledWith({ offerId: 42, applicantId: "applicant-1", answer: "Declined" });
   });
 
-  test("a reason with disallowed characters is rejected before the gateway", async () => {
-    await expect(declineOfferAction(form({ referenceNumber: "BR-APP-1", reason: "<script>" }))).resolves.toMatchObject({ ok: false });
-    expect(stubOfferReplyGateway.decline).not.toHaveBeenCalled();
+  test("the Applicant is the signed-in one, never something sent in the form", async () => {
+    await acceptOfferAction(form({ referenceNumber: "BR-APP-1", applicantId: "someone-else", offerId: "999" }));
+    expect(reply).toHaveBeenCalledWith({ offerId: 42, applicantId: "applicant-1", answer: "Accepted" });
   });
 
-  test("a gateway failure comes back as a retryable message", async () => {
-    vi.mocked(stubOfferReplyGateway.accept).mockRejectedValue(new Error("down"));
-    await expect(acceptOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toEqual({ ok: false, message: "We couldn't accept your offer. Try again." });
+  test("an answered Offer cannot be answered again, and HRMS is not called", async () => {
+    for (const status of ["Accepted", "Declined"]) {
+      findOfferForApplicant.mockResolvedValue({ id: 42, status });
+      await expect(acceptOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toEqual({ ok: false, message: "This offer has already been answered. A reply is final." });
+      await expect(declineOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toMatchObject({ ok: false });
+    }
+    expect(reply).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  test("no Offer for this Application (a Draft, or someone else's) is refused", async () => {
+    findOfferForApplicant.mockResolvedValue(undefined);
+    await expect(acceptOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toEqual({ ok: false, message: "We couldn't find an offer for this application." });
+    expect(reply).not.toHaveBeenCalled();
+  });
+
+  test("HRMS's refusal is shown in its own words and nothing is refreshed", async () => {
+    reply.mockRejectedValue(new OfferReplyRefusal("This application was withdrawn, so the offer allows no further action.", 409));
+    await expect(acceptOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toEqual({ ok: false, message: "This application was withdrawn, so the offer allows no further action." });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  test("an HRMS failure comes back as a retryable message and nothing is recorded", async () => {
+    reply.mockRejectedValue(new Error("down"));
+    await expect(acceptOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toEqual({ ok: false, message: "We couldn't accept your offer. Try again." });
+    await expect(declineOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toEqual({ ok: false, message: "We couldn't decline your offer. Try again." });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  test("an unreadable Offer asks to try again", async () => {
+    findOfferForApplicant.mockRejectedValue(new Error("db"));
+    await expect(acceptOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toEqual({ ok: false, message: "We couldn't load your offer. Try again." });
+    expect(reply).not.toHaveBeenCalled();
+  });
+
+  test("an invalid Reference number is refused before anything is read", async () => {
+    await expect(acceptOfferAction(form({ referenceNumber: "<script>" }))).resolves.toMatchObject({ ok: false });
+    expect(findOfferForApplicant).not.toHaveBeenCalled();
   });
 
   test("signed-out requests are refused", async () => {
     careersSession.mockResolvedValue(null);
     await expect(acceptOfferAction(form({ referenceNumber: "BR-APP-1" }))).resolves.toMatchObject({ ok: false });
-    expect(stubOfferReplyGateway.accept).not.toHaveBeenCalled();
+    expect(reply).not.toHaveBeenCalled();
   });
 });

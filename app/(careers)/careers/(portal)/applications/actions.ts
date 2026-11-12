@@ -6,8 +6,8 @@ import { createApplicationStore, withdrawApplication } from "@/lib/careers/appli
 import { careersSession } from "@/lib/careers/auth";
 import { getCareersDatabase } from "@/lib/careers/db";
 import { requestReschedule, stubInterviewRescheduleGateway, type RescheduleOutcome } from "@/lib/careers/interview-reschedule";
-import { offerRepliesEnabled, replyToOffer, stubOfferReplyGateway, type OfferReplyOutcome } from "@/lib/careers/offer-reply";
-import { applicationReferenceNumberField, offerDeclineReasonField, rescheduleDateField, rescheduleNoteField, rescheduleTimeField } from "@/lib/validators/application";
+import { createHrmsOfferReplyGateway, offerRepliesComingSoon, offerRepliesEnabled, replyToOffer, type OfferReplyOutcome } from "@/lib/careers/offer-reply";
+import { applicationReferenceNumberField, rescheduleDateField, rescheduleNoteField, rescheduleTimeField } from "@/lib/validators/application";
 
 export type WithdrawOutcome = { ok: true } | { ok: false; message: string };
 
@@ -28,30 +28,45 @@ export async function withdrawApplicationAction(formData: FormData): Promise<Wit
   }
 }
 
+/** The signed-in Applicant's Offer for this Application, read from the shared database, then answered through HRMS. */
 async function reply(formData: FormData, kind: "accept" | "decline"): Promise<OfferReplyOutcome> {
   const applicant = await careersSession();
   if (!applicant) return { ok: false, message: "Please sign in to reply to your offer." };
+  if (!offerRepliesEnabled()) return { ok: false, message: offerRepliesComingSoon };
   const referenceNumber = applicationReferenceNumberField.safeParse(formData.get("referenceNumber"));
   if (!referenceNumber.success) return { ok: false, message: "Choose a valid Application to reply to." };
-  const target = { applicantId: applicant.userId, referenceNumber: referenceNumber.data };
-  if (kind === "accept") return replyToOffer({ kind, ...target }, { enabled: offerRepliesEnabled(), gateway: stubOfferReplyGateway });
-  const reason = offerDeclineReasonField.safeParse(formData.get("reason"));
-  if (!reason.success) return { ok: false, message: reason.error.issues[0]?.message ?? "Check your reason and try again." };
-  return replyToOffer({ kind, reason: reason.data, ...target }, { enabled: offerRepliesEnabled(), gateway: stubOfferReplyGateway });
+  let offer;
+  try {
+    offer = await createApplicationStore(getCareersDatabase()).findOfferForApplicant(applicant.userId, referenceNumber.data);
+  } catch (error) {
+    console.error("Offer could not be read", error instanceof Error ? error.message : error);
+    return { ok: false, message: "We couldn't load your offer. Try again." };
+  }
+  if (!offer) return { ok: false, message: "We couldn't find an offer for this application." };
+  // A reply is final, and an Offer that was never sent has nothing to answer. HRMS enforces the same rules.
+  if (offer.status !== "Sent") return { ok: false, message: "This offer has already been answered. A reply is final." };
+  return replyToOffer({ kind, applicantId: applicant.userId, offerId: offer.id }, { enabled: true, gateway: createHrmsOfferReplyGateway() });
 }
 
-/** Accepts the signed-in Applicant's Offer. Does nothing while the offer-replies flag is off. */
+/** Accepts the signed-in Applicant's Offer through HRMS. Does nothing while the offer-replies flag is off. */
 export async function acceptOfferAction(formData: FormData): Promise<OfferReplyOutcome> {
   const outcome = await reply(formData, "accept");
-  if (outcome.ok) revalidatePath("/careers/applications");
+  if (outcome.ok) revalidateOfferPages(formData);
   return outcome;
 }
 
-/** Declines the signed-in Applicant's Offer, with an optional reason. Does nothing while the flag is off. */
+/** Declines the signed-in Applicant's Offer through HRMS. Does nothing while the flag is off. */
 export async function declineOfferAction(formData: FormData): Promise<OfferReplyOutcome> {
   const outcome = await reply(formData, "decline");
-  if (outcome.ok) revalidatePath("/careers/applications");
+  if (outcome.ok) revalidateOfferPages(formData);
   return outcome;
+}
+
+/** The list and the Application page both show the Offer's state. */
+function revalidateOfferPages(formData: FormData) {
+  revalidatePath("/careers/applications");
+  const referenceNumber = applicationReferenceNumberField.safeParse(formData.get("referenceNumber"));
+  if (referenceNumber.success) revalidatePath(`/careers/applications/${referenceNumber.data}`);
 }
 
 /** Asks HR to move the signed-in Applicant's Interview. Does nothing while the flag is off; a past day or time is rejected here too. */

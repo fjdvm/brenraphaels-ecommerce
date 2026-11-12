@@ -9,6 +9,7 @@ import { ApplicationOffer } from "../app/(careers)/careers/_components/applicati
 import { ApplicationStepper } from "../app/(careers)/careers/_components/application-stepper";
 import { ApplicationInterview } from "../app/(careers)/careers/_components/application-interview";
 import { ApplicationSubmission } from "../app/(careers)/careers/_components/application-submission";
+import { applicationProgress } from "../lib/careers/application-progress";
 import type { ApplicationSummary } from "../lib/careers/applications";
 
 const application = (overrides: Partial<ApplicationSummary> = {}): ApplicationSummary => ({
@@ -153,37 +154,97 @@ describe("Interview stage", () => {
   });
 });
 
-const fullOffer = { monthlyPay: 21500, startDate: new Date("2026-12-01T00:00:00Z"), schedule: "Tue–Sun · 7 AM – 4 PM", replyBy: new Date("2026-11-20T00:00:00Z"), letterName: "Letter-A.pdf" };
+import { offerPresentation, type ApplicationOffer as OfferRecord } from "../lib/careers/application-offer";
+
+const offer = (overrides: Partial<OfferRecord> = {}): OfferRecord => ({
+  id: 7, status: "Sent", monthlyPay: 21500, startDate: "2026-12-01", employmentType: "Full-time", schedule: "Tue–Sun · 7 AM – 4 PM",
+  probation: "6 months", reportsTo: "Paolo Garcia", branch: "Cainta branch", sentAt: new Date("2026-11-05T02:00:00Z"),
+  replyBy: "2026-11-20", repliedAt: null, ...overrides,
+});
+const markupOf = (view: "reply" | "accepted" | "declined" | "hired", record: OfferRecord, extra: Partial<Parameters<typeof ApplicationOffer>[0]> = {}) =>
+  renderToStaticMarkup(<ApplicationOffer view={view} jobTitle="Production Assistant" offer={record} referenceNumber="BR-APP-1" today="2026-11-10" {...extra} />);
 
 describe("Offer card", () => {
-  test("shows every term it is given and the reply-by date", () => {
-    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle="Production Assistant" offer={fullOffer} />);
-    for (const text of ["love to have you on the team", "Production Assistant", "Monthly pay", "₱21,500", "1 Dec 2026", "Tue–Sun · 7 AM – 4 PM", "20 Nov 2026", "Letter-A.pdf"]) expect(markup).toContain(text);
-    expect(markup).not.toContain("To be confirmed");
+  test("a Sent Offer shows the complete terms and the reply-by date, with no offer letter row", () => {
+    const markup = markupOf("reply", offer());
+    for (const text of ["love to have you on the team", "Production Assistant", "Monthly pay", "₱21,500", "Start date", "1 Dec 2026", "Employment type", "Full-time", "Schedule", "Tue–Sun · 7 AM – 4 PM", "Probation", "6 months", "Reports to", "Paolo Garcia", "Branch", "Cainta branch", "Please reply by 20 Nov 2026"]) {
+      expect(markup).toContain(text);
+    }
+    for (const gone of ["Offer letter", "View</button>", "To be confirmed"]) expect(markup).not.toContain(gone);
   });
 
-  test("a partial Offer shows only what is known and the rest as To be confirmed", () => {
-    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle="Production Assistant" offer={{ monthlyPay: 21500 }} />);
-    expect(markup).toContain("₱21,500");
-    expect(markup.match(/To be confirmed/g)?.length).toBeGreaterThanOrEqual(3);
+  test("a Sent Offer past its reply-by date is flagged, and still can be replied to", () => {
+    const late = markupOf("reply", offer({ replyBy: "2026-11-05" }), { repliesEnabled: true });
+    expect(late).toContain("has passed");
+    expect(late).toContain("You can still reply");
+    expect(late).toMatch(/<button[^>]*>\s*Accept offer/);
+    expect(late).not.toMatch(/<button[^>]*disabled=""[^>]*>\s*Accept offer/);
+    expect(markupOf("reply", offer({ replyBy: "2026-11-10" }), { repliesEnabled: true })).not.toContain("has passed");
   });
 
-  test("with no Offer data nothing is invented", () => {
-    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle={null} offer={null} />);
-    expect(markup).toContain("To be confirmed");
-    expect(markup.replace(/<[^>]*>/g, " ")).not.toMatch(/₱|\b20\d\d\b/);
-  });
-
-  test("with the flag off, Accept offer, Decline and View are disabled with the Coming soon note", () => {
-    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle="X" offer={fullOffer} />);
-    for (const label of ["Accept offer", "Decline", "View"]) expect(markup).toMatch(new RegExp(`<button[^>]*disabled[^>]*>\\s*${label}`));
+  test("with the flag off, Accept offer and Decline are disabled with the Coming soon note", () => {
+    const markup = markupOf("reply", offer());
+    for (const label of ["Accept offer", "Decline"]) expect(markup).toMatch(new RegExp(`<button[^>]*disabled[^>]*>\\s*${label}`));
     expect(markup).toContain("Coming soon. We&#x27;ll email you the details.");
   });
 
   test("with the flag on, Accept offer and Decline are enabled and the note is gone", () => {
-    const markup = renderToStaticMarkup(<ApplicationOffer jobTitle="X" offer={fullOffer} referenceNumber="BR-APP-1" repliesEnabled />);
+    const markup = markupOf("reply", offer(), { repliesEnabled: true });
     expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*>\s*(Accept offer|Decline)/);
     expect(markup).not.toContain("Coming soon");
+  });
+
+  test("an Accepted Offer says when it was accepted, shows the terms and has no reply buttons", () => {
+    const markup = markupOf("accepted", offer({ status: "Accepted", repliedAt: new Date("2026-11-08T05:00:00Z") }), { repliesEnabled: true });
+    for (const text of ["You accepted your offer", "You accepted on 8 Nov 2026", "₱21,500", "Paolo Garcia"]) expect(markup).toContain(text);
+    expect(markup).not.toContain("Accept offer");
+    expect(markup).not.toContain("<button");
+  });
+
+  test("a Declined Offer says when it was declined, shows the terms and cannot be acted on", () => {
+    const markup = markupOf("declined", offer({ status: "Declined", repliedAt: new Date("2026-11-08T05:00:00Z") }), { repliesEnabled: true });
+    for (const text of ["You declined this offer", "You declined on 8 Nov 2026", "₱21,500"]) expect(markup).toContain(text);
+    expect(markup).not.toContain("<button");
+    expect(markup).not.toContain("Documents");
+  });
+
+  test("a Hired Applicant is welcomed aboard with the terms and nothing to do", () => {
+    const markup = markupOf("hired", offer({ status: "Accepted" }));
+    for (const text of ["Welcome aboard", "joining Bren Raphael", "Production Assistant", "₱21,500"]) expect(markup).toContain(text);
+    expect(markup).not.toContain("<button");
+  });
+
+  test("a missing reply time still reads sensibly", () => {
+    expect(markupOf("accepted", offer({ status: "Accepted", repliedAt: null }))).toContain("You accepted this offer");
+  });
+});
+
+describe("What the Application page shows for an Offer", () => {
+  test("a Draft (no Offer read) shows nothing, and no documents", () => {
+    expect(offerPresentation("Offer", undefined)).toMatchObject({ view: null, showDocuments: false });
+  });
+
+  test("Sent and Accepted at the Offer stage show the card with the document checklist", () => {
+    expect(offerPresentation("Offer", offer())).toEqual({ view: "reply", showDocuments: true, outcomeStatus: "Offer" });
+    expect(offerPresentation("Offer", offer({ status: "Accepted" }))).toEqual({ view: "accepted", showDocuments: true, outcomeStatus: "Offer" });
+  });
+
+  test("Declined shows the card without the checklist, and the end state reads Offer declined", () => {
+    expect(offerPresentation("Rejected", offer({ status: "Declined" }))).toEqual({ view: "declined", showDocuments: false, outcomeStatus: "Declined" });
+  });
+
+  test("Hired welcomes aboard with a read-only checklist; the stepper stays on Offer until then", () => {
+    expect(offerPresentation("Hired", offer({ status: "Accepted" }))).toMatchObject({ view: "hired", showDocuments: true });
+    expect(applicationProgress("Offer")).toMatchObject({ closed: false, step: 4 });
+    expect(applicationProgress("Hired")).toMatchObject({ closed: false, step: 5 });
+  });
+
+  test("a withdrawn Application shows no Offer to act on", () => {
+    for (const record of [offer(), offer({ status: "Accepted" }), offer({ status: "Declined" })]) expect(offerPresentation("Withdrawn", record).view).toBeNull();
+  });
+
+  test("an Offer is not shown before the Application reaches the Offer stage", () => {
+    expect(offerPresentation("Interview", offer()).view).toBeNull();
   });
 });
 

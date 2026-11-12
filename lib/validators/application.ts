@@ -27,13 +27,6 @@ export function applicationDocumentIds(values: FormDataEntryValue[]) {
     : null;
 }
 
-/** Why an Applicant declines an Offer; optional, plain sentences only. */
-export const offerDeclineReasonField = optionalTextField({
-  max: 500,
-  pattern: /^[\p{L}\p{M}\p{N}\p{P}\p{Zs}]+$/u,
-  patternMessage: "Use letters, numbers and punctuation only.",
-});
-
 /** The optional note an Applicant adds to a reschedule request; plain sentences only. */
 export const rescheduleNoteField = optionalTextField({
   max: 500,
