@@ -20,7 +20,21 @@ export type ApplicationOffer = {
 export type RequiredDocumentStatus = "Submitted" | "In review" | "To upload";
 
 /** One Document the Applicant must submit at the Offer stage, as HR-ATS reports it. */
-export type RequiredDocument = { name: string; hint?: string | null; status: RequiredDocumentStatus };
+export type RequiredDocument = {
+  name: string;
+  hint?: string | null;
+  status: RequiredDocumentStatus;
+  /** HRMS's document type, present for a Document HR requested; it is what the upload is recorded under. */
+  type?: string;
+  /** The calendar day HR asked for it by, `YYYY-MM-DD`. */
+  dueDate?: string | null;
+};
+
+const dueFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+/** "13 Nov" from a `YYYY-MM-DD` due date, or null when there is none. */
+export function dueDateLabel(dueDate: string | null | undefined) {
+  return dueDate && /^\d{4}-\d{2}-\d{2}$/.test(dueDate) ? dueFormat.format(new Date(`${dueDate}T00:00:00Z`)) : null;
+}
 
 export const toBeConfirmed = "To be confirmed";
 

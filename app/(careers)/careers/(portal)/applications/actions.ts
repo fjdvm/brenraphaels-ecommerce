@@ -8,6 +8,8 @@ import { getCareersDatabase } from "@/lib/careers/db";
 import { requestReschedule, stubInterviewRescheduleGateway, type RescheduleOutcome } from "@/lib/careers/interview-reschedule";
 import { createHrmsOfferReplyGateway, offerRepliesComingSoon, offerRepliesEnabled, replyToOffer, type OfferReplyOutcome } from "@/lib/careers/offer-reply";
 import { applicationReferenceNumberField, rescheduleDateField, rescheduleNoteField, rescheduleTimeField } from "@/lib/validators/application";
+import { gatewayDocumentFiles } from "@/lib/careers/document-files";
+import { hrmsOfferDocumentGateway, offerDocumentFailedMessage, offerDocumentUploadedMessage, prepareOfferDocument, readRequestedDocuments, submitOfferDocument } from "@/lib/careers/offer-documents";
 
 export type WithdrawOutcome = { ok: true } | { ok: false; message: string };
 
@@ -87,4 +89,42 @@ export async function requestRescheduleAction(formData: FormData): Promise<Resch
   );
   if (outcome.ok) revalidatePath("/careers/applications");
   return outcome;
+}
+
+const requestedFor = (applicantId: string, referenceNumber: string) => readRequestedDocuments(getCareersDatabase(), applicantId, referenceNumber);
+
+/** Checks the file and the request, then returns a signed address for the browser to send the bytes to. Nothing is recorded yet. */
+export async function prepareOfferDocumentUpload(input: { referenceNumber: unknown; type: unknown; name: unknown; contentType: unknown; size: unknown }): Promise<{ fileId: string; uploadUrl: string } | { message: string }> {
+  const applicant = await careersSession();
+  if (!applicant) return { message: "Please sign in to upload a Document." };
+  const referenceNumber = applicationReferenceNumberField.safeParse(input?.referenceNumber);
+  if (!referenceNumber.success) return { message: "Choose a valid Application." };
+  if (!process.env.API_GATEWAY_URL || !process.env.API_GATEWAY_CALLER_KEY) return { message: "Document uploads are not configured yet." };
+  try {
+    return await prepareOfferDocument(
+      { applicantId: applicant.userId, referenceNumber: referenceNumber.data, type: input.type, file: { name: input.name, contentType: input.contentType, size: input.size } },
+      { files: gatewayDocumentFiles(), requested: requestedFor },
+    );
+  } catch (error) {
+    return { message: error instanceof Error ? error.message : offerDocumentFailedMessage };
+  }
+}
+
+/** After the bytes are stored: tells HRMS the type and file id. On failure the Document stays Requested and the Applicant can retry. */
+export async function submitOfferDocumentUpload(input: { referenceNumber: unknown; type: unknown; fileId: unknown; fileName: unknown }): Promise<{ message: string }> {
+  const applicant = await careersSession();
+  if (!applicant) return { message: "Please sign in to upload a Document." };
+  const referenceNumber = applicationReferenceNumberField.safeParse(input?.referenceNumber);
+  if (!referenceNumber.success) return { message: "Choose a valid Application." };
+  try {
+    await submitOfferDocument(
+      { applicantId: applicant.userId, referenceNumber: referenceNumber.data, type: input.type, fileId: input.fileId, fileName: input.fileName },
+      { files: gatewayDocumentFiles(), gateway: hrmsOfferDocumentGateway(), requested: requestedFor },
+    );
+  } catch (error) {
+    console.error("Offer document could not be submitted", error);
+    return { message: offerDocumentFailedMessage };
+  }
+  revalidatePath("/careers/applications");
+  return { message: offerDocumentUploadedMessage };
 }

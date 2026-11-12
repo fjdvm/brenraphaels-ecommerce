@@ -4,7 +4,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Camera, ChevronRight, Eye, FileText, Image as ImageIcon, Upload, X } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 
-import { submitApplicantDocument, type DocumentUploadResult } from "@/app/(careers)/careers/(portal)/profile/document-upload";
+import { submitApplicantDocument, type DocumentUploadOptions, type DocumentUploadResult } from "@/app/(careers)/careers/(portal)/profile/document-upload";
 import { documentUploadedMessage, formatMegabytes, progressLabel, xhrTransport, type UploadProgress, type UploadTransport } from "@/lib/careers/upload-transport";
 import { DOCUMENT_ACCEPT, DOCUMENT_FORMATS, DOCUMENT_MAX_SIZE_MB, documentFileProblem } from "@/lib/validators/document";
 import { cn } from "@/lib/utils";
@@ -21,13 +21,15 @@ type UploadDocumentDialogProps = {
   hint?: string | null;
   /** Called once the Document is stored and confirmed. */
   onUploaded?: () => void;
+  /** Stores and records the chosen file; the profile upload by default, or an Offer document upload for a Document HR requested. */
+  upload?: (formData: FormData, options: DocumentUploadOptions) => Promise<DocumentUploadResult>;
   /** Fakeable in tests; the real one reports bytes with XMLHttpRequest. */
   transport?: UploadTransport;
 };
 
 const smallButton = "rounded-full px-[22px] py-2.5 text-sm font-medium tracking-[0.45px] transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50";
 
-export function UploadDocumentDialog({ open, onOpenChange, documentName, dueLabel, hint, onUploaded, transport = xhrTransport }: UploadDocumentDialogProps) {
+export function UploadDocumentDialog({ open, onOpenChange, documentName, dueLabel, hint, onUploaded, upload, transport = xhrTransport }: UploadDocumentDialogProps) {
   const [file, setFile] = useState<File | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -84,16 +86,17 @@ export function UploadDocumentDialog({ open, onOpenChange, documentName, dueLabe
         setProgress({ loaded: 0, total: chosen.size });
         const form = new FormData();
         form.set("document", chosen);
+        const options: DocumentUploadOptions = {
+          transport,
+          signal: controller.signal,
+          onProgress: (next) => {
+            setProgress(next);
+            report(progressLabel(next).percent);
+          },
+        };
         let result: DocumentUploadResult;
         try {
-          result = await submitApplicantDocument({}, form, {
-            transport,
-            signal: controller.signal,
-            onProgress: (next) => {
-              setProgress(next);
-              report(progressLabel(next).percent);
-            },
-          });
+          result = await (upload ? upload(form, options) : submitApplicantDocument({}, form, options));
         } finally {
           setUploading(false);
           abort.current = null;

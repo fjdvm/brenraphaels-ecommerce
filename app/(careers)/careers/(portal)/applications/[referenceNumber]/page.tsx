@@ -9,6 +9,7 @@ import { getCareersDatabase } from "@/lib/careers/db";
 import { ApplicationHeader, applicationDate } from "@/app/(careers)/careers/_components/application-header";
 import { ApplicationDocuments } from "@/app/(careers)/careers/_components/application-documents";
 import { offerRepliesEnabled } from "@/lib/careers/offer-reply";
+import { readRequestedDocuments } from "@/lib/careers/offer-documents";
 import { ApplicationOffer } from "@/app/(careers)/careers/_components/application-offer";
 import { ApplicationInterview } from "@/app/(careers)/careers/_components/application-interview";
 import { ApplicationSubmission } from "@/app/(careers)/careers/_components/application-submission";
@@ -31,8 +32,10 @@ async function ApplicationPageContent({ params }: ApplicationPageProps) {
   ]);
   if (!application || !submission) notFound();
 
+  
   const progress = applicationProgress(application.status);
   const { view: offerView, showDocuments, outcomeStatus } = offerPresentation(application.status, submission.offer);
+  const requested = showDocuments && offerView !== "hired" ? await readRequestedDocuments(getCareersDatabase(), applicant.userId, referenceNumber) : null;
   const updatedOn = applicationDate.format(submission.updatedAt);
   return (
     <section className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-4 pb-[100px] pt-5 sm:px-10 sm:pt-10">
@@ -51,7 +54,7 @@ async function ApplicationPageContent({ params }: ApplicationPageProps) {
           {application.status === "Interview" ? <ApplicationInterview interview={submission.interview} referenceNumber={application.referenceNumber} rescheduleEnabled={offerRepliesEnabled()} /> : null}
           {offerView && submission.offer ? <ApplicationOffer view={offerView} jobTitle={application.title} offer={submission.offer} referenceNumber={application.referenceNumber} repliesEnabled={offerRepliesEnabled()} /> : null}
           {/* Once Hired the checklist is read-only: no required list means no Upload buttons. */}
-          {showDocuments ? <ApplicationDocuments documents={submission.documents} required={offerView === "hired" ? undefined : submission.requiredDocuments} /> : null}
+          {showDocuments ? <ApplicationDocuments documents={submission.documents} required={offerView === "hired" ? undefined : requested?.documents ?? submission.requiredDocuments} referenceNumber={application.referenceNumber} /> : null}
           {application.status === "Interview" || application.status === "Offer" ? (
             <ApplicationSubmission appliedAt={application.appliedAt} documents={application.status === "Offer" ? [] : submission.documents} profile={submission.profile} />
           ) : null}
