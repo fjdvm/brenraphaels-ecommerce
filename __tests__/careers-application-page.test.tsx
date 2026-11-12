@@ -106,6 +106,13 @@ describe("Interview stage", () => {
     expect(markup).toContain("12 Kitchen St, Quezon City");
   });
 
+  test("shows the map link of an in-person interview, and none for an online one", () => {
+    const inPerson = renderToStaticMarkup(<ApplicationInterview interview={{ mode: "in-person", address: "12 Kitchen St", mapLink: "https://maps.example/k" }} />);
+    expect(inPerson).toContain("Map link");
+    expect(inPerson).toContain("maps.example/k");
+    expect(renderToStaticMarkup(<ApplicationInterview interview={{ mode: "online", meetingLink: "https://meet.example.test/a" }} />)).not.toContain("Map link");
+  });
+
   test("an in-person interview with no venue reads To be confirmed for Where", () => {
     const markup = renderToStaticMarkup(<ApplicationInterview interview={{ mode: "in-person", address: "12 Kitchen St" }} />);
     expect(markup).toMatch(/Where<\/dt><dd[^>]*>To be confirmed/);

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import type { ApplicationOffer, RequiredDocument } from "./application-offer";
@@ -32,7 +32,7 @@ export type ApplicationSummary = {
   employmentType: string | null;
 };
 
-/** An interview invitation as HR-ATS would describe it. Every field is optional; Careers fills none of it in today. */
+/** An interview invitation as HRMS booked it, read from the shared database (#281). Every field is optional. Score, notes and result are never part of it. */
 export type Interview = {
   startsAt?: Date;
   endsAt?: Date;
@@ -41,6 +41,7 @@ export type Interview = {
   where?: string;
   meetingLink?: string;
   address?: string;
+  mapLink?: string;
   interviewer?: string;
 };
 
@@ -104,6 +105,45 @@ function asApplication(row: typeof applications.$inferSelect): Application {
   };
 }
 
+type InterviewRow = {
+  starts_at: Date | string;
+  ends_at: Date | string;
+  type: string;
+  interviewer_name: string;
+  meeting_link: string | null;
+  map_link: string | null;
+  province: string | null;
+  city: string | null;
+  address: string | null;
+};
+
+const undefinedTable = "42P01";
+
+/** The Interview HRMS booked for an Application. Selects only the Applicant-safe columns, so the score, private notes and result can never reach a page. Reads as none until HRMS has created its table. */
+async function findInterview<TQueryResult extends PgQueryResultHKT, TSchema extends Record<string, unknown>>(db: PgDatabase<TQueryResult, TSchema>, applicationId: number): Promise<Interview | undefined> {
+  let rows: InterviewRow[];
+  try {
+    const result = await db.execute(sql`select starts_at, ends_at, type, interviewer_name, meeting_link, map_link, province, city, address from hrms_application_interviews where application_id = ${applicationId} limit 1`);
+    rows = (Array.isArray(result) ? result : (result as { rows?: InterviewRow[] }).rows ?? []) as InterviewRow[];
+  } catch (error) {
+    const code = (error as { code?: unknown; cause?: { code?: unknown } }).code ?? (error as { cause?: { code?: unknown } }).cause?.code;
+    if (code === undefinedTable || /hrms_application_interviews.*does not exist/.test(String((error as Error).message))) return undefined;
+    throw error;
+  }
+  const row = rows[0];
+  if (!row) return undefined;
+  const clean = (value: string | null) => (value?.trim() ? value.trim() : undefined);
+  const online = row.type === "Online";
+  const place = [clean(row.city), clean(row.province)].filter(Boolean).join(", ");
+  return {
+    startsAt: new Date(row.starts_at),
+    endsAt: new Date(row.ends_at),
+    mode: online ? "online" : "in-person",
+    ...(online ? { meetingLink: clean(row.meeting_link) } : { where: place || undefined, address: clean(row.address), mapLink: clean(row.map_link) }),
+    interviewer: clean(row.interviewer_name),
+  };
+}
+
 function selectSummaries<TQueryResult extends PgQueryResultHKT, TSchema extends Record<string, unknown>>(db: PgDatabase<TQueryResult, TSchema>) {
   return db
     .select({
@@ -149,7 +189,8 @@ export function createApplicationStore<TQueryResult extends PgQueryResultHKT, TS
         .limit(1);
       if (!row) return undefined;
       const { summary, skills, location } = asApplication(row).profileSnapshot;
-      return { updatedAt: row.updatedAt, documents: asApplication(row).documentsSnapshot, profile: { summary, skills, location } };
+      const interview = await findInterview(db, row.id);
+      return { updatedAt: row.updatedAt, ...(interview ? { interview } : {}), documents: asApplication(row).documentsSnapshot, profile: { summary, skills, location } };
     },
     async statusesByPostingForApplicant(applicantId) {
       const rows = await db
