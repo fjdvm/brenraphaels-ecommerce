@@ -42,6 +42,10 @@ Every user-facing input field is sanitized, normalized, and validated before it 
 
 Navigating to a page must feel instant, even while its data is still loading. A page never blocks the whole route on data: render the static shell (headings, back links, layout) immediately and put everything that awaits data (session, database, fields, lists, forms) in an async component behind `<Suspense>` with a skeleton fallback built from `components/ui/skeleton.tsx`, sized to match the real content so nothing shifts when it resolves. Every dynamic route also gets a `loading.tsx` with the same skeleton, so Next can partially prefetch it and switch to it on click. Reuse one skeleton component for both the `loading.tsx` and the `<Suspense>` fallback. A new page is not done until it navigates instantly. See `app/(site)/(protected)/support/` for the pattern.
 
+## Square containers
+
+Containers are square: cards, tiles, panels, modals, sheets, dropdowns, toasts, inputs, photos and skeletons use no rounded corners (the container radius token is `--radius-container: 0` in `app/globals.css`). Only pills, buttons, badges, avatars and circular icon buttons stay round, with `rounded-full`. Never add `rounded`, `rounded-lg`, `rounded-[24px]` or similar to a container. Any entrance animation or overlay transition must be disabled under `prefers-reduced-motion`. Figma's Foundations labels (card "40", input "3") are stale; the rendered screens are the source of truth. Guard: `__tests__/square-containers.test.ts` fails on a rounded container outside its allowlist; remove a file's entry once it is square.
+
 ## No polling
 
 No app polls (ADR-0005 in the Portal repo, `docs/adr/0005-no-polling-anywhere.md`). Never repeat a data request on a timer, window focus or tab visibility; use the WebSocket, refetch on (re)connect, or refetch on a user action. A 30–60 second in-memory heartbeat is a keepalive, not polling, and timers that never touch the network (clocks, countdowns) are fine. Idle-tab check: `__tests__/no-polling.test.ts`.

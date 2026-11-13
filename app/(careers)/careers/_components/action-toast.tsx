@@ -26,9 +26,9 @@ type CardState = { phase: "loading"; text: string; percent?: number } | { phase:
 /** The one bottom-right card: progress (indeterminate, never a made-up percentage), then the result in the same card. */
 export function ActionToastCard({ state, onDismiss }: { state: CardState; onDismiss: () => void }) {
   return (
-    <div role="status" className="relative w-[calc(100vw-32px)] max-w-[380px] overflow-hidden rounded-2xl bg-ink text-white shadow-[0_12px_16px_rgba(43,26,69,0.25)] sm:w-auto sm:min-w-[300px]">
+    <div role="status" className="relative w-[calc(100vw-32px)] max-w-[380px] overflow-hidden bg-ink text-white shadow-[0_12px_16px_rgba(43,26,69,0.25)] sm:w-auto sm:min-w-[300px]">
       <div className="flex items-center gap-3 py-3.5 pl-3.5 pr-4">
-        <span aria-hidden className={`grid size-7 shrink-0 place-items-center rounded-[14px] text-white ${state.phase === "error" ? "bg-red-600" : "bg-primary"}`}>
+        <span aria-hidden className={`grid size-7 shrink-0 place-items-center text-white ${state.phase === "error" ? "bg-red-600" : "bg-primary"}`}>
           {state.phase === "success" ? <Check className="size-3.5" /> : state.phase === "error" ? <AlertCircle className="size-3.5" /> : <Bell className="size-3.5" />}
         </span>
         <p className="text-sm font-medium tracking-[0.35px]">{state.text}</p>

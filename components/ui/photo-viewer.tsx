@@ -131,7 +131,7 @@ export function PhotoViewer({ label, items, index, onIndexChange, noun = "photo"
                     height={current.height}
                     sizes="(min-width: 640px) 1000px, 100vw"
                     priority
-                    className="h-auto max-h-full w-auto max-w-full rounded-none object-contain sm:rounded-[32px]"
+                    className="h-auto max-h-full w-auto max-w-full object-contain"
                   />
                 )}
                 {index < last && (
@@ -155,7 +155,7 @@ export function PhotoViewer({ label, items, index, onIndexChange, noun = "photo"
                       aria-current={i === index ? "true" : undefined}
                       onClick={() => onIndexChange(i)}
                       className={cn(
-                        "relative block h-[72px] w-[96px] overflow-hidden rounded-2xl transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+                        "relative block h-[72px] w-[96px] overflow-hidden transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
                         i === index ? "border-[3px] border-white" : "opacity-55 hover:opacity-80",
                       )}
                     >
@@ -174,7 +174,7 @@ export function PhotoViewer({ label, items, index, onIndexChange, noun = "photo"
                   {items.map((item, i) => (
                     <li
                       key={itemKey(item)}
-                      className={cn("h-1.5 rounded-[3px]", i === index ? "w-5 bg-white" : "w-1.5 bg-muted")}
+                      className={cn("h-1.5", i === index ? "w-5 bg-white" : "w-1.5 bg-muted")}
                     />
                   ))}
                 </ol>
