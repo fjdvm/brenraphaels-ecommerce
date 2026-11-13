@@ -208,11 +208,11 @@ export default function Home({ searchParams }: HomeProps) {
             View all products <span aria-hidden>&rarr;</span>
           </Link>
         </div>
-        <div className="grid gap-5 lg:grid-cols-[1.9fr_1.5fr] lg:grid-rows-2">
+        <div data-stagger className="grid gap-5 lg:grid-cols-[1.9fr_1.5fr] lg:grid-rows-2">
           {collections.map(({ title, eyebrow, cta, description, src, alt }, index) => (
             <article
               key={title}
-              className={`relative isolate flex min-h-[350px] items-end overflow-hidden rounded-[40px] ${
+              className={`relative isolate flex min-h-[350px] items-end overflow-hidden ${
                 index === 0 ? "min-h-[480px] lg:row-span-2" : ""
               }`}
             >
@@ -264,8 +264,8 @@ export default function Home({ searchParams }: HomeProps) {
       </Reveal>
       <Reveal>
       <section className="px-5 pb-[100px] sm:px-10">
-        <div className="grid gap-5 lg:grid-cols-2">
-          <div className="relative min-h-[360px] overflow-hidden rounded-[40px] bg-primary-fixed lg:min-h-[600px]">
+        <div data-stagger className="grid gap-5 lg:grid-cols-2">
+          <div className="relative min-h-[360px] overflow-hidden bg-primary-fixed lg:min-h-[600px]">
             <Image
               src="/images/about/sweet-journey.jpg"
               alt="A collage of the Bren Raphael's family and team making ube halaya together"
@@ -274,7 +274,7 @@ export default function Home({ searchParams }: HomeProps) {
               className="object-cover"
             />
           </div>
-          <div className="flex flex-col justify-center gap-6 rounded-[40px] bg-[#f4eefc] p-8 sm:p-[60px]">
+          <div className="flex flex-col justify-center gap-6 bg-[#f4eefc] p-8 sm:p-[60px]">
             <div className="space-y-4 text-primary">
               <p className={eyebrowClass}>Our story</p>
               <h2 className="font-serif text-4xl leading-[1.2] sm:text-[54px]">
@@ -318,7 +318,7 @@ export default function Home({ searchParams }: HomeProps) {
             See all features <span aria-hidden>&rarr;</span>
           </Link>
         </div>
-        <div className="grid gap-5 lg:grid-cols-3">
+        <div data-stagger className="grid gap-5 lg:grid-cols-3">
           {recognitionVideos.map((video) => (
             <VideoCard key={video.id} {...video} />
           ))}

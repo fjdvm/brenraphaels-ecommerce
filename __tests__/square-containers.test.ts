@@ -10,9 +10,6 @@ const root = path.resolve(import.meta.dirname, "..");
 const roots = ["app", "components"];
 const rounded = /(?<![\w-])rounded(?:-[trbl]{1,2})?(?:-(?!full\b|none\b)[\w\[\]./]+)?(?![\w-])/;
 const allowed: Record<string, string> = {
-  "app/(site)/page.tsx": "Storefront shop and Home: square in the Shop slice",
-  "components/features/home/bestsellers.tsx": "Storefront shop and Home: square in the Shop slice",
-  "components/features/home/video-card.tsx": "Storefront shop and Home: square in the Shop slice",
   "components/shared/auth-shell.tsx": "Shared shell logo/loader image: square in the Shell slice",
   "components/shared/footer.tsx": "Shared shell logo/loader image: square in the Shell slice",
   "components/shared/header.tsx": "Shared shell logo/loader image: square in the Shell slice",

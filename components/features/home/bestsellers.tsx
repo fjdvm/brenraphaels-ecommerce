@@ -22,7 +22,7 @@ export function BestsellersFallback() {
     <div className={gridClass} aria-hidden="true">
       {Array.from({ length: shown }).map((_, index) => (
         <div key={index} className="flex flex-col gap-[18px]">
-          <Skeleton className="aspect-square w-full rounded-[40px]" />
+          <Skeleton className="aspect-square w-full" />
           <Skeleton className="h-7 w-2/3" />
           <Skeleton className="h-5 w-1/3" />
         </div>
@@ -41,7 +41,7 @@ export async function Bestsellers() {
   }
 
   return (
-    <div className={gridClass}>
+    <div data-stagger className={gridClass}>
       {products.map((product) => (
         <Link
           key={product.slug}
@@ -54,7 +54,7 @@ export async function Bestsellers() {
             width={640}
             height={640}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
-            className="aspect-square w-full rounded-[40px] object-cover transition duration-300 group-hover:scale-[1.02]"
+            className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.02]"
           />
           <div className="space-y-1.5">
             <h3 className="font-serif text-[22px] leading-[1.3] text-on-surface">
