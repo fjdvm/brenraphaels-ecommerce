@@ -207,18 +207,14 @@ body {
   }
 }
 
-/* Sections fade up as they scroll into view; without scripting or with reduced motion they just show. */
+/* Visible by default, including before hydration or if the observer never fires. */
 .reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition:
-    opacity 700ms ease-out,
-    transform 700ms ease-out;
+  opacity: 1;
+  transform: none;
 }
 
 .reveal[data-visible] {
-  opacity: 1;
-  transform: none;
+  animation: reveal-item 600ms ease-out both;
 }
 
 /* Children of a bento or card grid (marked data-stagger) enter one after another once their section is in view. */
@@ -250,10 +246,12 @@ body {
 }
 
 @media (scripting: none), (prefers-reduced-motion: reduce) {
-  .reveal {
+  .reveal,
+  .reveal[data-visible] {
     opacity: 1;
     transform: none;
     transition: none;
+    animation: none;
   }
 
   .reveal[data-visible] [data-stagger] > * {
