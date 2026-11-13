@@ -165,45 +165,19 @@ body {
   }
 }
 
-/* The Kind words screenshot slides in from the side the carousel moved toward; the quote fades up. */
-@keyframes kind-words-in-next {
-  from {
-    opacity: 0;
-    transform: translateX(48px) scale(0.96);
+/* Kind words lanes scroll on their own; without scripting or with reduced motion they stop and show every review. */
+@media (scripting: none), (prefers-reduced-motion: reduce) {
+  .reviews-viewport {
+    height: auto;
   }
-  to {
-    opacity: 1;
-    transform: none;
+
+  .reviews-track {
+    transform: none !important;
   }
-}
 
-@keyframes kind-words-in-previous {
-  from {
-    opacity: 0;
-    transform: translateX(-48px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.kind-words-image[data-direction="next"] {
-  animation: kind-words-in-next 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.kind-words-image[data-direction="previous"] {
-  animation: kind-words-in-previous 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.kind-words-quote {
-  animation: editorial-swap 500ms ease-out both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .kind-words-image,
-  .kind-words-quote {
-    animation: none !important;
+  .reviews-copy,
+  .reviews-fade {
+    display: none;
   }
 }
 

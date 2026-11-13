@@ -1,81 +1,172 @@
 "use client";
 
-import Image from "next/image";
-import { useState } from "react";
-import { ArrowLeft, ArrowRight, User } from "lucide-react";
+import { animate } from "motion/react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
-export type CustomerMessage = {
-  src: string;
-  place: string;
-  quote: string;
-  alt: string;
-};
+type Review = { name: string; source: string; message: string };
 
-const arrowClass =
-  "grid size-11 place-items-center rounded-full transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+const reviews: Review[] = [
+  {
+    name: "Ira Claire G.",
+    source: "Messenger",
+    message: "Thank you so much po, it did not disappoint! Masarap po yung halaya di sobrang tamis 💜",
+  },
+  {
+    name: "Rochelle R.",
+    source: "Booth at Robinsons",
+    message:
+      "Hello po aq po ung bmli khpon s booth nyo sa robinson sbrang srap tlga ng ube halaya nyo ubos po agd ung naka llanera kgbi..nkakabitin po ☺️ next time ddgdgan q n po bblhn q s inyo..ngbabalak din po aq magreseller 🙂",
+  },
+  { name: "@missritadaniela", source: "Instagram", message: "SOOOO GOOD! Definitely!!!" },
+  {
+    name: "Verified customer",
+    source: "Messenger, pickup",
+    message: "Salamat mam. Worth the long hunt 😁👌 may pa take-home freetaste pa",
+  },
+  {
+    name: "Verified customer",
+    source: "Messenger, with order photo",
+    message: "Hi po. Feedback lang po, ang saraaaaap po ng ube. Will definitely order again. Thank you po.",
+  },
+];
 
-/** A quote card beside the customer's screenshot; the arrows step through the messages. */
-export function KindWords({ messages }: { messages: CustomerMessage[] }) {
-  const [index, setIndex] = useState(0);
-  const [direction, setDirection] = useState<"next" | "previous">("next");
-  const message = messages[index];
-  const step = (by: number) => {
-    setDirection(by > 0 ? "next" : "previous");
-    setIndex((index + by + messages.length) % messages.length);
-  };
+// Each lane lists the reviews in its own order and loops at its own pace (seconds per loop), as in Figma.
+const lanes = [
+  { seconds: 48, order: [0, 1, 2, 3, 4], className: "hidden lg:block" },
+  { seconds: 60, order: [4, 2, 0, 1, 3], className: "hidden lg:block" },
+  { seconds: 72, order: [2, 3, 1, 4, 0], className: "hidden lg:block" },
+  { seconds: 60, order: [0, 3, 4, 1, 2], className: "lg:hidden" },
+];
+
+const reducedMotionQuery = "(prefers-reduced-motion: reduce)";
+
+/** Follows the visitor's reduced-motion setting live, so turning it on stops the scroll straight away. */
+function useReducedMotion() {
+  return useSyncExternalStore(
+    (notify) => {
+      const query = window.matchMedia(reducedMotionQuery);
+      query.addEventListener("change", notify);
+      return () => query.removeEventListener("change", notify);
+    },
+    () => window.matchMedia(reducedMotionQuery).matches,
+    () => false,
+  );
+}
+
+// Matches `gap-4` between the cards.
+const gap = 16;
+
+/** Loops a lane's track upward forever, one sequence at a time; the second copy makes the loop seamless. */
+function Lane({
+  seconds,
+  order,
+  className,
+  paused,
+}: {
+  seconds: number;
+  order: number[];
+  className: string;
+  paused: boolean;
+}) {
+  const track = useRef<HTMLUListElement>(null);
+  const controls = useRef<ReturnType<typeof animate> | null>(null);
+  const pausedRef = useRef(paused);
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    const element = track.current;
+    if (!element || reduceMotion || window.matchMedia(reducedMotionQuery).matches) return;
+    let distance = 0;
+    const start = () => {
+      // The track holds two identical sequences: move by one sequence plus the gap before the second begins.
+      if (element.scrollHeight === 0) {
+        controls.current?.cancel();
+        controls.current = null;
+        element.style.transform = "";
+        distance = 0;
+        return;
+      }
+      const next = (element.scrollHeight + gap) / 2;
+      if (next === distance) return;
+      distance = next;
+      controls.current?.cancel();
+      controls.current = animate(element, { y: [0, -distance] }, { duration: seconds, ease: "linear", repeat: Infinity });
+      if (pausedRef.current) controls.current.pause();
+    };
+    const observer = new ResizeObserver(start);
+    observer.observe(element);
+    start();
+    return () => {
+      observer.disconnect();
+      controls.current?.cancel();
+      controls.current = null;
+      element.style.transform = "";
+    };
+  }, [seconds, reduceMotion]);
+
+  useEffect(() => {
+    pausedRef.current = paused;
+    if (paused) controls.current?.pause();
+    else controls.current?.play();
+  }, [paused]);
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_420px]">
-      <div className="flex min-h-[420px] flex-col justify-between gap-10 bg-primary p-8 sm:p-[60px]">
-        <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-fixed-dim">
-          Kind words
-        </p>
-        <div aria-live="polite" className="space-y-4">
-          <blockquote
-            key={message.src}
-            className="kind-words-quote font-serif text-4xl leading-[1.1] text-white sm:text-6xl lg:text-7xl"
+    <div className={`overflow-clip ${className}`}>
+      <ul ref={track} className="reviews-track flex flex-col gap-4">
+        {[...order, ...order].map((review, position) => (
+          <li
+            key={position}
+            aria-hidden={position >= order.length || undefined}
+            className={`border border-line bg-white p-6 lg:p-7 ${position >= order.length ? "reviews-copy" : ""}`}
           >
-            &ldquo;{message.quote}&rdquo;
-          </blockquote>
-        </div>
-        <div className="flex flex-wrap items-center gap-3.5">
-          <span className="grid size-11 place-items-center rounded-full bg-primary-fixed text-primary">
-            <User aria-hidden className="size-5" />
-          </span>
-          <p className="text-sm font-medium text-white">{message.place}</p>
-          <p className="ml-auto text-sm text-primary-fixed-dim">
-            {String(index + 1).padStart(2, "0")} / {String(messages.length).padStart(2, "0")}
-          </p>
-          <div className="flex gap-2.5">
-            <button
-              type="button"
-              aria-label="Previous"
-              onClick={() => step(-1)}
-              className={`${arrowClass} border border-white text-white hover:bg-white/10`}
-            >
-              <ArrowLeft aria-hidden className="size-5" />
-            </button>
-            <button
-              type="button"
-              aria-label="Next"
-              onClick={() => step(1)}
-              className={`${arrowClass} bg-white text-primary hover:bg-primary-fixed`}
-            >
-              <ArrowRight aria-hidden className="size-5" />
-            </button>
-          </div>
-        </div>
+            <figure className="flex flex-col items-start gap-3.5">
+              <figcaption className="contents">
+                <span className="font-serif text-lg leading-[1.35] text-ink">{reviews[review].name}</span>
+                <span className="w-full bg-lavender-soft px-2 py-1 text-xs leading-[1.5] tracking-[0.35px] text-primary">
+                  {reviews[review].source}
+                </span>
+              </figcaption>
+              <blockquote className="leading-[1.6] tracking-[0.35px] text-body">{reviews[review].message}</blockquote>
+            </figure>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Customer reviews scrolling past in lanes; hovering or focusing them pauses the scroll in place. */
+export function KindWords() {
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const paused = hovered || focused;
+
+  return (
+    <div className="space-y-7 lg:space-y-10">
+      <div className="space-y-3 text-center">
+        <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary">Kind words</p>
+        <h2 className="font-serif text-[28px] leading-[1.25] text-ink lg:text-[54px] lg:leading-[1.2]">Loved by ube lovers</h2>
+        <p className="leading-[1.6] tracking-[0.35px] text-muted">
+          Real messages from our customers on Social Media and at our booths.
+        </p>
       </div>
-      <div className="relative min-h-[420px] overflow-hidden bg-primary-fixed lg:h-[560px]">
-        <Image
-          key={message.src}
-          data-direction={direction}
-          src={message.src}
-          alt={message.alt}
-          fill
-          sizes="(min-width: 1024px) 420px, 100vw"
-          className="kind-words-image object-contain"
-        />
+      <div
+        role="region"
+        aria-label="Customer reviews"
+        tabIndex={0}
+        onPointerEnter={() => setHovered(true)}
+        onPointerLeave={() => setHovered(false)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        className="reviews-viewport relative h-[610px] overflow-clip focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary lg:h-[600px]"
+      >
+        <div className="grid gap-6 lg:grid-cols-3">
+          {lanes.map((lane, index) => (
+            <Lane key={index} {...lane} paused={paused} />
+          ))}
+        </div>
+        <div aria-hidden className="reviews-fade pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-surface to-transparent" />
+        <div aria-hidden className="reviews-fade pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-surface to-transparent" />
       </div>
     </div>
   );
