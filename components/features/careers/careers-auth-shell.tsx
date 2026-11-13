@@ -69,7 +69,7 @@ export function CareersAuthShell({ children }: { children: ReactNode }) {
 
       <div className="flex flex-col items-center justify-center gap-[18px] bg-surface px-4 pb-8 pt-6 lg:gap-5 lg:px-8 lg:py-10">
         {children}
-        <div className="flex w-full max-w-[540px] items-center gap-3 rounded-[20px] bg-lavender-soft px-4 py-3.5 text-xs tracking-[0.35px] text-primary sm:rounded-[3px] sm:px-[18px] sm:text-body">
+        <div className="flex w-full max-w-[540px] items-center gap-3 bg-lavender-soft px-4 py-3.5 text-xs tracking-[0.35px] text-primary sm:px-[18px] sm:text-body">
           <ShoppingCart aria-hidden className="size-4 shrink-0 sm:size-[18px]" />
           <p className="flex-1">Applicant accounts are separate from shop accounts.</p>
           <Link href="/" className="hidden shrink-0 font-medium text-primary underline underline-offset-2 sm:block">

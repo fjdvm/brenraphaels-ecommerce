@@ -134,7 +134,7 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
           <li
             key={candidate.title}
             aria-current={index === step ? "step" : undefined}
-            className={cn("h-1 flex-1 rounded-sm", index <= step ? "bg-primary" : "bg-line")}
+            className={cn("h-1 flex-1", index <= step ? "bg-primary" : "bg-line")}
           >
             <span className="sr-only">{candidate.title}</span>
           </li>

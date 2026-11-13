@@ -35,7 +35,7 @@ export function CustomerSidebar({ fullName, email }: { fullName: string; email: 
 
   return (
     <aside className="min-w-0 lg:w-[280px] lg:shrink-0">
-      <details className="group rounded-[28px] border border-line bg-white lg:hidden">
+      <details className="group border border-line bg-white lg:hidden">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-3.5 font-medium text-primary">
           <span className="flex items-center gap-2">
             {ActiveIcon ? <ActiveIcon aria-hidden="true" className="size-5" /> : null}
@@ -48,7 +48,7 @@ export function CustomerSidebar({ fullName, email }: { fullName: string; email: 
         </div>
       </details>
       <nav aria-label="Customer" className="hidden flex-col gap-1.5 lg:flex">
-        <div className="mb-1.5 flex items-center gap-3.5 rounded-[40px] bg-lavender-soft p-[22px]">
+        <div className="mb-1.5 flex items-center gap-3.5 bg-lavender-soft p-[22px]">
           <span
             aria-hidden
             className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-medium tracking-[0.35px] text-white"

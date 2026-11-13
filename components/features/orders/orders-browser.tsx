@@ -114,7 +114,7 @@ export function OrdersBrowser({ orders, returns = [], focusOrderId }: { orders: 
       {filter === "returns" ? (
         <ReturnsList returns={returns} />
       ) : visible.length === 0 ? (
-        <p className="rounded-[40px] border border-line bg-white p-10 text-body" role="status">
+        <p className="border border-line bg-white p-10 text-body" role="status">
           No orders in this view.
         </p>
       ) : (
@@ -165,7 +165,7 @@ function OrderCard({
   const detailsId = `order-${order.id}-details`;
 
   return (
-    <article className="flex flex-col gap-6 rounded-[40px] border border-line bg-white p-6 sm:p-10">
+    <article className="flex flex-col gap-6 border border-line bg-white p-6 sm:p-10">
       <div className="flex items-start gap-3.5">
         {!open && firstLine ? <CartThumbnail size={64} url={firstLine.imageUrl} /> : null}
         <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -354,7 +354,7 @@ function DeliveryPhoto({ orderId, fileId, removedAt }: { orderId: number; fileId
         <p className="text-sm text-body">Photo unavailable</p>
       ) : fileId ? (
         // eslint-disable-next-line @next/next/no-img-element -- the route redirects to a short-lived signed URL
-        <img alt={`Delivery photo for Order #${orderId}`} className="max-h-80 w-full max-w-sm rounded-[3px] object-cover" loading="lazy" onError={() => setFailed(true)} src={`/api/orders/${orderId}/delivery-photo`} />
+        <img alt={`Delivery photo for Order #${orderId}`} className="max-h-80 w-full max-w-sm object-cover" loading="lazy" onError={() => setFailed(true)} src={`/api/orders/${orderId}/delivery-photo`} />
       ) : (
         <p className="text-sm text-body">{removedAt ? "The Delivery photo was removed." : "No photo"}</p>
       )}
@@ -364,7 +364,7 @@ function DeliveryPhoto({ orderId, fileId, removedAt }: { orderId: number; fileId
 
 function MetaCard({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
-    <div className="flex items-start gap-3 rounded-[3px] bg-surface-soft p-[18px]">
+    <div className="flex items-start gap-3 bg-surface-soft p-[18px]">
       {icon}
       <div className="flex min-w-0 flex-col gap-0.5 tracking-[0.35px]">
         <dt className="text-xs text-muted">{label}</dt>

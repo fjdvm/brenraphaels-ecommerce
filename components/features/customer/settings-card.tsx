@@ -11,7 +11,7 @@ export function SettingsCard({
   children: ReactNode;
 }) {
   return (
-    <section className="grid gap-6 rounded-[40px] border border-line bg-white p-6 sm:p-10 lg:grid-cols-[minmax(0,230px)_minmax(0,1fr)] lg:gap-8">
+    <section className="grid gap-6 border border-line bg-white p-6 sm:p-10 lg:grid-cols-[minmax(0,230px)_minmax(0,1fr)] lg:gap-8">
       <div className="flex flex-col gap-2">
         <h2 className="font-serif text-[28px] leading-[1.25] text-primary">{title}</h2>
         <p className="text-sm leading-[1.6] tracking-[0.35px] text-body">{description}</p>

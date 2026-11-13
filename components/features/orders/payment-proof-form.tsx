@@ -19,7 +19,7 @@ export function PaymentProofForm({ orderId, amountInCentavos }: { orderId: numbe
   const referenceError = state.fieldErrors?.gcashReferenceNumber?.[0];
 
   return (
-    <form action={action} className="flex flex-col gap-[18px] rounded-[3px] bg-warning-soft p-5 sm:p-7">
+    <form action={action} className="flex flex-col gap-[18px] bg-warning-soft p-5 sm:p-7">
       <div className="flex items-center gap-3">
         <Wallet aria-hidden className="size-[22px] shrink-0 text-warning" strokeWidth={1.5} />
         <div className="flex min-w-0 flex-col gap-0.5">
@@ -48,7 +48,7 @@ export function PaymentProofForm({ orderId, amountInCentavos }: { orderId: numbe
           ) : null}
         </div>
         <label
-          className="flex cursor-pointer items-center gap-2.5 rounded-[3px] border border-dashed border-primary bg-white px-5 py-3.5 text-sm font-medium tracking-[0.35px] text-primary focus-within:ring-2 focus-within:ring-ring"
+          className="flex cursor-pointer items-center gap-2.5 border border-dashed border-primary bg-white px-5 py-3.5 text-sm font-medium tracking-[0.35px] text-primary focus-within:ring-2 focus-within:ring-ring"
           htmlFor={`gcash-screenshot-${orderId}`}
         >
           <Upload aria-hidden className="size-[18px]" strokeWidth={1.5} />

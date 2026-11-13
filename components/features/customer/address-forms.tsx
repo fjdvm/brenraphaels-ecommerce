@@ -81,7 +81,7 @@ export function AddressForms({
         ))}
         <button
           className={cn(
-            "flex min-h-[190px] flex-col items-center justify-center gap-3 rounded-[40px] border border-dashed border-primary p-8 text-center transition-colors hover:bg-lavender-soft",
+            "flex min-h-[190px] flex-col items-center justify-center gap-3 border border-dashed border-primary p-8 text-center transition-colors hover:bg-lavender-soft",
             editing === "new" && "bg-lavender-soft",
           )}
           onClick={() => open("new")}
@@ -144,7 +144,7 @@ function AddressCard({
   return (
     <article
       className={cn(
-        "flex flex-col gap-3.5 rounded-[40px] bg-white p-8",
+        "flex flex-col gap-3.5 bg-white p-8",
         selected ? "border-2 border-primary" : "border border-line",
       )}
     >
@@ -210,7 +210,7 @@ function AddressForm({
   const postalError = state.fieldErrors?.postalCode?.[0];
 
   return (
-    <form action={action} className="flex flex-col gap-5 rounded-[40px] border border-line bg-white p-6 sm:p-10">
+    <form action={action} className="flex flex-col gap-5 border border-line bg-white p-6 sm:p-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-serif text-[28px] leading-[1.25] text-primary">{address ? "Edit address" : "Add address"}</h2>
         {address ? (

@@ -288,8 +288,8 @@ export function TicketThread({
                       className={cn(
                         "whitespace-pre-wrap break-words px-[18px] py-3 text-base leading-[1.6] tracking-[0.35px]",
                         mine
-                          ? "rounded-[20px] rounded-br-[6px] bg-primary text-white"
-                          : "rounded-[20px] rounded-bl-[6px] border border-line bg-white text-ink",
+                          ? "bg-primary text-white"
+                          : "border border-line bg-white text-ink",
                       )}
                     >
                       {threadMessage.body}
@@ -297,7 +297,7 @@ export function TicketThread({
                         // eslint-disable-next-line @next/next/no-img-element -- local preview of the file being sent
                         <img
                           alt="Being sent with this Message"
-                          className="mt-2 max-h-80 rounded-[20px]"
+                          className="mt-2 max-h-80"
                           src={threadMessage.previewUrl}
                         />
                       ) : threadMessage.attachmentPathname ||
@@ -305,7 +305,7 @@ export function TicketThread({
                         // eslint-disable-next-line @next/next/no-img-element -- streamed from an authenticated route, not optimizable
                         <img
                           alt="Attached to this Message"
-                          className="mt-2 max-h-80 rounded-[20px]"
+                          className="mt-2 max-h-80"
                           src={`/api/support/attachments/${threadMessage.id}`}
                         />
                       ) : null}
@@ -351,14 +351,14 @@ export function TicketThread({
             ))}
           </div>
           <form action={submit} className="flex flex-col gap-2.5" ref={formRef}>
-            <div className="flex flex-col gap-2 rounded-[28px] bg-surface-soft p-2">
+            <div className="flex flex-col gap-2 bg-surface-soft p-2">
               {image && imagePreview && !sending ? (
                 <div className="flex px-1 pt-1">
                   <div className="relative size-16">
                     {/* eslint-disable-next-line @next/next/no-img-element -- local preview of the picked file */}
                     <img
                       alt={`Selected image: ${image.name}`}
-                      className="size-16 rounded-xl object-cover"
+                      className="size-16 object-cover"
                       src={imagePreview}
                     />
                     <button

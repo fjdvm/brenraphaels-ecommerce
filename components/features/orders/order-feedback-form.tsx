@@ -51,7 +51,7 @@ export function OrderFeedbackForm({ orderId, feedback }: { orderId: number; feed
 
   if (feedback || state.submitted) {
     return (
-      <section className="rounded-[3px] bg-surface-soft p-5" id={`order-${orderId}-feedback`}>
+      <section className="bg-surface-soft p-5" id={`order-${orderId}-feedback`}>
         <h3 className="font-serif text-lg text-primary">Your feedback</h3>
         {state.submitted ? <p className="mt-2 text-sm font-semibold text-secondary" role="status">Thank you for your Feedback.</p> : null}
         {feedback ? (
@@ -84,7 +84,7 @@ export function OrderFeedbackForm({ orderId, feedback }: { orderId: number; feed
   }
 
   return (
-    <form action={action} id={`order-${orderId}-feedback`} onSubmit={askToConfirm} className="mt-5 rounded-md border border-outline-variant/60 bg-surface-container p-4" ref={formRef}>
+    <form action={action} id={`order-${orderId}-feedback`} onSubmit={askToConfirm} className="mt-5 border border-outline-variant/60 bg-surface-container p-4" ref={formRef}>
       <input name="orderId" type="hidden" value={orderId} />
       <fieldset className="grid gap-2">
         <legend className="font-semibold text-primary">How was your Order?</legend>

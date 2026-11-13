@@ -11,7 +11,7 @@ const dateFormat = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeZ
 export function ReturnsList({ returns }: { returns: CustomerReturn[] }) {
   if (returns.length === 0) {
     return (
-      <div className="flex flex-col gap-2 rounded-[40px] border border-line bg-white p-10 text-body" role="status">
+      <div className="flex flex-col gap-2 border border-line bg-white p-10 text-body" role="status">
         <p className="font-serif text-[22px] leading-[1.3] text-primary">No Returns yet</p>
         <p>
           To request a Return, open a delivered Order within 24 hours of delivery and choose Return. Read our{" "}
@@ -28,7 +28,7 @@ function ReturnCard({ entry }: { entry: CustomerReturn }) {
   return (
     <article
       aria-label={`Return ${entry.number}`}
-      className={cn("flex scroll-mt-24 flex-col gap-4 rounded-[40px] border border-line bg-white p-6 sm:p-10", entry.status === "cancelled" && "opacity-60")}
+      className={cn("flex scroll-mt-24 flex-col gap-4 border border-line bg-white p-6 sm:p-10", entry.status === "cancelled" && "opacity-60")}
       id={`return-${entry.id}`}
     >
       <div className="flex flex-wrap items-center gap-3">
@@ -50,7 +50,7 @@ function ReturnCard({ entry }: { entry: CustomerReturn }) {
         Preferred: {resolutionLabel(entry.preferredResolution)} · Final: {entry.finalResolution ? resolutionLabel(entry.finalResolution) : "Awaiting decision"}
       </p>
       {entry.declineReason ? (
-        <p className="rounded-[3px] bg-warning-soft p-[18px] text-sm text-warning">
+        <p className="bg-warning-soft p-[18px] text-sm text-warning">
           <span className="font-medium">Reason for decline:</span> {entry.declineReason}
         </p>
       ) : null}
