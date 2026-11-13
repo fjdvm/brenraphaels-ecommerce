@@ -40,35 +40,6 @@ const recognitionVideos = [
   },
 ];
 
-const customerMessages = [
-  {
-    src: "/images/home/customer-rita-daniela.jpg",
-    place: "A business chat from missritadaniela",
-    quote: "SOOOO GOOD! Definitely!!!",
-    alt: 'A business chat from missritadaniela reading "SOOOO GOOD!", then "Definitely!!!" after Bren Raphael\'s replied "Thank you so much mam!"',
-  },
-  {
-    src: "/images/home/customer-saudi-arabia.jpg",
-    place: "A customer in Saudi Arabia",
-    quote: "Hi, nadala ko na sya dito sa saudi. Thank you! Ang sarap!!!!",
-    alt: 'A customer\'s message with a photo of a pouch of Smooth Ube Halaya: "Hi, nadala ko na sya dito sa saudi. Thank you! Ang sarap!!!!"',
-  },
-  {
-    src: "/images/home/customer-germany.jpg",
-    place: "A customer in Germany",
-    quote:
-      "Nakarating po ng germany ung Ube. Sayang 2 lang nabili ko sa SM north",
-    alt: 'A customer\'s message with a photo of Ube Halaya: "Nakarating po ng germany ung Ube. Sayang 2 lang nabili ko sa SM north"',
-  },
-  {
-    src: "/images/home/customer-france.jpg",
-    place: "A customer in France",
-    quote:
-      "Sobrang sarap po sa mga Ube lover like me - 1 of the best!.. How to order po?",
-    alt: 'A customer\'s message from France with a photo of Ube Halaya with Tidbits: "Sobrang sarap po sa mga Ube lover like me - 1 of the best!.. How to order po?"',
-  },
-];
-
 const featuredPress = [
   "DTI \u00b7 Asenso Pilipino",
   "GMA \u00b7 Unang Hirit",
@@ -326,11 +297,8 @@ export default function Home({ searchParams }: HomeProps) {
       </section>
       </Reveal>
       <Reveal>
-      <section
-        aria-label="Customer messages"
-        className="px-5 py-[100px] sm:px-10"
-      >
-        <KindWords messages={customerMessages} />
+      <section className="px-4 py-12 sm:px-10 lg:py-[88px]">
+        <KindWords />
       </section>
       </Reveal>
     </div>

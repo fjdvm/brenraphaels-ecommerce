@@ -1,65 +1,96 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, test } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+
+const motion = vi.hoisted(() => {
+  const controls = { pause: vi.fn(), play: vi.fn(), cancel: vi.fn() };
+  return { controls, animate: vi.fn(() => controls), reduceMotion: false };
+});
+const { controls, animate } = motion;
+
+vi.mock("motion/react", () => ({ animate: motion.animate }));
 
 import { KindWords } from "@/components/features/home/kind-words";
 
-const messages = [
-  { src: "/a.jpg", place: "Chat A", quote: "First quote", alt: "Screenshot A" },
-  { src: "/b.jpg", place: "Chat B", quote: "Second quote", alt: "Screenshot B" },
-  { src: "/c.jpg", place: "Chat C", quote: "Third quote", alt: "Screenshot C" },
-];
+beforeEach(() => {
+  motion.reduceMotion = false;
+  vi.clearAllMocks();
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(private callback: () => void) {}
+      observe() {
+        this.callback();
+      }
+      disconnect() {}
+    },
+  );
+  vi.stubGlobal("matchMedia", () => ({
+    matches: motion.reduceMotion,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
+  Object.defineProperty(HTMLElement.prototype, "scrollHeight", { configurable: true, value: 1000 });
+});
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("Kind words", () => {
-  test("starts on the first review with a zero-padded counter", () => {
-    render(<KindWords messages={messages} />);
-    expect(screen.getByText(/First quote/)).toBeTruthy();
-    expect(screen.getByText("01 / 03")).toBeTruthy();
-    expect(screen.getByText("Chat A")).toBeTruthy();
+  test("shows the heading and the reviews, with the looped copy hidden from assistive tech", () => {
+    render(<KindWords />);
+    expect(screen.getByRole("heading", { name: "Loved by ube lovers" })).toBeTruthy();
+    expect(screen.getAllByText("SOOOO GOOD! Definitely!!!").length).toBe(8);
+    const hidden = document.querySelectorAll('li[aria-hidden="true"]');
+    const visible = document.querySelectorAll("li:not([aria-hidden])");
+    expect(hidden.length).toBe(visible.length);
   });
 
-  test("Next and Previous step through the reviews and wrap around", async () => {
-    const user = userEvent.setup();
-    render(<KindWords messages={messages} />);
-    const next = screen.getByRole("button", { name: "Next" });
-    const previous = screen.getByRole("button", { name: "Previous" });
-
-    await user.click(next);
-    expect(screen.getByText("02 / 03")).toBeTruthy();
-    await user.click(next);
-    await user.click(next);
-    expect(screen.getByText("01 / 03")).toBeTruthy();
-    expect(screen.getByText(/First quote/)).toBeTruthy();
-
-    await user.click(previous);
-    expect(screen.getByText("03 / 03")).toBeTruthy();
-    expect(screen.getByText(/Third quote/)).toBeTruthy();
+  test("loops each lane forever at its own pace, one sequence plus the gap", () => {
+    render(<KindWords />);
+    const calls = animate.mock.calls as unknown as [unknown, { y: number[] }, { duration: number; repeat: number; ease: string }][];
+    expect(calls.map(([, , options]) => options.duration)).toEqual([48, 60, 72, 60]);
+    for (const [, keyframes, options] of calls) {
+      expect(keyframes.y).toEqual([0, -508]);
+      expect(options.repeat).toBe(Infinity);
+      expect(options.ease).toBe("linear");
+    }
   });
 
-  test("the screenshot follows the review", async () => {
-    const user = userEvent.setup();
-    render(<KindWords messages={messages} />);
-    expect(screen.getByAltText("Screenshot A")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByAltText("Screenshot B")).toBeTruthy();
+  test("pauses on hover and focus and resumes where it left off", () => {
+    render(<KindWords />);
+    const region = screen.getByRole("region", { name: "Customer reviews" });
+
+    fireEvent.pointerEnter(region);
+    expect(controls.pause).toHaveBeenCalled();
+    fireEvent.pointerLeave(region);
+    expect(controls.play).toHaveBeenCalled();
+
+    controls.pause.mockClear();
+    fireEvent.focus(region);
+    expect(controls.pause).toHaveBeenCalled();
+    fireEvent.blur(region);
+    expect(controls.play).toHaveBeenCalled();
+    expect(animate).toHaveBeenCalledTimes(4);
   });
 
-  test("announces the quote and counter politely when the review changes", async () => {
-    const user = userEvent.setup();
-    const { container } = render(<KindWords messages={messages} />);
-    const live = container.querySelector('[aria-live="polite"]') as HTMLElement;
-    expect(live).toBeTruthy();
-    expect(within(live).getByText(/First quote/)).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(within(live).getByText(/Second quote/)).toBeTruthy();
-    expect(within(live).queryByText(/First quote/)).toBeNull();
+  test("leaving hover keeps the reviews paused while keyboard focus is inside", () => {
+    render(<KindWords />);
+    const region = screen.getByRole("region", { name: "Customer reviews" });
+    fireEvent.focus(region);
+    fireEvent.pointerEnter(region);
+    controls.play.mockClear();
+    fireEvent.pointerLeave(region);
+    expect(controls.play).not.toHaveBeenCalled();
+    fireEvent.blur(region);
+    expect(controls.play).toHaveBeenCalled();
   });
 
-  test("containers are square", () => {
-    const { container } = render(<KindWords messages={messages} />);
-    expect(container.innerHTML).not.toMatch(/rounded-\[/);
+  test("does not auto-scroll under reduced motion", () => {
+    motion.reduceMotion = true;
+    render(<KindWords />);
+    expect(animate).not.toHaveBeenCalled();
   });
 });
