@@ -21,7 +21,7 @@ export function CareersNavLinks() {
 }
 
 const drawerLinkClass =
-  "flex items-center gap-3 rounded-2xl px-4 py-3.5 text-[15px] tracking-[0.35px] text-ink transition hover:bg-lavender";
+  "flex items-center gap-3 px-4 py-3.5 text-[15px] tracking-[0.35px] text-ink transition hover:bg-lavender";
 
 /** The same links, plus the shop, as the rows of the mobile menu drawer. */
 export function CareersDrawerLinks() {

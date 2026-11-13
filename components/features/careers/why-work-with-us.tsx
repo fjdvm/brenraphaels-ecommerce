@@ -19,7 +19,7 @@ export function WhyWorkWithUs() {
         </div>
         <ul className="grid gap-5 md:grid-cols-3">
           {reasons.map(({ icon: Icon, title, text }) => (
-            <li key={title} className="flex flex-col items-start gap-3 rounded-[40px] bg-surface-soft p-[30px]">
+            <li key={title} className="flex flex-col items-start gap-3 bg-surface-soft p-[30px]">
               <span aria-hidden className="flex size-11 items-center justify-center rounded-full bg-white text-primary">
                 <Icon className="size-[22px]" strokeWidth={1.5} />
               </span>

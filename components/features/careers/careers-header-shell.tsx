@@ -62,7 +62,7 @@ export function CareersHeaderShell({
           aria-modal="true"
           aria-label="Careers menu"
           onClick={(event) => (event.target as HTMLElement).closest("a") && setOpen(false)}
-          className="absolute inset-y-0 right-0 flex w-[320px] max-w-[85vw] flex-col whitespace-normal rounded-l-[28px] bg-surface"
+          className="absolute inset-y-0 right-0 flex w-[320px] max-w-[85vw] flex-col whitespace-normal bg-surface"
         >
           <button
             ref={closeButton}

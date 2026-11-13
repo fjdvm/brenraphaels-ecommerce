@@ -8,11 +8,11 @@ export function CareersListSkeleton() {
         <Skeleton className="h-[18px] w-24" />
         <Skeleton className="h-10 w-64 max-w-full" />
       </div>
-      <Skeleton className="h-[92px] w-full rounded-[40px] lg:h-[84px]" />
+      <Skeleton className="h-[92px] w-full lg:h-[84px]" />
       <div className="flex flex-col gap-3">
-        <Skeleton className="h-[170px] w-full rounded-[40px] sm:h-[106px]" />
-        <Skeleton className="h-[170px] w-full rounded-[40px] sm:h-[106px]" />
-        <Skeleton className="h-[170px] w-full rounded-[40px] sm:h-[106px]" />
+        <Skeleton className="h-[170px] w-full sm:h-[106px]" />
+        <Skeleton className="h-[170px] w-full sm:h-[106px]" />
+        <Skeleton className="h-[170px] w-full sm:h-[106px]" />
       </div>
     </div>
   );
@@ -63,14 +63,14 @@ export function CareersProfileSkeleton() {
       <Skeleton className="mt-2 h-[21px] w-full max-w-[520px] sm:mt-4 sm:h-[26px]" />
       <div className="mt-4 grid gap-4 sm:mt-[30px] lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-10">
         <div className="order-2 flex flex-col gap-5 lg:order-none">
-          <Skeleton className="h-[305px] rounded-[28px] sm:rounded-[40px]" />
-          <Skeleton className="h-[383px] rounded-[28px] sm:rounded-[40px]" />
-          <Skeleton className="h-[201px] rounded-[28px] sm:rounded-[40px]" />
-          <Skeleton className="h-[201px] rounded-[28px] sm:rounded-[40px]" />
-          <Skeleton className="h-[312px] rounded-[28px] sm:rounded-[40px]" />
+          <Skeleton className="h-[305px]" />
+          <Skeleton className="h-[383px]" />
+          <Skeleton className="h-[201px]" />
+          <Skeleton className="h-[201px]" />
+          <Skeleton className="h-[312px]" />
         </div>
         <div className="contents lg:flex lg:flex-col lg:gap-5">
-          <Skeleton className="order-1 h-[190px] rounded-[28px] sm:h-[390px] sm:rounded-[40px] lg:order-none" />
+          <Skeleton className="order-1 h-[190px] sm:h-[390px] lg:order-none" />
           <Skeleton className="order-3 h-[59px] rounded-full lg:order-none" />
         </div>
       </div>
@@ -86,8 +86,8 @@ export function CareersApplicationsSkeleton() {
       <Skeleton className="mt-4 h-[65px] w-full max-w-[480px]" />
       <Skeleton className="mt-4 h-[26px] w-full max-w-[480px]" />
       <Skeleton className="mt-6 h-10 w-full max-w-[280px] rounded-full" />
-      <Skeleton className="mt-6 h-[260px] rounded-[28px] sm:h-[158px] sm:rounded-[40px]" />
-      <Skeleton className="mt-6 h-[260px] rounded-[28px] sm:h-[158px] sm:rounded-[40px]" />
+      <Skeleton className="mt-6 h-[260px] sm:h-[158px]" />
+      <Skeleton className="mt-6 h-[260px] sm:h-[158px]" />
     </div>
   );
 }
@@ -99,7 +99,7 @@ export function CareersApplicationSkeleton() {
       <Skeleton className="h-5 w-32" />
       <Skeleton className="h-[48px] w-full max-w-[480px]" />
       <Skeleton className="h-5 w-full max-w-[420px]" />
-      <Skeleton className="h-[160px] rounded-2xl sm:h-[76px]" />
+      <Skeleton className="h-[160px] sm:h-[76px]" />
     </div>
   );
 }
@@ -112,7 +112,7 @@ export function CareersNotificationsSkeleton() {
         <Skeleton className="h-5 w-24" />
         <Skeleton className="h-5 w-32" />
       </div>
-      <Skeleton className="h-[420px] rounded-[40px]" />
+      <Skeleton className="h-[420px]" />
     </div>
   );
 }

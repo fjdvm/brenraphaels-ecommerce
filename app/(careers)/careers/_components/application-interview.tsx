@@ -24,7 +24,7 @@ function timeText(startsAt: Date, endsAt?: Date) {
 
 function Detail({ icon, label, children }: { icon: ReactNode; label: string; children: string }) {
   return (
-    <div className="flex items-center gap-3.5 rounded-2xl bg-surface-soft px-4 py-3 sm:w-[366px]">
+    <div className="flex items-center gap-3.5 bg-surface-soft px-4 py-3 sm:w-[366px]">
       <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-primary">
         {icon}
       </span>
@@ -47,8 +47,8 @@ export function ApplicationInterview({ interview, referenceNumber = "", reschedu
   const disabled = "cursor-not-allowed rounded-full px-[22px] py-3 text-base tracking-[0.45px] opacity-50";
 
   return (
-    <section aria-labelledby="interview-heading" className="flex flex-col gap-5 sm:rounded-[40px] sm:border sm:border-line sm:bg-white sm:p-8">
-      <div className="flex flex-col gap-4 rounded-[28px] border border-line bg-white p-5 sm:gap-5 sm:rounded-none sm:border-0 sm:p-0">
+    <section aria-labelledby="interview-heading" className="flex flex-col gap-5 sm:border sm:border-line sm:bg-white sm:p-8">
+      <div className="flex flex-col gap-4 border border-line bg-white p-5 sm:gap-5 sm:rounded-none sm:border-0 sm:p-0">
         <div className="flex items-start gap-3.5">
           <span aria-hidden className="flex size-[46px] shrink-0 items-center justify-center rounded-full bg-lavender text-primary">
             <Calendar className="size-5" />
@@ -93,7 +93,7 @@ export function ApplicationInterview({ interview, referenceNumber = "", reschedu
         </div>
         <p className="text-xs tracking-[0.35px] text-muted">Joining and the calendar are coming soon. We’ll email you any changes.</p>
       </div>
-      <div className="flex flex-col gap-2.5 rounded-[28px] bg-lavender/60 p-5 sm:rounded-3xl sm:p-6">
+      <div className="flex flex-col gap-2.5 bg-lavender/60 p-5 sm:p-6">
         <h3 className="text-sm font-medium tracking-[0.35px] text-primary">Before your interview</h3>
         <ul className="flex flex-col gap-2 text-sm tracking-[0.35px] text-body">
           {checklist.map((item) => (

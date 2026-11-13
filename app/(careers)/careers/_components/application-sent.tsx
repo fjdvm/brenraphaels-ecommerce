@@ -19,11 +19,11 @@ export function ApplicationSent({ firstName, role, referenceNumber, sentAt, emai
   const sent = sentAtFormat.format(new Date(sentAt)).replace(/\s?(am|pm)$/i, (_, meridiem: string) => ` ${meridiem.toUpperCase()}`);
   return (
     <div role="status" className="mt-8 flex flex-col gap-5">
-      <section className="flex flex-col items-center gap-4 rounded-[32px] border border-line bg-white px-[22px] pb-7 pt-9 sm:gap-[22px] sm:rounded-[40px] sm:px-16 sm:pb-14 sm:pt-[60px]">
+      <section className="flex flex-col items-center gap-4 border border-line bg-white px-[22px] pb-7 pt-9 sm:gap-[22px] sm:px-16 sm:pb-14 sm:pt-[60px]">
         <span aria-hidden className="flex size-[72px] items-center justify-center rounded-full bg-success-soft text-success sm:size-20"><Check className="size-8 sm:size-9" strokeWidth={1.5} /></span>
         <h2 className="text-center font-serif text-[28px] leading-tight text-primary sm:text-[40px] sm:leading-[1.2]">Application sent!</h2>
         <p className="text-center text-sm leading-normal tracking-[0.35px] text-body sm:text-base sm:leading-[1.6]">Thanks, {firstName}. Our team will review your application for {role} and get back to you within 5 working days.</p>
-        <dl className="flex w-full flex-col rounded-[20px] bg-surface-soft text-sm sm:flex-row sm:rounded-3xl">
+        <dl className="flex w-full flex-col bg-surface-soft text-sm sm:flex-row">
           <Detail label="Role" value={role} className="sm:flex" hideOnMobile />
           <Detail label="Reference" value={referenceNumber} />
           <Detail label="Sent" value={sent} />
@@ -49,7 +49,7 @@ export function ApplicationSent({ firstName, role, referenceNumber, sentAt, emai
         </div>
       </section>
       {emailedTo ? (
-        <p className="flex items-start gap-2.5 rounded-[20px] bg-lavender-soft px-4 py-3.5 text-sm leading-normal tracking-[0.35px] text-primary sm:items-center sm:rounded-3xl sm:px-[18px]"><Mail aria-hidden className="size-[18px] shrink-0" />
+        <p className="flex items-start gap-2.5 bg-lavender-soft px-4 py-3.5 text-sm leading-normal tracking-[0.35px] text-primary sm:items-center sm:px-[18px]"><Mail aria-hidden className="size-[18px] shrink-0" />
           <span>We also sent a copy to {emailedTo}. Updates will show in Your applications and in your email.</span></p>
       ) : null}
     </div>

@@ -12,7 +12,7 @@ export function ApplicationDocuments({ documents, required, dueLabel, referenceN
   if (!rows.length) return null;
   const { done, total, percent } = requiredDocumentProgress(rows);
   return (
-    <section aria-labelledby="documents-heading" className="flex flex-col gap-3 rounded-[28px] border border-line bg-white px-5 pb-4 pt-6 sm:gap-[18px] sm:rounded-[40px] sm:px-11 sm:pb-8 sm:pt-10">
+    <section aria-labelledby="documents-heading" className="flex flex-col gap-3 border border-line bg-white px-5 pb-4 pt-6 sm:gap-[18px] sm:px-11 sm:pb-8 sm:pt-10">
       <div className="flex items-center gap-2 sm:gap-[18px]">
         <span className="hidden size-[52px] shrink-0 items-center justify-center rounded-full bg-lavender text-primary sm:flex">
           <Upload aria-hidden className="size-[22px]" />
@@ -29,8 +29,8 @@ export function ApplicationDocuments({ documents, required, dueLabel, referenceN
         </p>
       </div>
       <p className="text-xs tracking-[0.35px] text-body sm:hidden">PDF, JPG or PNG, up to 10 MB.</p>
-      <div role="progressbar" aria-label="Documents done" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} className="h-1.5 overflow-hidden rounded bg-lavender sm:h-2">
-        <div className="h-full rounded bg-primary" style={{ width: `${percent}%` }} />
+      <div role="progressbar" aria-label="Documents done" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} className="h-1.5 overflow-hidden bg-lavender sm:h-2">
+        <div className="h-full bg-primary" style={{ width: `${percent}%` }} />
       </div>
       <ul aria-label="Documents to submit" className="flex flex-col">
         {rows.map((row, index) => (

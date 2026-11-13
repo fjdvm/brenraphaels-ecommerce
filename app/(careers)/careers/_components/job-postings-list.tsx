@@ -23,7 +23,7 @@ export function OpenRolesHeading({ count, filtered = false }: { count: number; f
 export function JobPostingsList({ jobs, applicationStatuses = {}, filtered = false }: { jobs: JobPosting[]; applicationStatuses?: Record<string, string>; filtered?: boolean }) {
   if (jobs.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3.5 rounded-[40px] border border-line bg-white px-6 py-10 text-center sm:px-10 sm:py-14">
+      <div className="flex flex-col items-center gap-3.5 border border-line bg-white px-6 py-10 text-center sm:px-10 sm:py-14">
         <span aria-hidden className="grid size-14 place-items-center rounded-full bg-lavender text-primary sm:size-16">
           <Search className="size-6 sm:size-[26px]" />
         </span>
@@ -54,7 +54,7 @@ export function JobPostingsList({ jobs, applicationStatuses = {}, filtered = fal
       {jobs.map((job) => (
         <li
           key={job.id}
-          className="flex flex-col gap-4 rounded-[40px] border border-line bg-white px-6 py-[22px] sm:flex-row sm:items-center sm:gap-5"
+          className="flex flex-col gap-4 border border-line bg-white px-6 py-[22px] sm:flex-row sm:items-center sm:gap-5"
         >
           <span aria-hidden className="grid size-[50px] shrink-0 place-items-center rounded-full bg-lavender text-primary">
             <Briefcase className="size-5" />

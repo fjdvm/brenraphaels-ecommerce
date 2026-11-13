@@ -58,7 +58,7 @@ export function JobDetailHeader({ posting, children }: { posting: JobPosting; ch
         <ArrowLeft aria-hidden className="size-[18px]" />
         All open roles
       </Link>
-      <div className="flex flex-col gap-6 rounded-[40px] bg-lavender-soft px-6 py-8 sm:px-10 sm:py-12 lg:flex-row lg:items-end lg:gap-10 lg:px-[60px] lg:py-14">
+      <div className="flex flex-col gap-6 bg-lavender-soft px-6 py-8 sm:px-10 sm:py-12 lg:flex-row lg:items-end lg:gap-10 lg:px-[60px] lg:py-14">
         <div className="flex min-w-0 flex-1 flex-col items-start gap-[18px]">
           <p className="text-xs font-medium uppercase tracking-[0.12em] text-primary">
             {posting.department} · {posting.location.split(",")[0]}
@@ -101,7 +101,7 @@ export function JobDetailBody({ posting, aside, children }: { posting: JobPostin
 
   return (
     <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-      <div className="flex min-w-0 flex-1 flex-col gap-9 rounded-[40px] border border-line bg-white px-6 py-8 sm:px-[52px] sm:py-12">
+      <div className="flex min-w-0 flex-1 flex-col gap-9 border border-line bg-white px-6 py-8 sm:px-[52px] sm:py-12">
         <section className="flex flex-col gap-4">
           <h2 className={sectionHeadingClass}>About the role</h2>
           <p className="whitespace-pre-line leading-[1.6] text-body">{posting.description}</p>

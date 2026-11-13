@@ -23,7 +23,7 @@ export function ApplicationProgressStrip({ status, progress }: { status: Applica
   const Icon = highlighted ? CalendarDays : Clock;
   return (
     <div
-      className={`flex flex-col gap-3 rounded-[18px] px-3 py-3 sm:flex-row sm:items-center sm:gap-4 sm:rounded-3xl sm:py-[18px] sm:pl-[18px] sm:pr-[22px] ${highlighted ? "bg-lavender-soft" : "bg-surface"}`}
+      className={`flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:gap-4 sm:py-[18px] sm:pl-[18px] sm:pr-[22px] ${highlighted ? "bg-lavender-soft" : "bg-surface"}`}
       role="group"
       aria-label={`${message.title}. ${label}`}
     >
@@ -41,7 +41,7 @@ export function ApplicationProgressStrip({ status, progress }: { status: Applica
           {Array.from({ length: progress.total }, (_, index) => (
             <span
               key={index}
-              className={`h-1.5 flex-1 rounded-[3px] sm:w-9 sm:flex-none ${progress.closed ? "bg-line" : index < progress.step ? "bg-primary" : "bg-accent/35"}`}
+              className={`h-1.5 flex-1 sm:w-9 sm:flex-none ${progress.closed ? "bg-line" : index < progress.step ? "bg-primary" : "bg-accent/35"}`}
             />
           ))}
         </div>

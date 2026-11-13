@@ -74,7 +74,7 @@ function ApplicationCard({ application }: { application: ApplicationSummary }) {
   const highlighted = application.status === "Interview";
 
   return (
-    <li className="flex flex-col gap-3.5 rounded-[28px] border border-line bg-white px-5 py-6 sm:gap-5 sm:rounded-[40px] sm:px-8 sm:pb-7 sm:pt-8">
+    <li className="flex flex-col gap-3.5 border border-line bg-white px-5 py-6 sm:gap-5 sm:px-8 sm:pb-7 sm:pt-8">
       <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:gap-5">
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-5">
           <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full bg-lavender text-primary sm:size-[52px]">
@@ -133,7 +133,7 @@ async function ApplicationsList({ searchParams }: { searchParams: Promise<{ view
 
   if (applications.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-5 rounded-[40px] border border-line bg-white px-6 py-16 text-center sm:p-20">
+      <div className="flex flex-col items-center gap-5 border border-line bg-white px-6 py-16 text-center sm:p-20">
         <span aria-hidden className="flex size-24 items-center justify-center rounded-full bg-lavender text-primary">
           <Briefcase className="size-[43px]" strokeWidth={1.25} />
         </span>
@@ -159,7 +159,7 @@ async function ApplicationsList({ searchParams }: { searchParams: Promise<{ view
     <div className="flex flex-col gap-4 sm:gap-6">
       <ViewTabs view={view} counts={counts} />
       {visible.length === 0 ? (
-        <p className="rounded-[28px] border border-line bg-white px-6 py-10 text-center tracking-[0.35px] text-body">
+        <p className=" border border-line bg-white px-6 py-10 text-center tracking-[0.35px] text-body">
           {view === "active" ? "You have no active applications." : "You have no closed applications."}
         </p>
       ) : (

@@ -60,7 +60,7 @@ export function ApplicantNotificationsFeed({ items, now }: { items: InboxNotific
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-5 rounded-[40px] border border-line bg-white px-6 py-16 text-center sm:p-20" role="status">
+      <div className="flex flex-col items-center gap-5 border border-line bg-white px-6 py-16 text-center sm:p-20" role="status">
         <span aria-hidden className="flex size-24 items-center justify-center rounded-full bg-lavender text-primary">
           <Bell className="size-[43px]" strokeWidth={1.25} />
         </span>
@@ -88,7 +88,7 @@ export function ApplicantNotificationsFeed({ items, now }: { items: InboxNotific
           Mark all as read
         </button>
       </div>
-      <ul className="overflow-hidden rounded-[40px] border border-line bg-white">
+      <ul className="overflow-hidden border border-line bg-white">
         {items.map((item) => {
           const unread = isUnread(item);
           const rowClass = cn(

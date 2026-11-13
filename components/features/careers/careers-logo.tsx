@@ -11,7 +11,7 @@ export function CareersLogo({ inverse = false, className }: { inverse?: boolean;
       aria-label="Bren Raphael's Careers home"
       className={cn("flex w-fit items-center gap-3", className)}
     >
-      <Image src="/logo.jpeg" alt="" width={56} height={56} className="size-14 rounded-[14px] object-cover" />
+      <Image src="/logo.jpeg" alt="" width={56} height={56} className="size-14 object-cover" />
       <span>
         <strong
           className={cn(

@@ -19,7 +19,7 @@ function Answer({ label, children }: { label: string; children: string }) {
 /** "What you sent": the submitted documents, applied date and the Applicant's answers; empty sections are left out. */
 export function ApplicationSubmission({ appliedAt, documents, profile }: { appliedAt: Date; documents: ApplicationDocument[]; profile: SubmittedProfile }) {
   return (
-    <section aria-labelledby="submission-heading" className="flex flex-col gap-4 rounded-[20px] border border-line bg-white p-6">
+    <section aria-labelledby="submission-heading" className="flex flex-col gap-4 border border-line bg-white p-6">
       <div className="flex flex-col gap-0.5">
         <h2 id="submission-heading" className="text-lg font-semibold text-ink">
           What you sent

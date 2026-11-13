@@ -8,7 +8,7 @@ import type { ApplicationStatus } from "@/lib/careers/applications";
 export function ApplicationStepper({ status, appliedOn, updatedOn }: { status: ApplicationStatus; appliedOn: string; updatedOn?: string }) {
   const progress = applicationProgress(status);
   return (
-    <ol aria-label="Application progress" className="flex items-start rounded-3xl bg-surface-soft px-3 pb-3.5 pt-4 sm:items-center sm:gap-3.5 sm:rounded-[40px] sm:px-8 sm:py-6">
+    <ol aria-label="Application progress" className="flex items-start bg-surface-soft px-3 pb-3.5 pt-4 sm:items-center sm:gap-3.5 sm:px-8 sm:py-6">
       {applicationStepLabels.map((label, index) => {
         const number = index + 1;
         const done = number < progress.step;
@@ -32,7 +32,7 @@ export function ApplicationStepper({ status, appliedOn, updatedOn }: { status: A
               <span className={`text-[13px] sm:text-sm ${reached ? "font-medium text-primary" : "text-muted"}`}>{label}</span>
               {date ? <span className="text-xs tracking-[0.35px] text-muted">{date}</span> : <span className="hidden text-xs text-muted sm:block">—</span>}
             </span>
-            {number < applicationStepLabels.length ? <span aria-hidden className={`hidden h-0.5 flex-1 rounded-sm sm:block ${done ? "bg-primary" : "bg-line"}`} /> : null}
+            {number < applicationStepLabels.length ? <span aria-hidden className={`hidden h-0.5 flex-1 sm:block ${done ? "bg-primary" : "bg-line"}`} /> : null}
           </li>
         );
       })}

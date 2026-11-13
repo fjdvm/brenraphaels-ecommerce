@@ -7,7 +7,7 @@ import { OfferReplyControls } from "./offer-reply-controls";
 
 function Term({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start gap-2 px-3.5 py-3 text-sm tracking-[0.35px] sm:min-w-0 sm:flex-col sm:gap-1.5 sm:rounded-3xl sm:bg-surface-soft sm:px-5 sm:py-[18px]">
+    <div className="flex items-start gap-2 px-3.5 py-3 text-sm tracking-[0.35px] sm:min-w-0 sm:flex-col sm:gap-1.5 sm:bg-surface-soft sm:px-5 sm:py-[18px]">
       <dt className="min-w-0 flex-1 text-muted sm:flex-none sm:text-xs">{label}</dt>
       <dd className="shrink-0 break-words font-medium text-ink sm:font-serif sm:text-lg sm:font-normal sm:leading-[1.35] sm:text-primary">{value}</dd>
     </div>
@@ -43,7 +43,7 @@ export function ApplicationOffer({ view, jobTitle, offer, referenceNumber = "", 
   ];
   const Icon = view === "hired" ? PartyPopper : Heart;
   return (
-    <section aria-labelledby="offer-heading" className="flex flex-col gap-4 rounded-[28px] border border-line bg-white px-5 pb-[22px] pt-6 sm:gap-6 sm:rounded-[40px] sm:px-11 sm:pb-10 sm:pt-11">
+    <section aria-labelledby="offer-heading" className="flex flex-col gap-4 border border-line bg-white px-5 pb-[22px] pt-6 sm:gap-6 sm:px-11 sm:pb-10 sm:pt-11">
       <div className="flex items-center gap-3 sm:gap-[18px]">
         <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-success-soft text-success sm:size-[52px]">
           <Icon aria-hidden className="size-5 sm:size-[22px]" />
@@ -61,12 +61,12 @@ export function ApplicationOffer({ view, jobTitle, offer, referenceNumber = "", 
         </div>
       </div>
       {(view === "accepted" || view === "declined") && (
-        <p className="rounded-2xl bg-lavender-soft px-4 py-3 text-sm font-medium tracking-[0.35px] text-primary">
+        <p className=" bg-lavender-soft px-4 py-3 text-sm font-medium tracking-[0.35px] text-primary">
           {view === "accepted" ? "You accepted" : "You declined"}
           {answeredOn ? ` on ${answeredOn}` : " this offer"}
         </p>
       )}
-      <dl className="flex flex-col rounded-[18px] bg-surface-soft sm:grid sm:grid-cols-2 sm:gap-3 sm:rounded-none sm:bg-transparent lg:grid-cols-4">
+      <dl className="flex flex-col bg-surface-soft sm:grid sm:grid-cols-2 sm:gap-3 sm:rounded-none sm:bg-transparent lg:grid-cols-4">
         {terms.map(([label, value]) => <Term key={label} label={label} value={value} />)}
         {replyBy && view === "reply" && (
           <div className="sm:hidden">
@@ -77,7 +77,7 @@ export function ApplicationOffer({ view, jobTitle, offer, referenceNumber = "", 
       {view === "reply" && (
         <>
           {overdue && (
-            <p role="status" className="rounded-2xl bg-warning-soft px-4 py-3 text-sm tracking-[0.35px] text-ink">
+            <p role="status" className=" bg-warning-soft px-4 py-3 text-sm tracking-[0.35px] text-ink">
               The reply-by date of {replyBy} has passed. You can still reply: we&apos;ll be glad to hear from you.
             </p>
           )}

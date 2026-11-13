@@ -20,7 +20,7 @@ export function DocumentList({ documents, label = "Documents", note, className }
               type="button"
               aria-label={`Open ${document.name}`}
               onClick={() => setIndex(i)}
-              className="flex w-full items-center gap-3.5 rounded-[3px] border border-line px-5 py-4 text-left transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="flex w-full items-center gap-3.5 border border-line px-5 py-4 text-left transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-lavender text-primary">
                 <FileText className="size-[18px]" strokeWidth={1.5} />

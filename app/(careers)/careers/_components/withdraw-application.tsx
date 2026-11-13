@@ -35,7 +35,7 @@ export function WithdrawApplication({ referenceNumber }: { referenceNumber: stri
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger disabled={pending} aria-busy={pending} className="self-start text-sm font-medium tracking-[0.35px] text-muted underline-offset-4 hover:text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60">{pending ? "Withdrawing…" : "Withdraw application"}</DialogTrigger>
-      <DialogContent className="rounded-[28px] p-8 sm:p-10">
+      <DialogContent className=" p-8 sm:p-10">
         <DialogTitle className="font-serif text-2xl text-primary">Withdraw this application?</DialogTitle>
         <DialogDescription className="mt-3 text-sm leading-[1.5] tracking-[0.35px] text-body">
           The hiring team will stop considering you for this role. This can&apos;t be undone, but you can apply again later if it&apos;s still open.

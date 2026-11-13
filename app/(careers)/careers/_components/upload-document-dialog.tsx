@@ -128,11 +128,11 @@ export function UploadDocumentDialog({ open, onOpenChange, documentName, dueLabe
         <DialogPrimitive.Content
           className={cn(
             "fixed z-50 flex max-h-[92dvh] flex-col overflow-y-auto bg-white shadow-[0_-8px_16px_rgba(43,26,69,0.2)] focus:outline-none",
-            "inset-x-0 bottom-0 rounded-t-[32px] pb-6",
-            "sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[600px] sm:max-w-[calc(100%-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[32px] sm:pb-0 sm:shadow-[0_20px_24px_rgba(43,26,69,0.25)]",
+            "inset-x-0 bottom-0 pb-6",
+            "sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[600px] sm:max-w-[calc(100%-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:pb-0 sm:shadow-[0_20px_24px_rgba(43,26,69,0.25)]",
           )}
         >
-          <span aria-hidden className="mx-auto mt-2.5 mb-1 h-1 w-10 rounded-sm bg-line sm:hidden" />
+          <span aria-hidden className="mx-auto mt-2.5 mb-1 h-1 w-10 bg-line sm:hidden" />
           <div className="flex items-start gap-3 py-2.5 pl-5 pr-4 sm:pb-4 sm:pl-8 sm:pr-6 sm:pt-7">
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <DialogPrimitive.Title className="font-serif text-[22px] leading-[1.3] text-primary">Upload {documentName}</DialogPrimitive.Title>
@@ -149,7 +149,7 @@ export function UploadDocumentDialog({ open, onOpenChange, documentName, dueLabe
             <label
               onDragOver={(event) => event.preventDefault()}
               onDrop={drop}
-              className="hidden cursor-pointer flex-col items-center gap-2.5 rounded-3xl border border-dashed border-accent bg-lavender-soft px-6 py-8 focus-within:ring-2 focus-within:ring-primary sm:flex"
+              className="hidden cursor-pointer flex-col items-center gap-2.5 border border-dashed border-accent bg-lavender-soft px-6 py-8 focus-within:ring-2 focus-within:ring-primary sm:flex"
             >
               <span aria-hidden className="flex size-[52px] items-center justify-center rounded-full bg-white text-primary"><Upload className="size-[22px]" /></span>
               <span className="text-sm font-medium tracking-[0.35px] text-primary">Drop your file here, or browse</span>
@@ -178,9 +178,9 @@ export function UploadDocumentDialog({ open, onOpenChange, documentName, dueLabe
             {problem && !file ? <p role="alert" className="text-sm tracking-[0.35px] text-red-700">{problem}</p> : null}
 
             {file ? (
-              <div className="flex flex-col gap-2.5 rounded-[20px] border border-line py-3.5 pl-3.5 pr-4">
+              <div className="flex flex-col gap-2.5 border border-line py-3.5 pl-3.5 pr-4">
                 <div className="flex items-center gap-3">
-                  <span aria-hidden className="flex h-10 w-9 shrink-0 items-center justify-center rounded-[10px] bg-lavender-soft text-primary"><FileText className="size-4" /></span>
+                  <span aria-hidden className="flex h-10 w-9 shrink-0 items-center justify-center bg-lavender-soft text-primary"><FileText className="size-4" /></span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5 tracking-[0.35px]">
                     <span className="truncate text-sm font-medium text-ink">{file.name}</span>
                     <span className="text-xs text-muted">{label ? label.text : formatMegabytes(file.size)}</span>
@@ -195,15 +195,15 @@ export function UploadDocumentDialog({ open, onOpenChange, documentName, dueLabe
                   </button>
                 </div>
                 {label ? (
-                  <div role="progressbar" aria-label="Upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={label.percent} className="h-1.5 overflow-hidden rounded-[3px] bg-lavender">
-                    <div className="h-full rounded-[3px] bg-primary transition-[width]" style={{ width: `${label.percent}%` }} />
+                  <div role="progressbar" aria-label="Upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={label.percent} className="h-1.5 overflow-hidden bg-lavender">
+                    <div className="h-full bg-primary transition-[width]" style={{ width: `${label.percent}%` }} />
                   </div>
                 ) : null}
                 {failed ? <p role="alert" className="text-xs tracking-[0.35px] text-red-700">{problem}</p> : null}
               </div>
             ) : null}
 
-            <p className="flex items-start gap-2.5 rounded-2xl bg-surface-soft px-3.5 py-3 text-xs tracking-[0.35px] text-body">
+            <p className="flex items-start gap-2.5 bg-surface-soft px-3.5 py-3 text-xs tracking-[0.35px] text-body">
               <Eye aria-hidden className="mt-0.5 size-4 shrink-0" />
               Make sure your name, photo and the issue date are readable. Blurry files may be sent back.
             </p>
@@ -224,7 +224,7 @@ export function UploadDocumentDialog({ open, onOpenChange, documentName, dueLabe
 
 function SheetOption({ icon, title, hint, onClick }: { icon: React.ReactNode; title: string; hint: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="flex items-center gap-3.5 rounded-[18px] border border-line p-3.5 text-left tracking-[0.35px]">
+    <button type="button" onClick={onClick} className="flex items-center gap-3.5 border border-line p-3.5 text-left tracking-[0.35px]">
       <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-lavender text-primary">{icon}</span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-sm font-medium text-ink">{title}</span>

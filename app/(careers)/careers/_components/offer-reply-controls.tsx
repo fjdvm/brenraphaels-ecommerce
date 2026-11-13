@@ -20,9 +20,9 @@ function ReplySheet({ open, onOpenChange, title, children }: { open: boolean; on
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         aria-describedby={undefined}
-        className="bottom-0 left-0 top-auto max-w-none translate-x-0 translate-y-0 rounded-b-none rounded-t-[32px] border-0 p-0 shadow-[0_-8px_16px_rgba(43,26,69,0.2)] sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[560px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[32px]"
+        className="bottom-0 left-0 top-auto max-w-none translate-x-0 translate-y-0 rounded-b-none border-0 p-0 shadow-[0_-8px_16px_rgba(43,26,69,0.2)] sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[560px] sm:-translate-x-1/2 sm:-translate-y-1/2"
       >
-        <div className="mx-auto mt-2.5 h-1 w-10 rounded-sm bg-line sm:hidden" />
+        <div className="mx-auto mt-2.5 h-1 w-10 bg-line sm:hidden" />
         <div className="flex items-center gap-2.5 py-2.5 pl-5 pr-4 sm:items-start sm:gap-3 sm:pb-4 sm:pl-8 sm:pr-6 sm:pt-7">
           <DialogTitle className="flex-1 font-serif text-[22px] leading-[1.3] text-primary">{title}</DialogTitle>
         </div>
@@ -93,7 +93,7 @@ export function OfferReplyControls({ referenceNumber, enabled, offer }: { refere
           <input type="hidden" name="referenceNumber" value={referenceNumber} />
           <div className="flex flex-col gap-3.5 px-5 pb-4 pt-2 sm:gap-4 sm:px-8 sm:pb-6">
             <DialogDescription className="text-sm leading-[1.5] tracking-[0.35px] text-body">You&apos;re accepting {role} at Bren Raphael&apos;s.</DialogDescription>
-            <dl className="flex flex-col rounded-[18px] bg-surface-soft text-sm tracking-[0.35px] sm:rounded-[20px]">
+            <dl className="flex flex-col bg-surface-soft text-sm tracking-[0.35px]">
               <SummaryRow label="Monthly pay" value={offer.monthlyPay} />
               <SummaryRow label="Start date" value={offer.startDate} />
               <SummaryRow label="Schedule" value={offer.schedule} />
@@ -102,7 +102,7 @@ export function OfferReplyControls({ referenceNumber, enabled, offer }: { refere
               <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} className="mt-0.5 size-[18px] shrink-0 accent-primary" />
               I&apos;ve read the offer terms and agree to them.
             </label>
-            <p className="hidden items-start gap-2.5 rounded-2xl bg-lavender-soft px-3.5 py-3 text-xs leading-[1.5] tracking-[0.35px] text-primary sm:flex">
+            <p className="hidden items-start gap-2.5 bg-lavender-soft px-3.5 py-3 text-xs leading-[1.5] tracking-[0.35px] text-primary sm:flex">
               <FileText aria-hidden className="mt-0.5 size-4 shrink-0" />
               Next, upload your remaining documents so we can prepare your first day.
             </p>

@@ -12,7 +12,7 @@ export function HowHiringWorks() {
       <h2 className="font-serif text-[22px] leading-[1.3] text-primary">How hiring works</h2>
       <ol className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map((step, index) => (
-          <li key={step.title} className="flex flex-col items-start gap-3 rounded-[40px] bg-surface-soft p-[30px]">
+          <li key={step.title} className="flex flex-col items-start gap-3 bg-surface-soft p-[30px]">
             <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-primary text-[13px] font-medium tracking-[0.35px] text-white">
               {index + 1}
             </span>

@@ -3,7 +3,7 @@ import { Mail } from "lucide-react";
 /** Messages has no source yet, so it says so rather than inventing a thread. */
 export function ApplicationMessages() {
   return (
-    <section aria-labelledby="messages-heading" className="flex flex-col gap-1 rounded-[28px] border border-line bg-white px-5 pb-5 pt-[22px] sm:rounded-[40px] sm:px-7 sm:pb-6 sm:pt-8">
+    <section aria-labelledby="messages-heading" className="flex flex-col gap-1 border border-line bg-white px-5 pb-5 pt-[22px] sm:px-7 sm:pb-6 sm:pt-8">
       <h2 id="messages-heading" className="font-serif text-lg leading-[1.35] text-primary sm:text-[22px]">
         Messages
       </h2>
@@ -20,7 +20,7 @@ export function ApplicationMessages() {
 
 export function ApplicationHelp() {
   return (
-    <section aria-labelledby="help-heading" className="flex flex-col items-start gap-3 rounded-[28px] bg-[#3f2b5f] px-7 py-8 sm:rounded-[40px]">
+    <section aria-labelledby="help-heading" className="flex flex-col items-start gap-3 bg-[#3f2b5f] px-7 py-8">
       <h2 id="help-heading" className="font-serif text-[22px] leading-[1.3] text-white">
         Questions?
       </h2>

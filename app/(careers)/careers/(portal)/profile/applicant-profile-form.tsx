@@ -25,7 +25,7 @@ type Education = ApplicantProfile["education"][number];
 type WorkHistory = ApplicantProfile["workHistory"][number];
 type Errors = Record<string, string | undefined>;
 
-const cardClass = "flex flex-col gap-5 rounded-[28px] border border-line bg-white px-5 py-6 sm:rounded-[40px] sm:p-10";
+const cardClass = "flex flex-col gap-5 border border-line bg-white px-5 py-6 sm:p-10";
 const cardTitleClass = "font-serif text-lg leading-[1.35] text-primary sm:text-[22px] sm:leading-[1.3]";
 const textareaClass = `${fieldClass} min-h-32 w-full border border-input bg-white outline-none focus:ring-2 focus:ring-ring`;
 
@@ -50,7 +50,7 @@ function SectionRow({ title, add, addLabel, children }: { title: string; add?: (
 
 function EmptyHint({ icon: Icon, children }: { icon: typeof Calendar; children: ReactNode }) {
   return (
-    <p className="flex items-center gap-3.5 rounded-[3px] bg-surface-soft p-5 text-sm tracking-[0.35px] text-muted">
+    <p className="flex items-center gap-3.5 bg-surface-soft p-5 text-sm tracking-[0.35px] text-muted">
       <Icon aria-hidden className="size-5 shrink-0" />
       {children}
     </p>
@@ -68,7 +68,7 @@ function RemoveButton({ onClick, children }: { onClick: () => void; children: Re
 function EducationFields({ item, index, errors, remove }: { item?: Education; index: number; errors: Errors; remove: () => void }) {
   const id = (name: string) => `education-${index}-${name}`;
   return (
-    <fieldset className="grid gap-4 rounded-[3px] border border-line p-5">
+    <fieldset className="grid gap-4 border border-line p-5">
       <legend className="px-1 text-sm font-medium text-primary">Education {index + 1}</legend>
       <Field id={id("school")} label="School" required error={errors[id("school")]}>
         <Input {...fieldProps(id("school"), errors[id("school")])} required name="school" maxLength={200} defaultValue={item?.school ?? ""} className={fieldClass} />
@@ -95,7 +95,7 @@ function EducationFields({ item, index, errors, remove }: { item?: Education; in
 function WorkHistoryFields({ item, index, errors, remove }: { item?: WorkHistory; index: number; errors: Errors; remove: () => void }) {
   const id = (name: string) => `workHistory-${index}-${name}`;
   return (
-    <fieldset className="grid gap-4 rounded-[3px] border border-line p-5">
+    <fieldset className="grid gap-4 border border-line p-5">
       <legend className="px-1 text-sm font-medium text-primary">Work history {index + 1}</legend>
       <Field id={id("employer")} label="Employer" required error={errors[id("employer")]}>
         <Input {...fieldProps(id("employer"), errors[id("employer")])} required name="employer" maxLength={200} defaultValue={item?.employer ?? ""} className={fieldClass} />
@@ -142,7 +142,7 @@ function SkillTags({ skills, setSkills, error }: { skills: string[]; setSkills: 
     <div className="grid gap-2.5">
       <label htmlFor="skills-draft" className="text-[13px] font-medium tracking-[0.35px] text-ink">Skills</label>
       <input type="hidden" name="skills" value={skills.join(", ")} />
-      <div className="flex flex-wrap items-center gap-2 rounded-[3px] border border-line bg-white px-3 py-2.5 focus-within:ring-2 focus-within:ring-ring">
+      <div className="flex flex-wrap items-center gap-2 border border-line bg-white px-3 py-2.5 focus-within:ring-2 focus-within:ring-ring">
         {skills.map((skill) => (
           <span key={skill} className="flex items-center gap-1.5 rounded-full bg-lavender py-[5px] pl-3 pr-2 text-xs tracking-[0.35px] text-primary">
             {skill}
@@ -204,7 +204,7 @@ function Documents({ profileSaved, documents }: { profileSaved: boolean; documen
           onDragOver={(event) => event.preventDefault()}
           onDrop={drop}
           className={cn(
-            "flex items-center gap-4 rounded-[3px] border border-dashed border-primary bg-lavender-soft p-6 focus-within:ring-2 focus-within:ring-ring",
+            "flex items-center gap-4 border border-dashed border-primary bg-lavender-soft p-6 focus-within:ring-2 focus-within:ring-ring",
             profileSaved && !pending ? "cursor-pointer" : "cursor-not-allowed opacity-60",
           )}
         >
@@ -242,11 +242,11 @@ function Documents({ profileSaved, documents }: { profileSaved: boolean; documen
 
 function ProfileStrength({ percent, steps }: ReturnType<typeof profileStrength>) {
   return (
-    <section className="order-first flex flex-col gap-3 rounded-[28px] bg-primary px-5 py-[22px] text-white sm:gap-[18px] sm:rounded-[40px] sm:p-10 lg:order-none">
+    <section className="order-first flex flex-col gap-3 bg-primary px-5 py-[22px] text-white sm:gap-[18px] sm:p-10 lg:order-none">
       <p className="text-xs font-medium uppercase leading-normal tracking-[0.15em] text-accent">Profile strength</p>
       <p className="font-serif text-[22px] leading-[1.3] sm:text-[40px] sm:leading-[1.2]">{percent}% complete</p>
-      <div role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Profile strength" className="h-2 overflow-hidden rounded bg-white">
-        <div className="h-full rounded bg-accent" style={{ width: `${percent}%` }} />
+      <div role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Profile strength" className="h-2 overflow-hidden bg-white">
+        <div className="h-full bg-accent" style={{ width: `${percent}%` }} />
       </div>
       <ul className="flex flex-col gap-[18px]">
         {steps.map((step) => (
