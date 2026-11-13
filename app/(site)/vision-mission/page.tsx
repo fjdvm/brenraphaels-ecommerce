@@ -49,7 +49,7 @@ function Statement({
   return (
     <div
       className={cn(
-        "flex flex-col items-start gap-6 rounded-[40px] p-8 sm:p-[60px]",
+        "flex flex-col items-start gap-6 p-8 sm:p-[60px]",
         inverted ? "bg-primary" : "bg-lavender-soft",
       )}
     >
@@ -95,7 +95,7 @@ export default function VisionMissionPage() {
           {values.map(({ icon: Icon, title, text }) => (
             <li
               key={title}
-              className="flex flex-col items-start gap-4 rounded-[40px] border border-line bg-white p-9"
+              className="flex flex-col items-start gap-4 border border-line bg-white p-9"
             >
               <span className="grid size-[52px] place-items-center rounded-full bg-lavender text-primary">
                 <Icon aria-hidden className="size-[23px]" strokeWidth={1.5} />

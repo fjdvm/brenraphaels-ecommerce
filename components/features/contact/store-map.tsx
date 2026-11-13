@@ -118,9 +118,9 @@ export function StoreMap({ place, className }: { place: string; className?: stri
   const directionsHref = `https://www.google.com/maps/dir/?api=1&destination=${storeLocation.lat},${storeLocation.lng}`;
 
   return (
-    <div className={cn("relative isolate overflow-hidden rounded-[40px] bg-lavender-soft", className)}>
+    <div className={cn("relative isolate overflow-hidden bg-lavender-soft", className)}>
       <div aria-label={`Map — ${place}`} className="absolute inset-0 z-0" ref={containerRef} role="region" />
-      <div className="absolute inset-x-4 top-4 z-[500] flex flex-wrap items-center gap-3 rounded-[24px] bg-white/95 p-3 pl-5 shadow-md">
+      <div className="absolute inset-x-4 top-4 z-[500] flex flex-wrap items-center gap-3 bg-white/95 p-3 pl-5 shadow-md">
         <p aria-live="polite" className="min-w-0 flex-1 text-xs leading-normal tracking-[0.35px] text-body">
           {route
             ? `${route.distanceKm.toFixed(1)} km · about ${route.minutes} min by car`

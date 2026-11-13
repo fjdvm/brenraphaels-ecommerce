@@ -31,7 +31,7 @@ export function MediaCard({
     "grid size-[72px] place-items-center rounded-full bg-white text-primary transition hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-[40px] bg-white">
+    <article className="flex h-full flex-col overflow-hidden bg-white">
       {playing && id ? (
         <YouTubeVideo id={id} title={title} autoplay />
       ) : (
@@ -39,7 +39,7 @@ export function MediaCard({
           src={thumbnail}
           alt={title}
           sizes="(min-width: 1024px) 670px, 100vw"
-          className="h-[240px] rounded-none sm:h-[380px]"
+          className="h-[240px] sm:h-[380px]"
         >
           <div aria-hidden className="absolute inset-0 bg-[rgba(43,26,69,0.55)]" />
           <div className="absolute inset-0 grid place-items-center">

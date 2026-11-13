@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * A rounded photo slot. Without a `src` it shows the lavender placeholder
+ * A square photo slot. Without a `src` it shows the lavender placeholder
  * with its caption, until the real photo is supplied.
  */
 export function PhotoTile({
@@ -28,7 +28,7 @@ export function PhotoTile({
   return (
     <div
       className={cn(
-        "relative isolate overflow-hidden rounded-[40px] bg-[linear-gradient(135deg,#e9ddfb_0%,#c9a8f0_71.4%)]",
+        "relative isolate overflow-hidden bg-[linear-gradient(135deg,#e9ddfb_0%,#c9a8f0_71.4%)]",
         className,
       )}
     >

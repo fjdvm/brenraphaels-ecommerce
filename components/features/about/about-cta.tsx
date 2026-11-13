@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 export function AboutCta() {
   return (
     <section className="mx-auto max-w-[1440px] px-5 pb-[100px] sm:px-10">
-      <div className="flex flex-col gap-8 rounded-[40px] bg-lavender-soft p-8 sm:p-[60px] lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-8 bg-lavender-soft p-8 sm:p-[60px] lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-4 text-primary">
           <p className="text-xs font-medium uppercase leading-normal tracking-[0.15em]">
             Taste the story

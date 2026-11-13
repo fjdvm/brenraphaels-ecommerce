@@ -44,7 +44,7 @@ export default function ContactPage() {
 
       <section className="mx-auto flex max-w-[1440px] flex-col gap-5 px-5 pb-[100px] pt-10 sm:px-10 lg:flex-row">
         <div className="flex flex-col gap-5 lg:w-[560px] lg:shrink-0">
-          <div className="flex flex-col gap-7 rounded-[40px] bg-lavender-soft p-8 sm:p-11">
+          <div className="flex flex-col gap-7 bg-lavender-soft p-8 sm:p-11">
             <InfoRow icon={<Mail aria-hidden className="size-[22px]" strokeWidth={1.5} />} title="Email">
               <a className="w-fit text-primary hover:underline" href={`mailto:${email}`}>
                 {email}
@@ -72,7 +72,7 @@ export default function ContactPage() {
           {storeSchedule.map(({ days, hours }) => (
             <li
               key={days}
-              className="flex flex-col items-start gap-3.5 rounded-[40px] border border-line bg-white p-10"
+              className="flex flex-col items-start gap-3.5 border border-line bg-white p-10"
             >
               <span className="flex size-11 items-center justify-center rounded-full bg-lavender text-primary">
                 <Clock aria-hidden className="size-5" strokeWidth={1.5} />
@@ -87,7 +87,7 @@ export default function ContactPage() {
           ))}
           <li
             data-theme="dark"
-            className="flex flex-col items-start gap-3.5 rounded-[40px] bg-primary p-10 text-white"
+            className="flex flex-col items-start gap-3.5 bg-primary p-10 text-white"
           >
             <span className="flex size-11 items-center justify-center rounded-full bg-white text-primary">
               <Clock aria-hidden className="size-5" strokeWidth={1.5} />
