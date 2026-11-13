@@ -143,7 +143,7 @@ export function Combobox({
           id={listId}
           role="listbox"
           aria-label={label}
-          className="absolute left-0 right-0 top-full z-20 mt-1 flex max-h-64 flex-col gap-0.5 overflow-auto rounded-2xl border border-line bg-white p-2 shadow-[0_20px_24px_rgba(43,26,69,0.18)]"
+          className="absolute left-0 right-0 top-full z-20 mt-1 flex max-h-64 flex-col gap-0.5 overflow-auto border border-line bg-white p-2 shadow-[0_20px_24px_rgba(43,26,69,0.18)]"
         >
           {visible.map((option, index) => (
             <li
@@ -155,7 +155,7 @@ export function Combobox({
               onMouseEnter={() => setActive(index)}
               onClick={() => choose(option.value)}
               className={cn(
-                "flex cursor-pointer items-center gap-2.5 rounded-[10px] p-3 text-sm tracking-[0.35px] text-ink",
+                "flex cursor-pointer items-center gap-2.5 p-3 text-sm tracking-[0.35px] text-ink",
                 index === active && "bg-lavender-soft",
                 option.value === value && "font-medium text-primary",
               )}

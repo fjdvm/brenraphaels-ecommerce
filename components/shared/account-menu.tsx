@@ -49,7 +49,7 @@ export function AccountMenu({ initials, firstName, signOut, menu = "customer" }:
       </button>
       {/* Stays mounted while closed so the sign-out confirmation survives the menu hiding behind it. */}
       <div className={open ? "absolute right-0 top-full z-10 pt-3" : "hidden"}>
-          <ul className="min-w-56 overflow-hidden rounded-3xl border border-outline-variant/60 bg-surface py-2 text-on-surface shadow-lg">
+          <ul className="min-w-56 overflow-hidden border border-outline-variant/60 bg-surface py-2 text-on-surface shadow-lg">
             {items.map(({ href, label, icon: Icon }) => (
               <li key={href}>
                 <Link

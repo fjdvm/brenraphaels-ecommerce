@@ -40,7 +40,7 @@ export function DatePicker({ value, onChange, min }: { value: string; onChange: 
   const arrowClass = "grid size-9 place-items-center rounded-full bg-surface text-primary disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
-    <div className="flex flex-col gap-3 rounded-[20px] border border-line p-3 sm:p-4">
+    <div className="flex flex-col gap-3 border border-line p-3 sm:p-4">
       <div className="flex items-center gap-2">
         <button type="button" aria-label="Previous month" disabled={atEarliest} onClick={() => go(-1)} className={arrowClass}>
           <ChevronLeft aria-hidden className="size-4" />

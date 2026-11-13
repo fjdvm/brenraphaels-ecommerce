@@ -47,10 +47,12 @@
   --border: var(--outline-variant);
   --input: var(--outline-variant);
   --ring: var(--primary);
+  /* Containers are square; pills, buttons, badges, avatars and circular icon buttons use rounded-full. */
+  --radius-container: 0;
   --radius-sm: 0.5rem;
-  --radius-md: 1.5rem;
-  --radius-lg: 2rem;
-  --radius-xl: 3rem;
+  --radius-md: var(--radius-container);
+  --radius-lg: var(--radius-container);
+  --radius-xl: var(--radius-container);
 }
 
 @theme inline {

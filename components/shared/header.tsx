@@ -93,7 +93,7 @@ function AboutMenu({ label, items }: { label: string; items: NavLink[] }) {
       </button>
       {open && (
         <div className="absolute left-0 top-full z-10 pt-3">
-          <div className="min-w-56 overflow-hidden rounded-3xl border border-outline-variant/60 bg-surface py-2 text-on-surface shadow-lg">
+          <div className="min-w-56 overflow-hidden border border-outline-variant/60 bg-surface py-2 text-on-surface shadow-lg">
             {items.map((link) => (
               <Link
                 key={link.href}
