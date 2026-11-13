@@ -36,10 +36,10 @@ export function ProductPageSkeleton() {
     <ProductPageFrame>
       <div className="grid gap-10 lg:grid-cols-[1fr_600px] lg:gap-[60px]" aria-hidden="true">
         <div className="flex flex-col gap-5">
-          <Skeleton className="aspect-square w-full rounded-[40px] lg:aspect-auto lg:h-[700px]" />
+          <Skeleton className="aspect-square w-full lg:aspect-auto lg:h-[700px]" />
           <div className="grid grid-cols-4 gap-5">
             {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="aspect-square rounded-[40px]" />
+              <Skeleton key={index} className="aspect-square" />
             ))}
           </div>
         </div>

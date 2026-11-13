@@ -86,7 +86,7 @@ export function ProductQuickOrder({
                 key={size.id}
                 type="button"
                 onClick={() => setSizeId(size.id)}
-                className={`flex items-center justify-between rounded-[3px] border-2 px-5 py-3.5 text-left font-medium transition ${
+                className={`flex items-center justify-between border-2 px-5 py-3.5 text-left font-medium transition ${
                   size.id === sizeId
                     ? "border-primary bg-lavender-soft text-ink"
                     : "border-line text-ink hover:border-primary"

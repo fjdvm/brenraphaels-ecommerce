@@ -11,10 +11,10 @@ export function CheckoutSkeleton() {
       </div>
       <div className="flex flex-col gap-10 lg:flex-row lg:items-start">
         <div className="flex flex-1 flex-col gap-6">
-          <Skeleton className="h-[190px] w-full rounded-[40px]" />
-          <Skeleton className="h-[260px] w-full rounded-[40px]" />
+          <Skeleton className="h-[190px] w-full" />
+          <Skeleton className="h-[260px] w-full" />
         </div>
-        <Skeleton className="h-[460px] w-full rounded-[40px] lg:w-[460px]" />
+        <Skeleton className="h-[460px] w-full lg:w-[460px]" />
       </div>
     </div>
   );

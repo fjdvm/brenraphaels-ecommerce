@@ -74,7 +74,7 @@ export function AddToCart({
             return (
               <label
                 key={size.id}
-                className={`flex flex-col gap-0.5 rounded-[3px] px-6 py-4 transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
+                className={`flex flex-col gap-0.5 px-6 py-4 transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
                   !size.available
                     ? "cursor-not-allowed border border-line bg-surface-container-low opacity-60"
                     : selected

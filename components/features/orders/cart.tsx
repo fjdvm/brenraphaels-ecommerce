@@ -200,7 +200,7 @@ export function CartView({ customerHasCart, initialCart }: { customerHasCart: bo
         </div>
         <aside
           aria-labelledby="order-summary-heading"
-          className="flex w-full flex-col gap-6 rounded-[40px] border border-line bg-white p-8 sm:p-10 lg:w-[460px] lg:shrink-0"
+          className="flex w-full flex-col gap-6 border border-line bg-white p-8 sm:p-10 lg:w-[460px] lg:shrink-0"
         >
           <h2 id="order-summary-heading" className="font-serif text-[28px] leading-tight text-primary">Order summary</h2>
           <div className="flex items-center justify-between text-sm tracking-wide text-body">

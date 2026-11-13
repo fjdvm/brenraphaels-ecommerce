@@ -72,7 +72,7 @@ async function ProductPageContent({ params }: ProductPageProps) {
               product={{ slug: product.slug, name: product.name, image: product.images[0]?.url, sizes: product.sizes }}
               customerHasCart={visitor.state === "customer"}
             />
-            <div className="flex flex-col gap-[18px] rounded-[40px] bg-surface-container-low p-[30px]">
+            <div className="flex flex-col gap-[18px] bg-surface-container-low p-[30px]">
               {fulfilment.map(({ icon: Icon, title, text }) => (
                 <div key={title} className="flex items-start gap-3.5">
                   <Icon aria-hidden className="mt-0.5 size-[22px] shrink-0 text-primary" />
