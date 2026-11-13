@@ -14,7 +14,7 @@ export function CartSkeleton() {
           <Skeleton className="h-[72px] w-full" />
           <Skeleton className="h-[72px] w-full" />
         </div>
-        <Skeleton className="h-[420px] w-full rounded-[40px] lg:w-[460px]" />
+        <Skeleton className="h-[420px] w-full lg:w-[460px]" />
       </div>
     </div>
   );

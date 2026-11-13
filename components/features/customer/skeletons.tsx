@@ -1,7 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-const card = "rounded-[40px]";
-
 export function OrdersSkeleton() {
   return (
     <div aria-hidden="true" className="flex flex-col gap-[30px]">
@@ -10,9 +8,9 @@ export function OrdersSkeleton() {
           <Skeleton className="h-[38px] rounded-full" key={width} style={{ width }} />
         ))}
       </div>
-      <Skeleton className={`h-[640px] ${card}`} />
-      <Skeleton className={`h-[260px] ${card}`} />
-      <Skeleton className={`h-[130px] ${card}`} />
+      <Skeleton className="h-[640px]" />
+      <Skeleton className="h-[260px]" />
+      <Skeleton className="h-[130px]" />
     </div>
   );
 }
@@ -21,8 +19,8 @@ export function AddressesSkeleton() {
   return (
     <div aria-hidden="true" className="flex flex-col gap-[30px]">
       <div className="grid gap-5 md:grid-cols-2">
-        <Skeleton className={`h-[190px] ${card}`} />
-        <Skeleton className={`h-[190px] ${card}`} />
+        <Skeleton className="h-[190px]" />
+        <Skeleton className="h-[190px]" />
       </div>
     </div>
   );
@@ -36,8 +34,8 @@ export function NotificationsSkeleton() {
           <Skeleton className="h-[38px] rounded-full" key={width} style={{ width }} />
         ))}
       </div>
-      <Skeleton className={`h-[460px] ${card}`} />
-      <Skeleton className={`h-[200px] ${card}`} />
+      <Skeleton className="h-[460px]" />
+      <Skeleton className="h-[200px]" />
     </div>
   );
 }
@@ -45,9 +43,9 @@ export function NotificationsSkeleton() {
 export function SettingsSkeleton() {
   return (
     <div aria-hidden="true" className="flex flex-col gap-6">
-      <Skeleton className={`h-[246px] ${card}`} />
-      <Skeleton className={`h-[246px] ${card}`} />
-      <Skeleton className={`h-[246px] ${card}`} />
+      <Skeleton className="h-[246px]" />
+      <Skeleton className="h-[246px]" />
+      <Skeleton className="h-[246px]" />
     </div>
   );
 }

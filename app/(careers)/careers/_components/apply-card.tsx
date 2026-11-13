@@ -20,7 +20,7 @@ export type ApplyAccess =
   | { kind: "no-profile" }
   | { kind: "ready"; email: string; profile: ApplicantProfile; documents: Document[] };
 
-const cardClass = "flex w-full shrink-0 scroll-mt-6 flex-col gap-5 rounded-[40px] border border-line bg-white px-6 pb-8 pt-9 sm:px-8 lg:w-[460px]";
+const cardClass = "flex w-full shrink-0 scroll-mt-6 flex-col gap-5 border border-line bg-white px-6 pb-8 pt-9 sm:px-8 lg:w-[460px]";
 const headingClass = "font-serif text-[22px] leading-[1.3] text-primary";
 const labelClass = "flex gap-[3px] text-[13px] font-medium text-ink";
 const linkClass = "text-sm font-medium text-primary";
@@ -80,7 +80,7 @@ function ApplyForm({ jobPostingId, requiredDocuments, access }: { jobPostingId: 
         <h2 className={headingClass}>Apply with your profile</h2>
         <p className="text-sm leading-normal text-body">We’ll send your saved profile and résumé. Check them before you submit.</p>
       </div>
-      <div className="flex items-center gap-3.5 rounded-3xl bg-surface py-4 pl-4 pr-[18px]">
+      <div className="flex items-center gap-3.5 bg-surface py-4 pl-4 pr-[18px]">
         <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-medium text-on-primary">{initialsOf(profile.fullName)}</span>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="truncate text-sm font-medium text-ink">{profile.fullName}</p>
@@ -88,19 +88,19 @@ function ApplyForm({ jobPostingId, requiredDocuments, access }: { jobPostingId: 
         </div>
         <Link href="/careers/profile" className={linkClass}>Edit</Link>
       </div>
-      <div className="flex flex-col gap-2 rounded-[20px] bg-lavender-soft px-4 py-3.5">
+      <div className="flex flex-col gap-2 bg-lavender-soft px-4 py-3.5">
         <div className="flex items-start gap-2 text-[13px] font-medium text-primary">
           <p className="flex-1">Profile {strength.percent}% complete</p>
           {nextStep ? <Link href="/careers/profile" className="shrink-0 underline">{nextStep}</Link> : null}
         </div>
-        <div role="progressbar" aria-label="Profile completeness" aria-valuenow={strength.percent} aria-valuemin={0} aria-valuemax={100} className="h-1.5 w-full rounded bg-white">
-          <div className="h-1.5 rounded bg-primary" style={{ width: `${strength.percent}%` }} />
+        <div role="progressbar" aria-label="Profile completeness" aria-valuenow={strength.percent} aria-valuemin={0} aria-valuemax={100} className="h-1.5 w-full bg-white">
+          <div className="h-1.5 bg-primary" style={{ width: `${strength.percent}%` }} />
         </div>
         <p className="text-xs text-body">A complete profile helps our team get to know you faster.</p>
       </div>
       {documents[0] ? (
-        <div className="flex items-center gap-3.5 rounded-[20px] border border-line bg-white py-3.5 pl-3.5 pr-[18px]">
-          <span aria-hidden className="flex h-11 w-10 shrink-0 items-center justify-center rounded-xl bg-lavender-soft"><FileText className="size-[18px] text-primary" /></span>
+        <div className="flex items-center gap-3.5 border border-line bg-white py-3.5 pl-3.5 pr-[18px]">
+          <span aria-hidden className="flex h-11 w-10 shrink-0 items-center justify-center bg-lavender-soft"><FileText className="size-[18px] text-primary" /></span>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <p className="truncate text-sm font-medium text-ink">{documents[0].name}</p>
             <p className="text-xs text-muted">From your profile</p>
@@ -111,7 +111,7 @@ function ApplyForm({ jobPostingId, requiredDocuments, access }: { jobPostingId: 
       {requiredDocuments.map((requiredDocument, index) => (
         <div key={`${requiredDocument}-${index}`} className="flex flex-col gap-1.5">
           <label htmlFor={`document-${index}`} className={labelClass}>{requiredDocument}<RequiredMark /></label>
-          <select {...fieldProps(`document-${index}`)} required name="documentId" defaultValue="" className="rounded-[10px] border border-line bg-white px-3.5 py-[11px] text-sm text-ink">
+          <select {...fieldProps(`document-${index}`)} required name="documentId" defaultValue="" className=" border border-line bg-white px-3.5 py-[11px] text-sm text-ink">
             <option value="" disabled>Select a Document</option>
             {documents.map((document) => <option key={document.id} value={document.id}>{document.name}</option>)}
           </select>

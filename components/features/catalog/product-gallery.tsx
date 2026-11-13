@@ -12,7 +12,7 @@ export function ProductGallery({ images }: { images: GalleryImage[] }) {
 
   return (
     <div role="group" aria-roledescription="carousel" aria-label="Product photos" className="flex flex-col gap-5">
-      <div className="relative aspect-square w-full overflow-hidden rounded-[40px] bg-lavender-soft lg:aspect-auto lg:h-[700px]">
+      <div className="relative aspect-square w-full overflow-hidden bg-lavender-soft lg:aspect-auto lg:h-[700px]">
         {images.map((image, index) => (
           <Image
             key={image.url}
@@ -36,7 +36,7 @@ export function ProductGallery({ images }: { images: GalleryImage[] }) {
               aria-label={`Show photo ${index + 1} of ${count}`}
               aria-current={index === active}
               onClick={() => setActive(index)}
-              className={`relative aspect-square overflow-hidden rounded-[24px] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:rounded-[40px] ${
+              className={`relative aspect-square overflow-hidden transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                 index === active ? "ring-2 ring-primary" : "opacity-80 hover:opacity-100"
               }`}
             >

@@ -3,7 +3,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { eyebrowClass } from "@/components/features/about/section-heading";
 import { cn } from "@/lib/utils";
 
-/** The white rounded card every auth page sits in. */
+/** The white card every auth page sits in. */
 export function AuthCard({
   className,
   children,
@@ -12,7 +12,7 @@ export function AuthCard({
   return (
     <div
       className={cn(
-        "flex w-full max-w-[520px] flex-col gap-[22px] rounded-[40px] border border-line bg-white p-6 sm:p-[50px]",
+        "flex w-full max-w-[520px] flex-col gap-[22px] border border-line bg-white p-6 sm:p-[50px]",
         className,
       )}
       {...props}

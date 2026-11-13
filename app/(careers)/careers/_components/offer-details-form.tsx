@@ -58,7 +58,7 @@ export function OfferDetailsForm({ referenceNumber, initial }: { referenceNumber
   );
 
   return (
-    <section aria-labelledby="details-heading" className="flex flex-col gap-5 rounded-[28px] border border-line bg-white px-5 pb-[22px] pt-6 sm:gap-6 sm:rounded-[40px] sm:px-11 sm:pb-10 sm:pt-11">
+    <section aria-labelledby="details-heading" className="flex flex-col gap-5 border border-line bg-white px-5 pb-[22px] pt-6 sm:gap-6 sm:px-11 sm:pb-10 sm:pt-11">
       <div className="flex flex-col gap-1.5">
         <h2 id="details-heading" className="font-serif text-lg leading-[1.35] text-primary sm:text-[28px] sm:leading-[1.25]">Your details</h2>
         <p className="text-sm tracking-[0.35px] text-body">

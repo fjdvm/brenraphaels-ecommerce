@@ -48,7 +48,7 @@ export function ProductsFrame({ children }: { children: ReactNode }) {
       <section className="mx-auto max-w-[1440px] px-5 pb-[100px] sm:px-10">
         <div className="grid gap-5 md:grid-cols-3">
           {reasons.map(({ icon: Icon, title, text }) => (
-            <div key={title} className="flex flex-col gap-4 rounded-[40px] bg-lavender-soft p-8 sm:p-10">
+            <div key={title} className="flex flex-col gap-4 bg-lavender-soft p-8 sm:p-10">
               <span className="grid size-[52px] place-items-center rounded-full bg-white text-primary">
                 <Icon aria-hidden className="size-[23px]" />
               </span>

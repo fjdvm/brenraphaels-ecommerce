@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export function ApplicantAuthCard({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <AuthCard
-      className={cn("max-w-[540px] gap-[18px] rounded-[32px] px-[22px] py-7 sm:gap-5 sm:rounded-[40px] sm:px-[50px] sm:py-[46px]", className)}
+      className={cn("max-w-[540px] gap-[18px] px-[22px] py-7 sm:gap-5 sm:px-[50px] sm:py-[46px]", className)}
       {...props}
     />
   );

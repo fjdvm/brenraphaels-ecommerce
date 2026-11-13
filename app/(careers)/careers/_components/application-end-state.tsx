@@ -11,7 +11,7 @@ const copy: Record<string, string> = {
 /** What a closed Application shows in place of the stepper. */
 export function ApplicationEndState({ status, closedOn }: { status: ApplicationStatus; closedOn: string }) {
   return (
-    <section aria-label="Application outcome" className="flex flex-col gap-1.5 rounded-3xl bg-surface-soft px-5 py-5 sm:rounded-[40px] sm:px-8 sm:py-6">
+    <section aria-label="Application outcome" className="flex flex-col gap-1.5 bg-surface-soft px-5 py-5 sm:px-8 sm:py-6">
       <h2 className="font-serif text-lg text-primary sm:text-[22px]">{applicationStatusDisplay(status).label}</h2>
       <p className="text-sm tracking-[0.35px] text-body">{copy[status] ?? "This application is closed."}</p>
       <p className="text-xs tracking-[0.35px] text-muted">{closedOn}</p>

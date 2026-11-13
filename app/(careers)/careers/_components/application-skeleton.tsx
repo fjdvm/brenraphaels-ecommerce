@@ -7,12 +7,12 @@ export function ApplicationPageSkeleton() {
       <Skeleton className="h-5 w-36" />
       <Skeleton className="h-[40px] w-full max-w-[520px] sm:h-[65px]" />
       <Skeleton className="h-5 w-full max-w-[420px]" />
-      <Skeleton className="h-[74px] rounded-3xl sm:h-[84px] sm:rounded-[40px]" />
+      <Skeleton className="h-[74px] sm:h-[84px]" />
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-        <Skeleton className="h-[280px] w-full rounded-[28px] sm:rounded-[40px] lg:flex-1" />
+        <Skeleton className="h-[280px] w-full lg:flex-1" />
         <div className="flex w-full flex-col gap-5 lg:w-[440px] lg:shrink-0">
-          <Skeleton className="h-[200px] rounded-[28px] sm:rounded-[40px]" />
-          <Skeleton className="h-[190px] rounded-[28px] sm:rounded-[40px]" />
+          <Skeleton className="h-[200px]" />
+          <Skeleton className="h-[190px]" />
         </div>
       </div>
     </div>

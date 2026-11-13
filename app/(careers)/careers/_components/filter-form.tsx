@@ -64,7 +64,7 @@ export function FilterForm({ children, className, groups, selected, postings }: 
         </div>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-tertiary/50" />
-          <DialogPrimitive.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[90dvh] flex-col rounded-t-[28px] bg-white focus:outline-none">
+          <DialogPrimitive.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[90dvh] flex-col bg-white focus:outline-none">
             <div className="flex items-center justify-between px-5 pb-4 pt-6">
               <DialogPrimitive.Title className="font-serif text-2xl text-primary">Filter roles</DialogPrimitive.Title>
               <DialogPrimitive.Close aria-label="Close" className="grid size-10 place-items-center rounded-full bg-lavender-soft text-primary">

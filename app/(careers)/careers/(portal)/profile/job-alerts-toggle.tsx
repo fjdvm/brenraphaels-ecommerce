@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { runWithToast } from "../../_components/action-toast";
 import { setApplicantJobAlerts } from "./actions";
 
-const cardClass = "flex flex-col gap-4 rounded-[40px] border border-line bg-white p-6 sm:p-10";
+const cardClass = "flex flex-col gap-4 border border-line bg-white p-6 sm:p-10";
 
 /** Saves on change behind the shared card; a failed save restores the previous state and the card says why, with Retry. */
 export function JobAlertsToggle({ initial, profileSaved }: { initial: boolean; profileSaved: boolean }) {

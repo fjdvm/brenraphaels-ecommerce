@@ -35,7 +35,7 @@ function FieldError({ messages }: { messages?: string[] }) {
 
 function FormCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-1 flex-col gap-6 rounded-[40px] border border-line bg-white p-6 sm:p-[50px]">
+    <div className="flex flex-1 flex-col gap-6 border border-line bg-white p-6 sm:p-[50px]">
       <SectionHeading eyebrow="Send us a message" title="How can we help?" />
       {children}
     </div>
@@ -140,7 +140,7 @@ export function ContactForm() {
             maxLength={commentMaximumLength}
             placeholder="Tell us what's on your mind…"
             required
-            className="flex min-h-32 w-full rounded-[3px] border border-line bg-white px-4 py-3.5 text-sm tracking-[0.35px] outline-none placeholder:text-muted focus:ring-2 focus:ring-ring"
+            className="flex min-h-32 w-full border border-line bg-white px-4 py-3.5 text-sm tracking-[0.35px] outline-none placeholder:text-muted focus:ring-2 focus:ring-ring"
           />
           <FieldError messages={errors?.comment} />
         </div>

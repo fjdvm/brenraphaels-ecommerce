@@ -32,7 +32,7 @@ export function PartnershipsCarousel({ items }: { items: Partnership[] }) {
         sizes="(min-width: 1024px) 780px, 100vw"
         className="h-[320px] sm:h-[420px] lg:h-[560px] lg:flex-1"
       />
-      <div className="flex flex-col justify-between gap-10 rounded-[40px] bg-lavender-soft p-8 sm:p-[50px] lg:min-h-[560px] lg:w-[560px] lg:shrink-0">
+      <div className="flex flex-col justify-between gap-10 bg-lavender-soft p-8 sm:p-[50px] lg:min-h-[560px] lg:w-[560px] lg:shrink-0">
         <div key={active} className="editorial-swap flex flex-col gap-4">
           <p className={eyebrowClass}>Strategic partnerships</p>
           <h2 className="font-serif text-3xl leading-[1.2] text-primary sm:text-[40px]">

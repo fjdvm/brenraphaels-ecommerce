@@ -45,13 +45,13 @@ function Stage({ document, link, retry }: { document: ViewableDocument; link: Li
   if (broken && (kind === "image" || kind === "pdf")) return <Message onRetry={() => { setBroken(false); retry(); }}>{OPEN_FAILED}</Message>;
   if (kind === "image") {
     // eslint-disable-next-line @next/next/no-img-element -- signed file-storage address, shown at its natural size
-    return <img src={link.url} alt={document.name} onError={() => setBroken(true)} className="h-auto max-h-full w-auto max-w-full object-contain sm:rounded-[32px]" />;
+    return <img src={link.url} alt={document.name} onError={() => setBroken(true)} className="h-auto max-h-full w-auto max-w-full object-contain" />;
   }
   if (kind === "pdf") {
-    return <iframe src={link.url} title={document.name} className="size-full max-w-[1000px] bg-white sm:rounded-[32px]" />;
+    return <iframe src={link.url} title={document.name} className="size-full max-w-[1000px] bg-white" />;
   }
   return (
-    <div className="flex w-full max-w-[420px] flex-col items-center gap-4 rounded-[28px] bg-white p-8 text-center">
+    <div className="flex w-full max-w-[420px] flex-col items-center gap-4 bg-white p-8 text-center">
       <span aria-hidden className="flex size-14 items-center justify-center rounded-full bg-lavender text-primary"><FileText className="size-6" strokeWidth={1.5} /></span>
       <div className="flex min-w-0 flex-col gap-1">
         <p className="break-words font-medium text-ink">{document.name}</p>

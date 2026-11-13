@@ -30,7 +30,7 @@ export function HeroImages() {
           type="button"
           aria-label={`View photo: ${feature.caption}`}
           onClick={() => setOpenIndex(0)}
-          className={cn(openerClass, "col-span-3 aspect-[16/10] rounded-[28px]")}
+          className={cn(openerClass, "col-span-3 aspect-[16/10]")}
         >
           <Image
             src={feature.src}
@@ -47,7 +47,7 @@ export function HeroImages() {
             type="button"
             aria-label={`View photo: ${tile.caption}`}
             onClick={() => setOpenIndex(i + 1)}
-            className={cn(openerClass, "aspect-[4/3] rounded-[20px]")}
+            className={cn(openerClass, "aspect-[4/3]")}
           >
             <Image
               src={tile.src}

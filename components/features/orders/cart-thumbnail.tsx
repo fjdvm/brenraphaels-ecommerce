@@ -4,7 +4,7 @@ import Image from "next/image";
 export function CartThumbnail({ url, size }: { url?: string | null; size: 64 | 120 }) {
   const box = size === 120 ? "size-[88px] sm:size-[120px]" : "size-16";
   return (
-    <div className={`relative ${box} shrink-0 overflow-hidden rounded-[20px] bg-gradient-to-br from-[#e9ddfb] to-[#c9a8f0]`}>
+    <div className={`relative ${box} shrink-0 overflow-hidden bg-gradient-to-br from-[#e9ddfb] to-[#c9a8f0]`}>
       {url ? <Image src={url} alt="" fill sizes={`${size}px`} className="object-cover" /> : null}
     </div>
   );

@@ -105,7 +105,7 @@ function HelpCard() {
   return (
     <div
       data-theme="dark"
-      className="flex flex-col items-start gap-3.5 rounded-[40px] bg-primary p-[30px] text-white"
+      className="flex flex-col items-start gap-3.5 bg-primary p-[30px] text-white"
     >
       <span className="flex size-11 items-center justify-center rounded-full bg-white text-primary">
         <MessageCircle aria-hidden className="size-5" />

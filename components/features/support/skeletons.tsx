@@ -25,9 +25,9 @@ export function ConversationSkeleton() {
         <Skeleton className="h-4 w-56" />
       </div>
       <div className="flex flex-1 flex-col gap-5 p-8">
-        <Skeleton className="h-20 w-2/3 rounded-3xl" />
-        <Skeleton className="ml-auto h-12 w-1/3 rounded-3xl" />
-        <Skeleton className="h-20 w-2/3 rounded-3xl" />
+        <Skeleton className="h-20 w-2/3" />
+        <Skeleton className="ml-auto h-12 w-1/3" />
+        <Skeleton className="h-20 w-2/3" />
       </div>
       <div className="p-6">
         <Skeleton className="h-[60px] rounded-full" />

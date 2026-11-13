@@ -9,7 +9,7 @@ export default function Loading() {
           <Skeleton className="h-[339px] w-full" />
           <Skeleton className="h-[59px] w-[287px] rounded-full" />
         </div>
-        <Skeleton className="aspect-[4/3] rounded-[28px]" />
+        <Skeleton className="aspect-[4/3]" />
       </div>
       <div className="pt-20">
         <CareersListSkeleton />

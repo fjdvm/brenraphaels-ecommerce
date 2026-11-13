@@ -16,7 +16,7 @@ export function priceRange(lowest: number, highest: number) {
 export function ProductCardSkeleton() {
   return (
     <div className="flex flex-col gap-[18px]" aria-hidden="true">
-      <Skeleton className="aspect-[5/4] w-full rounded-[40px]" />
+      <Skeleton className="aspect-[5/4] w-full" />
       <div className="space-y-1.5">
         <Skeleton className="h-7 w-2/3" />
         <Skeleton className="h-[18px] w-1/3" />
@@ -47,7 +47,7 @@ export function ProductCard({
           width={800}
           height={640}
           sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-          className={`aspect-[5/4] w-full rounded-[40px] object-cover transition duration-300 group-hover:scale-[1.02] ${
+          className={`aspect-[5/4] w-full object-cover transition duration-300 group-hover:scale-[1.02] ${
             unavailable ? "opacity-55" : ""
           }`}
         />

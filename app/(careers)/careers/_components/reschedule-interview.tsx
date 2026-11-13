@@ -84,13 +84,13 @@ export function RescheduleInterview({ referenceNumber, enabled, today }: { refer
       <Dialog open={open} onOpenChange={close}>
         <DialogContent
           aria-describedby={undefined}
-          className="bottom-0 left-0 top-auto max-h-[92vh] max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-b-none rounded-t-[32px] border-0 p-0 shadow-[0_-8px_16px_rgba(43,26,69,0.2)] sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[620px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[32px]"
+          className="bottom-0 left-0 top-auto max-h-[92vh] max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-b-none border-0 p-0 shadow-[0_-8px_16px_rgba(43,26,69,0.2)] sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[620px] sm:-translate-x-1/2 sm:-translate-y-1/2"
         >
           <form onSubmit={send}>
             <input type="hidden" name="referenceNumber" value={referenceNumber} />
             <input type="hidden" name="date" value={date} />
             <input type="hidden" name="time" value={time} />
-            <div className="mx-auto mt-2.5 h-1 w-10 rounded-sm bg-line sm:hidden" />
+            <div className="mx-auto mt-2.5 h-1 w-10 bg-line sm:hidden" />
             <div className="flex items-start gap-3 pb-4 pl-5 pr-4 pt-3 sm:pl-8 sm:pr-6 sm:pt-7">
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <DialogTitle className="font-serif text-[22px] leading-[1.3] text-primary">Request a new interview time</DialogTitle>
@@ -123,7 +123,7 @@ export function RescheduleInterview({ referenceNumber, enabled, today }: { refer
               </div>
               <label className="flex flex-col gap-2 text-[13px] font-medium tracking-[0.35px] text-ink">
                 Note (optional)
-                <textarea name="note" maxLength={500} rows={3} className="rounded-[3px] border border-line bg-white px-4 py-3.5 text-sm font-normal text-ink" />
+                <textarea name="note" maxLength={500} rows={3} className=" border border-line bg-white px-4 py-3.5 text-sm font-normal text-ink" />
               </label>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-line px-5 pb-7 pt-[18px] sm:px-8 sm:pb-6">

@@ -105,7 +105,7 @@ export function OpenTicketForm({
       <Field error={state.fieldErrors?.body?.[0]} id="ticket-message" label="Message" required>
         <textarea
           aria-invalid={Boolean(state.fieldErrors?.body)}
-          className="min-h-32 w-full rounded-[3px] border border-line bg-white px-4 py-3.5 text-sm tracking-[0.35px] outline-none placeholder:text-muted focus:ring-2 focus:ring-ring"
+          className="min-h-32 w-full border border-line bg-white px-4 py-3.5 text-sm tracking-[0.35px] outline-none placeholder:text-muted focus:ring-2 focus:ring-ring"
           id="ticket-message"
           maxLength={2_000}
           name="body"
@@ -114,7 +114,7 @@ export function OpenTicketForm({
         />
       </Field>
 
-      <div className="relative flex items-center gap-4 rounded-[3px] border border-dashed border-primary bg-lavender-soft px-6 py-6 focus-within:ring-2 focus-within:ring-ring">
+      <div className="relative flex items-center gap-4 border border-dashed border-primary bg-lavender-soft px-6 py-6 focus-within:ring-2 focus-within:ring-ring">
         <Upload aria-hidden className="size-5 shrink-0 text-primary" strokeWidth={1.5} />
         <div className="flex min-w-0 flex-col gap-0.5">
           <Label className="text-sm font-medium tracking-[0.35px] text-primary" htmlFor="ticket-attachment">

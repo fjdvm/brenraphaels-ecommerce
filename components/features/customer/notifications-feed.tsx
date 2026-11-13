@@ -94,11 +94,11 @@ export function NotificationsFeed({ items, now }: { items: InboxNotification[]; 
       </div>
 
       {visible.length === 0 ? (
-        <p className="rounded-[40px] border border-line bg-white p-10 text-body" role="status">
+        <p className="border border-line bg-white p-10 text-body" role="status">
           {items.length === 0 ? "Updates about your orders and support conversations will appear here." : "Nothing to show in this view."}
         </p>
       ) : (
-        <ul className="overflow-hidden rounded-[40px] border border-line bg-white">
+        <ul className="overflow-hidden border border-line bg-white">
           {visible.map((item) => {
             const unreadRow = isUnread(item);
             const iconKind = iconOf(item);
@@ -158,7 +158,7 @@ function Preferences() {
   const [values, setValues] = useState(() => Object.fromEntries(preferenceRows.map((row) => [row.id, row.initial])));
 
   return (
-    <section className="flex flex-col gap-5 rounded-[40px] border border-line bg-white p-6 sm:p-[34px]">
+    <section className="flex flex-col gap-5 border border-line bg-white p-6 sm:p-[34px]">
       <h2 className="font-serif text-2xl leading-[1.3] text-primary">Notification preferences</h2>
       <ul className="flex flex-col gap-4">
         {preferenceRows.map(({ id, label }) => (

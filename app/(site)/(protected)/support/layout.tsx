@@ -50,7 +50,7 @@ export default function SupportLayout({ children }: { children: ReactNode }) {
         eyebrow="Customer care"
         title="Support"
       />
-      <div className="grid min-h-[640px] grid-rows-[minmax(0,1fr)] overflow-hidden rounded-[40px] border border-line bg-white lg:h-[820px] lg:grid-cols-[400px_minmax(0,1fr)]">
+      <div className="grid min-h-[640px] grid-rows-[minmax(0,1fr)] overflow-hidden border border-line bg-white lg:h-[820px] lg:grid-cols-[400px_minmax(0,1fr)]">
         <Suspense fallback={<SupportInboxSkeleton />}>
           <Inbox />
         </Suspense>

@@ -26,7 +26,7 @@ export function KindWords({ messages }: { messages: CustomerMessage[] }) {
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_420px]">
-      <div className="flex min-h-[420px] flex-col justify-between gap-10 rounded-[40px] bg-primary p-8 sm:p-[60px]">
+      <div className="flex min-h-[420px] flex-col justify-between gap-10 bg-primary p-8 sm:p-[60px]">
         <p className="text-xs font-medium uppercase tracking-[0.15em] text-primary-fixed-dim">
           Kind words
         </p>
@@ -66,7 +66,7 @@ export function KindWords({ messages }: { messages: CustomerMessage[] }) {
           </div>
         </div>
       </div>
-      <div className="relative min-h-[420px] overflow-hidden rounded-[40px] bg-primary-fixed lg:h-[560px]">
+      <div className="relative min-h-[420px] overflow-hidden bg-primary-fixed lg:h-[560px]">
         <Image
           key={message.src}
           data-direction={direction}

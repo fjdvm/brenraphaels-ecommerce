@@ -15,7 +15,7 @@ import {
 } from "@/lib/returns/return-form";
 import type { ReturnOfferLine } from "@/lib/returns/return-offers";
 
-const fieldClass = "w-full rounded-[3px] border border-line bg-white px-4 py-3 text-sm tracking-[0.35px] outline-none focus:ring-2 focus:ring-ring";
+const fieldClass = "w-full border border-line bg-white px-4 py-3 text-sm tracking-[0.35px] outline-none focus:ring-2 focus:ring-ring";
 const labelClass = "text-[13px] font-medium tracking-[0.35px] text-ink";
 const errorClass = "text-sm text-red-700";
 

@@ -107,7 +107,7 @@ export default function CareersPage(props: CareersPageProps) {
     <>
       <section className="mx-auto w-full max-w-[1440px] px-5 pb-[100px] pt-[60px] sm:px-10">
         <div className="grid items-stretch gap-10 lg:grid-cols-2 lg:gap-[60px]">
-          <div className="flex flex-col justify-center gap-7 rounded-[40px] bg-lavender-soft p-8 sm:p-[60px]">
+          <div className="flex flex-col justify-center gap-7 bg-lavender-soft p-8 sm:p-[60px]">
             <div className="flex max-w-[660px] flex-col gap-4">
               <p className={eyebrowClass}>Careers at Bren Raphael&apos;s</p>
               <h1 className="font-serif text-5xl leading-[1.1] text-primary sm:text-7xl">

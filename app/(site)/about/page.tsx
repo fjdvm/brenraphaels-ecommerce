@@ -160,7 +160,7 @@ export default function AboutPage() {
             humble beginnings.
           </p>
         </Chapter>
-        <figure className="flex flex-col gap-4 rounded-[40px] bg-primary p-8 sm:p-[60px]">
+        <figure className="flex flex-col gap-4 bg-primary p-8 sm:p-[60px]">
           <blockquote className="font-serif text-3xl leading-[1.2] text-white sm:text-5xl lg:text-[54px]">
             “Great things can grow <br className="hidden lg:block" />
             from humble beginnings.”

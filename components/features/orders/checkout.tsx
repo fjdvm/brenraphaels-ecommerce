@@ -150,7 +150,7 @@ export function CheckoutView({
         </div>
         <aside
           aria-labelledby="checkout-summary-heading"
-          className="flex w-full flex-col gap-[22px] rounded-[40px] border border-line bg-white p-8 sm:p-10 lg:w-[460px] lg:shrink-0"
+          className="flex w-full flex-col gap-[22px] border border-line bg-white p-8 sm:p-10 lg:w-[460px] lg:shrink-0"
         >
           <h2 id="checkout-summary-heading" className="font-serif text-[28px] leading-tight text-primary">Order summary</h2>
           <ul className="flex flex-col gap-4">
@@ -181,7 +181,7 @@ export function CheckoutView({
             </span>
           </div>
           {fulfillmentMethod === "delivery" ? (
-            <p className="flex items-start gap-2.5 rounded-[3px] bg-warning-soft p-4 text-xs leading-normal tracking-wide text-ink">
+            <p className="flex items-start gap-2.5 bg-warning-soft p-4 text-xs leading-normal tracking-wide text-ink">
               <Truck aria-hidden className="size-[18px] shrink-0 text-warning" />
               Our team will message you the delivery fee before your order is dispatched.
             </p>
@@ -278,7 +278,7 @@ function CheckoutSteps() {
 
 function Panel({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-5 rounded-[40px] border border-line bg-white p-8 sm:p-10">
+    <div className="flex flex-col gap-5 border border-line bg-white p-8 sm:p-10">
       <div className="flex flex-wrap items-center justify-between gap-x-[30px] gap-y-3">
         <h2 className="font-serif text-[22px] leading-[1.3] text-primary">{title}</h2>
         {action}
@@ -289,7 +289,7 @@ function Panel({ title, action, children }: { title: string; action?: ReactNode;
 }
 
 const optionClass = (checked: boolean) =>
-  `flex cursor-pointer items-start gap-4 rounded-[3px] px-6 py-5 transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
+  `flex cursor-pointer items-start gap-4 px-6 py-5 transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
     checked ? "border-2 border-primary bg-lavender-soft" : "border border-line bg-white hover:border-primary"
   }`;
 
