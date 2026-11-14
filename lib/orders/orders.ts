@@ -1,3 +1,5 @@
+import { createStockReservations } from "./stock-reservations";
+import { gatewayShopStock, type ShopStock } from "./stock";
 import { gatewayProductImages, productThumbnail, type ProductImageFiles, type ProductImageReference } from "../catalog/product-images";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
@@ -185,7 +187,8 @@ function paymentNeededNotification(order: typeof orders.$inferSelect) {
 export function createOrderStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
->(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages()): OrderStore {
+>(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages(), stock: ShopStock = gatewayShopStock()): OrderStore {
+  const reservations = createStockReservations(db, stock);
   async function linesForOrder(orderId: number): Promise<OrderLine[]> {
     const lines = await db
       .select({
@@ -360,6 +363,11 @@ export function createOrderStore<
         .returning();
       if (!updatedOrder) throw new OrderStatusUpdateError("Order status or Delivery photo changed before it could be advanced. Refresh before retrying.");
 
+      if (input.status === "cancelled") {
+        const attribution = input.staffId !== undefined || input.staffName !== undefined ? staffAttribution.parse(input) : null;
+        await createStockReservations(transaction, stock).releaseItems(orderId, undefined,
+          attribution ? { type: "staff", id: attribution.staffId, display_name: attribution.staffName } : undefined);
+      }
       if (input.status === "delivered") {
         await transaction.insert(customerNotifications).values({
           idempotencyKey: `order.delivered:${updatedOrder.id}`,
@@ -388,6 +396,7 @@ export function createOrderStore<
       return updatedOrder;
     });
 
+    if (input.status === "cancelled") await reservations.drain();
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
   }
 
@@ -417,6 +426,7 @@ export function createOrderStore<
         priceInCentavos: line.priceInCentavos, quantity: line.quantity,
         staffId: actor.staffId, staffName: actor.staffName,
       })));
+      await createStockReservations(transaction, stock).releaseItems(orderId, lineIds, { type: "staff", id: actor.staffId, display_name: actor.staffName });
       await transaction.delete(orderLines).where(and(eq(orderLines.orderId, orderId), inArray(orderLines.id, lineIds)));
       const [updated] = await transaction.update(orders).set({ subtotalInCentavos: subtotal })
         .where(eq(orders.id, orderId)).returning();
@@ -431,6 +441,7 @@ export function createOrderStore<
       });
       return updated;
     });
+    await reservations.drain();
     return toOrder(changed, await linesForOrder(orderId));
   }
 
@@ -519,7 +530,11 @@ export function createOrderStore<
     customerId: string,
     input: PlaceOrderInput,
   ): Promise<Order> {
-    return db.transaction(async (transaction) => {
+    const attemptId = await reservations.begin(customerId, await createCartStore(db, files).get(customerId));
+    try {
+    return await db.transaction(async (transaction) => {
+      // Serialize checkouts of the same Cart before reading its current contents.
+      await transaction.select({ id: customers.id }).from(customers).where(eq(customers.id, customerId)).for("update");
       const transactionalCart = createCartStore(transaction, files);
       const cart = await transactionalCart.get(customerId);
       if (cart.lines.length === 0) {
@@ -552,6 +567,7 @@ export function createOrderStore<
         deliveryAddress = chosenAddress;
       }
 
+      await createStockReservations(transaction, stock).reserve(attemptId, cart);
       const freeDelivery = input.fulfillmentMethod === "delivery" && cart.subtotalInCentavos > 250_000;
       const [order] = await transaction
         .insert(orders)
@@ -566,13 +582,14 @@ export function createOrderStore<
         })
         .returning();
 
-      await transaction.insert(orderLines).values(cart.lines.map((line) => ({
+      const insertedLines = await transaction.insert(orderLines).values(cart.lines.map((line) => ({
         orderId: order.id,
         productName: line.productName,
         sizeLabel: line.sizeLabel,
         priceInCentavos: line.priceInCentavos,
         quantity: line.quantity,
-      })));
+      }))).returning({ id: orderLines.id });
+      await createStockReservations(transaction, stock).commit(attemptId, order.id, insertedLines.map(line => line.id));
       if (deliveryAddress) {
         await transaction.insert(orderDeliveryAddresses).values({ orderId: order.id, ...deliveryAddress });
       }
@@ -615,6 +632,11 @@ export function createOrderStore<
         })),
       };
     });
+    } catch (error) {
+      await reservations.abandon(attemptId);
+      await reservations.drain(new Date(), attemptId);
+      throw error;
+    }
   }
 
   return { place, listForCustomer, advance, cancel, cancelItems, customerEmailForOrder, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot };

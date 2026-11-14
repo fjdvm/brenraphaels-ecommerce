@@ -1,3 +1,4 @@
+import { FakeShopStock } from "./helpers/fake-shop-stock";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test, vi } from "vitest";
@@ -126,3 +127,5 @@ test("Delivered retains its once-only Refund window Notification", async () => {
   expect(send.mock.calls[0][0]).toMatchObject({ type: "order.delivered", body: expect.stringContaining("24 hours"), idempotencyKey: `order.delivered:${row.id}` });
   expect(await sendPendingCustomerNotifications(db, row.id, send)).toBe(0);
 });
+
+vi.mock("../lib/orders/stock", async (importOriginal) => ({ ...await importOriginal<typeof import("../lib/orders/stock")>(), gatewayShopStock: () => new FakeShopStock() }));
