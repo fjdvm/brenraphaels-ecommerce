@@ -126,6 +126,17 @@ test("confirms the saved Delivery photo before waiting for Customer notification
 });
 
 describe("POST /api/internal/orders/[id]/status", () => {
+  test("cancellation accepts legacy requests and forwards valid Staff attribution for stock release auditing", async () => {
+    for (const staff of [{}, { staffId: "staff-17", staffName: "Ana Cruz" }]) {
+      const response = await postAndNotify(new Request("https://shop.example.test/api/internal/orders/12/status", {
+        body: JSON.stringify({ status: "cancelled", ...staff }),
+        headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" }, method: "POST",
+      }), context);
+      expect(response.status).toBe(200);
+      expect(advance).toHaveBeenLastCalledWith(12, { status: "cancelled", ...staff });
+    }
+  });
+
   test("accepts a request carrying a valid CREOMS service credential", async () => {
     expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
     expect(advance).toHaveBeenCalledWith(12, { status: "confirmed", deliveryFeeInCentavos: 8000 });
@@ -180,7 +191,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     expect(sendOrderPaidEmail).not.toHaveBeenCalled();
   });
 
-  test.each(["confirmed", "cancelled", "preparing", "dispatched", "delivered"])(
+  test.each(["confirmed", "preparing", "dispatched", "delivered"])(
     "%s does not need or forward Staff attribution", async (status) => {
       for (const staff of [{}, { staffId: "staff-17", staffName: "Ana Cruz" }]) {
         const request = new Request("https://shop.example.test/api/internal/orders/12/status", {

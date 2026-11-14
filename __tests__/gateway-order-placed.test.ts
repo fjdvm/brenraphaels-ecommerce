@@ -1,3 +1,4 @@
+import { FakeShopStock } from "./helpers/fake-shop-stock";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -118,3 +119,5 @@ test("a committed checkout publishes a payload-free Staff Orders invalidation", 
     headers: { Authorization: "Bearer storefront-key", "Content-Type": "application/json" },
   }));
 });
+
+vi.mock("../lib/orders/stock", async importOriginal => ({ ...await importOriginal<typeof import("../lib/orders/stock")>(), gatewayShopStock: () => new FakeShopStock() }));
