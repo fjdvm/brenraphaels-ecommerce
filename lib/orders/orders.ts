@@ -290,7 +290,7 @@ export function createOrderStore<
     const requote = input.status === "confirmed" && input.deliveryFeeInCentavos !== undefined &&
       persistedOrder.fulfillmentMethod === "delivery" && persistedOrder.deliveryFeeInCentavos === null &&
       ["confirmed", "awaiting payment", "paid", "preparing"].includes(currentStatus);
-    if (persistedOrder.fulfillmentMethod === "delivery" && persistedOrder.deliveryFeeInCentavos === null &&
+    if (persistedOrder.deliveryFeeQuoteRequired &&
         !["confirmed", "cancelled"].includes(input.status)) {
       throw new OrderStatusUpdateError("Quote a Delivery fee before continuing this Order.");
     }
@@ -437,7 +437,7 @@ export function createOrderStore<
     if (persistedOrder.paymentMethod !== "gcash") {
       throw new Error("Payment proof can only be submitted for a GCash Order.");
     }
-    if (persistedOrder.fulfillmentMethod === "delivery" && persistedOrder.deliveryFeeInCentavos === null) {
+    if (persistedOrder.deliveryFeeQuoteRequired) {
       throw new Error("Quote a Delivery fee before submitting Payment proof.");
     }
     if (persistedOrder.status !== "confirmed") {

@@ -101,6 +101,7 @@ describe("Order", () => {
     await expect(store.cancelItems(order.id, [line.id], { staffId: "ana", staffName: "Ana" }, "placed")).rejects.toThrow("already changed");
     await store.cancelItems(order.id, [line.id], { staffId: "ana", staffName: "Ana" }, phase);
     await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ status: phase, deliveryFeeInCentavos: null }]);
+    await expect(store.advance(order.id, { status: "preparing" })).rejects.toThrow("Quote a Delivery fee");
     await expect(store.advance(order.id, { status: "confirmed", deliveryFeeInCentavos: 19000 })).resolves.toMatchObject({ status: phase, deliveryFeeInCentavos: 19000 });
     if (phase === "confirmed") await expect(store.submitPaymentProof("customer-1", order.id, { gcashReferenceNumber: "1234567890" })).resolves.toMatchObject({ status: "awaiting payment" });
     if (phase === "awaiting payment") await expect(store.advance(order.id, { status: "paid", staffId: "ana", staffName: "Ana" })).resolves.toMatchObject({ status: "paid" });

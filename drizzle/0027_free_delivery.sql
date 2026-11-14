@@ -1,7 +1,12 @@
+ALTER TABLE orders ADD COLUMN delivery_fee_quote_required boolean NOT NULL DEFAULT false;
+--> statement-breakpoint
 -- Keep the gross items subtotal in subtotal_in_centavos; discounts must be separate.
 -- This also covers subtotal reductions made by a partial-item cancellation.
 CREATE FUNCTION enforce_order_free_delivery() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  IF NEW.delivery_fee_in_centavos IS NOT NULL THEN
+    NEW.delivery_fee_quote_required := false;
+  END IF;
   IF NEW.fulfillment_method = 'delivery' THEN
     IF NEW.subtotal_in_centavos > 250000 THEN
       IF NEW.delivery_fee_in_centavos IS NOT NULL AND NEW.delivery_fee_in_centavos <> 0 THEN
@@ -15,6 +20,7 @@ BEGIN
       AND OLD.subtotal_in_centavos > 250000 AND OLD.delivery_fee_in_centavos = 0
       AND NEW.subtotal_in_centavos <> OLD.subtotal_in_centavos THEN
       NEW.delivery_fee_in_centavos := NULL;
+      NEW.delivery_fee_quote_required := true;
     END IF;
   END IF;
   RETURN NEW;
