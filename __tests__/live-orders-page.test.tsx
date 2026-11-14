@@ -30,7 +30,7 @@ const order = (status: OrderStatus, deliveryPhotoFileId: string | null): OrderWi
     id: 7, fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", status,
     subtotalInCentavos: 20_900, deliveryFeeInCentavos: 5_000, createdAt: new Date("2026-10-10T06:00:00Z"),
     lines: [], deliveryAddress: null, paymentProof: null, paidById: null, paidByName: null, paidAt: null,
-    deliveryPhotoRemovedAt: null, deliveryPhotoFileId,
+    deliveryPhotoRemovedAt: null, deliveryPhotoFileId, courier: null,
   } as Order,
   feedback: null,
   returnInProgress: false,

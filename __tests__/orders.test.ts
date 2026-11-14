@@ -14,6 +14,7 @@ vi.mock("../lib/email/brevo-transport", () => ({
   createBrevoTransport: () => ({ transport: { sendMail }, sender: "shop@example.com" }),
   requiredEnvironment: () => "https://shop.example.com",
 }));
+const booking = { name: "Lalamove", trackingUrl: "https://share.lalamove.test/abc" } as const;
 let client: PGlite;
 
 beforeEach(async () => {
@@ -106,7 +107,7 @@ describe("Order", () => {
     if (phase === "confirmed") await expect(store.submitPaymentProof("customer-1", order.id, { gcashReferenceNumber: "1234567890" })).resolves.toMatchObject({ status: "awaiting payment" });
     if (phase === "awaiting payment") await expect(store.advance(order.id, { status: "paid", staffId: "ana", staffName: "Ana" })).resolves.toMatchObject({ status: "paid" });
     if (phase === "paid") await expect(store.advance(order.id, { status: "preparing" })).resolves.toMatchObject({ status: "preparing" });
-    if (phase === "preparing") await expect(store.advance(order.id, { status: "dispatched" })).resolves.toMatchObject({ status: "dispatched" });
+    if (phase === "preparing") await expect(store.advance(order.id, { status: "dispatched", courier: booking })).resolves.toMatchObject({ status: "dispatched" });
   });
 
   test("shows a File-backed Product image in Order history instead of the retained Blob address", async () => {
@@ -174,6 +175,48 @@ describe("Order", () => {
     });
   });
 
+  async function preparingOrder(fulfillmentMethod: "delivery" | "pickup") {
+    const result = await client.query<{ id: number }>(`
+      insert into orders (customer_id, fulfillment_method, payment_method, status, subtotal_in_centavos, delivery_fee_in_centavos)
+      values ('customer-1', '${fulfillmentMethod}', 'cash-on-delivery', 'preparing', 21900, ${fulfillmentMethod === "delivery" ? 8000 : "null"}) returning id
+    `);
+    return result.rows[0].id;
+  }
+
+  test.each([
+    ["no courier", undefined],
+    ["an http link", { name: "Grab", trackingUrl: "http://grab.test/x" }],
+    ["a non-link", { name: "Grab", trackingUrl: "not a link" }],
+    ["an unknown courier", { name: "Other", trackingUrl: "https://x.test/a" }],
+  ])("refuses to dispatch a Delivery Order with %s", async (_label, courier) => {
+    const id = await preparingOrder("delivery");
+    const store = createOrderStore(drizzle(client));
+    await expect(store.advance(id, { status: "dispatched", courier: courier as never })).rejects.toThrow();
+    await expect(client.query("select status, courier from orders where id = $1", [id])).resolves.toMatchObject({ rows: [{ status: "preparing", courier: null }] });
+  });
+
+  test("keeps the courier and optional rider details on a dispatched Delivery Order", async () => {
+    const id = await preparingOrder("delivery");
+    const store = createOrderStore(drizzle(client));
+    const order = await store.advance(id, { status: "dispatched", courier: { ...booking, riderName: "Juan Dela Cruz", riderPlate: "ABC 1234", riderPhone: "0917 123 4567" } });
+    expect(order).toMatchObject({ status: "dispatched", courier: { name: "Lalamove", trackingUrl: booking.trackingUrl, riderName: "Juan Dela Cruz", riderPlate: "ABC 1234", riderPhone: "09171234567" } });
+    await store.advance(id, { status: "delivered", deliveryPhotoFileId: "photo-1" });
+    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ courier: { name: "Lalamove", trackingUrl: booking.trackingUrl } }]);
+  });
+
+  test("rider details are optional", async () => {
+    const id = await preparingOrder("delivery");
+    const order = await createOrderStore(drizzle(client)).advance(id, { status: "dispatched", courier: booking });
+    expect(order.courier).toEqual({ ...booking, riderName: null, riderPlate: null, riderPhone: null });
+  });
+
+  test("Pickup dispatches without a courier and refuses one", async () => {
+    const store = createOrderStore(drizzle(client));
+    const id = await preparingOrder("pickup");
+    await expect(store.advance(id, { status: "dispatched", courier: booking })).rejects.toThrow("no courier");
+    await expect(store.advance(id, { status: "dispatched" })).resolves.toMatchObject({ status: "dispatched", courier: null });
+  });
+
   test("other status changes do not store supplied Staff attribution", async () => {
     const result = await client.query<{ id: number }>(`
       insert into orders (customer_id, fulfillment_method, payment_method, status, subtotal_in_centavos)
@@ -185,6 +228,7 @@ describe("Order", () => {
         status, staffId: "staff-17", staffName: "Ana Cruz",
         ...(status === "confirmed" ? { deliveryFeeInCentavos: 8000 } : {}),
         ...(status === "delivered" ? { deliveryPhotoFileId: "photo-1" } : {}),
+        ...(status === "dispatched" ? { courier: booking } : {}),
       })).resolves.toMatchObject({ status, paidById: null, paidByName: null, paidAt: null });
     }
     const cart = createCartStore(drizzle(client));
@@ -261,7 +305,7 @@ describe("Order", () => {
     });
     await expect(store.advance(placed.id, { status: "paid", staffId: "staff-17", staffName: "Ana Cruz" })).resolves.toMatchObject({ status: "paid" });
     await expect(store.advance(placed.id, { status: "preparing" })).resolves.toMatchObject({ status: "preparing" });
-    await expect(store.advance(placed.id, { status: "dispatched" })).resolves.toMatchObject({ status: "dispatched" });
+    await expect(store.advance(placed.id, { status: "dispatched", courier: booking })).resolves.toMatchObject({ status: "dispatched" });
     await expect(store.advance(placed.id, { status: "delivered", deliveryPhotoFileId: "photo-1" })).resolves.toMatchObject({ status: "delivered", deliveryPhotoFileId: "photo-1" });
   });
 

@@ -309,6 +309,15 @@ function OrderDetails({
       </dl>
       {feePending ? <p className="text-right text-xs text-warning">{FEE_TO_FOLLOW_SHORT}</p> : null}
 
+      {order.courier ? (
+        <p className="text-sm text-body">
+          {order.courier.name} booking.{" "}
+          {order.status === "dispatched" ? (
+            <a className="text-primary underline underline-offset-4" href={order.courier.trackingUrl} rel="noopener noreferrer" target="_blank">Track your delivery</a>
+          ) : null}
+        </p>
+      ) : null}
+
       {order.status === "delivered" || order.status === "received" ? <DeliveryPhoto fileId={order.deliveryPhotoFileId} removedAt={order.deliveryPhotoRemovedAt} orderId={order.id} /> : null}
 
       {needsPayment(order) ? <PaymentProofForm amountInCentavos={total} orderId={order.id} /> : null}

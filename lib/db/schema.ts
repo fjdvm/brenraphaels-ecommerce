@@ -174,6 +174,12 @@ export const orders = pgTable("orders", {
   deliveryPhotoFileId: text("delivery_photo_file_id"),
   receivedAt: timestamp("received_at", { withTimezone: true }),
   deliveryPhotoRemovedAt: timestamp("delivery_photo_removed_at", { withTimezone: true }),
+  /** Courier booking recorded at dispatch; kept after the tracking link expires. Rider details are optional. */
+  courier: text("courier"),
+  courierTrackingUrl: text("courier_tracking_url"),
+  riderName: text("rider_name"),
+  riderPlate: text("rider_plate"),
+  riderPhone: text("rider_phone"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

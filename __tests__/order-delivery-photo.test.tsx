@@ -25,6 +25,7 @@ const order = (status: OrderStatus, deliveryPhotoFileId: string | null): Order =
   paidAt: null,
   deliveryPhotoRemovedAt: null,
   deliveryPhotoFileId,
+  courier: null,
 });
 
 function openOrder(status: OrderStatus, deliveryPhotoFileId: string | null) {
