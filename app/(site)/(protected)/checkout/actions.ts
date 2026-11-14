@@ -1,5 +1,6 @@
 "use server";
 
+import { writeAuditEvent } from "@/lib/audit/gateway";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
@@ -72,6 +73,7 @@ export async function placeOrder(input: unknown) {
   const order = await placeOrderAndNotify(customer.userId, customer.email, parsed, {
     orderStore: createOrderStore(getDatabase()),
     mailer: { send: sendOrderPlacedEmail },
+    audit: writeAuditEvent,
   });
   scheduleOrdersChanged();
   // The Order is committed. A slow or failed signal must never delay checkout.

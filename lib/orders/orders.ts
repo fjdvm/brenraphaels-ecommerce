@@ -6,6 +6,7 @@ import { addresses, customerNotifications, customers, orderDeliveryAddresses, or
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
 import { createCartStore } from "./cart";
+import type { AuditEvent } from "../audit/gateway";
 
 export const fulfillmentMethods = ["pickup", "delivery"] as const;
 export const paymentMethods = ["cash-on-delivery", "gcash"] as const;
@@ -143,9 +144,22 @@ export async function placeOrderAndNotify(
   customerId: string,
   recipientEmail: string,
   input: PlaceOrderInput,
-  dependencies: { orderStore: OrderStore; mailer: OrderMailer },
+  dependencies: { orderStore: OrderStore; mailer: OrderMailer; audit?: (event: AuditEvent) => Promise<void> },
 ): Promise<Order> {
   const order = await dependencies.orderStore.place(customerId, input);
+  if (order.fulfillmentMethod === "delivery" && order.subtotalInCentavos > 250_000 && order.deliveryFeeInCentavos === 0) {
+    try {
+      await dependencies.audit?.({
+        source: "Ecommerce", action: "free_delivery.applied", outcome: "success",
+        actor: { type: "system", id: "free-delivery", display_name: "Free delivery" },
+        target: { type: "order", id: String(order.id), display_name: `Order #${order.id}` },
+        description: `Free delivery applied to Order #${order.id}; subtotal is over ₱2,500. No quote is needed.`,
+        occurred_at: order.createdAt.toISOString(), idempotency_key: `free_delivery.applied:${order.id}`,
+      });
+    } catch (error) {
+      console.error("Free delivery audit event could not be written", error);
+    }
+  }
   try {
     await dependencies.mailer.send(recipientEmail, order);
   } catch (error) {
@@ -247,6 +261,10 @@ export function createOrderStore<
       .where(eq(orders.id, orderId));
     if (!persistedOrder) throw new OrderStatusUpdateError("Order was not found.");
 
+    if (persistedOrder.fulfillmentMethod === "delivery" && persistedOrder.subtotalInCentavos > 250_000 &&
+        input.deliveryFeeInCentavos !== undefined && input.deliveryFeeInCentavos !== 0) {
+      throw new OrderStatusUpdateError("Free delivery applies to this Order. The Delivery fee must be ₱0.");
+    }
     if (input.status === "delivered" && persistedOrder.deliveryPhotoFileId !== null) {
       throw new OrderStatusUpdateError("Delivery photo is already set.");
     }
@@ -448,16 +466,17 @@ export function createOrderStore<
         deliveryAddress = chosenAddress;
       }
 
+      const freeDelivery = input.fulfillmentMethod === "delivery" && cart.subtotalInCentavos > 250_000;
       const [order] = await transaction
         .insert(orders)
         .values({
           customerId,
           fulfillmentMethod: input.fulfillmentMethod,
           paymentMethod: input.paymentMethod,
-          // A human has to quote Delivery before it is confirmed; Pickup has no such step.
-          status: input.fulfillmentMethod === "delivery" ? "placed" : "confirmed",
+          // The undiscounted Cart subtotal determines Free delivery.
+          status: input.fulfillmentMethod === "delivery" && !freeDelivery ? "placed" : "confirmed",
           subtotalInCentavos: cart.subtotalInCentavos,
-          deliveryFeeInCentavos: null,
+          deliveryFeeInCentavos: freeDelivery ? 0 : null,
         })
         .returning();
 
@@ -472,6 +491,12 @@ export function createOrderStore<
         await transaction.insert(orderDeliveryAddresses).values({ orderId: order.id, ...deliveryAddress });
       }
       await transactionalCart.clear(customerId);
+      if (freeDelivery) await transaction.insert(customerNotifications).values({
+        idempotencyKey: `order.free-delivery:${order.id}`, orderId: order.id, customerId,
+        type: "order.free-delivery", title: "Order confirmed · free delivery",
+        body: `Order #${order.id} is confirmed with Free delivery. No quote is needed.`,
+        link: `/profile/orders?order=${order.id}`,
+      });
       if (order.status === "confirmed" && order.paymentMethod === "gcash") {
         await transaction.insert(customerNotifications).values(paymentNeededNotification(order));
       }

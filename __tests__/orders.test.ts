@@ -5,9 +5,15 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { customers, orders, productImages, products, sizes } from "../lib/db/schema";
 import { createOrderStore, placeOrderAndNotify } from "../lib/orders/orders";
+import { sendOrderPlacedEmail } from "../lib/email/order-placed-email";
 import { createCartStore } from "../lib/orders/cart";
 import { createTestDatabase } from "./helpers/test-database";
 
+const sendMail = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock("../lib/email/brevo-transport", () => ({
+  createBrevoTransport: () => ({ transport: { sendMail }, sender: "shop@example.com" }),
+  requiredEnvironment: () => "https://shop.example.com",
+}));
 let client: PGlite;
 
 beforeEach(async () => {
@@ -37,6 +43,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await client.close();
+  vi.clearAllMocks();
 });
 
 async function firstSizeId() {
@@ -45,6 +52,36 @@ async function firstSizeId() {
 }
 
 describe("Order", () => {
+  test.each([250000, 250001])("Delivery placement enforces the ₱2,500 boundary: %i", async (subtotal) => {
+    const database = drizzle(client);
+    await database.update(sizes).set({ priceInCentavos: subtotal });
+    await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
+    await client.exec("insert into addresses (customer_id, label, street, barangay, city, province, postal_code, country, is_default) values ('customer-1', 'Home', '1 Main St', 'San Jose', 'Pasig', 'Metro Manila', '1600', 'Philippines', true)");
+    const address = await client.query<{id: number}>("select id from addresses limit 1");
+    const store = createOrderStore(database);
+    const audit = vi.fn(async () => {});
+    const placed = await placeOrderAndNotify("customer-1", "jane@example.com", { fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", addressId: address.rows[0].id }, { orderStore: store, mailer: { send: sendOrderPlacedEmail }, audit });
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    if (subtotal === 250001) {
+      expect(audit).toHaveBeenCalledWith(expect.objectContaining({ action: "free_delivery.applied", actor: { type: "system", id: "free-delivery", display_name: "Free delivery" }, idempotency_key: `free_delivery.applied:${placed.id}` }));
+      expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ subject: `Order confirmed · free delivery · #${placed.id}`, text: expect.stringContaining("No quote is needed") }));
+    } else {
+      expect(audit).not.toHaveBeenCalled();
+      expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("Delivery fee: To be confirmed") }));
+    }
+    expect(placed).toMatchObject({ subtotalInCentavos: subtotal, status: subtotal === 250001 ? "confirmed" : "placed", deliveryFeeInCentavos: subtotal === 250001 ? 0 : null });
+    if (subtotal === 250001) {
+      await expect(database.update(orders).set({ deliveryFeeInCentavos: 100 }).where(eq(orders.id, placed.id))).rejects.toThrow();
+      await expect(store.advance(placed.id, { status: "confirmed", deliveryFeeInCentavos: 100 })).rejects.toThrow();
+      await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ deliveryFeeInCentavos: 0 }]);
+      // The subtotal write is the storefront contract for cancelling items.
+      await database.update(orders).set({ subtotalInCentavos: 250000 }).where(eq(orders.id, placed.id));
+      await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ status: "placed", deliveryFeeInCentavos: null, subtotalInCentavos: 250000 }]);
+      await expect(store.advance(placed.id, { status: "confirmed", deliveryFeeInCentavos: 19000 })).resolves.toMatchObject({ status: "confirmed", deliveryFeeInCentavos: 19000 });
+
+    }
+  });
+
   test("shows a File-backed Product image in Order history instead of the retained Blob address", async () => {
     const database = drizzle(client);
     await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
