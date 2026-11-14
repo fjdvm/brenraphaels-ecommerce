@@ -29,7 +29,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FreeDeliveryProgress } from "@/components/features/orders/free-delivery-progress";
 import { formatPeso } from "@/lib/catalog/currency";
+import { qualifiesForFreeDelivery } from "@/lib/orders/free-delivery";
 import type { CustomerAddress } from "@/lib/customer/visitor";
 import type { Cart } from "@/lib/orders/cart";
 import type { PaymentMethod } from "@/lib/orders/orders";
@@ -73,6 +75,7 @@ export function CheckoutView({
   }
 
   const selectedAddress = addresses.find((address) => address.id === addressId);
+  const freeDelivery = fulfillmentMethod === "delivery" && qualifiesForFreeDelivery(cart.subtotalInCentavos);
   const deliveryBlocked = fulfillmentMethod === "delivery" && !addressId;
 
   if (cart.lines.length === 0) {
@@ -112,7 +115,7 @@ export function CheckoutView({
               />
               <Choice
                 checked={fulfillmentMethod === "delivery"}
-                description="Have your Order delivered to one of your saved Addresses."
+                description="Free for orders over ₱2,500"
                 icon={Truck}
                 label="Delivery"
                 name="fulfillment"
@@ -172,19 +175,27 @@ export function CheckoutView({
           </div>
           <div className="flex items-center justify-between text-sm tracking-wide text-body">
             <span>{fulfillmentMethod === "delivery" ? "Delivery" : "Pickup"}</span>
-            {fulfillmentMethod === "delivery" ? <span className="text-warning">To be confirmed</span> : <span>Free</span>}
+            {fulfillmentMethod === "delivery" && !freeDelivery ? <span className="text-warning">To be confirmed</span> : <span className={freeDelivery ? "text-success" : undefined}>Free</span>}
           </div>
           <div className="flex items-center justify-between border-t border-line pt-[22px]">
             <span className="text-sm font-medium tracking-wide text-ink">Total</span>
             <span className="font-serif text-[22px] leading-[1.3] text-primary">
-              {formatPeso(cart.subtotalInCentavos)}{fulfillmentMethod === "delivery" ? " + delivery" : ""}
+              {formatPeso(cart.subtotalInCentavos)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
             </span>
           </div>
-          {fulfillmentMethod === "delivery" ? (
-            <p className="flex items-start gap-2.5 bg-warning-soft p-4 text-xs leading-normal tracking-wide text-ink">
-              <Truck aria-hidden className="size-[18px] shrink-0 text-warning" />
-              Our team will message you the delivery fee before your order is dispatched.
+          {freeDelivery ? (
+            <p className="flex items-start gap-2.5 bg-success-soft p-4 text-xs leading-normal tracking-wide text-ink">
+              <Check aria-hidden className="size-[18px] shrink-0 text-success" />
+              Free delivery — your items are over ₱2,500. Your order is confirmed as soon as you place it.
             </p>
+          ) : fulfillmentMethod === "delivery" ? (
+            <>
+              <FreeDeliveryProgress subtotalInCentavos={cart.subtotalInCentavos} />
+              <p className="flex items-start gap-2.5 bg-warning-soft p-4 text-xs leading-normal tracking-wide text-ink">
+                <Truck aria-hidden className="size-[18px] shrink-0 text-warning" />
+                Our team will message you the delivery fee before your order is dispatched.
+              </p>
+            </>
           ) : null}
           {message && <p role="alert" className="text-sm font-medium text-warning">{message}</p>}
           <Button
@@ -231,12 +242,18 @@ export function CheckoutView({
             <dd className="text-right text-ink">{paymentMethod === "gcash" ? "GCash" : "Cash on Delivery"}</dd>
             <dt className="text-muted">Subtotal</dt>
             <dd className="text-right text-ink">{formatPeso(cart.subtotalInCentavos)}</dd>
+            {freeDelivery ? (
+              <>
+                <dt className="text-muted">Delivery</dt>
+                <dd className="text-right text-success">Free</dd>
+              </>
+            ) : null}
             <dt className="font-medium text-ink">Total</dt>
             <dd className="text-right font-serif text-[22px] leading-[1.3] text-primary">
-              {formatPeso(cart.subtotalInCentavos)}{fulfillmentMethod === "delivery" ? " + delivery" : ""}
+              {formatPeso(cart.subtotalInCentavos)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
             </dd>
           </dl>
-          {fulfillmentMethod === "delivery" ? (
+          {fulfillmentMethod === "delivery" && !freeDelivery ? (
             <p className="mt-4 text-xs leading-normal tracking-wide text-body">The delivery fee will be confirmed by our team before your order is dispatched.</p>
           ) : null}
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
