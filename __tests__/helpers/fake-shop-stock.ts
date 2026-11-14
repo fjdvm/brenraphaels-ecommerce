@@ -7,6 +7,7 @@ export class FakeShopStock implements ShopStock {
   unavailable = false;
   failProduct: number | undefined;
   loseReserveReplies = false;
+  failReleaseProduct: number | undefined;
   productForSize(sizeId: number) { return sizeId + 100; }
   remaining(productId: number) { return this.available.get(productId) ?? 50; }
   async move(operation: "reserve" | "release", orderId: string, line: StockLine): Promise<StockState> {
@@ -22,6 +23,7 @@ export class FakeShopStock implements ShopStock {
       }
       if (this.loseReserveReplies) throw new Error("Reply lost after IMS commit");
     } else {
+      if (this.failReleaseProduct === line.productId) throw new Error("Release unavailable");
       if (!entry) throw new Error("Unreserved line");
       if (entry.state === "reserved") {
         entry.state = "released";

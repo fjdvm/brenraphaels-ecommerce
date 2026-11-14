@@ -34,6 +34,9 @@ uncommitted intent and skips locked checkouts. An IMS reservation response in a
 later lifetime state never permits placement.
 
 Customer and Staff cancellations commit their decisions before releasing stock.
+A scoped `after` task starts release after the response, so an IMS outage cannot
+turn a successful cancellation into a timeout. Failed attempts rotate through
+recovery in last-attempt order, with a bounded run budget.
 Cancelled whole lines retain their original reservation identity. IMS failures
 leave retryable work, rather than reopening an Order or losing its reservation.
 The follow-up packing slice owns deduction; this ticket does not mark items packed.
@@ -48,7 +51,8 @@ delay scheduled runs. Recovery also drains cancellation releases and the durable
 email/audit outbox. The job publishes live invalidations after committed expiry.
 
 Expiry queues “Your order was cancelled” as a generic App email, sent after stock
-release. The original `Idempotency-Key` is forwarded through the gateway so a
+release. Email and audit queues have separate quotas and failed entries rotate, so an
+audit outage cannot starve cancellation emails. The original `Idempotency-Key` is forwarded through the gateway so a
 lost acknowledgement does not enqueue another email. Stock audit events use
 `order.stock_reserved` and `order.stock_released` with stable per-line keys.
 The central audit catalog must accept both actions; failed delivery remains in

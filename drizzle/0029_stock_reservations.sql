@@ -3,13 +3,15 @@ CREATE TABLE "stock_outbox" (
 	"kind" text NOT NULL,
 	"order_id" integer,
 	"payload" jsonb NOT NULL,
-	"accepted_at" timestamp with time zone
+	"accepted_at" timestamp with time zone,
+	"last_attempt_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "stock_reservations" (
 	"id" text PRIMARY KEY NOT NULL,
 	"customer_id" text NOT NULL,
 	"customer_name" text NOT NULL,
+	"last_attempt_at" timestamp with time zone,
 	"order_id" integer,
 	"state" text NOT NULL,
 	"lines" jsonb NOT NULL,

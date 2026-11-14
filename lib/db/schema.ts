@@ -405,6 +405,7 @@ export const stockReservations = pgTable("stock_reservations", {
   id: text("id").primaryKey(),
   customerId: text("customer_id").notNull(),
   customerName: text("customer_name").notNull(),
+  lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
   orderId: integer("order_id").references(() => orders.id),
   state: text("state", { enum: ["pending", "placed", "releasing", "released"] }).notNull(),
   lines: jsonb("lines").$type<{
@@ -422,4 +423,5 @@ export const stockOutbox = pgTable("stock_outbox", {
   orderId: integer("order_id").references(() => orders.id),
   payload: jsonb("payload").$type<import("../audit/gateway").AuditEvent | import("../notifications/gateway").AppEmail>().notNull(),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
 });

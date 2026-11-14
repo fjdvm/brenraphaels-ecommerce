@@ -65,6 +65,7 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
     await db.update(stockReservations).set({ lines: reservation.lines.map(line =>
       (lineIds === undefined || (line.orderLineId !== undefined && lineIds.includes(line.orderLineId))) && !line.released ? { ...line, release: true, ...(actor ? { releaseActor: actor } : {}) } : line),
     }).where(eq(stockReservations.id, reservation.id));
+    return reservation.id;
   }
 
   async function abandon(id: string) {
@@ -83,9 +84,11 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
           sql`exists (select 1 from jsonb_array_elements(${stockReservations.lines}) line where line->>'release' = 'true' and coalesce(line->>'released', 'false') <> 'true')`,
         )),
       ),
-    )).orderBy(stockReservations.createdAt).limit(20);
+    )).orderBy(sql`${stockReservations.lastAttemptAt} asc nulls first`, stockReservations.createdAt).limit(20);
     let released = 0;
+    const deadline = Date.now() + 45_000;
     for (const candidate of candidates) {
+      if (Date.now() >= deadline) break;
       try {
         await db.transaction(async tx => {
           const [reservation] = await tx.select().from(stockReservations).where(eq(stockReservations.id, candidate.id)).for("update", { skipLocked: true });
@@ -96,12 +99,17 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
           const all = abandoned || order?.status === "cancelled";
           const lines = reservation.lines.map(line => ({ ...line }));
           for (const line of lines) {
+            if (Date.now() >= deadline) break;
             if (line.released || (!all && !line.release)) continue;
             if (abandoned) {
               // A lost reply may mean reserve succeeded. Reconcile with the SAME key before release.
               try {
                 const state = await stock.move("reserve", reservation.id, line);
-                if (state === "released") { line.released = true; continue; }
+                if (state === "released") {
+                  line.released = true;
+                  await createStockReservations(tx, stock).queueAudit(reservation, "order.stock_released", line);
+                  continue;
+                }
                 if (state !== "reserved") throw new StockUnavailableError();
               } catch (error) {
                 if (!(error instanceof StockRefusedError)) throw error;
@@ -113,11 +121,14 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
             line.released = true;
             await createStockReservations(tx, stock).queueAudit(reservation, "order.stock_released", line);
           }
-          await tx.update(stockReservations).set({ lines, state: lines.every(line => line.released) ? "released" : reservation.state })
+          await tx.update(stockReservations).set({ lines, lastAttemptAt: new Date(), state: lines.every(line => line.released) ? "released" : reservation.state })
             .where(eq(stockReservations.id, reservation.id));
         });
         released++;
-      } catch (error) { console.error("Stock release will be retried", error); }
+      } catch (error) {
+        await db.update(stockReservations).set({ lastAttemptAt: new Date() }).where(eq(stockReservations.id, candidate.id));
+        console.error("Stock release will be retried", error);
+      }
     }
     return released;
   }
@@ -161,8 +172,14 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
   }
 
   async function sendPending(dependencies = { audit: writeAuditEvent, email: sendAppEmail }) {
-    const pending = await db.select().from(stockOutbox).where(isNull(stockOutbox.acceptedAt)).orderBy(stockOutbox.key).limit(50);
+    // Independent service queues: a refused audit catalog must never block Customer email.
+    for (const kind of ["email", "audit"] as const) {
+    const deadline = Date.now() + 25_000;
+    const pending = await db.select().from(stockOutbox).where(and(isNull(stockOutbox.acceptedAt), eq(stockOutbox.kind, kind)))
+      .orderBy(sql`${stockOutbox.lastAttemptAt} asc nulls first`, stockOutbox.key).limit(25);
     for (const item of pending) {
+      if (Date.now() >= deadline) break;
+      await db.update(stockOutbox).set({ lastAttemptAt: new Date() }).where(eq(stockOutbox.key, item.key));
       try {
         if (item.kind === "email" && item.orderId !== null) {
           const [reservation] = await db.select().from(stockReservations).where(eq(stockReservations.orderId, item.orderId));
@@ -172,6 +189,7 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
         else await dependencies.email({ ...item.payload as AppEmail, idempotencyKey: item.key });
         await db.update(stockOutbox).set({ acceptedAt: new Date() }).where(eq(stockOutbox.key, item.key));
       } catch (error) { console.error("Stock event will be retried", error); }
+    }
     }
   }
   return { begin, reserve, commit, releaseItems, abandon, drain, expire, sendPending, queueAudit };
