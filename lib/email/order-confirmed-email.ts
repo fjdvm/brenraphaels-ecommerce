@@ -20,6 +20,8 @@ export async function sendOrderConfirmedEmail(recipient: string, order: Order) {
       `Delivery fee: ${formatPeso(order.deliveryFeeInCentavos)}`,
       `Updated total: ${formatPeso(total)}`,
       "",
+      "Not okay with the fee? You can cancel for free from My orders before we pack your order.",
+      "",
       `View your Order: ${requiredEnvironment("NEXT_PUBLIC_SITE_URL")}/profile/orders`,
     ].join("\n"),
     to: recipient,
