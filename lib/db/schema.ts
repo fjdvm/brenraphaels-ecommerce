@@ -190,6 +190,19 @@ export const orderLines = pgTable("order_lines", {
   quantity: integer("quantity").notNull(),
 });
 
+/** Immutable snapshots of items removed by a partial cancellation. */
+export const orderCancelledItems = pgTable("order_cancelled_items", {
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  orderLineId: integer("order_line_id").primaryKey(),
+  productName: text("product_name").notNull(),
+  sizeLabel: text("size_label").notNull(),
+  priceInCentavos: integer("price_in_centavos").notNull(),
+  quantity: integer("quantity").notNull(),
+  staffId: text("staff_id").notNull(),
+  staffName: text("staff_name").notNull(),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 /** Immutable delivery destination copied from the Customer's chosen Address. */
 export const orderDeliveryAddresses = pgTable("order_delivery_addresses", {
   orderId: integer("order_id")

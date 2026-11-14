@@ -73,7 +73,12 @@ export async function placeOrder(input: unknown) {
   const order = await placeOrderAndNotify(customer.userId, customer.email, parsed, {
     orderStore: createOrderStore(getDatabase()),
     mailer: { send: sendOrderPlacedEmail },
-    audit: writeAuditEvent,
+    audit: async event => {
+      after(async () => {
+        try { await writeAuditEvent(event); }
+        catch (error) { console.error("Free delivery audit event could not be written", error); }
+      });
+    },
   });
   scheduleOrdersChanged();
   // The Order is committed. A slow or failed signal must never delay checkout.

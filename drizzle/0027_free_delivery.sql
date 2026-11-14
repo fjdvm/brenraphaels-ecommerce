@@ -14,10 +14,6 @@ BEGIN
     ELSIF TG_OP = 'UPDATE' AND OLD.fulfillment_method = 'delivery'
       AND OLD.subtotal_in_centavos > 250000 AND OLD.delivery_fee_in_centavos = 0
       AND NEW.subtotal_in_centavos <> OLD.subtotal_in_centavos THEN
-      -- Payment or fulfilment already in progress must be handled by its money/stock workflow.
-      IF OLD.status NOT IN ('placed', 'confirmed') THEN
-        RAISE EXCEPTION 'Cancel items before payment or packing; otherwise use the Return approval workflow.';
-      END IF;
       NEW.delivery_fee_in_centavos := NULL;
       NEW.status := 'placed';
     END IF;
@@ -29,3 +25,17 @@ $$;
 CREATE TRIGGER orders_free_delivery
 BEFORE INSERT OR UPDATE OF subtotal_in_centavos, delivery_fee_in_centavos ON orders
 FOR EACH ROW EXECUTE FUNCTION enforce_order_free_delivery();
+
+--> statement-breakpoint
+-- Cancelled snapshots remain immutable even when active Order lines are removed.
+CREATE TABLE order_cancelled_items (
+  order_id integer NOT NULL REFERENCES orders(id),
+  order_line_id integer PRIMARY KEY,
+  product_name text NOT NULL,
+  size_label text NOT NULL,
+  price_in_centavos integer NOT NULL,
+  quantity integer NOT NULL,
+  staff_id text NOT NULL,
+  staff_name text NOT NULL,
+  cancelled_at timestamptz NOT NULL DEFAULT now()
+);

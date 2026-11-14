@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { eq } from "drizzle-orm";
-import { customers, orders, productImages, products, sizes } from "../lib/db/schema";
+import { customers, orderLines, orders, productImages, products, sizes } from "../lib/db/schema";
 import { createOrderStore, placeOrderAndNotify } from "../lib/orders/orders";
 import { sendOrderPlacedEmail } from "../lib/email/order-placed-email";
 import { createCartStore } from "../lib/orders/cart";
@@ -54,8 +54,10 @@ async function firstSizeId() {
 describe("Order", () => {
   test.each([250000, 250001])("Delivery placement enforces the ₱2,500 boundary: %i", async (subtotal) => {
     const database = drizzle(client);
-    await database.update(sizes).set({ priceInCentavos: subtotal });
+    await database.update(sizes).set({ priceInCentavos: subtotal - 1 });
     await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
+    const [extra] = await database.insert(sizes).values({ productSlug: "ube-jam", label: "Extra", priceInCentavos: 1, available: true }).returning();
+    await createCartStore(database).addSize("customer-1", extra.id, 1);
     await client.exec("insert into addresses (customer_id, label, street, barangay, city, province, postal_code, country, is_default) values ('customer-1', 'Home', '1 Main St', 'San Jose', 'Pasig', 'Metro Manila', '1600', 'Philippines', true)");
     const address = await client.query<{id: number}>("select id from addresses limit 1");
     const store = createOrderStore(database);
@@ -74,8 +76,8 @@ describe("Order", () => {
       await expect(database.update(orders).set({ deliveryFeeInCentavos: 100 }).where(eq(orders.id, placed.id))).rejects.toThrow();
       await expect(store.advance(placed.id, { status: "confirmed", deliveryFeeInCentavos: 100 })).rejects.toThrow();
       await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ deliveryFeeInCentavos: 0 }]);
-      // The subtotal write is the storefront contract for cancelling items.
-      await database.update(orders).set({ subtotalInCentavos: 250000 }).where(eq(orders.id, placed.id));
+      const [extraLine] = await database.select().from(orderLines).where(eq(orderLines.sizeLabel, "Extra"));
+      await store.cancelItems(placed.id, [extraLine.id], { staffId: "ana", staffName: "Ana" });
       await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ status: "placed", deliveryFeeInCentavos: null, subtotalInCentavos: 250000 }]);
       await expect(store.advance(placed.id, { status: "confirmed", deliveryFeeInCentavos: 19000 })).resolves.toMatchObject({ status: "confirmed", deliveryFeeInCentavos: 19000 });
 
