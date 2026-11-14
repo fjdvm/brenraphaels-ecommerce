@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { addresses, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orders, productImages, products } from "../db/schema";
+import { courierBooking, type CourierBooking } from "../validators/courier";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
 import { createCartStore } from "./cart";
@@ -80,6 +81,8 @@ export type Order = {
   /** File id of the Delivery photo; null before delivery, for legacy Orders, or after retention removes it. */
   deliveryPhotoFileId: string | null;
   deliveryPhotoRemovedAt: Date | null;
+  /** The booking recorded at dispatch of a Delivery Order; null for Pickup and before dispatch. */
+  courier: { name: "Lalamove" | "Grab"; trackingUrl: string; riderName: string | null; riderPlate: string | null; riderPhone: string | null } | null;
   createdAt: Date;
   lines: OrderLine[];
   deliveryAddress: DeliveryAddress | null;
@@ -106,6 +109,7 @@ export type AdvanceOrderInput = {
   status: OrderStatus;
   deliveryFeeInCentavos?: number;
   deliveryPhotoFileId?: string;
+  courier?: CourierBooking;
   staffId?: string;
   staffName?: string;
 };
@@ -226,6 +230,10 @@ export function createOrderStore<
       paidAt: row.paidAt,
       deliveryPhotoFileId: row.deliveryPhotoFileId,
       deliveryPhotoRemovedAt: row.deliveryPhotoRemovedAt,
+      courier: row.courier === null || row.courierTrackingUrl === null ? null : {
+        name: row.courier as "Lalamove" | "Grab", trackingUrl: row.courierTrackingUrl,
+        riderName: row.riderName, riderPlate: row.riderPlate, riderPhone: row.riderPhone,
+      },
       createdAt: row.createdAt,
       lines,
       deliveryAddress: await deliveryAddressForOrder(row.id),
@@ -273,6 +281,10 @@ export function createOrderStore<
       throw new OrderStatusUpdateError("A Delivery photo can only be set when marking an Order delivered.");
     }
 
+    if (input.courier !== undefined && input.status !== "dispatched") {
+      throw new OrderStatusUpdateError("Courier details can only be set when dispatching an Order.");
+    }
+
     const permittedNextStatuses: Record<OrderStatus, readonly OrderStatus[]> = {
       placed: ["confirmed", "cancelled"],
       confirmed: persistedOrder.paymentMethod === "gcash"
@@ -312,6 +324,16 @@ export function createOrderStore<
       throw new OrderStatusUpdateError("A confirmed Delivery Order must include its Delivery fee.");
     }
 
+    // Delivery needs a booking; Pickup is unaffected and keeps none.
+    let courier: CourierBooking | undefined;
+    if (input.status === "dispatched" && persistedOrder.fulfillmentMethod === "delivery") {
+      const parsed = courierBooking.safeParse(input.courier);
+      if (!parsed.success) throw new OrderStatusUpdateError(input.courier === undefined ? "Dispatching a Delivery Order needs the courier and an https tracking link." : parsed.error.issues[0].message);
+      courier = parsed.data;
+    } else if (input.courier !== undefined) {
+      throw new OrderStatusUpdateError("A Pickup Order has no courier.");
+    }
+
     const staff = input.status === "paid" ? staffAttribution.parse(input) : null;
     const updatedOrder = await db.transaction(async (transaction) => {
       const [updatedOrder] = await transaction
@@ -319,6 +341,10 @@ export function createOrderStore<
         .set({
           status: requote ? currentStatus : input.status,
           ...(staff ? { paidById: staff.staffId, paidByName: staff.staffName, paidAt: new Date() } : {}),
+          ...(courier ? {
+            courier: courier.name, courierTrackingUrl: courier.trackingUrl,
+            riderName: courier.riderName || null, riderPlate: courier.riderPlate || null, riderPhone: courier.riderPhone || null,
+          } : {}),
           ...(input.status === "delivered" ? { deliveredAt: new Date(), deliveryPhotoFileId } : {}),
           ...(input.deliveryFeeInCentavos === undefined
             ? {}
@@ -579,6 +605,7 @@ export function createOrderStore<
         paidAt: null,
         deliveryPhotoFileId: null,
         deliveryPhotoRemovedAt: null,
+        courier: null,
         lines: cart.lines.map(({ productName, imageUrl, sizeLabel, priceInCentavos, quantity }) => ({
           productName,
           imageUrl,

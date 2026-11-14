@@ -29,7 +29,7 @@ afterEach(() => {
 const order: Order = {
   id: 7, fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery", status: "delivered", subtotalInCentavos: 20_900,
   deliveryFeeInCentavos: null, createdAt: new Date("2026-10-10T06:00:00Z"), lines: [], deliveryAddress: null,
-  paymentProof: null, paidById: null, paidByName: null, paidAt: null, deliveryPhotoRemovedAt: null, deliveryPhotoFileId: null,
+  paymentProof: null, paidById: null, paidByName: null, paidAt: null, deliveryPhotoRemovedAt: null, deliveryPhotoFileId: null, courier: null,
 };
 const line = (id: number, returnable = true) => ({ id, productName: `Item ${id}`, sizeLabel: "Small", quantity: 1, priceInCentavos: 10_000, imageUrl: null, returnable });
 const offer = (patch: Partial<ReturnOffer> = {}): ReturnOffer => ({

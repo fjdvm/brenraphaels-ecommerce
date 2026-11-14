@@ -6,6 +6,7 @@ import { sendPendingCustomerNotifications } from "@/lib/notifications/outbox";
 import { getDatabase } from "@/lib/db";
 import { sendOrderConfirmedEmail } from "@/lib/email/order-confirmed-email";
 import { sendOrderDeliveredEmail } from "@/lib/email/order-delivered-email";
+import { sendOrderDispatchedEmail } from "@/lib/email/order-dispatched-email";
 import { sendOrderPaidEmail } from "@/lib/email/order-paid-email";
 import { DeliveryPhotoUnavailable, InvalidDeliveryPhoto, verifyDeliveryPhoto } from "@/lib/orders/verify-delivery-photo";
 import { verifyCreomsCredential } from "@/lib/orders/creoms-credential";
@@ -67,6 +68,9 @@ export async function POST(
       }
       if (update.status === "paid") {
         await notifyCustomer(orderStore, order, "paid", sendOrderPaidEmail);
+      }
+      if (update.status === "dispatched" && order.courier) {
+        await notifyCustomer(orderStore, order, "dispatched", sendOrderDispatchedEmail);
       }
       if (update.status === "delivered") {
         await notifyCustomer(orderStore, order, "delivered", sendOrderDeliveredEmail);

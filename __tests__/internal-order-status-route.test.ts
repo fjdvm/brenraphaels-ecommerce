@@ -11,6 +11,7 @@ const {
   publishCustomerOrderEvent,
   sendOrderConfirmedEmail,
   sendOrderDeliveredEmail,
+  sendOrderDispatchedEmail,
   sendOrderPaidEmail,
 } = vi.hoisted(() => ({
   afterTasks: [] as Array<() => Promise<void>>,
@@ -22,6 +23,7 @@ const {
   publishCustomerOrderEvent: vi.fn(),
   sendOrderConfirmedEmail: vi.fn(),
   sendOrderDeliveredEmail: vi.fn(),
+  sendOrderDispatchedEmail: vi.fn(),
   sendOrderPaidEmail: vi.fn(),
 }));
 
@@ -30,6 +32,7 @@ vi.mock("@/lib/notifications/outbox", () => ({ sendPendingCustomerNotifications:
 vi.mock("@/lib/db", () => ({ getDatabase }));
 vi.mock("@/lib/email/order-confirmed-email", () => ({ sendOrderConfirmedEmail }));
 vi.mock("@/lib/email/order-delivered-email", () => ({ sendOrderDeliveredEmail }));
+vi.mock("@/lib/email/order-dispatched-email", () => ({ sendOrderDispatchedEmail }));
 vi.mock("@/lib/email/order-paid-email", () => ({ sendOrderPaidEmail }));
 vi.mock("@/lib/orders/live-events", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/orders/live-events")>()),
@@ -67,6 +70,7 @@ beforeEach(() => {
   sendOrderConfirmedEmail.mockReset().mockResolvedValue(undefined);
   sendOrderDeliveredEmail.mockReset().mockResolvedValue(undefined);
   sendOrderPaidEmail.mockReset().mockResolvedValue(undefined);
+  sendOrderDispatchedEmail.mockReset().mockResolvedValue(undefined);
   createOrderStore.mockClear();
   getDatabase.mockClear();
 });
@@ -189,6 +193,30 @@ describe("POST /api/internal/orders/[id]/status", () => {
       }
     },
   );
+
+  test("forwards the courier booking and emails the tracking link once on dispatch", async () => {
+    const courier = { name: "Grab", trackingUrl: "https://grab.test/track/1", riderPhone: "0917 123 4567" };
+    advance.mockResolvedValueOnce({ id: 12, status: "dispatched", fulfillmentMethod: "delivery", deliveryFeeInCentavos: 8000, subtotalInCentavos: 21900, courier });
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "dispatched", courier }),
+      headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect((await postAndNotify(request, context)).status).toBe(200);
+    expect(advance).toHaveBeenCalledWith(12, { status: "dispatched", courier: expect.objectContaining({ name: "Grab", trackingUrl: courier.trackingUrl, riderPhone: "09171234567" }) });
+    expect(sendOrderDispatchedEmail).toHaveBeenCalledTimes(1);
+    expect(sendOrderDispatchedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ courier }));
+  });
+
+  test("refuses an http courier link before any write", async () => {
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "dispatched", courier: { name: "Grab", trackingUrl: "http://grab.test/1" } }),
+      headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect((await postAndNotify(request, context)).status).toBe(400);
+    expect(advance).not.toHaveBeenCalled();
+  });
 
   test("invites the Customer to leave Feedback when an Order is delivered", async () => {
     advance.mockResolvedValueOnce({ id: 12, status: "delivered", fulfillmentMethod: "pickup", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });

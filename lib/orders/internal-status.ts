@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { courierBooking } from "../validators/courier";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
 import { orderStatuses } from "./orders";
@@ -18,7 +19,14 @@ const statusUpdate = z.discriminatedUnion("status", [
     staffName: z.unknown().optional(),
   }).strict(),
   z.object({
-    status: z.enum(orderStatuses).exclude(["paid", "received", "delivered"]),
+    status: z.literal("dispatched"),
+    courier: courierBooking.optional(),
+    deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
+    staffId: z.unknown().optional(),
+    staffName: z.unknown().optional(),
+  }).strict(),
+  z.object({
+    status: z.enum(orderStatuses).exclude(["paid", "received", "delivered", "dispatched"]),
     deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
     // Attribution is only used for paid; other moves ignore it.
     staffId: z.unknown().optional(),
@@ -39,6 +47,7 @@ export function parseInternalOrderStatusUpdate(payload: unknown) {
   };
   return {
     status: update.status,
+    ...("courier" in update && update.courier ? { courier: update.courier } : {}),
     ...(update.deliveryFeeInCentavos === undefined ? {} : { deliveryFeeInCentavos: update.deliveryFeeInCentavos }),
   };
 }

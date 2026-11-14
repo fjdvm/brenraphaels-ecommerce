@@ -44,7 +44,7 @@ test("quotes the fee and asks for GCash payment once, then Preparing sends nothi
   await store.advance(row.id, { status: "paid", staffId: "ana", staffName: "Ana" });
   await store.advance(row.id, { status: "preparing" });
   expect(await sendPendingCustomerNotifications(db, row.id, send)).toBe(0);
-  await store.advance(row.id, { status: "dispatched" });
+  await store.advance(row.id, { status: "dispatched", courier: { name: "Grab", trackingUrl: "https://grab.test/t" } });
   expect(await sendPendingCustomerNotifications(db, row.id, send)).toBe(1);
   expect(send.mock.lastCall?.[0]).toMatchObject({ type: "order.dispatched", title: `Order #${row.id} dispatched` });
 });
