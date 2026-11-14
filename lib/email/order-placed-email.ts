@@ -1,4 +1,5 @@
 import type { Order } from "../orders/orders";
+import { FEE_TO_FOLLOW_COPY } from "@/lib/orders/fee-to-follow-copy";
 import { formatPeso } from "../catalog/currency";
 import { createBrevoTransport, requiredEnvironment } from "./brevo-transport";
 
@@ -17,7 +18,7 @@ export async function sendOrderPlacedEmail(recipient: string, order: Order) {
       "Thank you for your order from Bren Raphael's.",
       "",
       freeDelivery ? "Your Order is confirmed with free delivery. No quote is needed." : order.fulfillmentMethod === "delivery"
-        ? "Your Delivery Order is placed. We will confirm your Delivery fee and updated total soon."
+        ? `Your Delivery Order is placed. ${FEE_TO_FOLLOW_COPY}`
         : "Your Pickup Order is confirmed. Please pay cash when you collect it.",
       "",
       "Your items:",

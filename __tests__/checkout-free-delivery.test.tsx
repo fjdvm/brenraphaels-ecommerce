@@ -58,6 +58,12 @@ describe("Checkout Free delivery", () => {
     expect(screen.getByText("To be confirmed")).toBeTruthy();
   });
 
+  test("says the total is not final, when the quote comes, and that cancelling is free", () => {
+    renderDelivery(64_600);
+
+    expect(screen.getAllByText(/total is not final yet.*quote your delivery fee before we pack.*cancel for free before we pack/).length).toBeGreaterThan(0);
+  });
+
   test("shows no Free delivery content for Store pickup", () => {
     render(<CheckoutView cart={cart(283_700)} addresses={[]} provinces={[]} />);
     expect(screen.queryByText(/Free delivery — your items/)).toBeNull();

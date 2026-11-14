@@ -1,5 +1,6 @@
 "use client";
 
+import { FEE_TO_FOLLOW_COPY } from "@/lib/orders/fee-to-follow-copy";
 import { ArrowRight, Check, MapPin, Package, Plus, Store, Truck, Wallet } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -193,7 +194,7 @@ export function CheckoutView({
               <FreeDeliveryProgress subtotalInCentavos={cart.subtotalInCentavos} />
               <p className="flex items-start gap-2.5 bg-warning-soft p-4 text-xs leading-normal tracking-wide text-ink">
                 <Truck aria-hidden className="size-[18px] shrink-0 text-warning" />
-                Our team will message you the delivery fee before your order is dispatched.
+                {FEE_TO_FOLLOW_COPY}
               </p>
             </>
           ) : null}
@@ -254,7 +255,7 @@ export function CheckoutView({
             </dd>
           </dl>
           {fulfillmentMethod === "delivery" && !freeDelivery ? (
-            <p className="mt-4 text-xs leading-normal tracking-wide text-body">The delivery fee will be confirmed by our team before your order is dispatched.</p>
+            <p className="mt-4 text-xs leading-normal tracking-wide text-body">{FEE_TO_FOLLOW_COPY}</p>
           ) : null}
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button type="button" variant="pill-outline" size="pill-sm" disabled={isPending} onClick={() => setConfirming(false)}>

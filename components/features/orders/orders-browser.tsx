@@ -1,5 +1,6 @@
 "use client";
 
+import { FEE_TO_FOLLOW_SHORT } from "@/lib/orders/fee-to-follow-copy";
 import { Calendar, Check, ChevronDown, Store, Truck, Wallet } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -306,7 +307,7 @@ function OrderDetails({
           <dd className="font-serif text-[22px] leading-[1.3] text-primary">{feePending ? `${formatPeso(total)} + delivery` : formatPeso(total)}</dd>
         </div>
       </dl>
-      {feePending ? <p className="text-right text-xs text-warning">We&apos;ll confirm the delivery fee shortly</p> : null}
+      {feePending ? <p className="text-right text-xs text-warning">{FEE_TO_FOLLOW_SHORT}</p> : null}
 
       {order.status === "delivered" || order.status === "received" ? <DeliveryPhoto fileId={order.deliveryPhotoFileId} removedAt={order.deliveryPhotoRemovedAt} orderId={order.id} /> : null}
 
