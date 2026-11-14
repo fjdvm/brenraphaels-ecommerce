@@ -453,7 +453,11 @@ export function createOrderStore<
         paymentProofSubmittedAt: new Date(),
       })
       // Keep a concurrent submission from overwriting one that just landed.
-      .where(and(eq(orders.id, orderId), eq(orders.status, "confirmed")))
+      .where(and(
+        eq(orders.id, orderId), eq(orders.status, "confirmed"),
+        eq(orders.subtotalInCentavos, persistedOrder.subtotalInCentavos),
+        persistedOrder.deliveryFeeInCentavos === null ? isNull(orders.deliveryFeeInCentavos) : eq(orders.deliveryFeeInCentavos, persistedOrder.deliveryFeeInCentavos),
+      ))
       .returning();
     if (!updatedOrder) throw new Error("Order status changed before payment proof could be submitted.");
 
