@@ -15,7 +15,6 @@ BEGIN
       AND OLD.subtotal_in_centavos > 250000 AND OLD.delivery_fee_in_centavos = 0
       AND NEW.subtotal_in_centavos <> OLD.subtotal_in_centavos THEN
       NEW.delivery_fee_in_centavos := NULL;
-      NEW.status := 'placed';
     END IF;
   END IF;
   RETURN NEW;

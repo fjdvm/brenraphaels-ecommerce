@@ -121,7 +121,7 @@ export type OrderStore = {
     input: AdvanceOrderInput,
   ): Promise<Order>;
   cancel(customerId: string, orderId: number): Promise<Order>;
-  cancelItems(orderId: number, lineIds: number[], staff: { staffId: string; staffName: string }): Promise<Order>;
+  cancelItems(orderId: number, lineIds: number[], staff: { staffId: string; staffName: string }, expectedStatus: string): Promise<Order>;
   customerEmailForOrder(orderId: number): Promise<string | undefined>;
   customerIdForOrder(orderId: number): Promise<string | undefined>;
   submitPaymentProof(
@@ -287,7 +287,14 @@ export function createOrderStore<
       cancelled: [],
     };
     const currentStatus = persistedOrder.status as OrderStatus;
-    if (!permittedNextStatuses[currentStatus].includes(input.status)) {
+    const requote = input.status === "confirmed" && input.deliveryFeeInCentavos !== undefined &&
+      persistedOrder.fulfillmentMethod === "delivery" && persistedOrder.deliveryFeeInCentavos === null &&
+      ["confirmed", "awaiting payment", "paid", "preparing"].includes(currentStatus);
+    if (persistedOrder.fulfillmentMethod === "delivery" && persistedOrder.deliveryFeeInCentavos === null &&
+        !["confirmed", "cancelled"].includes(input.status)) {
+      throw new OrderStatusUpdateError("Quote a Delivery fee before continuing this Order.");
+    }
+    if (!requote && !permittedNextStatuses[currentStatus].includes(input.status)) {
       throw new OrderTransitionError(input.status, currentStatus);
     }
     const deliveryPhotoFileId = input.status === "delivered" ? fileIdField.parse(input.deliveryPhotoFileId) : undefined;
@@ -310,7 +317,7 @@ export function createOrderStore<
       const [updatedOrder] = await transaction
         .update(orders)
         .set({
-          status: input.status,
+          status: requote ? currentStatus : input.status,
           ...(staff ? { paidById: staff.staffId, paidByName: staff.staffName, paidAt: new Date() } : {}),
           ...(input.status === "delivered" ? { deliveredAt: new Date(), deliveryPhotoFileId } : {}),
           ...(input.deliveryFeeInCentavos === undefined
@@ -320,6 +327,8 @@ export function createOrderStore<
         // Keep a concurrent update from overwriting a status that was just advanced.
         .where(and(
           eq(orders.id, orderId), eq(orders.status, currentStatus),
+          eq(orders.subtotalInCentavos, persistedOrder.subtotalInCentavos),
+          ...(requote ? [isNull(orders.deliveryFeeInCentavos)] : []),
           ...(input.status === "delivered" ? [isNull(orders.deliveryPhotoFileId)] : []),
         ))
         .returning();
@@ -347,8 +356,8 @@ export function createOrderStore<
         ...content, idempotencyKey: `${content.type}:${orderId}`, orderId,
         customerId: updatedOrder.customerId, link: `/profile/orders?order=${orderId}`,
       }).onConflictDoNothing();
-      if (input.status === "confirmed" && updatedOrder.paymentMethod === "gcash") {
-        await transaction.insert(customerNotifications).values(paymentNeededNotification(updatedOrder));
+      if (input.status === "confirmed" && updatedOrder.status === "confirmed" && updatedOrder.paymentMethod === "gcash") {
+        await transaction.insert(customerNotifications).values(paymentNeededNotification(updatedOrder)).onConflictDoNothing();
       }
       return updatedOrder;
     });
@@ -357,7 +366,7 @@ export function createOrderStore<
   }
 
   /** Cancel whole line items atomically; the remaining gross subtotal decides Free delivery. */
-  async function cancelItems(orderId: number, lineIds: number[], staff: { staffId: string; staffName: string }): Promise<Order> {
+  async function cancelItems(orderId: number, lineIds: number[], staff: { staffId: string; staffName: string }, expectedStatus: string): Promise<Order> {
     if (!lineIds.length || new Set(lineIds).size !== lineIds.length ||
         lineIds.some(id => !Number.isSafeInteger(id) || id < 1)) {
       throw new OrderStatusUpdateError("Choose this Order's whole line items to cancel.");
@@ -366,6 +375,7 @@ export function createOrderStore<
     const changed = await db.transaction(async transaction => {
       const [order] = await transaction.select().from(orders).where(eq(orders.id, orderId)).for("update");
       if (!order) throw new OrderStatusUpdateError("Order was not found.");
+      if (order.status !== expectedStatus) throw new OrderStatusUpdateError("Order already changed; refresh it before trying again.");
       if (!["placed", "confirmed", "awaiting payment", "paid", "preparing"].includes(order.status)) {
         throw new OrderStatusUpdateError("Items can no longer be cancelled on this Order.");
       }
@@ -388,7 +398,7 @@ export function createOrderStore<
         idempotencyKey: `order.items-cancelled:${orderId}:${[...lineIds].sort((a,b) => a-b).join("-")}`,
         orderId, customerId: order.customerId, type: "order.items-cancelled",
         title: `Items cancelled on Order #${orderId}`,
-        body: updated.status === "placed" && updated.deliveryFeeInCentavos === null
+        body: updated.fulfillmentMethod === "delivery" && updated.deliveryFeeInCentavos === null
           ? "Items were cancelled. A new Delivery fee quote is needed before your Order is confirmed."
           : "Items were cancelled. View your updated Order.",
         link: `/profile/orders?order=${orderId}`,
@@ -426,6 +436,9 @@ export function createOrderStore<
     if (!persistedOrder) throw new Error("Order was not found.");
     if (persistedOrder.paymentMethod !== "gcash") {
       throw new Error("Payment proof can only be submitted for a GCash Order.");
+    }
+    if (persistedOrder.fulfillmentMethod === "delivery" && persistedOrder.deliveryFeeInCentavos === null) {
+      throw new Error("Quote a Delivery fee before submitting Payment proof.");
     }
     if (persistedOrder.status !== "confirmed") {
       throw new Error("Payment proof can only be submitted once for a confirmed Order.");

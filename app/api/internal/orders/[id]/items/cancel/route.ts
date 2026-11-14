@@ -10,6 +10,7 @@ import { staffAttribution } from "@/lib/validators/staff";
 
 const cancellation = z.object({
   lineIds: z.array(z.number().int().positive()).min(1).max(100),
+  expectedStatus: z.enum(["placed", "confirmed", "awaiting payment", "paid", "preparing"]),
   ...staffAttribution.shape,
 }).strict();
 
@@ -20,7 +21,7 @@ export async function POST(request: Request, context: RouteContext<"/api/interna
   try {
     const input = cancellation.parse(await request.json());
     const store = createOrderStore(getDatabase());
-    const order = await store.cancelItems(id, input.lineIds, input);
+    const order = await store.cancelItems(id, input.lineIds, input, input.expectedStatus);
     scheduleOrdersChanged();
     after(async () => {
       await publishAfterCommit(store.customerIdForOrder(id), { type: "order.updated", orderId: String(id) }, publishCustomerOrderEvent);

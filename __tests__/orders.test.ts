@@ -77,11 +77,35 @@ describe("Order", () => {
       await expect(store.advance(placed.id, { status: "confirmed", deliveryFeeInCentavos: 100 })).rejects.toThrow();
       await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ deliveryFeeInCentavos: 0 }]);
       const [extraLine] = await database.select().from(orderLines).where(eq(orderLines.sizeLabel, "Extra"));
-      await store.cancelItems(placed.id, [extraLine.id], { staffId: "ana", staffName: "Ana" });
-      await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ status: "placed", deliveryFeeInCentavos: null, subtotalInCentavos: 250000 }]);
+      await store.cancelItems(placed.id, [extraLine.id], { staffId: "ana", staffName: "Ana" }, "confirmed");
+      await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ status: "confirmed", deliveryFeeInCentavos: null, subtotalInCentavos: 250000 }]);
       await expect(store.advance(placed.id, { status: "confirmed", deliveryFeeInCentavos: 19000 })).resolves.toMatchObject({ status: "confirmed", deliveryFeeInCentavos: 19000 });
 
     }
+  });
+
+  test.each(["confirmed", "awaiting payment", "paid", "preparing"])("GCash partial cancellation keeps %s and continues after a new quote", async phase => {
+    const database = drizzle(client);
+    await database.update(sizes).set({ priceInCentavos: 250000 });
+    await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
+    const [extra] = await database.insert(sizes).values({ productSlug: "ube-jam", label: "Extra", priceInCentavos: 1, available: true }).returning();
+    await createCartStore(database).addSize("customer-1", extra.id, 1);
+    await client.exec("insert into addresses (customer_id, label, street, barangay, city, province, postal_code, country, is_default) values ('customer-1', 'Home', '1 Main St', 'San Jose', 'Pasig', 'Metro Manila', '1600', 'Philippines', true)");
+    const address = await client.query<{id: number}>("select id from addresses limit 1");
+    const store = createOrderStore(database);
+    const order = await store.place("customer-1", { fulfillmentMethod: "delivery", paymentMethod: "gcash", addressId: address.rows[0].id });
+    if (phase !== "confirmed") await store.submitPaymentProof("customer-1", order.id, { gcashReferenceNumber: "1234567890" });
+    if (["paid", "preparing"].includes(phase)) await store.advance(order.id, { status: "paid", staffId: "ana", staffName: "Ana" });
+    if (phase === "preparing") await store.advance(order.id, { status: "preparing" });
+    const [line] = await database.select().from(orderLines).where(eq(orderLines.sizeLabel, "Extra"));
+    await expect(store.cancelItems(order.id, [line.id], { staffId: "ana", staffName: "Ana" }, "placed")).rejects.toThrow("already changed");
+    await store.cancelItems(order.id, [line.id], { staffId: "ana", staffName: "Ana" }, phase);
+    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ status: phase, deliveryFeeInCentavos: null }]);
+    await expect(store.advance(order.id, { status: "confirmed", deliveryFeeInCentavos: 19000 })).resolves.toMatchObject({ status: phase, deliveryFeeInCentavos: 19000 });
+    if (phase === "confirmed") await expect(store.submitPaymentProof("customer-1", order.id, { gcashReferenceNumber: "1234567890" })).resolves.toMatchObject({ status: "awaiting payment" });
+    if (phase === "awaiting payment") await expect(store.advance(order.id, { status: "paid", staffId: "ana", staffName: "Ana" })).resolves.toMatchObject({ status: "paid" });
+    if (phase === "paid") await expect(store.advance(order.id, { status: "preparing" })).resolves.toMatchObject({ status: "preparing" });
+    if (phase === "preparing") await expect(store.advance(order.id, { status: "dispatched" })).resolves.toMatchObject({ status: "dispatched" });
   });
 
   test("shows a File-backed Product image in Order history instead of the retained Blob address", async () => {
