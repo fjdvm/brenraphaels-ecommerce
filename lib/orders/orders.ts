@@ -1,11 +1,12 @@
 import { gatewayProductImages, productThumbnail, type ProductImageFiles, type ProductImageReference } from "../catalog/product-images";
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { addresses, customerNotifications, customers, orderDeliveryAddresses, orderLines, orders, productImages, products } from "../db/schema";
+import { addresses, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orders, productImages, products } from "../db/schema";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
 import { createCartStore } from "./cart";
+import type { AuditEvent } from "../audit/gateway";
 
 export const fulfillmentMethods = ["pickup", "delivery"] as const;
 export const paymentMethods = ["cash-on-delivery", "gcash"] as const;
@@ -120,6 +121,7 @@ export type OrderStore = {
     input: AdvanceOrderInput,
   ): Promise<Order>;
   cancel(customerId: string, orderId: number): Promise<Order>;
+  cancelItems(orderId: number, lineIds: number[], staff: { staffId: string; staffName: string }, expectedStatus: string): Promise<Order>;
   customerEmailForOrder(orderId: number): Promise<string | undefined>;
   customerIdForOrder(orderId: number): Promise<string | undefined>;
   submitPaymentProof(
@@ -143,9 +145,22 @@ export async function placeOrderAndNotify(
   customerId: string,
   recipientEmail: string,
   input: PlaceOrderInput,
-  dependencies: { orderStore: OrderStore; mailer: OrderMailer },
+  dependencies: { orderStore: OrderStore; mailer: OrderMailer; audit?: (event: AuditEvent) => Promise<void> },
 ): Promise<Order> {
   const order = await dependencies.orderStore.place(customerId, input);
+  if (order.fulfillmentMethod === "delivery" && order.subtotalInCentavos > 250_000 && order.deliveryFeeInCentavos === 0) {
+    try {
+      await dependencies.audit?.({
+        source: "Ecommerce", action: "free_delivery.applied", outcome: "success",
+        actor: { type: "system", id: "free-delivery", display_name: "Free delivery" },
+        target: { type: "order", id: String(order.id), display_name: `Order #${order.id}` },
+        description: `Free delivery applied to Order #${order.id}; subtotal is over ₱2,500. No quote is needed.`,
+        occurred_at: order.createdAt.toISOString(), idempotency_key: `free_delivery.applied:${order.id}`,
+      });
+    } catch (error) {
+      console.error("Free delivery audit event could not be written", error);
+    }
+  }
   try {
     await dependencies.mailer.send(recipientEmail, order);
   } catch (error) {
@@ -247,6 +262,10 @@ export function createOrderStore<
       .where(eq(orders.id, orderId));
     if (!persistedOrder) throw new OrderStatusUpdateError("Order was not found.");
 
+    if (persistedOrder.fulfillmentMethod === "delivery" && persistedOrder.subtotalInCentavos > 250_000 &&
+        input.deliveryFeeInCentavos !== undefined && input.deliveryFeeInCentavos !== 0) {
+      throw new OrderStatusUpdateError("Free delivery applies to this Order. The Delivery fee must be ₱0.");
+    }
     if (input.status === "delivered" && persistedOrder.deliveryPhotoFileId !== null) {
       throw new OrderStatusUpdateError("Delivery photo is already set.");
     }
@@ -268,7 +287,14 @@ export function createOrderStore<
       cancelled: [],
     };
     const currentStatus = persistedOrder.status as OrderStatus;
-    if (!permittedNextStatuses[currentStatus].includes(input.status)) {
+    const requote = input.status === "confirmed" && input.deliveryFeeInCentavos !== undefined &&
+      persistedOrder.fulfillmentMethod === "delivery" && persistedOrder.deliveryFeeInCentavos === null &&
+      ["confirmed", "awaiting payment", "paid", "preparing"].includes(currentStatus);
+    if (persistedOrder.deliveryFeeQuoteRequired &&
+        !["confirmed", "cancelled"].includes(input.status)) {
+      throw new OrderStatusUpdateError("Quote a Delivery fee before continuing this Order.");
+    }
+    if (!requote && !permittedNextStatuses[currentStatus].includes(input.status)) {
       throw new OrderTransitionError(input.status, currentStatus);
     }
     const deliveryPhotoFileId = input.status === "delivered" ? fileIdField.parse(input.deliveryPhotoFileId) : undefined;
@@ -291,7 +317,7 @@ export function createOrderStore<
       const [updatedOrder] = await transaction
         .update(orders)
         .set({
-          status: input.status,
+          status: requote ? currentStatus : input.status,
           ...(staff ? { paidById: staff.staffId, paidByName: staff.staffName, paidAt: new Date() } : {}),
           ...(input.status === "delivered" ? { deliveredAt: new Date(), deliveryPhotoFileId } : {}),
           ...(input.deliveryFeeInCentavos === undefined
@@ -301,6 +327,8 @@ export function createOrderStore<
         // Keep a concurrent update from overwriting a status that was just advanced.
         .where(and(
           eq(orders.id, orderId), eq(orders.status, currentStatus),
+          eq(orders.subtotalInCentavos, persistedOrder.subtotalInCentavos),
+          ...(requote ? [isNull(orders.deliveryFeeInCentavos)] : []),
           ...(input.status === "delivered" ? [isNull(orders.deliveryPhotoFileId)] : []),
         ))
         .returning();
@@ -328,13 +356,56 @@ export function createOrderStore<
         ...content, idempotencyKey: `${content.type}:${orderId}`, orderId,
         customerId: updatedOrder.customerId, link: `/profile/orders?order=${orderId}`,
       }).onConflictDoNothing();
-      if (input.status === "confirmed" && updatedOrder.paymentMethod === "gcash") {
-        await transaction.insert(customerNotifications).values(paymentNeededNotification(updatedOrder));
+      if (input.status === "confirmed" && updatedOrder.status === "confirmed" && updatedOrder.paymentMethod === "gcash") {
+        await transaction.insert(customerNotifications).values(paymentNeededNotification(updatedOrder)).onConflictDoNothing();
       }
       return updatedOrder;
     });
 
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
+  }
+
+  /** Cancel whole line items atomically; the remaining gross subtotal decides Free delivery. */
+  async function cancelItems(orderId: number, lineIds: number[], staff: { staffId: string; staffName: string }, expectedStatus: string): Promise<Order> {
+    if (!lineIds.length || new Set(lineIds).size !== lineIds.length ||
+        lineIds.some(id => !Number.isSafeInteger(id) || id < 1)) {
+      throw new OrderStatusUpdateError("Choose this Order's whole line items to cancel.");
+    }
+    const actor = staffAttribution.parse(staff);
+    const changed = await db.transaction(async transaction => {
+      const [order] = await transaction.select().from(orders).where(eq(orders.id, orderId)).for("update");
+      if (!order) throw new OrderStatusUpdateError("Order was not found.");
+      if (order.status !== expectedStatus) throw new OrderStatusUpdateError("Order already changed; refresh it before trying again.");
+      if (!["placed", "confirmed", "awaiting payment", "paid", "preparing"].includes(order.status)) {
+        throw new OrderStatusUpdateError("Items can no longer be cancelled on this Order.");
+      }
+      const lines = await transaction.select().from(orderLines).where(eq(orderLines.orderId, orderId));
+      const cancelled = lines.filter(line => lineIds.includes(line.id));
+      if (cancelled.length !== lineIds.length) throw new OrderStatusUpdateError("Those items already changed. Refresh the Order.");
+      if (cancelled.length === lines.length) throw new OrderStatusUpdateError("Use Cancel Order to cancel every item.");
+      const remaining = lines.filter(line => !lineIds.includes(line.id));
+      const subtotal = remaining.reduce((sum, line) => sum + line.priceInCentavos * line.quantity, 0);
+      // Preserve the cancelled snapshots and actor-independent facts for future reads/auditing.
+      await transaction.insert(orderCancelledItems).values(cancelled.map(line => ({
+        orderId, orderLineId: line.id, productName: line.productName, sizeLabel: line.sizeLabel,
+        priceInCentavos: line.priceInCentavos, quantity: line.quantity,
+        staffId: actor.staffId, staffName: actor.staffName,
+      })));
+      await transaction.delete(orderLines).where(and(eq(orderLines.orderId, orderId), inArray(orderLines.id, lineIds)));
+      const [updated] = await transaction.update(orders).set({ subtotalInCentavos: subtotal })
+        .where(eq(orders.id, orderId)).returning();
+      await transaction.insert(customerNotifications).values({
+        idempotencyKey: `order.items-cancelled:${orderId}:${[...lineIds].sort((a,b) => a-b).join("-")}`,
+        orderId, customerId: order.customerId, type: "order.items-cancelled",
+        title: `Items cancelled on Order #${orderId}`,
+        body: updated.fulfillmentMethod === "delivery" && updated.deliveryFeeInCentavos === null
+          ? "Items were cancelled. A new Delivery fee quote is needed before your Order is confirmed."
+          : "Items were cancelled. View your updated Order.",
+        link: `/profile/orders?order=${orderId}`,
+      });
+      return updated;
+    });
+    return toOrder(changed, await linesForOrder(orderId));
   }
 
   /** Cancels an Order only when it belongs to the Customer and the state machine permits it. */
@@ -366,6 +437,9 @@ export function createOrderStore<
     if (persistedOrder.paymentMethod !== "gcash") {
       throw new Error("Payment proof can only be submitted for a GCash Order.");
     }
+    if (persistedOrder.deliveryFeeQuoteRequired) {
+      throw new Error("Quote a Delivery fee before submitting Payment proof.");
+    }
     if (persistedOrder.status !== "confirmed") {
       throw new Error("Payment proof can only be submitted once for a confirmed Order.");
     }
@@ -379,7 +453,11 @@ export function createOrderStore<
         paymentProofSubmittedAt: new Date(),
       })
       // Keep a concurrent submission from overwriting one that just landed.
-      .where(and(eq(orders.id, orderId), eq(orders.status, "confirmed")))
+      .where(and(
+        eq(orders.id, orderId), eq(orders.status, "confirmed"),
+        eq(orders.subtotalInCentavos, persistedOrder.subtotalInCentavos),
+        persistedOrder.deliveryFeeInCentavos === null ? isNull(orders.deliveryFeeInCentavos) : eq(orders.deliveryFeeInCentavos, persistedOrder.deliveryFeeInCentavos),
+      ))
       .returning();
     if (!updatedOrder) throw new Error("Order status changed before payment proof could be submitted.");
 
@@ -448,16 +526,17 @@ export function createOrderStore<
         deliveryAddress = chosenAddress;
       }
 
+      const freeDelivery = input.fulfillmentMethod === "delivery" && cart.subtotalInCentavos > 250_000;
       const [order] = await transaction
         .insert(orders)
         .values({
           customerId,
           fulfillmentMethod: input.fulfillmentMethod,
           paymentMethod: input.paymentMethod,
-          // A human has to quote Delivery before it is confirmed; Pickup has no such step.
-          status: input.fulfillmentMethod === "delivery" ? "placed" : "confirmed",
+          // The undiscounted Cart subtotal determines Free delivery.
+          status: input.fulfillmentMethod === "delivery" && !freeDelivery ? "placed" : "confirmed",
           subtotalInCentavos: cart.subtotalInCentavos,
-          deliveryFeeInCentavos: null,
+          deliveryFeeInCentavos: freeDelivery ? 0 : null,
         })
         .returning();
 
@@ -472,6 +551,12 @@ export function createOrderStore<
         await transaction.insert(orderDeliveryAddresses).values({ orderId: order.id, ...deliveryAddress });
       }
       await transactionalCart.clear(customerId);
+      if (freeDelivery) await transaction.insert(customerNotifications).values({
+        idempotencyKey: `order.free-delivery:${order.id}`, orderId: order.id, customerId,
+        type: "order.free-delivery", title: "Order confirmed · free delivery",
+        body: `Order #${order.id} is confirmed with Free delivery. No quote is needed.`,
+        link: `/profile/orders?order=${order.id}`,
+      });
       if (order.status === "confirmed" && order.paymentMethod === "gcash") {
         await transaction.insert(customerNotifications).values(paymentNeededNotification(order));
       }
@@ -505,5 +590,5 @@ export function createOrderStore<
     });
   }
 
-  return { place, listForCustomer, advance, cancel, customerEmailForOrder, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot };
+  return { place, listForCustomer, advance, cancel, cancelItems, customerEmailForOrder, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot };
 }

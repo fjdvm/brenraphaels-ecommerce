@@ -37,7 +37,7 @@ export function orderTrackerSteps(order: OrderView): TrackerStep[] | null {
 
 /** A GCash Order is waiting on the Customer once staff confirmed it and no proof has been sent. */
 export function needsPayment(order: OrderView) {
-  return order.paymentMethod === "gcash" && order.status === "confirmed" && order.paymentProof === null;
+  return order.paymentMethod === "gcash" && order.status === "confirmed" && order.paymentProof === null && !awaitingDeliveryFee(order);
 }
 
 /** A Delivery Order whose fee staff have not quoted yet. */

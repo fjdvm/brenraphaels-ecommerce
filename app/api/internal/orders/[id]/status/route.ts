@@ -59,16 +59,16 @@ export async function POST(
         publishCustomerOrderEvent,
       );
       if (
-        order.status === "confirmed"
+        update.status === "confirmed"
         && order.fulfillmentMethod === "delivery"
         && order.deliveryFeeInCentavos !== null
       ) {
         await notifyCustomer(orderStore, order, "confirmed", sendOrderConfirmedEmail);
       }
-      if (order.status === "paid") {
+      if (update.status === "paid") {
         await notifyCustomer(orderStore, order, "paid", sendOrderPaidEmail);
       }
-      if (order.status === "delivered") {
+      if (update.status === "delivered") {
         await notifyCustomer(orderStore, order, "delivered", sendOrderDeliveredEmail);
       }
       try {

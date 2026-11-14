@@ -153,6 +153,7 @@ export const orders = pgTable("orders", {
   subtotalInCentavos: integer("subtotal_in_centavos").notNull(),
   // Pickup Orders never have a Delivery fee; delivery fees are added by CREOMS.
   deliveryFeeInCentavos: integer("delivery_fee_in_centavos"),
+  deliveryFeeQuoteRequired: boolean("delivery_fee_quote_required").default(false).notNull(),
   // GCash Payment proof: a reference number and optional screenshot the Customer
   // submits once the Order is confirmed. This app stores it but never verifies
   // it or marks the Order paid itself — that happens via the internal API.
@@ -188,6 +189,19 @@ export const orderLines = pgTable("order_lines", {
   sizeLabel: text("size_label").notNull(),
   priceInCentavos: integer("price_in_centavos").notNull(),
   quantity: integer("quantity").notNull(),
+});
+
+/** Immutable snapshots of items removed by a partial cancellation. */
+export const orderCancelledItems = pgTable("order_cancelled_items", {
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  orderLineId: integer("order_line_id").primaryKey(),
+  productName: text("product_name").notNull(),
+  sizeLabel: text("size_label").notNull(),
+  priceInCentavos: integer("price_in_centavos").notNull(),
+  quantity: integer("quantity").notNull(),
+  staffId: text("staff_id").notNull(),
+  staffName: text("staff_name").notNull(),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 /** Immutable delivery destination copied from the Customer's chosen Address. */
