@@ -39,6 +39,15 @@ export function ProductCard({
   const tightest = product.sizes.filter((size) => size.available && stockLabel(size.left) !== null)
     .sort((a, b) => (a.left ?? 0) - (b.left ?? 0))[0];
   const notice = tightest ? stockLabel(tightest.left)?.text : undefined;
+  // "In stock" only when every Size's count is known, so a failed IMS read never claims stock.
+  const inStock = !unavailable && !notice && product.sizes.every((size) => size.left !== null);
+  const pill = unavailable
+    ? { text: "Sold out", tone: "bg-surface text-muted" }
+    : notice
+      ? { text: notice, tone: "bg-warning-soft text-warning" }
+      : inStock
+        ? { text: "In stock", tone: "bg-success-soft text-success" }
+        : undefined;
 
   return (
     <div className="flex h-full flex-col gap-[18px]">
@@ -46,6 +55,7 @@ export function ProductCard({
         href={`/products/${product.slug}`}
         className="group flex flex-col gap-[18px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
       >
+        <div className="relative">
         <Image
           src={product.image}
           alt={product.name}
@@ -56,12 +66,15 @@ export function ProductCard({
             unavailable ? "opacity-55" : ""
           }`}
         />
+        {pill && (
+          <span className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs tracking-wide ${pill.tone}`}>{pill.text}</span>
+        )}
+        </div>
         <div className="flex flex-col gap-1.5">
           <h2 className="font-serif text-[22px] leading-[1.3] text-ink">{product.name}</h2>
           <p className="text-xs tracking-wide text-muted">
             {unavailable ? "Currently unavailable" : product.sizes.map((size) => size.label).join(" · ")}
           </p>
-          {notice && <p className="text-xs font-medium text-warning">{notice}</p>}
         </div>
       </Link>
       <div className="mt-auto flex flex-col gap-3">
