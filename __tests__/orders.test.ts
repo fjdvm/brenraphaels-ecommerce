@@ -1,3 +1,4 @@
+import { FakeShopStock } from "./helpers/fake-shop-stock";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -560,3 +561,5 @@ describe("Order", () => {
     })).rejects.toThrow("can only be submitted once");
   });
 });
+
+vi.mock("../lib/orders/stock", async (importOriginal) => ({ ...await importOriginal<typeof import("../lib/orders/stock")>(), gatewayShopStock: () => new FakeShopStock() }));

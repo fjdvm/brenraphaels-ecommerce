@@ -5,6 +5,7 @@ import { postToGateway, required } from "../gateway";
 import { thankYouEmail } from "../orders/feedback-thank-you";
 
 export type AppEmail = {
+  idempotencyKey?: string;
   to: string;
   title: string;
   body: string;
@@ -13,7 +14,7 @@ export type AppEmail = {
 
 /** Queues an App email through the api-gateway's notifications service, as the storefront's Caller. */
 export function sendAppEmail(email: AppEmail, fetcher: typeof fetch = fetch): Promise<void> {
-  return postToGateway("/notifications/emails/app", { ...email, app: "ecommerce" }, "email", fetcher);
+  return postToGateway("/notifications/emails/app", { ...email, app: "ecommerce" }, "email", fetcher, email.idempotencyKey);
 }
 
 /** Queues the Feedback thank-you email. */

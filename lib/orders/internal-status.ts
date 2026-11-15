@@ -47,6 +47,7 @@ export function parseInternalOrderStatusUpdate(payload: unknown) {
   };
   return {
     status: update.status,
+    ...(update.status === "cancelled" && (update.staffId !== undefined || update.staffName !== undefined) ? staffAttribution.parse(update) : {}),
     ...("courier" in update && update.courier ? { courier: update.courier } : {}),
     ...(update.deliveryFeeInCentavos === undefined ? {} : { deliveryFeeInCentavos: update.deliveryFeeInCentavos }),
   };

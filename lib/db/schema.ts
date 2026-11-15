@@ -5,6 +5,7 @@ import {
   index,
   primaryKey,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -397,4 +398,30 @@ export const customerNotifications = pgTable("customer_notifications", {
   link: text("link").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+});
+
+/** Durable checkout intent. These are Order line snapshots, never IMS stock balances. */
+export const stockReservations = pgTable("stock_reservations", {
+  id: text("id").primaryKey(),
+  customerId: text("customer_id").notNull(),
+  customerName: text("customer_name").notNull(),
+  lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+  orderId: integer("order_id").references(() => orders.id),
+  state: text("state", { enum: ["pending", "placed", "releasing", "released"] }).notNull(),
+  lines: jsonb("lines").$type<{
+    lineId: string; productId: number; quantity: number; sizeId: number;
+    cartLineId: number; priceInCentavos: number; orderLineId?: number; release?: boolean; released?: boolean;
+    releaseActor?: import("../audit/gateway").AuditIdentity;
+  }[]>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, table => [index("stock_reservations_work").on(table.state, table.createdAt), uniqueIndex("stock_reservations_order").on(table.orderId)]);
+
+/** Stable gateway keys make ambiguous email/audit acknowledgements safe to retry. */
+export const stockOutbox = pgTable("stock_outbox", {
+  key: text("key").primaryKey(),
+  kind: text("kind", { enum: ["audit", "email"] }).notNull(),
+  orderId: integer("order_id").references(() => orders.id),
+  payload: jsonb("payload").$type<import("../audit/gateway").AuditEvent | import("../notifications/gateway").AppEmail>().notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
 });
