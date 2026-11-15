@@ -9,6 +9,7 @@ import {
   productsGridClass,
 } from "@/components/features/catalog/products-frame";
 import { shopHref } from "@/components/features/catalog/shop-href";
+import { ShopSearch } from "@/components/features/catalog/shop-search";
 import { ShopSort } from "@/components/features/catalog/shop-sort";
 import { browseProducts, categories, parseBrowseParams } from "@/lib/catalog/browse";
 import { createCatalogStore } from "@/lib/catalog/catalog";
@@ -37,6 +38,7 @@ async function ShopBrowser({ searchParams }: { searchParams: Promise<Record<stri
 
   return (
     <div className="flex flex-col gap-10">
+      <ShopSearch params={params} />
       <div className="flex flex-wrap items-center gap-3">
         {chips.map(({ value, label }) => {
           const active = params.category === value;
@@ -58,7 +60,7 @@ async function ShopBrowser({ searchParams }: { searchParams: Promise<Record<stri
         <ShopSort params={params} />
       </div>
       {products.length === 0 ? (
-        <p className="py-10 text-center text-body">No products in this category yet.</p>
+        <p className="py-10 text-center text-body">{params.q ? `No products match “${params.q}”.` : "No products in this category yet."}</p>
       ) : (
         <div className={productsGridClass}>
           {products.map((product) => (

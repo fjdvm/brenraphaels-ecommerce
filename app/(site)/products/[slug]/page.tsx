@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { CreditCard, Store, Truck } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -12,6 +13,7 @@ import {
 } from "@/components/features/catalog/product-page-frame";
 import { AddToCart } from "@/components/features/orders/add-to-cart";
 import { createCatalogStore } from "@/lib/catalog/catalog";
+import { productMetadata } from "@/lib/catalog/product-metadata";
 import { parseProductDescription } from "@/lib/catalog/description";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
@@ -25,6 +27,12 @@ const fulfilment = [
   { icon: Truck, title: "Delivery", text: "Delivery fee is confirmed by our team after you place your order" },
   { icon: CreditCard, title: "Payment", text: "GCash or Cash on Delivery" },
 ];
+
+export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await createCatalogStore(getDatabase()).findProduct(slug);
+  return product ? productMetadata(product) : { title: "Product not found" };
+}
 
 /** Other Products to browse next, loaded in its own boundary so the Product itself shows first. */
 async function RelatedProducts({ slug }: { slug: string }) {
