@@ -87,6 +87,7 @@ export function OrderReturn({ orderId, offer }: { orderId: number; offer: Return
       {formOpen ? (
         <ReturnRequestForm
           lines={offer.lines}
+          paymentMethod={offer.paymentMethod}
           onOpenChange={setFormOpen}
           onRequested={(number) => {
             setFormOpen(false);

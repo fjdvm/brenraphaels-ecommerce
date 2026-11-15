@@ -33,7 +33,7 @@ const order: Order = {
 };
 const line = (id: number, returnable = true) => ({ id, productName: `Item ${id}`, sizeLabel: "Small", quantity: 1, priceInCentavos: 10_000, imageUrl: null, returnable });
 const offer = (patch: Partial<ReturnOffer> = {}): ReturnOffer => ({
-  deliveredAtMs: now - 60 * 60_000, windowExtended: false, lines: [line(1), line(2), line(3, false)], requested: null, ...patch,
+  deliveredAtMs: now - 60 * 60_000, windowExtended: false, paymentMethod: "gcash", lines: [line(1), line(2), line(3, false)], requested: null, ...patch,
 });
 const renderOrder = (returnOffer: ReturnOffer | null, returnInProgress = false) =>
   render(<OrdersBrowser orders={[{ order, feedback: null, returnInProgress, returnOffer }]} />);
@@ -75,6 +75,14 @@ describe("Return form", () => {
     const { dialog } = await open();
     expect((within(dialog).getByRole("checkbox", { name: /Item 1/ }) as HTMLInputElement).disabled).toBe(false);
     expect((within(dialog).getByRole("checkbox", { name: /Item 3/ }) as HTMLInputElement).disabled).toBe(true);
+  });
+
+  test("offers a refund the way the Customer paid, with the amount for the chosen items", async () => {
+    const { user, dialog } = await open();
+    expect(within(dialog).getByText("Refund to GCash")).toBeTruthy();
+    await user.click(within(dialog).getByRole("checkbox", { name: /Item 1/ }));
+    expect(within(dialog).getByText(/Refund to GCash · ₱100/)).toBeTruthy();
+    expect(within(dialog).getByText(/sent to your GCash within 3 working days/i)).toBeTruthy();
   });
 
   test("names every missing field and sends nothing", async () => {

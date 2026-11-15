@@ -26,12 +26,14 @@ const errorClass = "text-sm text-red-700";
 export function ReturnRequestForm({
   orderId,
   lines,
+  paymentMethod,
   open,
   onOpenChange,
   onRequested,
 }: {
   orderId: number;
   lines: ReturnOfferLine[];
+  paymentMethod: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRequested: (number: string) => void;
@@ -218,9 +220,14 @@ export function ReturnRequestForm({
                       onChange={() => setResolution(value)}
                       type="radio"
                     />
-                    {value === "refund" ? "Refund" : "Replacement"}
+                    {value === "refund" ? refundLabel(paymentMethod, lines.filter((line) => lineIds.includes(line.id))) : "Replacement"}
                   </label>
                 ))}
+                {refundMethodLabel(paymentMethod) ? (
+                  <p className="text-xs text-muted">A refund is sent to your {refundMethodLabel(paymentMethod)} within 3 working days of approval.</p>
+                ) : (
+                  <p className="text-xs text-muted">Cash on Delivery has no payment to send back; we will arrange your refund with you.</p>
+                )}
                 <p className="text-xs text-muted">This is your preference. Our team makes the final decision.</p>
                 {shown.preferredResolution ? <p className={errorClass} role="alert">{shown.preferredResolution}</p> : null}
               </fieldset>
@@ -235,6 +242,16 @@ export function ReturnRequestForm({
       </DialogContent>
     </Dialog>
   );
+}
+
+const refundMethods: Record<string, string> = { gcash: "GCash", maya: "Maya", "bank-transfer": "bank account" };
+const refundMethodLabel = (method: string) => refundMethods[method];
+
+/** "Refund to GCash · ₱219": the way the Customer paid and the amount for the items chosen so far. */
+function refundLabel(method: string, chosen: ReturnOfferLine[]) {
+  const where = refundMethodLabel(method);
+  const amount = chosen.length ? ` · ${formatPeso(chosen.reduce((sum, line) => sum + line.priceInCentavos * line.quantity, 0))}` : "";
+  return where ? `Refund to ${where}${amount}` : "Refund";
 }
 
 function FileList({ files, onRemove }: { files: File[]; onRemove: (index: number) => void }) {
