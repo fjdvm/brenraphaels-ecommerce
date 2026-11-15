@@ -39,7 +39,7 @@ test("quotes the fee and asks for GCash payment once, then Preparing sends nothi
   expect(await sendPendingCustomerNotifications(db, row.id, send)).toBe(2);
   expect(send.mock.calls.map(([n]) => n)).toEqual(expect.arrayContaining([
     expect.objectContaining({ userId: "c1", type: "order.delivery-fee", body: expect.stringContaining("₱50.00"), link: `https://shop.test/profile/orders?order=${row.id}` }),
-    expect.objectContaining({ type: "order.payment-needed", body: expect.stringContaining("GCash") }),
+    expect.objectContaining({ type: "order.payment-needed", body: expect.stringContaining("payment") }),
   ]));
   await store.submitPaymentProof("c1", row.id, { gcashReferenceNumber: "1234567890123" });
   await store.advance(row.id, { status: "paid", staffId: "ana", staffName: "Ana" });

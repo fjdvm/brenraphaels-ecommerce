@@ -5,18 +5,20 @@ import { gatewayProductImages, productThumbnail, type ProductImageFiles, type Pr
 import { and, asc, desc, eq, inArray, isNull, isNotNull, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orders, productImages, products, stockOutbox } from "../db/schema";
+import { addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, productImages, products, stockOutbox } from "../db/schema";
 import { courierBooking, type CourierBooking } from "../validators/courier";
+import { referenceProblem } from "./payment-proof";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
 import { createCartStore } from "./cart";
 import type { AuditEvent } from "../audit/gateway";
 
+export { paymentMethods, prepaidMethods, MANAGER_AFTER_REJECTIONS, isPrepaid, type PaymentMethod } from "./payment-methods";
+import { isPrepaid, MANAGER_AFTER_REJECTIONS, type PaymentMethod } from "./payment-methods";
+
 export const fulfillmentMethods = ["pickup", "delivery"] as const;
-export const paymentMethods = ["cash-on-delivery", "gcash"] as const;
 
 export type FulfillmentMethod = (typeof fulfillmentMethods)[number];
-export type PaymentMethod = (typeof paymentMethods)[number];
 export const orderStatuses = [
   "placed",
   "confirmed",
@@ -92,6 +94,10 @@ export type Order = {
   deliveryAddress: DeliveryAddress | null;
   // Only ever set for a GCash Order, once the Customer submits it.
   paymentProof: PaymentProof | null;
+  /** Why the latest proof was turned down; null while it waits for a check or after a new one arrives. */
+  paymentProofRejection?: { reason: string; at: Date } | null;
+  /** Proofs rejected so far. */
+  paymentProofRejections?: number;
 };
 
 export type PlaceOrderInput = {
@@ -116,6 +122,8 @@ export type AdvanceOrderInput = {
   courier?: CourierBooking;
   staffId?: string;
   staffName?: string;
+  /** Needed to mark paid once 3 proofs have been rejected; a Manager's reason. */
+  approvedAnyway?: { reason: string };
 };
 
 export type OrderStore = {
@@ -138,6 +146,8 @@ export type OrderStore = {
     input: SubmitPaymentProofInput,
   ): Promise<Order>;
   getPaymentProofScreenshot(customerId: string, orderId: number): Promise<StoredPaymentScreenshot | undefined>;
+  /** Staff turn down the latest proof: it is kept with the reason, and the Customer is told to upload again. */
+  rejectPaymentProof(orderId: number, input: { reason: string; staffId: string; staffName: string }): Promise<{ order: Order; rejections: number }>;
 };
 
 export type OrderMailer = {
@@ -181,7 +191,7 @@ function paymentNeededNotification(order: typeof orders.$inferSelect) {
   return {
     idempotencyKey: `order.payment-needed:${order.id}`, orderId: order.id, customerId: order.customerId,
     type: "order.payment-needed", title: `Payment needed for Order #${order.id}`,
-    body: "Please submit your GCash Payment proof to continue your Order.",
+    body: "Please submit your payment reference number to continue your Order.",
     link: `/profile/orders?order=${order.id}`,
   };
 }
@@ -232,8 +242,16 @@ export function createOrderStore<
   }
 
   async function toOrder(row: typeof orders.$inferSelect, lines: OrderLine[]): Promise<Order> {
+    let paymentProofRejection: Order["paymentProofRejection"] = null;
+    if (row.paymentProofRejectedAt) {
+      const [latest] = await db.select({ reason: orderPaymentProofs.rejectionReason }).from(orderPaymentProofs)
+        .where(and(eq(orderPaymentProofs.orderId, row.id), isNotNull(orderPaymentProofs.rejectedAt))).orderBy(desc(orderPaymentProofs.id)).limit(1);
+      paymentProofRejection = { reason: latest?.reason ?? "", at: row.paymentProofRejectedAt };
+    }
     return {
       id: row.id,
+      paymentProofRejection,
+      paymentProofRejections: row.paymentProofRejections,
       fulfillmentMethod: row.fulfillmentMethod as FulfillmentMethod,
       paymentMethod: row.paymentMethod as PaymentMethod,
       status: row.status as OrderStatus,
@@ -339,7 +357,7 @@ export function createOrderStore<
 
     const permittedNextStatuses: Record<OrderStatus, readonly OrderStatus[]> = {
       placed: ["confirmed", "cancelled"],
-      confirmed: persistedOrder.paymentMethod === "gcash"
+      confirmed: isPrepaid(persistedOrder.paymentMethod)
         ? ["awaiting payment", "cancelled"]
         : ["preparing", "cancelled"],
       "awaiting payment": ["paid", "cancelled"],
@@ -387,6 +405,14 @@ export function createOrderStore<
     }
 
     const staff = input.status === "paid" ? staffAttribution.parse(input) : null;
+    if (input.status === "paid") {
+      const rejections = persistedOrder.paymentProofRejections;
+      if (rejections >= MANAGER_AFTER_REJECTIONS) {
+        if (!input.approvedAnyway?.reason.trim()) throw new OrderStatusUpdateError("After 3 rejected proofs a Manager must approve this payment anyway, with a reason.");
+      } else if (persistedOrder.paymentProofRejectedAt) {
+        throw new OrderStatusUpdateError("This proof was rejected. Wait for the Customer to send another.");
+      }
+    }
     let releaseId: string | undefined;
     const updatedOrder = await db.transaction(async (transaction) => {
       const [updatedOrder] = await transaction
@@ -441,7 +467,7 @@ export function createOrderStore<
         ...content, idempotencyKey: `${content.type}:${orderId}`, orderId,
         customerId: updatedOrder.customerId, link: `/profile/orders?order=${orderId}`,
       }).onConflictDoNothing();
-      if (input.status === "confirmed" && updatedOrder.status === "confirmed" && updatedOrder.paymentMethod === "gcash") {
+      if (input.status === "confirmed" && updatedOrder.status === "confirmed" && isPrepaid(updatedOrder.paymentMethod)) {
         await transaction.insert(customerNotifications).values(paymentNeededNotification(updatedOrder)).onConflictDoNothing();
       }
       return updatedOrder;
@@ -524,34 +550,81 @@ export function createOrderStore<
       .from(orders)
       .where(and(eq(orders.id, orderId), eq(orders.customerId, customerId)));
     if (!persistedOrder) throw new Error("Order was not found.");
-    if (persistedOrder.paymentMethod !== "gcash") {
-      throw new Error("Payment proof can only be submitted for a GCash Order.");
+    if (!isPrepaid(persistedOrder.paymentMethod)) {
+      throw new Error("Payment proof can only be submitted for a GCash, Maya or bank transfer Order.");
     }
     if (persistedOrder.deliveryFeeQuoteRequired) {
       throw new Error("Quote a Delivery fee before submitting Payment proof.");
     }
-    if (persistedOrder.status !== "confirmed") {
-      throw new Error("Payment proof can only be submitted once for a confirmed Order.");
+    const problem = referenceProblem(persistedOrder.paymentMethod, input.gcashReferenceNumber);
+    if (problem) throw new Error(problem);
+    const resubmission = persistedOrder.status === "awaiting payment" && persistedOrder.paymentProofRejectedAt !== null;
+    if (persistedOrder.status !== "confirmed" && !resubmission) {
+      throw new Error(persistedOrder.status === "awaiting payment"
+        ? "Your payment proof is being checked. You can upload again if it is not accepted."
+        : "Payment proof can only be submitted for a confirmed Order.");
     }
 
-    const [updatedOrder] = await db
-      .update(orders)
-      .set({
-        status: "awaiting payment",
-        gcashReferenceNumber: input.gcashReferenceNumber,
-        paymentProofFileId: input.screenshotFileId ?? null,
-        paymentProofSubmittedAt: new Date(),
-      })
-      // Keep a concurrent submission from overwriting one that just landed.
-      .where(and(
-        eq(orders.id, orderId), eq(orders.status, "confirmed"),
-        eq(orders.subtotalInCentavos, persistedOrder.subtotalInCentavos),
-        persistedOrder.deliveryFeeInCentavos === null ? isNull(orders.deliveryFeeInCentavos) : eq(orders.deliveryFeeInCentavos, persistedOrder.deliveryFeeInCentavos),
-      ))
-      .returning();
+    const submittedAt = new Date();
+    const updatedOrder = await db.transaction(async (transaction) => {
+      const [updated] = await transaction
+        .update(orders)
+        .set({
+          status: "awaiting payment",
+          gcashReferenceNumber: input.gcashReferenceNumber,
+          paymentProofFileId: input.screenshotFileId ?? null,
+          paymentProofScreenshotPathname: null,
+          paymentProofSubmittedAt: submittedAt,
+          paymentProofRejectedAt: null,
+        })
+        // Keep a concurrent submission from overwriting one that just landed.
+        .where(and(
+          eq(orders.id, orderId), eq(orders.status, persistedOrder.status),
+          resubmission ? isNotNull(orders.paymentProofRejectedAt) : isNull(orders.paymentProofRejectedAt),
+          eq(orders.subtotalInCentavos, persistedOrder.subtotalInCentavos),
+          persistedOrder.deliveryFeeInCentavos === null ? isNull(orders.deliveryFeeInCentavos) : eq(orders.deliveryFeeInCentavos, persistedOrder.deliveryFeeInCentavos),
+        ))
+        .returning();
+      if (!updated) return undefined;
+      await transaction.insert(orderPaymentProofs).values({
+        orderId, reference: input.gcashReferenceNumber, screenshotFileId: input.screenshotFileId ?? null, submittedAt,
+      });
+      return updated;
+    });
     if (!updatedOrder) throw new Error("Order status changed before payment proof could be submitted.");
 
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
+  }
+
+  async function rejectPaymentProof(orderId: number, input: { reason: string; staffId: string; staffName: string }): Promise<{ order: Order; rejections: number }> {
+    const actor = staffAttribution.parse(input);
+    const reason = input.reason.trim();
+    if (!reason) throw new OrderStatusUpdateError("Enter a reason for rejecting the proof.");
+    const updatedOrder = await db.transaction(async (transaction) => {
+      const [order] = await transaction.select().from(orders).where(eq(orders.id, orderId)).for("update");
+      if (!order) throw new OrderStatusUpdateError("Order was not found.");
+      if (order.status !== "awaiting payment" || !isPrepaid(order.paymentMethod) || !order.paymentProofSubmittedAt || order.paymentProofRejectedAt) {
+        throw new OrderStatusUpdateError("Order already changed; refresh it before trying again.");
+      }
+      const rejectedAt = new Date();
+      const [latest] = await transaction.select({ id: orderPaymentProofs.id }).from(orderPaymentProofs)
+        .where(and(eq(orderPaymentProofs.orderId, orderId), isNull(orderPaymentProofs.rejectedAt))).orderBy(desc(orderPaymentProofs.id)).limit(1);
+      if (!latest) throw new OrderStatusUpdateError("Order already changed; refresh it before trying again.");
+      await transaction.update(orderPaymentProofs).set({
+        rejectedAt, rejectedById: actor.staffId, rejectedByName: actor.staffName, rejectionReason: reason,
+      }).where(eq(orderPaymentProofs.id, latest.id));
+      const [updated] = await transaction.update(orders).set({
+        paymentProofRejectedAt: rejectedAt, paymentProofRejections: order.paymentProofRejections + 1,
+      }).where(eq(orders.id, orderId)).returning();
+      await transaction.insert(customerNotifications).values({
+        idempotencyKey: `order.payment-rejected:${orderId}:${updated.paymentProofRejections}`, orderId, customerId: order.customerId,
+        type: "order.payment-rejected", title: `Payment proof not accepted for Order #${orderId}`,
+        body: `Your payment proof was not accepted: ${reason} Please upload it again.`,
+        link: `/profile/orders?order=${orderId}`,
+      }).onConflictDoNothing();
+      return updated;
+    });
+    return { order: await toOrder(updatedOrder, await linesForOrder(updatedOrder.id)), rejections: updatedOrder.paymentProofRejections };
   }
 
   /** The Customer's own payment-proof screenshot: its File id, else a legacy Blob pathname. */
@@ -659,7 +732,7 @@ export function createOrderStore<
         body: `Order #${order.id} is confirmed with Free delivery. No quote is needed.`,
         link: `/profile/orders?order=${order.id}`,
       });
-      if (order.status === "confirmed" && order.paymentMethod === "gcash") {
+      if (order.status === "confirmed" && isPrepaid(order.paymentMethod)) {
         await transaction.insert(customerNotifications).values(paymentNeededNotification(order));
       }
 
@@ -698,5 +771,5 @@ export function createOrderStore<
     }
   }
 
-  return { place, listForCustomer, advance, cancel, cancelItems, customerEmailForOrder, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot };
+  return { place, listForCustomer, advance, cancel, cancelItems, customerEmailForOrder, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, rejectPaymentProof };
 }

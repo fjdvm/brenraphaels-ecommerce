@@ -36,6 +36,14 @@ import { qualifiesForFreeDelivery } from "@/lib/orders/free-delivery";
 import type { CustomerAddress } from "@/lib/customer/visitor";
 import type { Cart } from "@/lib/orders/cart";
 import type { PaymentMethod } from "@/lib/orders/orders";
+import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
+import { PaymentDetailsCard } from "@/components/features/orders/payment-details-card";
+
+const PREPAID = [
+  { method: "gcash", icon: Wallet, description: "Pay to the shop's GCash number, then submit your reference number once your Order is confirmed." },
+  { method: "maya", icon: Wallet, description: "Pay to the shop's Maya number, then submit your reference number once your Order is confirmed." },
+  { method: "bank-transfer", icon: Wallet, description: "Transfer to the shop's bank account, then submit your reference number once your Order is confirmed." },
+] as const;
 
 const initialAddressState: CheckoutAddressState = {};
 
@@ -43,10 +51,13 @@ export function CheckoutView({
   cart,
   addresses,
   provinces,
+  paymentDetails = [],
 }: {
   cart: Cart;
   addresses: CustomerAddress[];
   provinces: string[];
+  /** Where each prepaid method is paid, as the shop set it. */
+  paymentDetails?: PaymentDetail[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -131,15 +142,18 @@ export function CheckoutView({
           <Panel title={`${fulfillmentMethod === "delivery" ? "3" : "2"}. Payment method`}>
             <fieldset className="grid gap-4 sm:grid-cols-2">
               <legend className="sr-only">Payment method</legend>
-              <Choice
-                checked={paymentMethod === "gcash"}
-                description="Once your Order is confirmed, submit your GCash reference number from order-history."
-                icon={Wallet}
-                label="GCash"
-                name="payment"
-                onChange={() => setPaymentMethod("gcash")}
-                value="gcash"
-              />
+              {PREPAID.map(({ method, icon, description }) => (
+                <Choice
+                  checked={paymentMethod === method}
+                  description={description}
+                  icon={icon}
+                  key={method}
+                  label={PAYMENT_LABELS[method]}
+                  name="payment"
+                  onChange={() => setPaymentMethod(method)}
+                  value={method}
+                />
+              ))}
               <Choice
                 checked={paymentMethod === "cash-on-delivery"}
                 description={fulfillmentMethod === "pickup" ? "Pay cash when you collect your Order." : "Pay cash when your Order is delivered."}
@@ -150,6 +164,7 @@ export function CheckoutView({
                 value="cash-on-delivery"
               />
             </fieldset>
+            {paymentMethod !== "cash-on-delivery" ? <PaymentDetailsCard detail={paymentDetails.find((detail) => detail.method === paymentMethod)} /> : null}
           </Panel>
         </div>
         <aside
@@ -240,7 +255,7 @@ export function CheckoutView({
                 : "Antipolo store"}
             </dd>
             <dt className="text-muted">Payment</dt>
-            <dd className="text-right text-ink">{paymentMethod === "gcash" ? "GCash" : "Cash on Delivery"}</dd>
+            <dd className="text-right text-ink">{PAYMENT_LABELS[paymentMethod]}</dd>
             <dt className="text-muted">Subtotal</dt>
             <dd className="text-right text-ink">{formatPeso(cart.subtotalInCentavos)}</dd>
             {freeDelivery ? (

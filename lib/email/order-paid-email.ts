@@ -10,7 +10,7 @@ export async function sendOrderPaidEmail(recipient: string, order: Order) {
     from: sender,
     subject: `Order #${order.id} payment received`,
     text: [
-      "We received your GCash payment for your Order from Bren Raphael's.",
+      "We received your payment for your Order from Bren Raphael's.",
       "",
       `Total paid: ${formatPeso(total)}`,
       "",

@@ -164,6 +164,10 @@ export const orders = pgTable("orders", {
   /** Private file-storage File id of the screenshot. */
   paymentProofFileId: text("payment_proof_file_id"),
   paymentProofSubmittedAt: timestamp("payment_proof_submitted_at", { withTimezone: true }),
+  /** Null while the latest proof waits for a check or after a new one arrives. */
+  paymentProofRejectedAt: timestamp("payment_proof_rejected_at", { withTimezone: true }),
+  /** Proofs rejected so far; at 3 only a Manager can approve. */
+  paymentProofRejections: integer("payment_proof_rejections").default(0).notNull(),
   /** Opaque br-auth-service Staff id and display-name snapshot; never a foreign key. */
   packingStartedAt: timestamp("packing_started_at", { withTimezone: true }),
   packedById: text("packed_by_id"),
@@ -189,6 +193,20 @@ export const orders = pgTable("orders", {
     .defaultNow()
     .notNull(),
 });
+
+/** Every payment proof a Customer submitted, kept for good with its rejection. The columns on `orders` mirror the latest. */
+export const orderPaymentProofs = pgTable("order_payment_proofs", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  reference: text("reference"),
+  screenshotFileId: text("screenshot_file_id"),
+  screenshotPathname: text("screenshot_pathname"),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
+  rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+  rejectedById: text("rejected_by_id"),
+  rejectedByName: text("rejected_by_name"),
+  rejectionReason: text("rejection_reason"),
+}, (table) => [index("order_payment_proofs_order").on(table.orderId)]);
 
 /** Immutable line-item copies, retained even if the catalog changes later. */
 export const orderLines = pgTable("order_lines", {

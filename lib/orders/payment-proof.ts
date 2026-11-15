@@ -9,6 +9,20 @@ export const gcashReferenceNumberField = textField("GCash reference number", {
   patternMessage: "Enter the digits from your GCash reference number",
 });
 
+/** The reference from a GCash, Maya or bank receipt: digits for the wallets, letters and digits for a bank. */
+export const referenceNumberField = textField("Reference number", {
+  min: 6,
+  max: 30,
+  pattern: /^[A-Za-z0-9]+$/,
+  patternMessage: "Enter the letters and digits from your reference number",
+});
+
+/** Wallet references are digits only; a bank's may carry letters. */
+export function referenceProblem(method: string, reference: string): string | null {
+  if (method !== "bank-transfer" && !/^[0-9]{6,20}$/.test(reference)) return "Enter the digits from your reference number (6 to 20).";
+  return null;
+}
+
 const acceptedScreenshotTypes = new Set(["image/jpeg", "image/png"]);
 const maximumScreenshotBytes = 5 * 1024 * 1024;
 

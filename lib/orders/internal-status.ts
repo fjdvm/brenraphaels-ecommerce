@@ -10,6 +10,7 @@ const statusUpdate = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("paid"),
     deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
+    approvedAnyway: z.object({ reason: z.string().trim().min(1).max(500) }).strict().optional(),
     ...staffAttribution.shape,
   }).strict(),
   z.object({

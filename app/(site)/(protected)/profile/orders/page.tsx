@@ -12,6 +12,7 @@ import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { createOrderFeedbackStore } from "@/lib/orders/feedback";
 import { createOrderReceiptStore } from "@/lib/orders/receipt";
+import { paymentDetails } from "@/lib/orders/payment-details";
 import { createOrderStore } from "@/lib/orders/orders";
 import { listCustomerReturns } from "@/lib/returns/customer-reads";
 import { createReturnOfferStore } from "@/lib/returns/return-offers";
@@ -52,7 +53,7 @@ async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/p
   return (
     <>
       <LiveOrders />
-      <OrdersBrowser focusOrderId={focusOrderId} orders={withFeedback} returns={returns} />
+      <OrdersBrowser paymentDetails={paymentDetails()} focusOrderId={focusOrderId} orders={withFeedback} returns={returns} />
     </>
   );
 }
