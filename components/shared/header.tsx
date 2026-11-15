@@ -4,7 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Menu, ShoppingCart, X } from "lucide-react";
+import { ChevronDown, Menu, Search, ShoppingCart, X } from "lucide-react";
+
+import { SearchOverlay, prefetchSearchResults } from "@/components/features/catalog/search-overlay";
 
 import { freeShippingThreshold } from "@/lib/site/store-info";
 
@@ -164,6 +166,7 @@ export function Header({
 }) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [searching, setSearching] = useState(false);
   const pathname = usePathname();
   const floating = transparentHeaderPaths.has(pathname);
   const transparent = hasTransparentHeader(pathname, scrolled) && !open;
@@ -245,6 +248,16 @@ export function Header({
           )}
         </nav>
         <div className="hidden items-center justify-end gap-5 text-[15px] md:flex md:w-80">
+          <button
+            type="button"
+            aria-label="Search the shop"
+            onClick={() => setSearching(true)}
+            onPointerEnter={() => void prefetchSearchResults().catch(() => undefined)}
+            onFocus={() => void prefetchSearchResults().catch(() => undefined)}
+            className="hover:text-primary"
+          >
+            <Search size={20} />
+          </button>
           {desktopSession}
         </div>
         <div
@@ -253,6 +266,17 @@ export function Header({
           <div onClick={() => setOpen(false)} className="flex">
             {mobileBell}
           </div>
+          <button
+            type="button"
+            aria-label="Search the shop"
+            onClick={() => {
+              setOpen(false);
+              setSearching(true);
+            }}
+            className="p-2"
+          >
+            <Search />
+          </button>
           <Link
             href="/cart"
             aria-label="Cart"
@@ -298,6 +322,7 @@ export function Header({
         </nav>
       )}
     </header>
+    <SearchOverlay open={searching} onOpenChange={setSearching} />
     </>
   );
 }
