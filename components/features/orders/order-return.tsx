@@ -76,7 +76,7 @@ export function OrderReturn({ orderId, offer }: { orderId: number; offer: Return
   }
 
   if (offer.deliveredAtMs === null || now === undefined) return null;
-  const window = returnWindow(offer.deliveredAtMs, now);
+  const window = returnWindow(offer.deliveredAtMs, now, offer.windowExtended);
   if (window.state === "closed") return <p className="text-sm text-muted">Return window closed</p>;
   if (!offer.lines.some((line) => line.returnable)) return null;
 

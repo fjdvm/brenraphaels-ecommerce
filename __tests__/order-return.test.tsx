@@ -33,7 +33,7 @@ const order: Order = {
 };
 const line = (id: number, returnable = true) => ({ id, productName: `Item ${id}`, sizeLabel: "Small", quantity: 1, priceInCentavos: 10_000, imageUrl: null, returnable });
 const offer = (patch: Partial<ReturnOffer> = {}): ReturnOffer => ({
-  deliveredAtMs: now - 60 * 60_000, lines: [line(1), line(2), line(3, false)], requested: null, ...patch,
+  deliveredAtMs: now - 60 * 60_000, windowExtended: false, lines: [line(1), line(2), line(3, false)], requested: null, ...patch,
 });
 const renderOrder = (returnOffer: ReturnOffer | null, returnInProgress = false) =>
   render(<OrdersBrowser orders={[{ order, feedback: null, returnInProgress, returnOffer }]} />);

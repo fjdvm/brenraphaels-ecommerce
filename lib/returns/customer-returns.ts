@@ -28,7 +28,7 @@ export function createCustomerReturns<TQueryResult extends PgQueryResultHKT, TSc
     const at = now();
     const elapsed = at.getTime() - (order.deliveredAt?.getTime() ?? NaN);
     if (!Number.isFinite(elapsed) || elapsed < 0) throw new ReturnRequestError("This Order has no valid delivery time for a Return.");
-    if (elapsed >= 24 * 60 * 60 * 1000) throw new ReturnRequestError("The 24-hour Return window has closed.");
+    if (elapsed >= 24 * 60 * 60 * 1000 * (order.refundWindowExtendedAt ? 2 : 1)) throw new ReturnRequestError("The 24-hour Return window has closed.");
     return { order, at };
   }
 
