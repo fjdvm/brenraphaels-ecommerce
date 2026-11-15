@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/app/(site)/(protected)/profile/orders/actions", () => ({ markOrderReceived: vi.fn(), submitOrderFeedback: vi.fn() }));
 
 import { OrdersBrowser } from "@/components/features/orders/orders-browser";

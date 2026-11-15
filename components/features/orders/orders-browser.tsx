@@ -6,6 +6,8 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { CartThumbnail } from "@/components/features/orders/cart-thumbnail";
 import { CancelOrderForm, MessageUsLink } from "@/components/features/orders/cancel-order-form";
+import { RequestCancellation } from "@/components/features/orders/request-cancellation";
+import type { CancellationStatus } from "@/lib/orders/cancellation-status";
 import { OrderFeedbackForm, type GivenFeedback } from "@/components/features/orders/order-feedback-form";
 import { OrderReceivedButton } from "@/components/features/orders/order-received-button";
 import { TrackDelivery } from "@/components/features/orders/track-delivery";
@@ -34,7 +36,7 @@ import { countedReturns, returnStatusLabel } from "@/lib/returns/return-view";
 import { cn } from "@/lib/utils";
 
 export type OrderFeedbackSummary = GivenFeedback;
-export type OrderWithFeedback = { order: Order; feedback: OrderFeedbackSummary | null; returnInProgress: boolean; returnOffer?: ReturnOffer | null };
+export type OrderWithFeedback = { order: Order; feedback: OrderFeedbackSummary | null; returnInProgress: boolean; returnOffer?: ReturnOffer | null; cancellation?: CancellationStatus | null };
 
 type Tab = "all" | OrderFilter | "returns";
 
@@ -124,8 +126,8 @@ export function OrdersBrowser({ orders, returns = [], focusOrderId, paymentDetai
           No orders in this view.
         </p>
       ) : (
-        visible.map(({ order, feedback, returnInProgress, returnOffer }) => (
-          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} paymentDetails={paymentDetails} />
+        visible.map(({ order, feedback, returnInProgress, returnOffer, cancellation }) => (
+          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} cancellation={cancellation ?? null} paymentDetails={paymentDetails} />
         ))
       )}
     </div>
@@ -151,6 +153,7 @@ function OrderCard({
   open,
   returnInProgress,
   returnOffer,
+  cancellation,
   orderReturns,
   onShowReturn,
   onToggle,
@@ -163,6 +166,7 @@ function OrderCard({
   feedback: OrderFeedbackSummary | null;
   returnInProgress: boolean;
   returnOffer: ReturnOffer | null;
+  cancellation: CancellationStatus | null;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -217,7 +221,7 @@ function OrderCard({
           <ChevronDown aria-hidden className={cn("size-[18px] transition-transform", open && "rotate-180")} />
         </button>
       </div>
-      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} returnInProgress={returnInProgress} returnOffer={returnOffer} paymentDetails={paymentDetails} /> : null}
+      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} returnInProgress={returnInProgress} returnOffer={returnOffer} cancellation={cancellation} paymentDetails={paymentDetails} /> : null}
     </article>
   );
 }
@@ -228,6 +232,7 @@ function OrderDetails({
   cancellable,
   returnInProgress,
   returnOffer,
+  cancellation,
   detailsId,
   paymentDetails,
 }: {
@@ -237,6 +242,7 @@ function OrderDetails({
   cancellable: boolean;
   returnInProgress: boolean;
   returnOffer: ReturnOffer | null;
+  cancellation: CancellationStatus | null;
   detailsId: string;
 }) {
   const steps = orderTrackerSteps(order);
@@ -370,6 +376,11 @@ function OrderDetails({
 
       {cancellable ? (
         <CancelOrderForm orderId={order.id} />
+      ) : order.status === "dispatched" || (order.status === "cancelled" && cancellation) ? (
+        <div className="flex flex-col gap-3">
+          <RequestCancellation orderId={order.id} request={cancellation} />
+          {order.status === "dispatched" ? <div className="flex justify-end"><MessageUsLink orderId={order.id} /></div> : null}
+        </div>
       ) : (
         <div className="flex justify-end">
           <MessageUsLink orderId={order.id} />
