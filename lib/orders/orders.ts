@@ -98,6 +98,8 @@ export type Order = {
   paymentProofRejection?: { reason: string; at: Date } | null;
   /** Proofs rejected so far. */
   paymentProofRejections?: number;
+  /** Every proof sent, oldest first, with why each rejected one was not accepted. */
+  paymentProofHistory?: { reference: string | null; submittedAt: Date; rejection: { reason: string; at: Date } | null }[];
 };
 
 export type PlaceOrderInput = {
@@ -248,8 +250,17 @@ export function createOrderStore<
         .where(and(eq(orderPaymentProofs.orderId, row.id), isNotNull(orderPaymentProofs.rejectedAt))).orderBy(desc(orderPaymentProofs.id)).limit(1);
       paymentProofRejection = { reason: latest?.reason ?? "", at: row.paymentProofRejectedAt };
     }
+    let paymentProofHistory: Order["paymentProofHistory"] = [];
+    if (row.paymentProofSubmittedAt) {
+      const proofs = await db.select().from(orderPaymentProofs).where(eq(orderPaymentProofs.orderId, row.id)).orderBy(asc(orderPaymentProofs.submittedAt), asc(orderPaymentProofs.id));
+      paymentProofHistory = proofs.map((proof) => ({
+        reference: proof.reference, submittedAt: proof.submittedAt,
+        rejection: proof.rejectedAt ? { reason: proof.rejectionReason ?? "", at: proof.rejectedAt } : null,
+      }));
+    }
     return {
       id: row.id,
+      paymentProofHistory,
       paymentProofRejection,
       paymentProofRejections: row.paymentProofRejections,
       fulfillmentMethod: row.fulfillmentMethod as FulfillmentMethod,

@@ -71,7 +71,7 @@ export function orderBadges(order: OrderView): OrderBadge[] {
     { text: capitalise(order.status), tone: order.status === "placed" || order.status === "cancelled" ? "neutral" : "lavender" },
   ];
   if (needsPayment(order)) badges.push({ text: "Payment needed", tone: "warning" });
-  if (needsNewProof(order)) badges.push({ text: "Upload payment proof again", tone: "warning" });
+  if (needsNewProof(order)) badges.push({ text: "New proof needed", tone: "warning" });
   if (awaitingDeliveryFee(order)) badges.push({ text: "Delivery fee pending", tone: "warning" });
   return badges;
 }
@@ -89,6 +89,11 @@ const placedAt = new Intl.DateTimeFormat("en-US", {
 export function formatPlacedAt(date: Date) {
   const parts = Object.fromEntries(placedAt.formatToParts(date).map((part) => [part.type, part.value]));
   return `${parts.month} ${parts.day}, ${parts.year} · ${parts.hour}:${parts.minute} ${parts.dayPeriod}`;
+}
+
+/** Unpaid prepaid Orders are cancelled 24 hours after they are placed, so this is the Customer's deadline. */
+export function paymentDeadline(order: Pick<Order, "createdAt">) {
+  return new Date(order.createdAt.getTime() + 24 * 60 * 60 * 1000);
 }
 
 /** Subtotal plus the delivery fee once staff have quoted it. */

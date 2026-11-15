@@ -19,6 +19,7 @@ import {
   formatPlacedAt,
   needsNewProof,
   needsPayment,
+  paymentDeadline,
   orderBadges,
   orderFilterOf,
   orderTotalInCentavos,
@@ -328,7 +329,21 @@ function OrderDetails({
           method={order.paymentMethod}
           orderId={order.id}
           rejection={order.paymentProofRejection ? { reason: order.paymentProofRejection.reason } : null}
+          deadline={formatPlacedAt(paymentDeadline(order))}
         />
+      ) : null}
+      {order.paymentProofHistory && order.paymentProofHistory.length > 0 ? (
+        <div className="flex flex-col gap-2.5 bg-surface px-6 py-5 tracking-[0.35px]" data-testid="payment-history">
+          <p className="text-[13px] font-medium text-ink">Payment history</p>
+          {order.paymentProofHistory.map((proof, index) => (
+            <div className="flex items-start justify-between gap-4" key={`${proof.submittedAt.toISOString()}-${index}`}>
+              <p className="text-sm text-ink">Proof {index + 1} · sent {formatPlacedAt(proof.submittedAt)}</p>
+              <p className={proof.rejection ? "text-xs text-red-700" : "text-xs text-muted"}>
+                {proof.rejection ? `Not accepted · ${proof.rejection.reason}` : order.status === "awaiting payment" ? "Being checked" : "Accepted"}
+              </p>
+            </div>
+          ))}
+        </div>
       ) : null}
       {order.paymentProof && !needsNewProof(order) ? (
         <p className="text-sm text-body">

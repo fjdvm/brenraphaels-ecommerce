@@ -35,7 +35,7 @@ describe("payment screens", () => {
     expect(screen.getByRole("button", { name: "Submit payment" })).toBeTruthy();
   });
 
-  test("a rejected proof says why and offers Upload again", () => {
+  test("a rejected proof says why and offers Send new proof", () => {
     const rejected = order({
       status: "awaiting payment",
       paymentProof: { gcashReferenceNumber: "111111", screenshotPathname: null, screenshotFileId: null, submittedAt: new Date() },
@@ -45,7 +45,7 @@ describe("payment screens", () => {
     expect(needsNewProof(rejected)).toBe(true);
     open(rejected);
     expect(screen.getByText(/Reason: The amount does not match/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Upload again" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Send new proof" })).toBeTruthy();
   });
 
   test("a bank transfer Order with no details yet tells the Customer to ask", () => {
@@ -55,5 +55,41 @@ describe("payment screens", () => {
 
   test("Cash on Delivery needs no payment proof", () => {
     expect(needsPayment(order({ paymentMethod: "cash-on-delivery" }))).toBe(false);
+  });
+});
+
+import { OrderPlacedView } from "@/components/features/orders/order-placed";
+
+describe("order placed screen", () => {
+  test("a GCash Order shows where to pay and the proof form once confirmed", () => {
+    render(<OrderPlacedView details={details} firstName="Jude" order={order({ paymentMethod: "gcash", status: "confirmed" })} />);
+    expect(screen.getByText("Thank you, Jude!")).toBeTruthy();
+    expect(screen.getByText("0917 000 0000")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Submit payment" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Pay later in My orders" })).toBeTruthy();
+  });
+
+  test("an Order not yet confirmed shows the details but no proof form, and Cash on Delivery shows no details", () => {
+    const { unmount } = render(<OrderPlacedView details={details} order={order({ paymentMethod: "maya", status: "placed" })} />);
+    expect(screen.getByText("0918 111 1111")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Submit payment" })).toBeNull();
+    unmount();
+    render(<OrderPlacedView details={details} order={order({ paymentMethod: "cash-on-delivery" })} />);
+    expect(screen.queryByTestId("payment-details")).toBeNull();
+  });
+});
+
+describe("payment history and deadline", () => {
+  test("lists every proof with why a rejected one was not accepted, and shows the 24-hour deadline", () => {
+    const rejected = order({
+      status: "awaiting payment",
+      createdAt: new Date("2026-10-16T06:00:00Z"),
+      paymentProof: { gcashReferenceNumber: "111111", screenshotPathname: null, screenshotFileId: null, submittedAt: new Date("2026-10-16T06:21:00Z") },
+      paymentProofRejection: { reason: "Used on another order", at: new Date("2026-10-16T07:00:00Z") },
+      paymentProofHistory: [{ reference: "111111", submittedAt: new Date("2026-10-16T06:21:00Z"), rejection: { reason: "Used on another order", at: new Date("2026-10-16T07:00:00Z") } }],
+    });
+    render(<OrdersBrowser orders={[{ order: rejected, feedback: null, returnInProgress: false }]} paymentDetails={details} />);
+    expect(screen.getByTestId("payment-history").textContent).toContain("Not accepted · Used on another order");
+    expect(screen.getByText(/Send it by Oct 17, 2026/)).toBeTruthy();
   });
 });
