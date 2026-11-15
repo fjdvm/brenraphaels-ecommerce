@@ -6,6 +6,7 @@ import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { paymentDetails } from "@/lib/orders/payment-details";
 import { createCartStore } from "@/lib/orders/cart";
+import { activeVerification } from "@/lib/senior-pwd/store";
 import { listProvinces } from "@/lib/address/locations";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,8 @@ export const dynamic = "force-dynamic";
 async function CheckoutPageContent() {
   const customer = await requireCustomer();
   const cart = await createCartStore(getDatabase()).get(customer.userId);
-  return <CheckoutView cart={cart} addresses={customer.addresses} provinces={listProvinces()} paymentDetails={await paymentDetails()} />;
+  const verification = await activeVerification(getDatabase(), customer.userId);
+  return <CheckoutView seniorPwdStanding={{ verified: verification !== null, expiresOn: verification?.expiresOn ?? null }} cart={cart} addresses={customer.addresses} provinces={listProvinces()} paymentDetails={await paymentDetails()} />;
 }
 
 export default function CheckoutPage() {

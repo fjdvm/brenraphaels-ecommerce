@@ -1,7 +1,7 @@
 "use client";
 
 import { FEE_TO_FOLLOW_COPY } from "@/lib/orders/fee-to-follow-copy";
-import { ArrowRight, Check, MapPin, Package, Plus, Store, Truck, Wallet } from "lucide-react";
+import { ArrowRight, Check, MapPin, Package, Plus, ShieldCheck, Store, Truck, Wallet } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -37,6 +37,7 @@ import type { CustomerAddress } from "@/lib/customer/visitor";
 import type { Cart } from "@/lib/orders/cart";
 import type { PaymentMethod } from "@/lib/orders/orders";
 import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
+import { emptySeniorPwdDraft, SeniorPwdPanel, seniorPwdDiscountFor, seniorPwdReady, type SeniorPwdDraft, type SeniorPwdStanding } from "@/components/features/orders/senior-pwd-panel";
 import { PaymentDetailsCard } from "@/components/features/orders/payment-details-card";
 
 const PREPAID = [
@@ -52,12 +53,15 @@ export function CheckoutView({
   addresses,
   provinces,
   paymentDetails = [],
+  seniorPwdStanding = { verified: false, expiresOn: null },
 }: {
   cart: Cart;
   addresses: CustomerAddress[];
   provinces: string[];
   /** Where each prepaid method is paid, as the shop set it. */
   paymentDetails?: PaymentDetail[];
+  /** Whether the Customer already has an approved Senior/PWD ID. */
+  seniorPwdStanding?: SeniorPwdStanding;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -69,6 +73,10 @@ export function CheckoutView({
     addresses.find((address) => address.isDefault)?.id ?? addresses[0]?.id,
   );
 
+  const [senior, setSenior] = useState<SeniorPwdDraft>(emptySeniorPwdDraft);
+  const discount = seniorPwdDiscountFor(cart, senior);
+  const total = cart.subtotalInCentavos - discount;
+
   function submitOrder() {
     setMessage(undefined);
     startTransition(async () => {
@@ -77,6 +85,11 @@ export function CheckoutView({
           fulfillmentMethod,
           paymentMethod,
           addressId,
+          seniorPwd: senior.enabled && senior.lineId !== undefined
+            ? seniorPwdStanding.verified
+              ? { lineId: senior.lineId }
+              : { lineId: senior.lineId, idType: senior.idType, idNumber: senior.idNumber, photoFileId: senior.front?.fileId, photoBackFileId: senior.back?.fileId }
+            : undefined,
         });
         router.push(`/checkout/placed/${orderId}`);
       } catch (error) {
@@ -166,6 +179,9 @@ export function CheckoutView({
             </fieldset>
             {paymentMethod !== "cash-on-delivery" ? <PaymentDetailsCard detail={paymentDetails.find((detail) => detail.method === paymentMethod)} /> : null}
           </Panel>
+          <Panel title={`${fulfillmentMethod === "delivery" ? "4" : "3"}. Senior Citizen / PWD discount`}>
+            <SeniorPwdPanel cart={cart} draft={senior} onChange={setSenior} standing={seniorPwdStanding} />
+          </Panel>
         </div>
         <aside
           aria-labelledby="checkout-summary-heading"
@@ -189,6 +205,12 @@ export function CheckoutView({
             <span>Subtotal</span>
             <span>{formatPeso(cart.subtotalInCentavos)}</span>
           </div>
+          {discount > 0 ? (
+            <div className="flex items-center justify-between text-sm tracking-wide text-body">
+              <span>Senior/PWD 5% · 1 item</span>
+              <span className="text-success">−{formatPeso(discount)}{seniorPwdStanding.verified ? "" : " · after ID check"}</span>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between text-sm tracking-wide text-body">
             <span>{fulfillmentMethod === "delivery" ? "Delivery" : "Pickup"}</span>
             {fulfillmentMethod === "delivery" && !freeDelivery ? <span className="text-warning">To be confirmed</span> : <span className={freeDelivery ? "text-success" : undefined}>Free</span>}
@@ -196,13 +218,19 @@ export function CheckoutView({
           <div className="flex items-center justify-between border-t border-line pt-[22px]">
             <span className="text-sm font-medium tracking-wide text-ink">Total</span>
             <span className="font-serif text-[22px] leading-[1.3] text-primary">
-              {formatPeso(cart.subtotalInCentavos)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
+              {formatPeso(total)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
             </span>
           </div>
+          {discount > 0 && !seniorPwdStanding.verified ? (
+            <p className="flex items-start gap-2.5 bg-lavender-soft p-4 text-xs leading-normal tracking-wide text-ink">
+              <ShieldCheck aria-hidden className="size-[18px] shrink-0 text-primary" />
+              Your order is confirmed after we check your ID. If we can&apos;t approve it, we&apos;ll email you and the order continues at full price.
+            </p>
+          ) : null}
           {freeDelivery ? (
             <p className="flex items-start gap-2.5 bg-success-soft p-4 text-xs leading-normal tracking-wide text-ink">
               <Check aria-hidden className="size-[18px] shrink-0 text-success" />
-              Free delivery — your items are over ₱2,500. Your order is confirmed as soon as you place it.
+              Free delivery — your items are over ₱2,500. {discount > 0 && !seniorPwdStanding.verified ? "Your order is confirmed once we check your ID." : "Your order is confirmed as soon as you place it."}
             </p>
           ) : fulfillmentMethod === "delivery" ? (
             <>
@@ -216,7 +244,7 @@ export function CheckoutView({
           {message && <p role="alert" className="text-sm font-medium text-warning">{message}</p>}
           <Button
             className="w-full"
-            disabled={isPending || cart.lines.some((line) => !line.available) || deliveryBlocked}
+            disabled={isPending || cart.lines.some((line) => !line.available) || deliveryBlocked || !seniorPwdReady(senior, seniorPwdStanding)}
             onClick={() => setConfirming(true)}
             size="pill-lg"
             type="button"
@@ -264,9 +292,15 @@ export function CheckoutView({
                 <dd className="text-right text-success">Free</dd>
               </>
             ) : null}
+            {discount > 0 ? (
+              <>
+                <dt className="text-muted">Senior/PWD 5%</dt>
+                <dd className="text-right text-success">−{formatPeso(discount)}{seniorPwdStanding.verified ? "" : " · after ID check"}</dd>
+              </>
+            ) : null}
             <dt className="font-medium text-ink">Total</dt>
             <dd className="text-right font-serif text-[22px] leading-[1.3] text-primary">
-              {formatPeso(cart.subtotalInCentavos)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
+              {formatPeso(total)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
             </dd>
           </dl>
           {fulfillmentMethod === "delivery" && !freeDelivery ? (

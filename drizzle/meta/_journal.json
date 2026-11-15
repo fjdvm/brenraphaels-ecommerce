@@ -232,6 +232,13 @@
       "when": 1795200000000,
       "tag": "0032_failed_deliveries",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1795300000000,
+      "tag": "0033_senior_pwd_verification",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 /** The file-storage boundary, reached through the api-gateway. Tests replace it with a fake. */
 export type TicketFiles = {
-  /** Stores the bytes as an Active, Private, Permanent File and returns its id. */
-  upload(file: { filename: string; contentType: string; bytes: Uint8Array }): Promise<string>;
+  /** Stores the bytes as an Active, Private File (Permanent unless Temporary is asked for) and returns its id. */
+  upload(file: { filename: string; contentType: string; bytes: Uint8Array; retentionType?: "temporary" | "permanent" }): Promise<string>;
   /** Labels the File as belonging to a Message. */
   linkToMessage(fileId: string, messageId: number): Promise<void>;
   /** A short-lived signed address to show the File from. */
@@ -30,10 +30,10 @@ export function gatewayTicketFiles({
   }
 
   return {
-    async upload({ filename, contentType, bytes }) {
+    async upload({ filename, contentType, bytes, retentionType = "permanent" }) {
       const pending = await call<{ id: string; uploadUrl: string }>("", {
         method: "POST",
-        body: JSON.stringify({ filename, contentType, size: bytes.length, visibility: "private", retentionType: "permanent" }),
+        body: JSON.stringify({ filename, contentType, size: bytes.length, visibility: "private", retentionType }),
       });
       // The signed address is file-storage's own, so it takes no gateway key.
       const put = await send(pending.uploadUrl, { method: "PUT", headers: { "Content-Type": contentType }, body: bytes as BodyInit });
