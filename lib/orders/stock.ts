@@ -4,7 +4,7 @@ export type StockLine = { lineId: string; productId: number; quantity: number };
 export type StockState = "reserved" | "released" | "deducted" | "added_back";
 export interface ShopStock {
   productForSize(sizeId: number): number;
-  move(operation: "reserve" | "release", orderId: string, line: StockLine): Promise<StockState>;
+  move(operation: "reserve" | "release" | "deduct" | "add_back", orderId: string, line: StockLine): Promise<StockState>;
   /** How many of a Size can still be sold, read from the IMS on demand. Never cached or polled. */
   left(sizeId: number): Promise<number>;
   /** The IMS's quantity, reserved and available for a Size, read on demand for Staff. */

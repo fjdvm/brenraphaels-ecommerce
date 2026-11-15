@@ -6,6 +6,7 @@ import { staffAttribution } from "../validators/staff";
 import { orderStatuses } from "./orders";
 
 const statusUpdate = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("preparing"), ...staffAttribution.shape }).strict(),
   z.object({
     status: z.literal("paid"),
     deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
@@ -26,7 +27,7 @@ const statusUpdate = z.discriminatedUnion("status", [
     staffName: z.unknown().optional(),
   }).strict(),
   z.object({
-    status: z.enum(orderStatuses).exclude(["paid", "received", "delivered", "dispatched"]),
+    status: z.enum(orderStatuses).exclude(["paid", "received", "delivered", "dispatched", "preparing"]),
     deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
     // Attribution is only used for paid; other moves ignore it.
     staffId: z.unknown().optional(),
@@ -39,7 +40,7 @@ export type InternalOrderStatusUpdate = ReturnType<typeof parseInternalOrderStat
 /** Validates the body of an already-authenticated Order status request. */
 export function parseInternalOrderStatusUpdate(payload: unknown) {
   const update = statusUpdate.parse(payload);
-  if (update.status === "paid") return update;
+  if (update.status === "paid" || update.status === "preparing") return update;
   if (update.status === "delivered") return {
     status: update.status,
     deliveryPhotoFileId: update.deliveryPhotoFileId,

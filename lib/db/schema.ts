@@ -165,6 +165,10 @@ export const orders = pgTable("orders", {
   paymentProofFileId: text("payment_proof_file_id"),
   paymentProofSubmittedAt: timestamp("payment_proof_submitted_at", { withTimezone: true }),
   /** Opaque br-auth-service Staff id and display-name snapshot; never a foreign key. */
+  packingStartedAt: timestamp("packing_started_at", { withTimezone: true }),
+  packedById: text("packed_by_id"),
+  packedByName: text("packed_by_name"),
+  packedAt: timestamp("packed_at", { withTimezone: true }),
   paidById: text("paid_by_id"),
   paidByName: text("paid_by_name"),
   // Legacy paid Orders keep all three attribution fields empty.
@@ -410,7 +414,7 @@ export const stockReservations = pgTable("stock_reservations", {
   state: text("state", { enum: ["pending", "placed", "releasing", "released"] }).notNull(),
   lines: jsonb("lines").$type<{
     lineId: string; productId: number; quantity: number; sizeId: number;
-    cartLineId: number; priceInCentavos: number; orderLineId?: number; release?: boolean; released?: boolean;
+    cartLineId: number; priceInCentavos: number; orderLineId?: number; release?: boolean; released?: boolean; deducted?: boolean;
     releaseActor?: import("../audit/gateway").AuditIdentity;
   }[]>().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

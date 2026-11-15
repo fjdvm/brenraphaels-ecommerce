@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { createStockReservations } from "./stock-reservations";
 import { gatewayShopStock, type ShopStock } from "./stock";
 import { gatewayProductImages, productThumbnail, type ProductImageFiles, type ProductImageReference } from "../catalog/product-images";
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, isNotNull, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orders, productImages, products } from "../db/schema";
@@ -78,6 +78,7 @@ export type Order = {
   subtotalInCentavos: number;
   // Pickup Orders never have one; Delivery Orders get theirs once staff quote it.
   deliveryFeeInCentavos: number | null;
+  packedBy?: { id: string; name: string; at: Date } | null;
   paidById: string | null;
   paidByName: string | null;
   paidAt: Date | null;
@@ -238,6 +239,7 @@ export function createOrderStore<
       status: row.status as OrderStatus,
       subtotalInCentavos: row.subtotalInCentavos,
       deliveryFeeInCentavos: row.deliveryFeeInCentavos,
+      packedBy: row.packedById && row.packedByName && row.packedAt ? { id: row.packedById, name: row.packedByName, at: row.packedAt } : null,
       paidById: row.paidById,
       paidByName: row.paidByName,
       paidAt: row.paidAt,
@@ -273,10 +275,40 @@ export function createOrderStore<
     );
   }
 
+  /** Persist intent before IMS writes: cancellation must never release partly deducted stock. */
+  async function pack(orderId: number, input: AdvanceOrderInput): Promise<Order> {
+    if (input.deliveryFeeInCentavos !== undefined) throw new OrderStatusUpdateError("A Delivery fee can only be set when confirming a Delivery Order.");
+    const staff = staffAttribution.parse(input);
+    if (input.courier !== undefined || input.deliveryPhotoFileId !== undefined || input.deliveryFeeInCentavos !== undefined) {
+      throw new OrderStatusUpdateError("Packing does not accept courier, Delivery photo or fee changes.");
+    }
+    await db.transaction(async tx => {
+      const [order] = await tx.select().from(orders).where(eq(orders.id, orderId)).for("update");
+      if (!order) throw new OrderStatusUpdateError("Order was not found.");
+      if (order.deliveryFeeQuoteRequired) throw new OrderStatusUpdateError("Quote a Delivery fee before continuing this Order.");
+      if (!(order.status === "paid" || order.status === "confirmed" && order.paymentMethod === "cash-on-delivery")) {
+        throw new OrderStatusUpdateError("Only a paid or confirmed Cash on Delivery Order can be packed.");
+      }
+      if (order.deliveryFeeQuoteRequired) throw new OrderStatusUpdateError("Quote a Delivery fee before continuing this Order.");
+      if (!order.packingStartedAt) await tx.update(orders).set({
+        packingStartedAt: new Date(),
+      }).where(eq(orders.id, orderId));
+    });
+    const packed = await db.transaction(async tx => {
+      const [order] = await tx.select().from(orders).where(eq(orders.id, orderId)).for("update");
+      if (order.packedAt || !["paid", "confirmed"].includes(order.status)) throw new OrderStatusUpdateError("Order already changed. Refresh before retrying.");
+      await createStockReservations(tx, stock).deduct(orderId);
+      const [updated] = await tx.update(orders).set({ status: "preparing", packedAt: new Date(), packedById: staff.staffId, packedByName: staff.staffName }).where(eq(orders.id, orderId)).returning();
+      return updated;
+    });
+    return toOrder(packed, await linesForOrder(orderId));
+  }
+
   async function advance(
     orderId: number,
     input: AdvanceOrderInput,
   ): Promise<Order> {
+    if (input.status === "preparing") return pack(orderId, input);
     const [persistedOrder] = await db
       .select()
       .from(orders)
@@ -367,6 +399,7 @@ export function createOrderStore<
         // Keep a concurrent update from overwriting a status that was just advanced.
         .where(and(
           eq(orders.id, orderId), eq(orders.status, currentStatus),
+          ...(input.status === "cancelled" ? [or(isNull(orders.packingStartedAt), isNotNull(orders.packedAt))] : []),
           eq(orders.subtotalInCentavos, persistedOrder.subtotalInCentavos),
           ...(requote ? [isNull(orders.deliveryFeeInCentavos)] : []),
           ...(input.status === "delivered" ? [isNull(orders.deliveryPhotoFileId)] : []),
@@ -422,6 +455,7 @@ export function createOrderStore<
     const changed = await db.transaction(async transaction => {
       const [order] = await transaction.select().from(orders).where(eq(orders.id, orderId)).for("update");
       if (!order) throw new OrderStatusUpdateError("Order was not found.");
+      if (order.packingStartedAt && !order.packedAt) throw new OrderStatusUpdateError("Packing has started. Items can no longer be cancelled.");
       if (order.status !== expectedStatus) throw new OrderStatusUpdateError("Order already changed; refresh it before trying again.");
       if (!["placed", "confirmed", "awaiting payment", "paid", "preparing"].includes(order.status)) {
         throw new OrderStatusUpdateError("Items can no longer be cancelled on this Order.");

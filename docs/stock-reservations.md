@@ -58,3 +58,28 @@ lost acknowledgement does not enqueue another email. Stock audit events use
 The central audit catalog must accept both actions; failed delivery remains in
 the outbox. Verify actual central-service delivery under the live verification
 ticket; this PR does not change platform services.
+
+## Packing (epic-crms#338)
+
+Apply the additive `0030_order_packing.sql` migration before deploying this slice.
+The internal Order status endpoint now requires validated `staffId` and `staffName`
+for `preparing`, and confirms `packedBy: { id, name, at }`. Paid Orders and confirmed
+Cash on Delivery Orders can pack; other statuses and missing Delivery fee quotes
+are refused. This remains one `preparing` status, with no checklist, photo or batch
+selection.
+
+Packing first commits `packing_started_at` while locking the Order, then deducts
+active, unreleased reservation lines through IMS with their original immutable
+keys. Only after all deductions confirm does it record `packed_at`, the completing
+Staff identity and `preparing`. The IMS owns idempotency: retries after a partial
+failure or lost reply return the existing deduction without removing stock again.
+No available quantity is copied into the storefront. Legacy Orders with no
+reservation record attribution without inventing a stock movement.
+
+An unfinished pack blocks Order and item cancellation, including Customer calls.
+Refresh and explicitly retry Pack order after restoring IMS; no automatic browser
+retry or poll is introduced. Another Staff member can finish recovery and is
+recorded as the packer. A finished pack cannot be repeated. Existing cancellation
+of preparing Orders/items remains available: only deducted lines use IMS
+`add_back`; lines cancelled before packing still use `release`. Both reuse the
+same keys through the existing durable release queue.

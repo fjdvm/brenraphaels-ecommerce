@@ -267,3 +267,47 @@ test("a cancellation confirms before deferred IMS recovery runs", async () => {
   await work[0]();
   expect(stock.remaining(101)).toBe(50);
 });
+
+test("packing deducts each reserved Size once and records the packing Staff and time", async () => {
+  const { store, stock } = await fixture();
+  const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+  const packed = await store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
+  expect(packed).toMatchObject({ status: "preparing", packedBy: { id: "ana", name: "Ana", at: expect.any(Date) } });
+  expect([...stock.reservations.values()].map(line => line.state)).toEqual(["deducted", "deducted"]);
+  await expect(store.advance(order.id, { status: "preparing", staffId: "ben", staffName: "Ben" })).rejects.toThrow();
+  expect((await store.listForCustomer("jane"))[0]).toMatchObject({ packedBy: { id: "ana", name: "Ana", at: packed.packedBy?.at } });
+});
+
+test("partial packing failure fences cancellation and resumes without double deduction", async () => {
+  const { store, stock, second } = await fixture();
+  const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+  stock.failDeductProduct = stock.productForSize(second.id);
+  await expect(store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" })).rejects.toThrow();
+  expect((await store.listForCustomer("jane"))[0]).toMatchObject({ status: "confirmed", packedBy: null });
+  await expect(store.cancel("jane", order.id)).rejects.toThrow();
+  await expect(store.cancelItems(order.id, [1], { staffId: "ben", staffName: "Ben" }, "confirmed")).rejects.toThrow("Packing has started");
+  stock.failDeductProduct = undefined;
+  expect(await store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" })).toMatchObject({ status: "preparing", packedBy: { id: "ana" } });
+  expect(stock.deductions).toBe(2);
+});
+
+test("a lost deduction reply resumes under another Staff member without deducting twice", async () => {
+  const { store, stock } = await fixture();
+  const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+  stock.loseDeductReplies = true;
+  await expect(store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" })).rejects.toThrow();
+  stock.loseDeductReplies = false;
+  expect(await store.advance(order.id, { status: "preparing", staffId: "ben", staffName: "Ben" })).toMatchObject({ packedBy: { id: "ben", name: "Ben" } });
+  expect(stock.deductions).toBe(2);
+});
+
+test("cancelling a packed Order adds deducted items back once", async () => {
+  const { store, stock, scheduled, maintenance } = await fixture();
+  const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+  await store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
+  await store.advance(order.id, { status: "cancelled", staffId: "ana", staffName: "Ana" });
+  await Promise.all(scheduled);
+  await maintenance.drain();
+  expect([...stock.reservations.values()].map(line => line.state)).toEqual(["added_back", "added_back"]);
+  expect(await stock.read(1)).toEqual({ quantity: 50, reserved: 0, available: 50 });
+});
