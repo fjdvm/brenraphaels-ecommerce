@@ -5,7 +5,7 @@ import { gatewayProductImages, productThumbnail, type ProductImageFiles, type Pr
 import { and, asc, desc, eq, inArray, isNull, isNotNull, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, productImages, products, stockOutbox } from "../db/schema";
+import { failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, productImages, products, stockOutbox } from "../db/schema";
 import { courierBooking, type CourierBooking } from "../validators/courier";
 import { referenceProblem } from "./payment-proof";
 import { fileIdField } from "../validators/file-id";
@@ -426,6 +426,12 @@ export function createOrderStore<
     }
     let releaseId: string | undefined;
     const updatedOrder = await db.transaction(async (transaction) => {
+      // Serialize delivery with failed-attempt decisions and refuse disposed goods.
+      await transaction.select({ id: orders.id }).from(orders).where(eq(orders.id, orderId)).for("update");
+      if (input.status === "delivered") {
+        const failed = await transaction.select().from(failedDeliveries).where(eq(failedDeliveries.orderId, orderId));
+        if (failed.some(attempt => attempt.disposition || !attempt.rebookedAt)) throw new OrderStatusUpdateError("Handle the failed delivery before marking this Order delivered.");
+      }
       const [updatedOrder] = await transaction
         .update(orders)
         .set({
