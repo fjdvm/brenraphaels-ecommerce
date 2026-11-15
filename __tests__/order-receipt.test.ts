@@ -40,7 +40,7 @@ test("the owning Customer can permanently receive an old delivered Order without
   expect((await store.listForCustomer("customer-1")).find((o) => o.id === created.id)).toEqual({ ...before, status: "received" });
   await expect(receipt.markReceived("customer-1", created.id)).rejects.toBeInstanceOf(OrderReceiptConflictError);
   for (const status of orderStatuses) {
-    await expect(store.advance(created.id, { status })).rejects.toThrow("not a legal transition");
+    await expect(store.advance(created.id, { status, ...(status === "preparing" ? { staffId: "ana", staffName: "Ana" } : {}) })).rejects.toThrow(status === "preparing" ? "Only a paid or confirmed Cash on Delivery Order can be packed." : "not a legal transition");
   }
   await expect(store.cancel("customer-1", created.id)).rejects.toThrow("not a legal transition");
 });

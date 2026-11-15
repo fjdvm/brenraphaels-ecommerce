@@ -213,6 +213,16 @@ describe("POST /api/internal/orders/[id]/status", () => {
     expect(sendPackingAudit).toHaveBeenCalledOnce();
   });
 
+  test("publishes the packed Order even when audit outbox delivery fails", async () => {
+    sendPackingAudit.mockRejectedValueOnce(new Error("Audit outbox unavailable"));
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      method: "POST", headers: { Authorization: `Bearer ${mintCreomsCredential()}` },
+      body: JSON.stringify({ status: "preparing", staffId: "ana", staffName: "Ana" }),
+    });
+    expect((await postAndNotify(request, context)).status).toBe(200);
+    expect(publishCustomerOrderEvent).toHaveBeenCalledWith("customer-7", { type: "order.updated", orderId: "12" });
+  });
+
   test.each(["confirmed", "dispatched", "delivered"])(
     "%s does not need or forward Staff attribution", async (status) => {
       for (const staff of [{}, { staffId: "staff-17", staffName: "Ana Cruz" }]) {

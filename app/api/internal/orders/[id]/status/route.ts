@@ -55,12 +55,15 @@ export async function POST(
     scheduleOrdersChanged();
     // Confirm the committed change before email or gateway latency can exhaust CREOMS's timeout.
     after(async () => {
-      if (update.status === "preparing") await createStockReservations(getDatabase()).sendPending();
       await publishAfterCommit(
         orderStore.customerIdForOrder(order.id),
         { type: "order.updated", orderId: String(order.id) },
         publishCustomerOrderEvent,
       );
+      if (update.status === "preparing") {
+        try { await createStockReservations(getDatabase()).sendPending(); }
+        catch (error) { console.error("Packing audit delivery remains queued for the cron job", error); }
+      }
       if (
         update.status === "confirmed"
         && order.fulfillmentMethod === "delivery"
