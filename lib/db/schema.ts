@@ -216,6 +216,14 @@ export const orders = pgTable("orders", {
   receivedAt: timestamp("received_at", { withTimezone: true }),
   deliveryPhotoRemovedAt: timestamp("delivery_photo_removed_at", { withTimezone: true }),
   /** Courier booking recorded at dispatch; kept after the tracking link expires. Rider details are optional. */
+  /** A Manager may extend the 24-hour Refund window once by 24 hours; when, who and why. */
+  refundWindowExtendedAt: timestamp("refund_window_extended_at", { withTimezone: true }),
+  refundWindowExtensionReason: text("refund_window_extension_reason"),
+  refundWindowExtendedById: text("refund_window_extended_by_id"),
+  refundWindowExtendedByName: text("refund_window_extended_by_name"),
+  /** Set only on a Replacement Order: the Order and Return it replaces. It never counts as a sale. */
+  replacementForOrderId: integer("replacement_for_order_id"),
+  replacementForReturnId: integer("replacement_for_return_id"),
   courier: text("courier"),
   courierTrackingUrl: text("courier_tracking_url"),
   riderName: text("rider_name"),
@@ -224,7 +232,10 @@ export const orders = pgTable("orders", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+}, (table) => [
+  // One Replacement Order per Return; NULLs (every ordinary Order) never collide.
+  uniqueIndex("orders_replacement_for_return").on(table.replacementForReturnId),
+]);
 
 /** Every payment proof a Customer submitted, kept for good with its rejection. The columns on `orders` mirror the latest. */
 export const orderPaymentProofs = pgTable("order_payment_proofs", {

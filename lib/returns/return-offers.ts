@@ -19,6 +19,8 @@ export type ReturnOfferLine = {
 /** What the My orders card needs to offer, or track, a Return on one delivered Order. */
 export type ReturnOffer = {
   deliveredAtMs: number | null;
+  /** A Manager extended the window once by 24 hours. */
+  windowExtended: boolean;
   lines: ReturnOfferLine[];
   requested: { id: number; number: string } | null;
 };
@@ -37,7 +39,7 @@ export function createReturnOfferStore<TQueryResult extends PgQueryResultHKT, TS
 
     const [lines, deliveries, locked, requested] = await Promise.all([
       db.select().from(orderLines).where(inArray(orderLines.orderId, ids)).orderBy(orderLines.id),
-      db.select({ id: orders.id, deliveredAt: orders.deliveredAt }).from(orders)
+      db.select({ id: orders.id, deliveredAt: orders.deliveredAt, extendedAt: orders.refundWindowExtendedAt }).from(orders)
         .where(and(eq(orders.customerId, customerId), inArray(orders.id, ids))),
       db.select({ orderLineId: orderReturnItems.orderLineId }).from(orderReturnItems)
         .innerJoin(orderReturns, eq(orderReturnItems.returnId, orderReturns.id))
@@ -47,12 +49,14 @@ export function createReturnOfferStore<TQueryResult extends PgQueryResultHKT, TS
     ]);
     const lockedIds = new Set(locked.map((row) => row.orderLineId));
     const deliveredAt = new Map(deliveries.map((row) => [row.id, row.deliveredAt?.getTime() ?? null]));
+    const extended = new Set(deliveries.filter((row) => row.extendedAt).map((row) => row.id));
 
     for (const order of delivered) {
       const images = new Map(order.lines.map((line) => [`${line.productName}|${line.sizeLabel}`, line.imageUrl]));
       const pending = requested.find((row) => row.orderId === order.id);
       offers.set(order.id, {
         deliveredAtMs: deliveredAt.get(order.id) ?? null,
+        windowExtended: extended.has(order.id),
         lines: lines.filter((line) => line.orderId === order.id).map((line) => ({
           id: line.id, productName: line.productName, sizeLabel: line.sizeLabel, quantity: line.quantity,
           priceInCentavos: line.priceInCentavos, imageUrl: images.get(`${line.productName}|${line.sizeLabel}`) ?? null,
