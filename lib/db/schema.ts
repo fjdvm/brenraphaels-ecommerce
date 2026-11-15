@@ -344,7 +344,7 @@ export const tickets = pgTable("tickets", {
   subject: text("subject").notNull(),
   category: text("category").notNull(),
   orderId: integer("order_id").references(() => orders.id, { onDelete: "restrict" }),
-  /** `open`, `resolved` (staff say it is answered) or `completed` (done). */
+  /** `open`, `on_hold` (staff wait on someone else), `resolved` (staff say it is answered) or `completed` (done). */
   status: text("status").notNull().default("open"),
   /** `low`, `normal`, `high` or `urgent`; set by staff in CREOMS. */
   priority: text("priority").notNull().default("normal"),
@@ -352,6 +352,12 @@ export const tickets = pgTable("tickets", {
   claimedById: text("claimed_by_id"),
   /** The Claimer's display name as it was when they claimed the Ticket. */
   claimedByName: text("claimed_by_name"),
+  /** Why the Ticket is On hold: `courier`, `kitchen_or_ims`, `supplier` or `manager_decision`. Never shown to the Customer. */
+  holdReason: text("hold_reason"),
+  /** The Claimer's Staff-only note on the hold. Never shown to the Customer. */
+  holdNote: text("hold_note"),
+  /** When the Ticket returns to Open by itself. */
+  holdUntil: timestamp("hold_until", { withTimezone: true }),
   /** When staff last marked the Ticket Resolved. */
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })

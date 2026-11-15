@@ -260,6 +260,13 @@
       "when": 1795600000000,
       "tag": "0036_replacement_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1795700000000,
+      "tag": "0037_ticket_on_hold",
+      "breakpoints": true
     }
   ]
 }

@@ -55,6 +55,9 @@ export type Ticket = {
 /** A Message's image: in file-storage, or (older Messages) in Vercel Blob. */
 export type StoredAttachment = { fileId: string } | { pathname: string };
 export const completedTicketError = "Ticket is completed.";
+
+/** The columns that clear when a Ticket leaves On hold. */
+const clearedHold = { holdReason: null, holdNote: null, holdUntil: null } as const;
 export type TicketStore = {
   /** `attach` stores the opening Message's image once the Ticket id exists and returns its file-storage id. */
   open(customerId: string, input: OpenTicketInput, attach?: (ticketId: number) => Promise<string>): Promise<Ticket>;
@@ -70,6 +73,8 @@ export type TicketStore = {
   getAttachment(messageId: number, customerId: string): Promise<StoredAttachment | undefined>;
   /** Completes an Open or Resolved Ticket; Completed is final. */
   complete(ticketId: number, customerId: string): Promise<Ticket>;
+  /** Returns every On hold Ticket whose hold is due at `now` to Open and returns how many came back. */
+  returnDueHolds(now: Date): Promise<number>;
   /** Returns a Resolved Ticket to Open because the Customer says it is not fixed. */
   reportNotFixed(ticketId: number, customerId: string): Promise<Ticket>;
   /** Completes every Ticket Resolved at or before `resolvedBefore` and returns each with its Customer's email. */
@@ -253,6 +258,13 @@ export function createTicketStore<
     if (ticket.status === "resolved") {
       await db.update(tickets).set({ status: "open" }).where(and(eq(tickets.id, ticketId), eq(tickets.status, "resolved")));
     }
+    // A Customer Message on an On hold Ticket brings it back to Open at once, whatever the hold date says.
+    if (ticket.status === "on_hold") {
+      await db
+        .update(tickets)
+        .set({ status: "open", ...clearedHold })
+        .where(and(eq(tickets.id, ticketId), eq(tickets.status, "on_hold")));
+    }
     const [inserted] = await db
       .insert(ticketMessages)
       .values({ ticketId, sender: "customer", body: parsed, fileId })
@@ -277,7 +289,7 @@ export function createTicketStore<
     return (await get(ticketId, customerId))!;
   }
 
-  const complete = (ticketId: number, customerId: string) => transition(ticketId, customerId, ["open", "resolved"], "completed");
+  const complete = (ticketId: number, customerId: string) => transition(ticketId, customerId, ["open", "on_hold", "resolved"], "completed");
   const reportNotFixed = (ticketId: number, customerId: string) => transition(ticketId, customerId, ["resolved"], "open");
 
   async function autoCompleteResolved(resolvedBefore: Date) {
@@ -295,6 +307,16 @@ export function createTicketStore<
     );
   }
 
+  async function returnDueHolds(now: Date) {
+    // One conditional UPDATE, so a Ticket Staff took off hold, or another run already returned, no longer matches.
+    const changed = await db
+      .update(tickets)
+      .set({ status: "open", ...clearedHold })
+      .where(and(eq(tickets.status, "on_hold"), lte(tickets.holdUntil, now)))
+      .returning({ id: tickets.id });
+    return changed.length;
+  }
+
   async function getAttachment(messageId: number, customerId: string): Promise<StoredAttachment | undefined> {
     const [row] = await db
       .select({ fileId: ticketMessages.fileId, pathname: ticketMessages.attachmentPathname })
@@ -305,5 +327,5 @@ export function createTicketStore<
     return row?.pathname ? { pathname: row.pathname } : undefined;
   }
 
-  return { open, listForCustomer, get, addMessage, getAttachment, complete, reportNotFixed, autoCompleteResolved };
+  return { open, listForCustomer, get, addMessage, getAttachment, complete, reportNotFixed, autoCompleteResolved, returnDueHolds };
 }

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { relativeTime } from "@/lib/notifications/relative-time";
-import { awaitingReply, categoryLabel, filterTickets, ticketPreview, type InboxTicket, type TicketTab } from "@/lib/support/inbox";
+import { awaitingReply, categoryLabel, filterTickets, isActive, ticketPreview, type InboxTicket, type TicketTab } from "@/lib/support/inbox";
 import { cn } from "@/lib/utils";
 
 /** The left column of Support: search, Open/Resolved tabs and the Customer's Tickets. */
@@ -16,11 +16,11 @@ export function SupportInbox({ tickets, now }: { tickets: InboxTicket[]; now: Da
   const activeTicket = tickets.find((ticket) => pathname === `/support/${ticket.id}`);
   // A tab the Customer picked holds only for the page they picked it on; otherwise the open conversation's tab shows.
   const tab: TicketTab =
-    picked?.pathname === pathname ? picked.tab : activeTicket ? (activeTicket.status === "open" ? "open" : "resolved") : "open";
+    picked?.pathname === pathname ? picked.tab : activeTicket ? (isActive(activeTicket.status) ? "open" : "resolved") : "open";
   const [query, setQuery] = useState("");
   const counts = {
-    open: tickets.filter((ticket) => ticket.status === "open").length,
-    resolved: tickets.filter((ticket) => ticket.status !== "open").length,
+    open: tickets.filter((ticket) => isActive(ticket.status)).length,
+    resolved: tickets.filter((ticket) => !isActive(ticket.status)).length,
   };
   const visible = filterTickets(tickets, tab, query);
   const drafting = pathname === "/support/new";
@@ -78,7 +78,7 @@ export function SupportInbox({ tickets, now }: { tickets: InboxTicket[]; now: Da
         {visible.map((ticket) => {
           const active = pathname === `/support/${ticket.id}`;
           const preview = ticketPreview(ticket);
-          const open = ticket.status === "open";
+          const open = isActive(ticket.status);
           return (
             <li key={ticket.id}>
               <Link
