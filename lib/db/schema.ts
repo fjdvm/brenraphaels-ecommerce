@@ -495,3 +495,17 @@ export const failedDeliveries = pgTable("failed_deliveries", {
   rebookedAt: timestamp("rebooked_at", { withTimezone: true }),
   courier: jsonb("courier").$type<import("../validators/courier").CourierBooking>(),
 }, table => [index("failed_deliveries_order").on(table.orderId), check("failed_deliveries_disposition_check", sql`${table.disposition} in ('restock', 'write-off')`)]);
+
+/** A request never changes an Order; CREOMS owns the named Manager/CEO approval chain. */
+export const orderCancellations = pgTable("order_cancellations", {
+  id: text("id").primaryKey(),
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  reason: text("reason").notNull(),
+  actorType: text("actor_type").notNull(), actorId: text("actor_id").notNull(), actorName: text("actor_name").notNull(),
+  status: text("status").notNull().default("waiting-manager"),
+  stockOutcome: text("stock_outcome"), refundMethod: text("refund_method"), refundProofFileId: text("refund_proof_file_id"),
+  settledById: text("settled_by_id"), settledByName: text("settled_by_name"), settledAt: timestamp("settled_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, table => [uniqueIndex("order_cancellations_order").on(table.orderId),
+  check("order_cancellations_status", sql`${table.status} in ('waiting-manager', 'settling', 'cancelled')`),
+  check("order_cancellations_stock", sql`${table.stockOutcome} in ('restock','write-off')`)]);

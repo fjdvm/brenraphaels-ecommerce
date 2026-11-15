@@ -239,6 +239,13 @@
       "when": 1795300000000,
       "tag": "0033_senior_pwd_verification",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794766265697,
+      "tag": "0034_dispatched_cancellations",
+      "breakpoints": true
     }
   ]
 }

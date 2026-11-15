@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
-import { customers, failedDeliveries, orders, stockOutbox, stockReservations } from "../db/schema";
+import { customers, orderCancellations, failedDeliveries, orders, stockOutbox, stockReservations } from "../db/schema";
 import { staffAttribution } from "../validators/staff";
 import { textField } from "../validators/fields";
 import { courierBooking } from "../validators/courier";
@@ -25,6 +25,8 @@ export function createFailedDeliveries<T extends PgQueryResultHKT, S extends Rec
       await db.transaction(async tx => {
         const [order] = await tx.select().from(orders).where(eq(orders.id, orderId)).for("update");
         if (!order || order.status !== "dispatched") throw new FailedDeliveryError("Only a dispatched Order can be inspected.");
+        const [cancellation] = await tx.select().from(orderCancellations).where(eq(orderCancellations.orderId, orderId));
+        if (cancellation?.status === "settling") throw new FailedDeliveryError("Cancellation settlement has started.");
         const [attempt] = await tx.select().from(failedDeliveries).where(and(eq(failedDeliveries.id, input.attemptId), eq(failedDeliveries.orderId, orderId))).for("update");
         if (!attempt || attempt.rebookedAt || attempt.disposition && attempt.disposition !== input.action) throw new FailedDeliveryError("The failed attempt already changed. Refresh the Order.");
         await tx.update(failedDeliveries).set({ disposition: input.action }).where(eq(failedDeliveries.id, attempt.id));
@@ -33,6 +35,8 @@ export function createFailedDeliveries<T extends PgQueryResultHKT, S extends Rec
     return db.transaction(async tx => {
       const [order] = await tx.select().from(orders).where(eq(orders.id, orderId)).for("update");
       if (!order || order.status !== "dispatched" || order.fulfillmentMethod !== "delivery") throw new FailedDeliveryError("Only a dispatched Delivery Order can have a failed delivery.");
+      const [cancellation] = await tx.select().from(orderCancellations).where(eq(orderCancellations.orderId, orderId));
+      if (cancellation?.status === "settling") throw new FailedDeliveryError("Cancellation settlement has started. Refresh the Order.");
       const attempts = await tx.select().from(failedDeliveries).where(eq(failedDeliveries.orderId, orderId)).orderBy(failedDeliveries.createdAt);
       const existing = attempts.find(attempt => attempt.id === input.attemptId);
       const latest = attempts.at(-1);

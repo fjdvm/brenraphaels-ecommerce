@@ -5,7 +5,7 @@ import { gatewayProductImages, productThumbnail, type ProductImageFiles, type Pr
 import { and, asc, desc, eq, inArray, isNull, isNotNull, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, productImages, products, stockOutbox } from "../db/schema";
+import { orderCancellations, failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, productImages, products, stockOutbox } from "../db/schema";
 import { courierBooking, type CourierBooking } from "../validators/courier";
 import { referenceProblem } from "./payment-proof";
 import { fileIdField } from "../validators/file-id";
@@ -435,6 +435,8 @@ export function createOrderStore<
     const updatedOrder = await db.transaction(async (transaction) => {
       // Serialize delivery with failed-attempt decisions and refuse disposed goods.
       await transaction.select({ id: orders.id }).from(orders).where(eq(orders.id, orderId)).for("update");
+      const [cancellation] = await transaction.select().from(orderCancellations).where(eq(orderCancellations.orderId, orderId));
+      if (cancellation?.status === "settling") throw new OrderStatusUpdateError("Cancellation settlement has started. Refresh the Order.");
       if (input.status === "delivered") {
         const failed = await transaction.select().from(failedDeliveries).where(eq(failedDeliveries.orderId, orderId));
         if (failed.some(attempt => attempt.disposition || !attempt.rebookedAt)) throw new OrderStatusUpdateError("Handle the failed delivery before marking this Order delivered.");
