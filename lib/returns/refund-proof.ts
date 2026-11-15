@@ -8,12 +8,12 @@ export class RefundProofUnavailable extends Error {}
 const invalid = () => new InvalidRefundProof("Refund proof must be a confirmed Private, unexpired JPG/PNG image up to 5 MB linked to this Return.");
 
 /** Verify the CRMS Return Link and image; CREOMS promotes Temporary proof after a confirmed refund. */
-export async function verifyRefundProof(fileId: string, returnId: number, send: typeof fetch = fetch) {
+export async function verifyRefundProof(fileId: string, returnId: number, send: typeof fetch = fetch, binding: { entityType: string; role: string } = { entityType: "return", role: "refund-proof" }) {
   try {
     const base = required("API_GATEWAY_URL").replace(/\/$/, "");
     const headers = { Authorization: `Bearer ${required("API_GATEWAY_CALLER_KEY")}` };
     const options = { headers, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(5_000) } as const;
-    const query = new URLSearchParams({ system: "CRMS", entityType: "return", entityId: String(returnId), role: "refund-proof" });
+    const query = new URLSearchParams({ system: "CRMS", entityType: binding.entityType, entityId: String(returnId), role: binding.role });
     // Look up the exact record rather than trusting an arbitrary caller-supplied File id.
     let page: string | undefined;
     const seen = new Set<string>();
