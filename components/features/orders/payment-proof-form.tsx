@@ -8,12 +8,26 @@ import { Button } from "@/components/ui/button";
 import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PaymentDetailsCard } from "@/components/features/orders/payment-details-card";
 import { formatPeso } from "@/lib/catalog/currency";
+import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
+import type { PaymentMethod } from "@/lib/orders/orders";
 
 const initialState: PaymentProofState = {};
 
-/** The warning panel where a Customer sends their GCash reference number and optional receipt. */
-export function PaymentProofForm({ orderId, amountInCentavos }: { orderId: number; amountInCentavos: number }) {
+/**
+ * The warning panel where a Customer sends their reference number and optional receipt, with where to pay.
+ * After staff turn a proof down it says why and asks again.
+ */
+export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", details = [], rejection }: {
+  orderId: number;
+  amountInCentavos: number;
+  method?: PaymentMethod;
+  details?: PaymentDetail[];
+  /** Why the last proof was not accepted; set when the Customer is uploading again. */
+  rejection?: { reason: string } | null;
+}) {
+  const label = PAYMENT_LABELS[method];
   const [state, action, pending] = useActionState(submitPaymentProof.bind(null, orderId), initialState);
   const [fileName, setFileName] = useState<string>();
   const referenceError = state.fieldErrors?.gcashReferenceNumber?.[0];
@@ -23,22 +37,24 @@ export function PaymentProofForm({ orderId, amountInCentavos }: { orderId: numbe
       <div className="flex items-center gap-3">
         <Wallet aria-hidden className="size-[22px] shrink-0 text-warning" strokeWidth={1.5} />
         <div className="flex min-w-0 flex-col gap-0.5">
-          <p className="font-serif text-lg leading-[1.35] text-ink">Submit your GCash payment</p>
+          <p className="font-serif text-lg leading-[1.35] text-ink">{rejection ? "Payment proof not accepted · Upload again" : `Submit your ${label} payment`}</p>
           <p className="text-sm tracking-[0.35px] text-body">
-            Send {formatPeso(amountInCentavos)} via GCash, then enter the reference number from your receipt.
+            Send {formatPeso(amountInCentavos)} via {label}, then enter the reference number from your receipt.
           </p>
         </div>
       </div>
+      {rejection ? <p className="text-sm font-medium text-red-700" role="status">Reason: {rejection.reason}</p> : null}
+      <PaymentDetailsCard detail={details.find((detail) => detail.method === method)} />
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
         <div className="flex flex-1 flex-col gap-2">
-          <Label className={fieldLabelClass} htmlFor={`gcash-reference-${orderId}`} required>GCash reference number</Label>
+          <Label className={fieldLabelClass} htmlFor={`gcash-reference-${orderId}`} required>{label} reference number</Label>
           <Input
             aria-describedby={referenceError ? `gcash-reference-${orderId}-error` : undefined}
             aria-invalid={Boolean(referenceError)}
             className={fieldClass}
             id={`gcash-reference-${orderId}`}
-            inputMode="numeric"
-            maxLength={20}
+            inputMode={method === "bank-transfer" ? "text" : "numeric"}
+            maxLength={method === "bank-transfer" ? 30 : 20}
             name="gcashReferenceNumber"
             placeholder="e.g. 1234 567 890123"
             required
@@ -63,7 +79,7 @@ export function PaymentProofForm({ orderId, amountInCentavos }: { orderId: numbe
           />
         </label>
         <Button disabled={pending} size="pill-lg" type="submit" variant="pill">
-          {pending ? "Submitting…" : "Submit payment"}
+          {pending ? "Submitting…" : rejection ? "Upload again" : "Submit payment"}
         </Button>
       </div>
       {state.message ? <p className="text-sm font-medium text-primary" role="alert">{state.message}</p> : null}

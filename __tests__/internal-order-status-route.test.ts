@@ -370,3 +370,15 @@ test("a committed status change signals Staff Orders independently of Customer d
   }));
   log.mockRestore();
 });
+
+describe("approved anyway on a paid update", () => {
+  test("passes the Manager's reason to the store", async () => {
+    advance.mockResolvedValue({ id: 12, status: "paid", fulfillmentMethod: "pickup", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
+    const response = await post(new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "paid", staffId: "s1", staffName: "Ana", approvedAnyway: { reason: "Seen in bank app" } }),
+      headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" }, method: "POST",
+    }), { params: Promise.resolve({ id: "12" }) });
+    expect(response.status).toBe(200);
+    expect(advance).toHaveBeenCalledWith(12, expect.objectContaining({ approvedAnyway: { reason: "Seen in bank app" } }));
+  });
+});

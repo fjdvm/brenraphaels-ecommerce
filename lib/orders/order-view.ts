@@ -1,7 +1,7 @@
-import type { Order, OrderStatus } from "./orders";
+import { isPrepaid, type Order, type OrderStatus } from "./orders";
 
 /** The slice of an Order that decides how it is presented on the My orders page. */
-export type OrderView = Pick<Order, "fulfillmentMethod" | "paymentMethod" | "status" | "deliveryFeeInCentavos" | "paymentProof">;
+export type OrderView = Pick<Order, "fulfillmentMethod" | "paymentMethod" | "status" | "deliveryFeeInCentavos" | "paymentProof" | "paymentProofRejection">;
 
 export type TrackerStep = { label: string; state: "done" | "current" | "upcoming" };
 export type OrderFilter = "to-pay" | "processing" | "on-the-way" | "completed" | "cancelled";
@@ -37,7 +37,12 @@ export function orderTrackerSteps(order: OrderView): TrackerStep[] | null {
 
 /** A GCash Order is waiting on the Customer once staff confirmed it and no proof has been sent. */
 export function needsPayment(order: OrderView) {
-  return order.paymentMethod === "gcash" && order.status === "confirmed" && order.paymentProof === null && !awaitingDeliveryFee(order);
+  return isPrepaid(order.paymentMethod) && order.status === "confirmed" && order.paymentProof === null && !awaitingDeliveryFee(order);
+}
+
+/** The Customer's proof was turned down and the Order is waiting for another. */
+export function needsNewProof(order: OrderView) {
+  return isPrepaid(order.paymentMethod) && order.status === "awaiting payment" && Boolean(order.paymentProofRejection);
 }
 
 /** A Delivery Order whose fee staff have not quoted yet. */
@@ -53,7 +58,7 @@ export function orderFilterOf(order: OrderView): OrderFilter {
   if (order.status === "cancelled") return "cancelled";
   if (order.status === "delivered" || order.status === "received") return "completed";
   if (order.status === "dispatched") return "on-the-way";
-  return needsPayment(order) ? "to-pay" : "processing";
+  return needsPayment(order) || needsNewProof(order) ? "to-pay" : "processing";
 }
 
 function capitalise(text: string) {
@@ -65,6 +70,7 @@ export function orderBadges(order: OrderView): OrderBadge[] {
     { text: capitalise(order.status), tone: order.status === "placed" || order.status === "cancelled" ? "neutral" : "lavender" },
   ];
   if (needsPayment(order)) badges.push({ text: "Payment needed", tone: "warning" });
+  if (needsNewProof(order)) badges.push({ text: "Upload payment proof again", tone: "warning" });
   if (awaitingDeliveryFee(order)) badges.push({ text: "Delivery fee pending", tone: "warning" });
   return badges;
 }

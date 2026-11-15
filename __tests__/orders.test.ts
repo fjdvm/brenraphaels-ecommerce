@@ -546,7 +546,7 @@ describe("Order", () => {
     });
     await expect(store.submitPaymentProof("customer-1", codOrder.id, {
       gcashReferenceNumber: "1234567890",
-    })).rejects.toThrow("can only be submitted for a GCash Order");
+    })).rejects.toThrow("can only be submitted for a GCash, Maya or bank transfer Order");
 
     await cart.addSize("customer-1", await firstSizeId(), 1);
     const gcashOrder = await store.place("customer-1", {
@@ -560,7 +560,7 @@ describe("Order", () => {
     await store.submitPaymentProof("customer-1", gcashOrder.id, { gcashReferenceNumber: "1234567890" });
     await expect(store.submitPaymentProof("customer-1", gcashOrder.id, {
       gcashReferenceNumber: "0987654321",
-    })).rejects.toThrow("can only be submitted once");
+    })).rejects.toThrow("is being checked");
   });
 });
 

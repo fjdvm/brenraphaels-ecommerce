@@ -11,10 +11,13 @@ import { OrderReceivedButton } from "@/components/features/orders/order-received
 import { TrackDelivery } from "@/components/features/orders/track-delivery";
 import { OrderReturn } from "@/components/features/orders/order-return";
 import { ReturnsList } from "@/components/features/orders/returns-list";
+import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
+import { isPrepaid } from "@/lib/orders/orders";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { formatPeso } from "@/lib/catalog/currency";
 import {
   formatPlacedAt,
+  needsNewProof,
   needsPayment,
   orderBadges,
   orderFilterOf,
@@ -51,7 +54,7 @@ const badgeClass: Record<OrderBadge["tone"], string> = {
 };
 
 /** The My orders list: filter chips over expandable Order cards. */
-export function OrdersBrowser({ orders, returns = [], focusOrderId }: { orders: OrderWithFeedback[]; returns?: CustomerReturn[]; focusOrderId?: number }) {
+export function OrdersBrowser({ orders, returns = [], focusOrderId, paymentDetails = [] }: { orders: OrderWithFeedback[]; returns?: CustomerReturn[]; focusOrderId?: number; paymentDetails?: PaymentDetail[] }) {
   const [filter, setFilter] = useState<Tab>("all");
   const [scrollToReturn, setScrollToReturn] = useState<number>();
   const [openIds, setOpenIds] = useState<Set<number>>(() => {
@@ -121,7 +124,7 @@ export function OrdersBrowser({ orders, returns = [], focusOrderId }: { orders: 
         </p>
       ) : (
         visible.map(({ order, feedback, returnInProgress, returnOffer }) => (
-          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} />
+          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} paymentDetails={paymentDetails} />
         ))
       )}
     </div>
@@ -150,7 +153,9 @@ function OrderCard({
   orderReturns,
   onShowReturn,
   onToggle,
+  paymentDetails,
 }: {
+  paymentDetails: PaymentDetail[];
   order: Order;
   orderReturns: CustomerReturn[];
   onShowReturn: (id: number) => void;
@@ -211,7 +216,7 @@ function OrderCard({
           <ChevronDown aria-hidden className={cn("size-[18px] transition-transform", open && "rotate-180")} />
         </button>
       </div>
-      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} returnInProgress={returnInProgress} returnOffer={returnOffer} /> : null}
+      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} returnInProgress={returnInProgress} returnOffer={returnOffer} paymentDetails={paymentDetails} /> : null}
     </article>
   );
 }
@@ -223,7 +228,9 @@ function OrderDetails({
   returnInProgress,
   returnOffer,
   detailsId,
+  paymentDetails,
 }: {
+  paymentDetails: PaymentDetail[];
   order: Order;
   feedback: OrderFeedbackSummary | null;
   cancellable: boolean;
@@ -236,8 +243,8 @@ function OrderDetails({
   const address = order.deliveryAddress;
   const feePending = !pickup && order.deliveryFeeInCentavos === null;
   const total = orderTotalInCentavos(order);
-  const payment = order.paymentMethod === "gcash" ? "GCash" : "Cash on Delivery";
-  const paymentNote = order.paymentMethod !== "gcash" ? "" : order.paymentProof ? " · reference submitted" : " · awaiting reference";
+  const payment = PAYMENT_LABELS[order.paymentMethod];
+  const paymentNote = !isPrepaid(order.paymentMethod) ? "" : order.paymentProofRejection ? " · proof not accepted" : order.paymentProof ? " · reference submitted" : " · awaiting reference";
 
   return (
     <div className="flex flex-col gap-6" id={detailsId}>
@@ -314,10 +321,18 @@ function OrderDetails({
 
       {order.status === "delivered" || order.status === "received" ? <DeliveryPhoto fileId={order.deliveryPhotoFileId} removedAt={order.deliveryPhotoRemovedAt} orderId={order.id} /> : null}
 
-      {needsPayment(order) ? <PaymentProofForm amountInCentavos={total} orderId={order.id} /> : null}
-      {order.paymentProof ? (
+      {needsPayment(order) || needsNewProof(order) ? (
+        <PaymentProofForm
+          amountInCentavos={total}
+          details={paymentDetails}
+          method={order.paymentMethod}
+          orderId={order.id}
+          rejection={order.paymentProofRejection ? { reason: order.paymentProofRejection.reason } : null}
+        />
+      ) : null}
+      {order.paymentProof && !needsNewProof(order) ? (
         <p className="text-sm text-body">
-          GCash reference {order.paymentProof.gcashReferenceNumber} submitted.
+          {payment} reference {order.paymentProof.gcashReferenceNumber} submitted.
           {order.status === "awaiting payment" ? " We'll email you once it's verified." : null}
         </p>
       ) : null}

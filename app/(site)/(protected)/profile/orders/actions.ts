@@ -17,7 +17,7 @@ import { queueFeedbackThankYou } from "@/lib/notifications/gateway";
 import { orderFeedbackInput } from "@/lib/orders/feedback-input";
 import { createOrderReceiptStore, OrderReceiptConflictError, OrderReceiptNotFoundError } from "@/lib/orders/receipt";
 import { createOrderStore, OrderTransitionError, type Order } from "@/lib/orders/orders";
-import { gcashReferenceNumberField, uploadPaymentProofScreenshot, validatePaymentProofScreenshot } from "@/lib/orders/payment-proof";
+import { referenceNumberField, uploadPaymentProofScreenshot, validatePaymentProofScreenshot } from "@/lib/orders/payment-proof";
 import { liveOrdersUrl } from "@/lib/orders/live";
 import { gatewayTicketFiles } from "@/lib/support/ticket-files";
 import { positiveIntegerField } from "@/lib/validators/fields";
@@ -44,7 +44,7 @@ export type OrderReceivedState = {
   message?: string;
 };
 
-const paymentProofInput = z.object({ gcashReferenceNumber: gcashReferenceNumberField });
+const paymentProofInput = z.object({ gcashReferenceNumber: referenceNumberField });
 const cancellationInput = z.object({ orderId: positiveIntegerField("Order ID") });
 
 /** Cancels a Customer-owned Order when its status is still before dispatch. */
