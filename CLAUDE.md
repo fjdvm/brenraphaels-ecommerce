@@ -2,6 +2,8 @@
 
 Follow the Git workflow and Checks and PR completion rules in AGENTS.md for every ticket, including instruction-file changes.
 
+Production is Azure, not Vercel: follow "Hosting: Azure, not Vercel" in AGENTS.md, and never use Vercel tools or the Vercel CLI here.
+
 ## Agent skills
 
 ### Issue tracker

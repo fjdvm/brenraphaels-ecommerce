@@ -28,11 +28,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ### Shared worktree safety
 
-- For schema-changing tickets, apply required production Drizzle migrations with `npm run db:migrate` before enabling auto-merge, using the production `DATABASE_URL_UNPOOLED` from `vercel env pull --environment=production`. Never commit env files.
+- For schema-changing tickets, apply required production Drizzle migrations with `npm run db:migrate` before enabling auto-merge, using the production `DATABASE_URL_UNPOOLED` read from the Azure Container App's settings (`az containerapp show`, after `az login`). Never commit env files.
 
 - Do not run destructive database migrations on the shared Neon `dev` branch while another agent might be using it; use an isolated Neon branch when needed.
 - Do not edit files inside another agent's worktree or force-push.
 - Branch protection does not require an up-to-date branch; `main` checks the merged code. Rebase only when needed to resolve conflicts.
+
+## Hosting: Azure, not Vercel
+
+Production runs on Azure (Container Apps, deployed by `.github/workflows/container.yml`), with the database on Neon. Do not use Vercel tools, the Vercel CLI or `vercel env pull` for anything in this repo; they are not linked. Environment variables and secrets live in the Azure Container App and GitHub Actions secrets. Pulling or reading production secrets, and applying production migrations, need the owner's explicit approval for that exact command.
 
 ## Input validation
 
