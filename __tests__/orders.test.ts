@@ -98,23 +98,24 @@ describe("Order", () => {
     const order = await store.place("customer-1", { fulfillmentMethod: "delivery", paymentMethod: "gcash", addressId: address.rows[0].id });
     if (phase !== "confirmed") await store.submitPaymentProof("customer-1", order.id, { gcashReferenceNumber: "1234567890" });
     if (["paid", "preparing"].includes(phase)) await store.advance(order.id, { status: "paid", staffId: "ana", staffName: "Ana" });
-    if (phase === "preparing") await store.advance(order.id, { status: "preparing" });
+    if (phase === "preparing") await store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
     const [line] = await database.select().from(orderLines).where(eq(orderLines.sizeLabel, "Extra"));
     await expect(store.cancelItems(order.id, [line.id], { staffId: "ana", staffName: "Ana" }, "placed")).rejects.toThrow("already changed");
     await store.cancelItems(order.id, [line.id], { staffId: "ana", staffName: "Ana" }, phase);
     await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ status: phase, deliveryFeeInCentavos: null }]);
-    await expect(store.advance(order.id, { status: "preparing" })).rejects.toThrow("Quote a Delivery fee");
+    await expect(store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" })).rejects.toThrow("Quote a Delivery fee");
     await expect(store.advance(order.id, { status: "confirmed", deliveryFeeInCentavos: 19000 })).resolves.toMatchObject({ status: phase, deliveryFeeInCentavos: 19000 });
     if (phase === "confirmed") await expect(store.submitPaymentProof("customer-1", order.id, { gcashReferenceNumber: "1234567890" })).resolves.toMatchObject({ status: "awaiting payment" });
     if (phase === "awaiting payment") await expect(store.advance(order.id, { status: "paid", staffId: "ana", staffName: "Ana" })).resolves.toMatchObject({ status: "paid" });
-    if (phase === "paid") await expect(store.advance(order.id, { status: "preparing" })).resolves.toMatchObject({ status: "preparing" });
+    if (phase === "paid") await expect(store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" })).resolves.toMatchObject({ status: "preparing" });
     if (phase === "preparing") await expect(store.advance(order.id, { status: "dispatched", courier: booking })).resolves.toMatchObject({ status: "dispatched" });
   });
 
   test("shows a File-backed Product image in Order history instead of the retained Blob address", async () => {
     const database = drizzle(client);
     await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
-    const placed = await createOrderStore(database).place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+    const stock = new FakeShopStock();
+    const placed = await createOrderStore(database, undefined, stock).place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
     await database.insert(productImages).values({ productSlug: "ube-jam", fileId: "jam-file", url: "https://blob.example/old.jpg", alt: "Jam", position: 0 });
     const files = { publicUrl: async () => "https://images.example/jam-file/original" };
     const store = createOrderStore(database, files);
@@ -124,10 +125,11 @@ describe("Order", () => {
   test("an image gateway outage shows no photo and never turns a committed Order change into a failure", async () => {
     const database = drizzle(client);
     await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
-    const placed = await createOrderStore(database).place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+    const stock = new FakeShopStock();
+    const placed = await createOrderStore(database, undefined, stock).place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
     await database.insert(productImages).values({ productSlug: "ube-jam", fileId: "jam-file", url: "https://blob.example/old.jpg", alt: "Jam", position: 0 });
     const files = { publicUrl: async (): Promise<string> => { throw new Error("gateway unavailable"); } };
-    await expect(createOrderStore(database, files).advance(placed.id, { status: "preparing" })).resolves.toMatchObject({
+    await expect(createOrderStore(database, files, stock).advance(placed.id, { status: "preparing", staffId: "ana", staffName: "Ana" })).resolves.toMatchObject({
       status: "preparing", lines: [{ imageUrl: null }],
     });
   });
@@ -144,7 +146,7 @@ describe("Order", () => {
     expect(paid.paidAt!.getTime()).toBeGreaterThanOrEqual(before);
     expect(paid.paidAt!.getTime()).toBeLessThanOrEqual(Date.now());
     await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([paid]);
-    await expect(store.advance(order.id, { status: "preparing" })).resolves.toMatchObject({
+    await expect(store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" })).resolves.toMatchObject({
       paidById: "staff-17", paidByName: "Ana de la Cruz", paidAt: paid.paidAt,
     });
   });
@@ -171,7 +173,7 @@ describe("Order", () => {
     await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([
       { status: "paid", paidById: null, paidByName: null, paidAt: null },
     ]);
-    await expect(store.advance(result.rows[0].id, { status: "preparing" })).resolves.toMatchObject({
+    await expect(store.advance(result.rows[0].id, { status: "preparing", staffId: "ana", staffName: "Ana" })).resolves.toMatchObject({
       status: "preparing", paidById: null, paidByName: null, paidAt: null,
     });
   });
@@ -305,7 +307,7 @@ describe("Order", () => {
       status: "awaiting payment",
     });
     await expect(store.advance(placed.id, { status: "paid", staffId: "staff-17", staffName: "Ana Cruz" })).resolves.toMatchObject({ status: "paid" });
-    await expect(store.advance(placed.id, { status: "preparing" })).resolves.toMatchObject({ status: "preparing" });
+    await expect(store.advance(placed.id, { status: "preparing", staffId: "ana", staffName: "Ana" })).resolves.toMatchObject({ status: "preparing" });
     await expect(store.advance(placed.id, { status: "dispatched", courier: booking })).resolves.toMatchObject({ status: "dispatched" });
     await expect(store.advance(placed.id, { status: "delivered", deliveryPhotoFileId: "photo-1" })).resolves.toMatchObject({ status: "delivered", deliveryPhotoFileId: "photo-1" });
   });
@@ -345,7 +347,7 @@ describe("Order", () => {
       fulfillmentMethod: "pickup",
       paymentMethod: "cash-on-delivery",
     });
-    await store.advance(dispatched.id, { status: "preparing" });
+    await store.advance(dispatched.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
     await store.advance(dispatched.id, { status: "dispatched" });
 
     await expect(store.advance(dispatched.id, { status: "cancelled" })).rejects.toThrow("not a legal transition");
@@ -360,7 +362,7 @@ describe("Order", () => {
     const deliveredAt = async () =>
       (await client.query<{ delivered_at: Date | null }>("select delivered_at from orders where id = $1", [order.id])).rows[0].delivered_at;
 
-    await store.advance(order.id, { status: "preparing" });
+    await store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
     await store.advance(order.id, { status: "dispatched" });
     expect(await deliveredAt()).toBeNull();
 
@@ -390,7 +392,7 @@ describe("Order", () => {
       fulfillmentMethod: "pickup",
       paymentMethod: "cash-on-delivery",
     });
-    await store.advance(dispatched.id, { status: "preparing" });
+    await store.advance(dispatched.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
     await store.advance(dispatched.id, { status: "dispatched" });
 
     await expect(store.cancel("customer-1", dispatched.id)).rejects.toThrow("not a legal transition");

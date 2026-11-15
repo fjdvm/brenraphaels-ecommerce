@@ -43,7 +43,7 @@ test("quotes the fee and asks for GCash payment once, then Preparing sends nothi
   ]));
   await store.submitPaymentProof("c1", row.id, { gcashReferenceNumber: "1234567890123" });
   await store.advance(row.id, { status: "paid", staffId: "ana", staffName: "Ana" });
-  await store.advance(row.id, { status: "preparing" });
+  await store.advance(row.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
   expect(await sendPendingCustomerNotifications(db, row.id, send)).toBe(0);
   await store.advance(row.id, { status: "dispatched", courier: { name: "Grab", trackingUrl: "https://grab.test/t" } });
   expect(await sendPendingCustomerNotifications(db, row.id, send)).toBe(1);

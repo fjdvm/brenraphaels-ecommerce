@@ -72,7 +72,7 @@ test("delivers a dispatched Order with a verified Temporary photo, persists it a
 test.each([
   [{ status: "delivered" }, "File id is required"],
   [{ status: "delivered", deliveryPhotoFileId: "" }, "File id is required"],
-  [{ status: "preparing", deliveryPhotoFileId: "photo-1" }, "Unrecognized key"],
+  [{ status: "preparing", staffId: "ana", staffName: "Ana", deliveryPhotoFileId: "photo-1" }, "Unrecognized key"],
 ])("refuses an invalid photo request without changing the Order: %j", async (body, message) => {
   const response = await call(body);
   expect(response.status).toBe(400);

@@ -2,6 +2,7 @@ import { mintCreomsCredential } from "@/lib/orders/creoms-credential";
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 
 const {
+  sendPackingAudit,
   afterTasks,
   advance,
   createOrderStore,
@@ -14,6 +15,7 @@ const {
   sendOrderDispatchedEmail,
   sendOrderPaidEmail,
 } = vi.hoisted(() => ({
+  sendPackingAudit: vi.fn(async () => {}),
   afterTasks: [] as Array<() => Promise<void>>,
   advance: vi.fn(),
   createOrderStore: vi.fn(() => ({ advance, customerEmailForOrder, customerIdForOrder })),
@@ -27,6 +29,7 @@ const {
   sendOrderPaidEmail: vi.fn(),
 }));
 
+vi.mock("@/lib/orders/stock-reservations", () => ({ createStockReservations: () => ({ sendPending: sendPackingAudit }) }));
 vi.mock("next/server", () => ({ after: (task: () => Promise<void>) => { afterTasks.push(task); } }));
 vi.mock("@/lib/notifications/outbox", () => ({ sendPendingCustomerNotifications: vi.fn() }));
 vi.mock("@/lib/db", () => ({ getDatabase }));
@@ -53,6 +56,7 @@ afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 beforeEach(() => {
   afterTasks.length = 0;
+  sendPackingAudit.mockClear();
   vi.stubEnv("API_GATEWAY_URL", "https://gateway.test");
   vi.stubEnv("API_GATEWAY_CALLER_KEY", "storefront-key");
   vi.stubGlobal("fetch", vi.fn(async () => Response.json({ id: "photo-1", status: "active", visibility: "private", contentType: "image/jpeg" })));
@@ -191,7 +195,35 @@ describe("POST /api/internal/orders/[id]/status", () => {
     expect(sendOrderPaidEmail).not.toHaveBeenCalled();
   });
 
-  test.each(["confirmed", "preparing", "dispatched", "delivered"])(
+  test("requires packing Staff attribution and drains the durable audit after confirmation", async () => {
+    for (const staff of [{}, { staffId: "ana" }, { staffId: "ana", staffName: "<script>" }]) {
+      const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+        method: "POST", headers: { Authorization: `Bearer ${mintCreomsCredential()}` },
+        body: JSON.stringify({ status: "preparing", ...staff }),
+      });
+      expect((await post(request, context)).status).toBe(400);
+    }
+    expect(advance).not.toHaveBeenCalled();
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      method: "POST", headers: { Authorization: `Bearer ${mintCreomsCredential()}` },
+      body: JSON.stringify({ status: "preparing", staffId: "ana", staffName: "Ana" }),
+    });
+    expect((await postAndNotify(request, context)).status).toBe(200);
+    expect(advance).toHaveBeenCalledWith(12, { status: "preparing", staffId: "ana", staffName: "Ana" });
+    expect(sendPackingAudit).toHaveBeenCalledOnce();
+  });
+
+  test("publishes the packed Order even when audit outbox delivery fails", async () => {
+    sendPackingAudit.mockRejectedValueOnce(new Error("Audit outbox unavailable"));
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      method: "POST", headers: { Authorization: `Bearer ${mintCreomsCredential()}` },
+      body: JSON.stringify({ status: "preparing", staffId: "ana", staffName: "Ana" }),
+    });
+    expect((await postAndNotify(request, context)).status).toBe(200);
+    expect(publishCustomerOrderEvent).toHaveBeenCalledWith("customer-7", { type: "order.updated", orderId: "12" });
+  });
+
+  test.each(["confirmed", "dispatched", "delivered"])(
     "%s does not need or forward Staff attribution", async (status) => {
       for (const staff of [{}, { staffId: "staff-17", staffName: "Ana Cruz" }]) {
         const request = new Request("https://shop.example.test/api/internal/orders/12/status", {

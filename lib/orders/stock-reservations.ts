@@ -59,6 +59,20 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
     for (const line of lines) await queueAudit({ ...reservation, orderId }, "order.stock_reserved", line);
   }
 
+  /** Immutable IMS keys make retries after partial deduction or a lost reply safe. */
+  async function deduct(orderId: number) {
+    const [reservation] = await db.select().from(stockReservations).where(eq(stockReservations.orderId, orderId)).for("update");
+    if (!reservation) return; // Legacy Orders were never reserved in IMS.
+    if (reservation.state !== "placed") throw new StockUnavailableError();
+    const lines = reservation.lines.map(line => ({ ...line }));
+    for (const line of lines) {
+      if (line.release || line.released) continue;
+      if (await stock.move("deduct", reservation.id, line) !== "deducted") throw new StockUnavailableError();
+      line.deducted = true;
+    }
+    await db.update(stockReservations).set({ lines }).where(eq(stockReservations.id, reservation.id));
+  }
+
   async function releaseItems(orderId: number, lineIds?: number[], actor?: AuditIdentity) {
     const [reservation] = await db.select().from(stockReservations).where(eq(stockReservations.orderId, orderId)).for("update");
     if (!reservation) return; // Legacy Orders never reserved in IMS.
@@ -116,8 +130,8 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
                 line.released = true; continue; // IMS definitively has no Reservation for this immutable key.
               }
             }
-            const state = await stock.move("release", reservation.id, line);
-            if (state !== "released") throw new StockUnavailableError();
+            const state = await stock.move(line.deducted ? "add_back" : "release", reservation.id, line);
+            if (state !== "released" && state !== "added_back") throw new StockUnavailableError();
             line.released = true;
             await createStockReservations(tx, stock).queueAudit(reservation, "order.stock_released", line);
           }
@@ -192,5 +206,5 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
     }
     }
   }
-  return { begin, reserve, commit, releaseItems, abandon, drain, expire, sendPending, queueAudit };
+  return { begin, reserve, commit, deduct, releaseItems, abandon, drain, expire, sendPending, queueAudit };
 }

@@ -1,10 +1,11 @@
-import { DM_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import { CareersToaster } from "./_components/action-toast";
 
-const dmSans = DM_Sans({
+const dmSans = localFont({
+  src: "../../fonts/dm-sans.woff2",
   variable: "--font-dm-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: "400 700",
+  display: "swap",
 });
 
 /** The Careers redesign's tokens and DM Sans (see `.careers-theme` in globals.css); the Storefront is unaffected. */

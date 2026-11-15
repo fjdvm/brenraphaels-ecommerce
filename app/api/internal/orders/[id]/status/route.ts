@@ -1,3 +1,4 @@
+import { createStockReservations } from "@/lib/orders/stock-reservations";
 import { scheduleOrdersChanged } from "@/lib/orders/staff-signal";
 import { after } from "next/server";
 import { ZodError } from "zod";
@@ -59,6 +60,10 @@ export async function POST(
         { type: "order.updated", orderId: String(order.id) },
         publishCustomerOrderEvent,
       );
+      if (update.status === "preparing") {
+        try { await createStockReservations(getDatabase()).sendPending(); }
+        catch (error) { console.error("Packing audit delivery remains queued for the cron job", error); }
+      }
       if (
         update.status === "confirmed"
         && order.fulfillmentMethod === "delivery"
