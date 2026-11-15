@@ -164,7 +164,7 @@ export function CheckoutView({
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5 leading-normal">
                   <p className="text-sm font-medium text-ink">{line.productName}</p>
                   <p className="text-xs text-muted">{line.sizeLabel} × {line.quantity}</p>
-                  {!line.available && <p className="text-xs font-medium text-warning">This Size is currently unavailable.</p>}
+                  {!line.available && <p className="text-xs font-medium text-warning">{line.blockedReason ?? "This Size is currently unavailable."}</p>}
                 </div>
                 <p className="text-sm font-medium text-ink">{formatPeso(line.priceInCentavos * line.quantity)}</p>
               </li>

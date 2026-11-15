@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { stockLabel } from "@/lib/catalog/stock-label";
 import { formatPeso } from "@/lib/catalog/currency";
 import { addProductSizeToCart } from "@/lib/orders/add-product-size";
 import { cartLineQuantityLimit } from "@/lib/orders/quantity";
 
-type Size = { id: number; label: string; priceInCentavos: number; available: boolean };
+type Size = { id: number; label: string; priceInCentavos: number; available: boolean; left?: number | null };
 
 export function AddToCart({
   product,
@@ -93,8 +94,11 @@ export function AddToCart({
                 <span className="text-sm font-medium text-ink">{size.label}</span>
                 <span className="text-xs text-muted">
                   {formatPeso(size.priceInCentavos)}
-                  {!size.available ? " · Unavailable" : ""}
+                  {!size.available ? " · Sold out" : ""}
                 </span>
+                {size.available && stockLabel(size.left ?? null) && (
+                  <span className="text-xs font-medium text-warning">{stockLabel(size.left ?? null)?.text}</span>
+                )}
               </label>
             );
           })}

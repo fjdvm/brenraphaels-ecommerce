@@ -10,6 +10,10 @@ export class FakeShopStock implements ShopStock {
   failReleaseProduct: number | undefined;
   productForSize(sizeId: number) { return sizeId + 100; }
   remaining(productId: number) { return this.available.get(productId) ?? 50; }
+  async left(sizeId: number) {
+    if (this.unavailable) throw new Error("IMS offline");
+    return this.remaining(this.productForSize(sizeId));
+  }
   async move(operation: "reserve" | "release", orderId: string, line: StockLine): Promise<StockState> {
     if (this.unavailable) throw new Error("IMS offline");
     const key = `${orderId}:${line.lineId}`;

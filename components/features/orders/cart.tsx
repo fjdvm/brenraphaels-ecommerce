@@ -18,10 +18,10 @@ import {
 import { cartLineQuantityLimit } from "@/lib/orders/quantity";
 import type { Cart, CartLine } from "@/lib/orders/cart";
 
-type DisplayLine = Pick<CartLine, "id" | "sizeId" | "productSlug" | "productName" | "sizeLabel" | "imageUrl" | "priceInCentavos" | "quantity" | "available">;
+type DisplayLine = Pick<CartLine, "id" | "sizeId" | "productSlug" | "productName" | "sizeLabel" | "imageUrl" | "priceInCentavos" | "quantity" | "available" | "left" | "blockedReason">;
 
 function visitorCart(): Cart {
-  const lines = readVisitorCart().map((line) => ({ ...line, imageUrl: line.imageUrl ?? null, id: line.sizeId, available: true }));
+  const lines = readVisitorCart().map((line) => ({ ...line, imageUrl: line.imageUrl ?? null, id: line.sizeId, available: true, left: null }));
   return {
     lines,
     subtotalInCentavos: lines.reduce((subtotal, line) => subtotal + line.priceInCentavos * line.quantity, 0),
@@ -155,7 +155,7 @@ export function CartView({ customerHasCart, initialCart }: { customerHasCart: bo
                     <p className="text-xs tracking-wide text-muted">
                       {line.sizeLabel} · {formatPeso(line.priceInCentavos)} each
                     </p>
-                    {!line.available && <p className="text-sm font-medium text-warning">This Size is currently unavailable.</p>}
+                    {!line.available && <p className="text-sm font-medium text-warning">{line.blockedReason ?? "This Size is currently unavailable."}</p>}
                     <Button type="button" variant="link" size="link-sm" disabled={pending} onClick={() => remove(line)}>
                       Remove
                     </Button>

@@ -70,8 +70,8 @@ describe("Catalog", () => {
         lowestPriceInCentavos: 21900,
         highestPriceInCentavos: 46900,
         sizes: [
-          { id: expect.any(Number), label: "200g", priceInCentavos: 21900, available: true },
-          { id: expect.any(Number), label: "500g", priceInCentavos: 46900, available: false },
+          { id: expect.any(Number), label: "200g", priceInCentavos: 21900, available: true, left: null },
+          { id: expect.any(Number), label: "500g", priceInCentavos: 46900, available: false, left: null },
         ],
       },
     ]);
@@ -115,6 +115,7 @@ describe("Catalog", () => {
           label: "100g",
           priceInCentavos: 21900,
           available: false,
+          left: null,
         },
       ],
     });

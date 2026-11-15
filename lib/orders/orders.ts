@@ -540,19 +540,22 @@ export function createOrderStore<
     customerId: string,
     input: PlaceOrderInput,
   ): Promise<Order> {
-    const attemptId = await reservations.begin(customerId, await createCartStore(db, files).get(customerId));
+    const attemptId = await reservations.begin(customerId, await createCartStore(db, files, stock).get(customerId));
     try {
     return await db.transaction(async (transaction) => {
       // Serialize checkouts of the same Cart before reading its current contents.
       await transaction.select({ id: customers.id }).from(customers).where(eq(customers.id, customerId)).for("update");
       await transaction.select({ id: cartLines.id }).from(cartLines).where(eq(cartLines.customerId, customerId)).for("update");
-      const transactionalCart = createCartStore(transaction, files);
+      const transactionalCart = createCartStore(transaction, files, stock);
       const cart = await transactionalCart.get(customerId);
       if (cart.lines.length === 0) {
         throw new Error("Your Cart is empty.");
       }
-      if (cart.lines.some((line) => !line.available)) {
-        throw new Error("This Size is unavailable.");
+      const blocked = cart.lines.find((line) => !line.available);
+      if (blocked) {
+        // Say which item and why, so the Customer knows what to change.
+        throw new Error(blocked.blockedReason === undefined || blocked.blockedReason === "This Size is currently unavailable."
+          ? "This Size is unavailable." : `${blocked.productName} (${blocked.sizeLabel}): ${blocked.blockedReason}`);
       }
 
       let deliveryAddress: DeliveryAddress | null = null;

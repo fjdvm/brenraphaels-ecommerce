@@ -3,6 +3,8 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { cartLines, cartMerges, productImages, products, sizes } from "../db/schema";
 import { gatewayProductImages, productThumbnail, type ProductImageFiles, type ProductImageReference } from "../catalog/product-images";
+import { readStockLeft } from "../catalog/stock-labels";
+import { gatewayShopStock, type ShopStock } from "./stock";
 import { cartLineQuantityLimit } from "./quantity";
 
 export { cartLineQuantityLimit } from "./quantity";
@@ -20,6 +22,10 @@ export type CartLine = {
   priceInCentavos: number;
   quantity: number;
   available: boolean;
+  /** Left to sell, from the IMS; null when it could not be read. */
+  left: number | null;
+  /** Why checkout refuses this line, in plain words. */
+  blockedReason?: string;
 };
 
 export type Cart = { lines: CartLine[]; subtotalInCentavos: number };
@@ -48,7 +54,7 @@ function cappedQuantity(quantity: number) {
 export function createCartStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
->(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages()): CartStore {
+>(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages(), stock: ShopStock = gatewayShopStock()): CartStore {
   async function get(customerId: string): Promise<Cart> {
     const lines = await db
       .select({
@@ -68,8 +74,15 @@ export function createCartStore<
       .where(eq(cartLines.customerId, customerId))
       .orderBy(asc(cartLines.id));
 
+    const left = await readStockLeft(lines.map(({ sizeId }) => sizeId), stock);
     return {
-      lines: await Promise.all(lines.map(async ({ image, ...line }) => ({ ...line, imageUrl: await productThumbnail(image, files) }))),
+      lines: await Promise.all(lines.map(async ({ image, ...line }) => {
+        const remaining = left.get(line.sizeId) ?? null;
+        const blockedReason = remaining === 0 ? "Sold out. Remove it to check out."
+          : remaining !== null && line.quantity > remaining ? `Only ${remaining} left. Lower the quantity to check out.`
+          : !line.available ? "This Size is currently unavailable." : undefined;
+        return { ...line, available: blockedReason === undefined, left: remaining, blockedReason, imageUrl: await productThumbnail(image, files) };
+      })),
       subtotalInCentavos: lines.reduce(
         (subtotal, line) => subtotal + line.priceInCentavos * line.quantity,
         0,
@@ -147,7 +160,7 @@ export function createCartStore<
         return;
       }
 
-      const transactionalStore = createCartStore(transaction);
+      const transactionalStore = createCartStore(transaction, files, stock);
       for (const line of lines) {
         if (Number.isInteger(line.sizeId) && Number.isInteger(line.quantity) && line.quantity > 0) {
           await transactionalStore.addSize(customerId, line.sizeId, line.quantity);
