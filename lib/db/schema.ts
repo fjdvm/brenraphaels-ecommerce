@@ -462,4 +462,4 @@ export const failedDeliveries = pgTable("failed_deliveries", {
   disposedAt: timestamp("disposed_at", { withTimezone: true }),
   rebookedAt: timestamp("rebooked_at", { withTimezone: true }),
   courier: jsonb("courier").$type<import("../validators/courier").CourierBooking>(),
-}, table => [index("failed_deliveries_order").on(table.orderId)]);
+}, table => [index("failed_deliveries_order").on(table.orderId), check("failed_deliveries_disposition_check", sql`${table.disposition} in ('restock', 'write-off')`)]);

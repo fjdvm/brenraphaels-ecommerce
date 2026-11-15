@@ -41,6 +41,12 @@ export function createFailedDeliveries<T extends PgQueryResultHKT, S extends Rec
         const event: AuditEvent = { source: "Ecommerce", action, outcome: "success", actor: { type: "staff", id: input.staffId, display_name: input.staffName }, target: { type: "order", id: String(orderId), display_name: `Order #${orderId}` }, description: `${input.staffName}: ${action}`, occurred_at: new Date().toISOString(), idempotency_key: key };
         await tx.insert(stockOutbox).values({ key, kind: "audit", payload: event }).onConflictDoNothing();
       }
+      async function email(action: string, body: string) {
+        const [customer] = await tx.select().from(customers).where(eq(customers.id, order.customerId));
+        await tx.insert(stockOutbox).values({ key: `${action}:${input.attemptId}:email`, kind: "email", payload: {
+          to: customer.email, title: `Order #${orderId}: delivery update`, body,
+        } }).onConflictDoNothing();
+      }
       if (input.action === "record") {
         if (existing) {
           if (existing.reason !== input.reason || existing.nextStep !== input.nextStep || existing.customerMessage !== input.customerMessage || existing.staffId !== input.staffId) throw new FailedDeliveryError("That attempt reference was already used.");
@@ -48,18 +54,18 @@ export function createFailedDeliveries<T extends PgQueryResultHKT, S extends Rec
           if (latest && !latest.rebookedAt) throw new FailedDeliveryError("Handle the previous failed attempt before recording another.");
           await tx.insert(failedDeliveries).values({ id: input.attemptId, orderId, reason: input.reason, nextStep: input.nextStep, customerMessage: input.customerMessage, staffId: input.staffId, staffName: input.staffName });
           await audit("delivery.failed");
-          const [customer] = await tx.select().from(customers).where(eq(customers.id, order.customerId));
-          const key = `delivery.failed:${input.attemptId}:email`;
-          await tx.insert(stockOutbox).values({ key, kind: "email", payload: { to: customer.email, title: `Order #${orderId}: failed delivery`, body: `${input.reason}\n\n${input.customerMessage}` } }).onConflictDoNothing();
+          await email("delivery.failed", `${input.reason}\n\n${input.customerMessage}`);
         }
       } else {
         if (!existing || latest?.id !== existing.id) throw new FailedDeliveryError("Failed attempt was not found or is no longer current.");
         if (input.action === "rebook") {
           if (existing.disposition || existing.nextStep !== "rebook") throw new FailedDeliveryError("Goods returned to stock or written off cannot be rebooked.");
-          if (existing.rebookedAt && JSON.stringify(existing.courier) !== JSON.stringify(input.courier)) throw new FailedDeliveryError("This attempt was already rebooked.");
+          if (existing.rebookedAt && (Object.keys(courierBooking.shape) as (keyof typeof input.courier)[]).some(key => (existing.courier?.[key] ?? "") !== (input.courier[key] ?? ""))) throw new FailedDeliveryError("This attempt was already rebooked.");
           if (!existing.rebookedAt) {
             await tx.update(orders).set({ courier: input.courier.name, courierTrackingUrl: input.courier.trackingUrl, riderName: input.courier.riderName ?? null, riderPlate: input.courier.riderPlate ?? null, riderPhone: input.courier.riderPhone ?? null }).where(eq(orders.id, orderId));
             await tx.update(failedDeliveries).set({ rebookedAt: new Date(), courier: input.courier }).where(eq(failedDeliveries.id, existing.id));
+            await audit("delivery.rebooked");
+            await email("delivery.rebooked", `Staff rebooked your delivery with ${input.courier.name}. Track your delivery: ${input.courier.trackingUrl}`);
           }
         } else if (!existing.disposedAt) {
           const [reservation] = await tx.select().from(stockReservations).where(eq(stockReservations.orderId, orderId)).for("update");
@@ -72,6 +78,9 @@ export function createFailedDeliveries<T extends PgQueryResultHKT, S extends Rec
           await tx.update(stockReservations).set({ lines: reservation.lines.map(line => line.deducted ? { ...line, released: true } : line) }).where(eq(stockReservations.id, reservation.id));
           await tx.update(failedDeliveries).set({ disposedAt: new Date() }).where(eq(failedDeliveries.id, existing.id));
           await audit(input.action === "restock" ? "delivery.restocked" : "writeoff.approved");
+          await email(`delivery.${input.action}`, input.action === "restock"
+            ? "Staff returned the goods to stock. This booking will not be sent again. Staff will arrange the next step with a Manager."
+            : "The returned goods were approved for write-off. This booking will not be sent again. Staff will arrange the next step with a Manager.");
         }
       }
       return { id: orderId, status: "dispatched", attemptId: input.attemptId, action: input.action };

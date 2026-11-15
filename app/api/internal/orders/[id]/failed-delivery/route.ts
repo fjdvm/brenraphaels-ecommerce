@@ -4,6 +4,8 @@ import { getDatabase } from "@/lib/db";
 import { verifyCreomsCredential } from "@/lib/orders/creoms-credential";
 import { createFailedDeliveries, FailedDeliveryError } from "@/lib/orders/failed-deliveries";
 import { createStockReservations } from "@/lib/orders/stock-reservations";
+import { createOrderStore } from "@/lib/orders/orders";
+import { publishAfterCommit, publishCustomerOrderEvent } from "@/lib/orders/live-events";
 import { scheduleOrdersChanged } from "@/lib/orders/staff-signal";
 
 export async function POST(request: Request, context: RouteContext<"/api/internal/orders/[id]/failed-delivery">) {
@@ -13,7 +15,10 @@ export async function POST(request: Request, context: RouteContext<"/api/interna
   try {
     const result = await createFailedDeliveries(getDatabase()).change(id, await request.json());
     scheduleOrdersChanged();
-    after(async () => { await createStockReservations(getDatabase()).sendPending(); });
+    after(async () => {
+      await publishAfterCommit(createOrderStore(getDatabase()).customerIdForOrder(id), { type: "order.updated", orderId: String(id) }, publishCustomerOrderEvent);
+      await createStockReservations(getDatabase()).sendPending();
+    });
     return Response.json(result);
   } catch (error) {
     if (error instanceof ZodError) return Response.json({ error: error.issues[0].message }, { status: 400 });

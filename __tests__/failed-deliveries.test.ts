@@ -6,6 +6,7 @@ import { createTestDatabase } from "./helpers/test-database";
 import { FakeShopStock } from "./helpers/fake-shop-stock";
 import { customers, orders, failedDeliveries, stockReservations, stockOutbox } from "../lib/db/schema";
 import { createFailedDeliveries } from "../lib/orders/failed-deliveries";
+import { createOrderStore } from "../lib/orders/orders";
 import { createStockReservations } from "../lib/orders/stock-reservations";
 const clients: Awaited<ReturnType<typeof createTestDatabase>>[] = [];
 afterEach(async () => { for (const db of clients.splice(0)) await db.close(); });
@@ -35,8 +36,12 @@ test("records one failure and one email, keeps dispatched and retains history wh
   expect(email).toHaveBeenCalledTimes(1); expect(email).toHaveBeenCalledWith(expect.objectContaining({ body: expect.stringContaining("Staff will rebook") }));
   expect(audit).toHaveBeenCalledTimes(1);
   await service.change(order.id, { action: "rebook", attemptId: input.attemptId, courier: { name: "Grab", trackingUrl: "https://grab.example/new", riderName: "Ben" }, ...staff });
+  await service.change(order.id, { action: "rebook", attemptId: input.attemptId, courier: { name: "Grab", trackingUrl: "https://grab.example/new", riderName: "Ben" }, ...staff });
   expect((await db.select().from(orders))[0]).toMatchObject({ status: "dispatched", courier: "Grab", courierTrackingUrl: "https://grab.example/new", riderName: "Ben" });
   expect((await db.select().from(failedDeliveries))[0].reason).toBe(input.reason);
+  await outbox.sendPending({ audit, email }); await outbox.sendPending({ audit, email });
+  expect(email).toHaveBeenCalledTimes(2);
+  expect(audit).toHaveBeenCalledWith(expect.objectContaining({ action: "delivery.rebooked", actor: expect.objectContaining({ id: staff.staffId }) }));
 });
 test.each(["restock", "write-off"])("%s is idempotent and prevents rebooking disposed goods", async action => {
   const { db, order, service, input, stock } = await fixture();
@@ -44,7 +49,12 @@ test.each(["restock", "write-off"])("%s is idempotent and prevents rebooking dis
   await service.change(order.id, { action, attemptId: input.attemptId, ...staff });
   await service.change(order.id, { action, attemptId: input.attemptId, ...staff });
   expect(stock.remaining(101)).toBe(action === "restock" ? 50 : 48);
+  const email = vi.fn(async () => {});
+  await createStockReservations(db).sendPending({ audit: async () => {}, email });
+  expect(email).toHaveBeenCalledTimes(2);
+  expect(email).toHaveBeenCalledWith(expect.objectContaining({ body: expect.stringContaining("will not be sent again") }));
   await expect(service.change(order.id, { action: "rebook", attemptId: input.attemptId, courier: { name: "Grab", trackingUrl: "https://grab.example/new" }, ...staff })).rejects.toThrow("cannot be rebooked");
+  await expect(createOrderStore(db).advance(order.id, { status: "delivered", deliveryPhotoFileId: "proof-1" })).rejects.toThrow("Handle the failed delivery");
   expect((await db.select().from(stockReservations))[0].lines[0].released).toBe(true);
   expect((await db.select().from(stockOutbox)).filter(event => event.key.startsWith(action === "restock" ? "delivery.restocked" : "writeoff.approved"))).toHaveLength(1);
 });
