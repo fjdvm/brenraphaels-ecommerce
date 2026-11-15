@@ -192,6 +192,8 @@ export function createOrderStore<
   defer: (work: () => Promise<void>) => void = work => after(work),
 ): OrderStore {
   const reservations = createStockReservations(db, stock);
+  /** The same stock without reads, for use while rows are locked. */
+  const unread: ShopStock = { ...stock, left: async () => { throw new Error("not read under lock"); }, read: async () => { throw new Error("not read under lock"); } };
   function deferRelease(id: string | undefined) {
     if (!id) return;
     try { defer(async () => { await reservations.drain(new Date(), id); }); }
@@ -540,24 +542,25 @@ export function createOrderStore<
     customerId: string,
     input: PlaceOrderInput,
   ): Promise<Order> {
-    const attemptId = await reservations.begin(customerId, await createCartStore(db, files, stock).get(customerId));
+    // Read stock before any lock is taken, so a slow IMS never holds Customer or Cart rows. The reserve below stays authoritative.
+    const checked = await createCartStore(db, files, stock).get(customerId);
+    const blocked = checked.lines.find((line) => !line.available);
+    if (blocked) {
+      // Say which item and why, so the Customer knows what to change.
+      throw new Error(blocked.blockedByStock
+        ? `${blocked.productName} (${blocked.sizeLabel}): ${blocked.blockedReason}` : "This Size is unavailable.");
+    }
+    const attemptId = await reservations.begin(customerId, checked);
     try {
     return await db.transaction(async (transaction) => {
       // Serialize checkouts of the same Cart before reading its current contents.
       await transaction.select({ id: customers.id }).from(customers).where(eq(customers.id, customerId)).for("update");
       await transaction.select({ id: cartLines.id }).from(cartLines).where(eq(cartLines.customerId, customerId)).for("update");
-      const transactionalCart = createCartStore(transaction, files, stock);
+      const transactionalCart = createCartStore(transaction, files, unread);
       const cart = await transactionalCart.get(customerId);
       if (cart.lines.length === 0) {
         throw new Error("Your Cart is empty.");
       }
-      const blocked = cart.lines.find((line) => !line.available);
-      if (blocked) {
-        // Say which item and why, so the Customer knows what to change.
-        throw new Error(blocked.blockedReason === undefined || blocked.blockedReason === "This Size is currently unavailable."
-          ? "This Size is unavailable." : `${blocked.productName} (${blocked.sizeLabel}): ${blocked.blockedReason}`);
-      }
-
       let deliveryAddress: DeliveryAddress | null = null;
       if (input.fulfillmentMethod === "delivery") {
         if (!input.addressId) {

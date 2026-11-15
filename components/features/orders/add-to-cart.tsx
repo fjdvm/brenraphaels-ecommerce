@@ -12,6 +12,8 @@ import { cartLineQuantityLimit } from "@/lib/orders/quantity";
 
 type Size = { id: number; label: string; priceInCentavos: number; available: boolean; left?: number | null };
 
+const lowNotice = (left: number | null | undefined) => stockLabel(left ?? null)?.text;
+
 export function AddToCart({
   product,
   customerHasCart,
@@ -96,9 +98,7 @@ export function AddToCart({
                   {formatPeso(size.priceInCentavos)}
                   {!size.available ? " · Sold out" : ""}
                 </span>
-                {size.available && stockLabel(size.left ?? null) && (
-                  <span className="text-xs font-medium text-warning">{stockLabel(size.left ?? null)?.text}</span>
-                )}
+                {size.available && lowNotice(size.left) && <span className="text-xs font-medium text-warning">{lowNotice(size.left)}</span>}
               </label>
             );
           })}

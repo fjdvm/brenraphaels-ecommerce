@@ -10,6 +10,7 @@ import { stockLabel } from "@/lib/catalog/stock-label";
 import { addProductSizeToCart } from "@/lib/orders/add-product-size";
 
 type Size = { id: number; label: string; priceInCentavos: number; available: boolean; left?: number | null };
+const lowNotice = (left: number | null | undefined) => stockLabel(left ?? null)?.text;
 type Intent = "cart" | "buy";
 
 /**
@@ -93,7 +94,7 @@ export function ProductQuickOrder({
                     : "border-line text-ink hover:border-primary"
                 }`}
               >
-                <span>{size.label}{stockLabel(size.left ?? null) && <span className="ml-2 text-xs font-medium text-warning">{stockLabel(size.left ?? null)?.text}</span>}</span>
+                <span>{size.label}{lowNotice(size.left) && <span className="ml-2 text-xs font-medium text-warning">{lowNotice(size.left)}</span>}</span>
                 <span>{formatPeso(size.priceInCentavos)}</span>
               </button>
             ))}

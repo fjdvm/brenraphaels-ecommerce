@@ -26,6 +26,8 @@ export type CartLine = {
   left: number | null;
   /** Why checkout refuses this line, in plain words. */
   blockedReason?: string;
+  /** True when the reason is about stock (none left or too few), so checkout names the item. */
+  blockedByStock?: boolean;
 };
 
 export type Cart = { lines: CartLine[]; subtotalInCentavos: number };
@@ -81,7 +83,7 @@ export function createCartStore<
         const blockedReason = remaining === 0 ? "Sold out. Remove it to check out."
           : remaining !== null && line.quantity > remaining ? `Only ${remaining} left. Lower the quantity to check out.`
           : !line.available ? "This Size is currently unavailable." : undefined;
-        return { ...line, available: blockedReason === undefined, left: remaining, blockedReason, imageUrl: await productThumbnail(image, files) };
+        return { ...line, available: blockedReason === undefined, left: remaining, blockedReason, blockedByStock: remaining !== null && (remaining === 0 || line.quantity > remaining), imageUrl: await productThumbnail(image, files) };
       })),
       subtotalInCentavos: lines.reduce(
         (subtotal, line) => subtotal + line.priceInCentavos * line.quantity,
