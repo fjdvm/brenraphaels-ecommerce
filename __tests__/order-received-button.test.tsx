@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const { markOrderReceived } = vi.hoisted(() => ({ markOrderReceived: vi.fn() }));
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/app/(site)/(protected)/profile/orders/actions", () => ({ markOrderReceived, submitOrderFeedback: vi.fn() }));
 
 import { OrdersBrowser } from "@/components/features/orders/orders-browser";
