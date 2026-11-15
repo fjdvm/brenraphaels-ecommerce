@@ -311,3 +311,21 @@ test("cancelling a packed Order adds deducted items back once", async () => {
   expect([...stock.reservations.values()].map(line => line.state)).toEqual(["added_back", "added_back"]);
   expect(await stock.read(1)).toEqual({ quantity: 50, reserved: 0, available: 50 });
 });
+
+test("packing audit survives a lost acknowledgement and keeps the original Staff and time", async () => {
+  const { store, maintenance } = await fixture();
+  const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+  const packed = await store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
+  const accepted = new Map<string, import("../lib/audit/gateway").AuditEvent>();
+  let loseReply = true;
+  const audit = vi.fn(async (event: import("../lib/audit/gateway").AuditEvent) => {
+    accepted.set(event.idempotency_key!, event);
+    if (event.action === "order.packed" && loseReply) { loseReply = false; throw new Error("Reply lost"); }
+  });
+  await maintenance.sendPending({ audit, email: async () => {} });
+  await maintenance.sendPending({ audit, email: async () => {} });
+  expect([...accepted.values()].filter(event => event.action === "order.packed")).toEqual([
+    expect.objectContaining({ actor: { type: "staff", id: "ana", display_name: "Ana" }, occurred_at: packed.packedBy!.at.toISOString() }),
+  ]);
+  expect(audit.mock.calls.filter(([event]) => event.action === "order.packed").map(([event]) => event.idempotency_key)).toEqual([`order:${order.id}:order.packed`, `order:${order.id}:order.packed`]);
+});

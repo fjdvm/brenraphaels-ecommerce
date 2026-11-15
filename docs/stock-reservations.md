@@ -83,3 +83,9 @@ recorded as the packer. A finished pack cannot be repeated. Existing cancellatio
 of preparing Orders/items remains available: only deducted lines use IMS
 `add_back`; lines cancelled before packing still use `release`. Both reuse the
 same keys through the existing durable release queue.
+
+The completed pack transaction also queues `order.packed` in the existing durable
+audit outbox, with the packer's identity, server packing time and one stable key.
+The internal endpoint attempts delivery after its response; scheduled maintenance
+retries an outage or lost acknowledgement. CREOMS does not emit a duplicate event,
+so a lost HTTP response cannot erase the pack's audit trail.

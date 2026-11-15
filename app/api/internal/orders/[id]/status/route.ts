@@ -1,3 +1,4 @@
+import { createStockReservations } from "@/lib/orders/stock-reservations";
 import { scheduleOrdersChanged } from "@/lib/orders/staff-signal";
 import { after } from "next/server";
 import { ZodError } from "zod";
@@ -54,6 +55,7 @@ export async function POST(
     scheduleOrdersChanged();
     // Confirm the committed change before email or gateway latency can exhaust CREOMS's timeout.
     after(async () => {
+      if (update.status === "preparing") await createStockReservations(getDatabase()).sendPending();
       await publishAfterCommit(
         orderStore.customerIdForOrder(order.id),
         { type: "order.updated", orderId: String(order.id) },

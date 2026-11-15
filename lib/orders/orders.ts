@@ -5,7 +5,7 @@ import { gatewayProductImages, productThumbnail, type ProductImageFiles, type Pr
 import { and, asc, desc, eq, inArray, isNull, isNotNull, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orders, productImages, products } from "../db/schema";
+import { addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orders, productImages, products, stockOutbox } from "../db/schema";
 import { courierBooking, type CourierBooking } from "../validators/courier";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
@@ -279,7 +279,7 @@ export function createOrderStore<
   async function pack(orderId: number, input: AdvanceOrderInput): Promise<Order> {
     if (input.deliveryFeeInCentavos !== undefined) throw new OrderStatusUpdateError("A Delivery fee can only be set when confirming a Delivery Order.");
     const staff = staffAttribution.parse(input);
-    if (input.courier !== undefined || input.deliveryPhotoFileId !== undefined || input.deliveryFeeInCentavos !== undefined) {
+    if (input.courier !== undefined || input.deliveryPhotoFileId !== undefined) {
       throw new OrderStatusUpdateError("Packing does not accept courier, Delivery photo or fee changes.");
     }
     await db.transaction(async tx => {
@@ -289,7 +289,6 @@ export function createOrderStore<
       if (!(order.status === "paid" || order.status === "confirmed" && order.paymentMethod === "cash-on-delivery")) {
         throw new OrderStatusUpdateError("Only a paid or confirmed Cash on Delivery Order can be packed.");
       }
-      if (order.deliveryFeeQuoteRequired) throw new OrderStatusUpdateError("Quote a Delivery fee before continuing this Order.");
       if (!order.packingStartedAt) await tx.update(orders).set({
         packingStartedAt: new Date(),
       }).where(eq(orders.id, orderId));
@@ -299,6 +298,14 @@ export function createOrderStore<
       if (order.packedAt || !["paid", "confirmed"].includes(order.status)) throw new OrderStatusUpdateError("Order already changed. Refresh before retrying.");
       await createStockReservations(tx, stock).deduct(orderId);
       const [updated] = await tx.update(orders).set({ status: "preparing", packedAt: new Date(), packedById: staff.staffId, packedByName: staff.staffName }).where(eq(orders.id, orderId)).returning();
+      const key = `order:${orderId}:order.packed`;
+      await tx.insert(stockOutbox).values({ key, kind: "audit", payload: {
+        source: "Ecommerce", action: "order.packed", outcome: "success",
+        actor: { type: "staff", id: staff.staffId, display_name: staff.staffName },
+        target: { type: "order", id: String(orderId), display_name: `Order #${orderId}` },
+        description: `${staff.staffName} packed Order #${orderId}.`,
+        occurred_at: updated.packedAt!.toISOString(), idempotency_key: key,
+      } satisfies AuditEvent }).onConflictDoNothing();
       return updated;
     });
     return toOrder(packed, await linesForOrder(orderId));
