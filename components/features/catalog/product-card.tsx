@@ -1,3 +1,4 @@
+import { stockLabel } from "@/lib/catalog/stock-label";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -34,6 +35,10 @@ export function ProductCard({
   customerHasCart: boolean;
 }) {
   const unavailable = product.sizes.every((size) => !size.available);
+  // The tightest Size decides the notice: "Only 3 left" beats "Only 9 left".
+  const tightest = product.sizes.filter((size) => size.available && stockLabel(size.left) !== null)
+    .sort((a, b) => (a.left ?? 0) - (b.left ?? 0))[0];
+  const notice = tightest ? stockLabel(tightest.left)?.text : undefined;
 
   return (
     <div className="flex h-full flex-col gap-[18px]">
@@ -56,6 +61,7 @@ export function ProductCard({
           <p className="text-xs tracking-wide text-muted">
             {unavailable ? "Currently unavailable" : product.sizes.map((size) => size.label).join(" · ")}
           </p>
+          {notice && <p className="text-xs font-medium text-warning">{notice}</p>}
         </div>
       </Link>
       <div className="mt-auto flex flex-col gap-3">

@@ -61,10 +61,10 @@ async function fixture() {
   return { client, db, cart, stock, store, first, second, scheduled, maintenance: createStockReservations(db, stock) };
 }
 
-test("zero available stock blocks checkout", async () => {
+test("zero available stock blocks checkout and says which item is sold out", async () => {
   const { cart, stock, store, first } = await fixture();
   stock.available.set(stock.productForSize(first.id), 0);
-  await expect(store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" })).rejects.toThrow("not enough stock");
+  await expect(store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" })).rejects.toThrow("Ube (250g): Sold out");
   expect(await store.listForCustomer("jane")).toEqual([]);
   expect((await cart.get("jane")).lines).toHaveLength(2);
 });

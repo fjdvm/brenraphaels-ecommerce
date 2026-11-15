@@ -10,6 +10,14 @@ export class FakeShopStock implements ShopStock {
   failReleaseProduct: number | undefined;
   productForSize(sizeId: number) { return sizeId + 100; }
   remaining(productId: number) { return this.available.get(productId) ?? 50; }
+  async left(sizeId: number) { return (await this.read(sizeId)).available; }
+  async read(sizeId: number) {
+    if (this.unavailable) throw new Error("IMS offline");
+    const productId = this.productForSize(sizeId);
+    const reserved = [...this.reservations.values()].filter(r => r.productId === productId && r.state === "reserved").reduce((sum, r) => sum + r.quantity, 0);
+    const available = this.remaining(productId);
+    return { quantity: available + reserved, reserved, available };
+  }
   async move(operation: "reserve" | "release", orderId: string, line: StockLine): Promise<StockState> {
     if (this.unavailable) throw new Error("IMS offline");
     const key = `${orderId}:${line.lineId}`;

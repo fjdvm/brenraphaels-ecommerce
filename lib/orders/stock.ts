@@ -5,7 +5,12 @@ export type StockState = "reserved" | "released" | "deducted" | "added_back";
 export interface ShopStock {
   productForSize(sizeId: number): number;
   move(operation: "reserve" | "release", orderId: string, line: StockLine): Promise<StockState>;
+  /** How many of a Size can still be sold, read from the IMS on demand. Never cached or polled. */
+  left(sizeId: number): Promise<number>;
+  /** The IMS's quantity, reserved and available for a Size, read on demand for Staff. */
+  read(sizeId: number): Promise<SizeStock>;
 }
+export type SizeStock = { quantity: number; reserved: number; available: number };
 export class StockUnavailableError extends Error {
   constructor() { super("Stock cannot be checked right now. Try again in a few minutes."); }
 }
@@ -22,6 +27,19 @@ export function gatewayShopStock(fetcher: typeof fetch = fetch): ShopStock {
         const id = mapping[String(sizeId)];
         if (!Number.isInteger(id) || id < 1 || id > 2147483647) throw new Error("Missing Size mapping");
         return id;
+      } catch { throw new StockUnavailableError(); }
+    },
+    async left(sizeId) { return (await this.read(sizeId)).available; },
+    async read(sizeId) {
+      const productId = this.productForSize(sizeId);
+      try {
+        const response = await fetcher(`${required("IMS_URL").replace(/\/$/, "")}/api/shop/stock?productId=${productId}`, {
+          cache: "no-store", headers: { Authorization: `Bearer ${required("IMS_SHOP_API_KEY")}` }, signal: AbortSignal.timeout(3000),
+        });
+        if (!response.ok) throw new StockUnavailableError();
+        const { quantity, reserved, available } = await response.json();
+        for (const value of [quantity, reserved, available]) if (!Number.isInteger(value) || value < 0) throw new StockUnavailableError();
+        return { quantity, reserved, available };
       } catch { throw new StockUnavailableError(); }
     },
     async move(operation, orderId, line) {

@@ -2,9 +2,11 @@ import { asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { productImages, products, sizes } from "../db/schema";
+import { readStockLeft } from "./stock-labels";
+import { gatewayShopStock, type ShopStock } from "../orders/stock";
 import { gatewayProductImages, resolveProductImage, type ProductImageFiles } from "./product-images";
 
-export type CatalogProductSize = { id: number; label: string; priceInCentavos: number; available: boolean };
+export type CatalogProductSize = { id: number; label: string; priceInCentavos: number; available: boolean; /** Left to sell, from the IMS; null when it could not be read. */ left: number | null };
 
 export type CatalogProduct = {
   slug: string;
@@ -32,11 +34,16 @@ export type CatalogStore = {
 export function createCatalogStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
->(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages()): CatalogStore {
+>(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages(), stock: ShopStock = gatewayShopStock()): CatalogStore {
   /** An image with no File id has nothing to show; next/image rejects an empty src. */
   async function resolvedImages(images: { productSlug: string; fileId: string | null; url: string | null; alt: string }[]) {
     const resolved = await Promise.all(images.map(async (image) => ({ url: await resolveProductImage(image, files), alt: image.alt })));
     return resolved.filter((image): image is { url: string; alt: string } => image.url !== null);
+  }
+  /** A Size with none left is sold out even if its flag says otherwise. */
+  function withStock<T extends { id: number; available: boolean }>(size: T, left: Map<number, number | null>) {
+    const remaining = left.get(size.id) ?? null;
+    return { ...size, available: size.available && remaining !== 0, left: remaining };
   }
   return {
     async listProducts() {
@@ -55,6 +62,7 @@ export function createCatalogStore<
           .orderBy(asc(sizes.priceInCentavos)),
       ]);
 
+      const left = await readStockLeft(allSizes.map(({ id }) => id), stock);
       const listed = await Promise.all(allProducts.map(async (product) => {
         const image = allImages.find(({ productSlug }) => productSlug === product.slug);
         const productSizes = allSizes.filter(({ productSlug }) => productSlug === product.slug);
@@ -68,7 +76,7 @@ export function createCatalogStore<
           image: url,
           lowestPriceInCentavos: Math.min(...prices),
           highestPriceInCentavos: Math.max(...prices),
-          sizes: productSizes.map(({ id, label, priceInCentavos, available }) => ({ id, label, priceInCentavos, available })),
+          sizes: productSizes.map(({ id, label, priceInCentavos, available }) => withStock({ id, label, priceInCentavos, available }, left)),
         };
       }));
       return listed.filter((product) => product !== undefined);
@@ -96,7 +104,8 @@ export function createCatalogStore<
           .orderBy(asc(sizes.priceInCentavos)),
       ]);
 
-      return { ...product, images: await resolvedImages(images), sizes: productSizes };
+      const left = await readStockLeft(productSizes.map(({ id }) => id), stock);
+      return { ...product, images: await resolvedImages(images), sizes: productSizes.map((size) => withStock(size, left)) };
     },
   };
 }
