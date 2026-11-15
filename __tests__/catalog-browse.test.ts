@@ -56,4 +56,16 @@ describe("Shop browsing", () => {
     expect(parseBrowseParams({ category: "soap", sort: "random" })).toEqual({});
     expect(parseBrowseParams({ category: ["halaya", "jam"] })).toEqual({ category: "halaya" });
   });
+
+  test("searches product names, ignoring case and word order", () => {
+    expect(browseProducts(catalog, { q: "JAM smooth" }).map(({ name }) => name)).toEqual(["Ube Jam Smooth"]);
+    expect(browseProducts(catalog, { q: "tidbits ube" }).map(({ name }) => name)).toEqual(["Ube Jam With Tidbits"]);
+    expect(browseProducts(catalog, { q: "nothing" })).toEqual([]);
+  });
+
+  test("search combines with category and reads a trimmed q param", () => {
+    expect(browseProducts(catalog, { category: "halaya", q: "ube" })).toHaveLength(1);
+    expect(parseBrowseParams({ q: "  ube   jam " })).toEqual({ q: "ube jam" });
+    expect(parseBrowseParams({ q: " " })).toEqual({});
+  });
 });
