@@ -5,7 +5,7 @@ import { PaymentDetailsCard } from "@/components/features/orders/payment-details
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { Button } from "@/components/ui/button";
 import { formatPeso } from "@/lib/catalog/currency";
-import { needsPayment, orderTotalInCentavos } from "@/lib/orders/order-view";
+import { formatPlacedAt, needsPayment, orderTotalInCentavos, paymentDeadline } from "@/lib/orders/order-view";
 import type { Order } from "@/lib/orders/orders";
 import { isPrepaid } from "@/lib/orders/payment-methods";
 import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
@@ -47,7 +47,7 @@ export function OrderPlacedView({ order, details, firstName }: { order: Order; d
                 ))}
               </ol>
               {needsPayment(order) ? (
-                <PaymentProofForm amountInCentavos={total} method={order.paymentMethod} orderId={order.id} />
+                <PaymentProofForm amountInCentavos={total} deadline={formatPlacedAt(paymentDeadline(order))} method={order.paymentMethod} orderId={order.id} />
               ) : (
                 <p className="text-sm text-body">
                   {order.status === "awaiting payment" ? "Your reference number was sent. We'll email you once it's verified." : "We'll confirm your Order first. Then you can submit your reference number here or in My orders."}

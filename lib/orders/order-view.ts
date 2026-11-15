@@ -91,6 +91,11 @@ export function formatPlacedAt(date: Date) {
   return `${parts.month} ${parts.day}, ${parts.year} · ${parts.hour}:${parts.minute} ${parts.dayPeriod}`;
 }
 
+/** Unpaid prepaid Orders are cancelled 24 hours after they are placed, so this is the Customer's deadline. */
+export function paymentDeadline(order: Pick<Order, "createdAt">) {
+  return new Date(order.createdAt.getTime() + 24 * 60 * 60 * 1000);
+}
+
 /** Subtotal plus the delivery fee once staff have quoted it. */
 export function orderTotalInCentavos(order: Pick<Order, "subtotalInCentavos" | "deliveryFeeInCentavos">) {
   return order.subtotalInCentavos + (order.deliveryFeeInCentavos ?? 0);

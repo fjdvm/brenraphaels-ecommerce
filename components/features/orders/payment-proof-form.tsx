@@ -19,13 +19,15 @@ const initialState: PaymentProofState = {};
  * The warning panel where a Customer sends their reference number and optional receipt, with where to pay.
  * After staff turn a proof down it says why and asks again.
  */
-export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", details = [], rejection }: {
+export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", details = [], rejection, deadline }: {
   orderId: number;
   amountInCentavos: number;
   method?: PaymentMethod;
   details?: PaymentDetail[];
   /** Why the last proof was not accepted; set when the Customer is uploading again. */
   rejection?: { reason: string } | null;
+  /** When the Order is cancelled if still unpaid. */
+  deadline?: string;
 }) {
   const label = PAYMENT_LABELS[method];
   const [state, action, pending] = useActionState(submitPaymentProof.bind(null, orderId), initialState);
@@ -82,6 +84,7 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
           {pending ? "Submitting…" : rejection ? "Send new proof" : "Submit payment"}
         </Button>
       </div>
+      {deadline ? <p className="text-xs tracking-[0.35px] text-ink">Send it by {deadline}, or the order will be cancelled.</p> : null}
       {state.message ? <p className="text-sm font-medium text-primary" role="alert">{state.message}</p> : null}
     </form>
   );

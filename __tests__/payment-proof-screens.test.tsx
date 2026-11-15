@@ -78,3 +78,18 @@ describe("order placed screen", () => {
     expect(screen.queryByTestId("payment-details")).toBeNull();
   });
 });
+
+describe("payment history and deadline", () => {
+  test("lists every proof with why a rejected one was not accepted, and shows the 24-hour deadline", () => {
+    const rejected = order({
+      status: "awaiting payment",
+      createdAt: new Date("2026-10-16T06:00:00Z"),
+      paymentProof: { gcashReferenceNumber: "111111", screenshotPathname: null, screenshotFileId: null, submittedAt: new Date("2026-10-16T06:21:00Z") },
+      paymentProofRejection: { reason: "Used on another order", at: new Date("2026-10-16T07:00:00Z") },
+      paymentProofHistory: [{ reference: "111111", submittedAt: new Date("2026-10-16T06:21:00Z"), rejection: { reason: "Used on another order", at: new Date("2026-10-16T07:00:00Z") } }],
+    });
+    render(<OrdersBrowser orders={[{ order: rejected, feedback: null, returnInProgress: false }]} paymentDetails={details} />);
+    expect(screen.getByTestId("payment-history").textContent).toContain("Not accepted · Used on another order");
+    expect(screen.getByText(/Send it by Oct 17, 2026/)).toBeTruthy();
+  });
+});
