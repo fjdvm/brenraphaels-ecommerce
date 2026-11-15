@@ -87,6 +87,7 @@ describe("Cart", () => {
           quantity: cartLineQuantityLimit,
           available: true,
           left: null,
+          blockedByStock: false,
         },
       ],
       subtotalInCentavos: 21900 * cartLineQuantityLimit,
