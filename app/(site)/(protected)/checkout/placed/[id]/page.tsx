@@ -20,7 +20,7 @@ async function OrderPlacedContent({ params }: { params: PageProps<"/checkout/pla
   const order = orders.find((candidate) => candidate.id === Number(id));
   if (!order) notFound();
 
-  return <OrderPlacedView order={order} details={paymentDetails()} firstName={customer.firstName} />;
+  return <OrderPlacedView order={order} details={await paymentDetails()} firstName={customer.firstName} />;
 }
 
 export default function OrderPlacedPage({ params }: PageProps<"/checkout/placed/[id]">) {
