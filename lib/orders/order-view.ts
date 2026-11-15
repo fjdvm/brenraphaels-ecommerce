@@ -71,7 +71,7 @@ export function orderBadges(order: OrderView): OrderBadge[] {
     { text: capitalise(order.status), tone: order.status === "placed" || order.status === "cancelled" ? "neutral" : "lavender" },
   ];
   if (needsPayment(order)) badges.push({ text: "Payment needed", tone: "warning" });
-  if (needsNewProof(order)) badges.push({ text: "Upload payment proof again", tone: "warning" });
+  if (needsNewProof(order)) badges.push({ text: "New proof needed", tone: "warning" });
   if (awaitingDeliveryFee(order)) badges.push({ text: "Delivery fee pending", tone: "warning" });
   return badges;
 }

@@ -40,9 +40,9 @@ import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details
 import { PaymentDetailsCard } from "@/components/features/orders/payment-details-card";
 
 const PREPAID = [
-  { method: "gcash", icon: Wallet, description: "Pay to the shop's GCash number, then submit your reference number once your Order is confirmed." },
-  { method: "maya", icon: Wallet, description: "Pay to the shop's Maya number, then submit your reference number once your Order is confirmed." },
-  { method: "bank-transfer", icon: Wallet, description: "Transfer to the shop's bank account, then submit your reference number once your Order is confirmed." },
+  { method: "gcash", icon: Wallet, description: "After placing your order, submit your GCash reference number in My orders." },
+  { method: "maya", icon: Wallet, description: "After placing your order, submit your Maya reference number in My orders." },
+  { method: "bank-transfer", icon: Wallet, description: "After placing your order, submit your bank transfer reference number in My orders." },
 ] as const;
 
 const initialAddressState: CheckoutAddressState = {};
@@ -73,12 +73,12 @@ export function CheckoutView({
     setMessage(undefined);
     startTransition(async () => {
       try {
-        await placeOrder({
+        const { orderId } = await placeOrder({
           fulfillmentMethod,
           paymentMethod,
           addressId,
         });
-        router.push("/profile/orders");
+        router.push(`/checkout/placed/${orderId}`);
       } catch (error) {
         setConfirming(false);
         setMessage(error instanceof Error ? error.message : "We couldn't place your Order. Please try again.");

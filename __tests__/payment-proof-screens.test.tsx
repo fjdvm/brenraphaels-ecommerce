@@ -35,7 +35,7 @@ describe("payment screens", () => {
     expect(screen.getByRole("button", { name: "Submit payment" })).toBeTruthy();
   });
 
-  test("a rejected proof says why and offers Upload again", () => {
+  test("a rejected proof says why and offers Send new proof", () => {
     const rejected = order({
       status: "awaiting payment",
       paymentProof: { gcashReferenceNumber: "111111", screenshotPathname: null, screenshotFileId: null, submittedAt: new Date() },
@@ -45,7 +45,7 @@ describe("payment screens", () => {
     expect(needsNewProof(rejected)).toBe(true);
     open(rejected);
     expect(screen.getByText(/Reason: The amount does not match/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Upload again" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Send new proof" })).toBeTruthy();
   });
 
   test("a bank transfer Order with no details yet tells the Customer to ask", () => {
@@ -55,5 +55,26 @@ describe("payment screens", () => {
 
   test("Cash on Delivery needs no payment proof", () => {
     expect(needsPayment(order({ paymentMethod: "cash-on-delivery" }))).toBe(false);
+  });
+});
+
+import { OrderPlacedView } from "@/components/features/orders/order-placed";
+
+describe("order placed screen", () => {
+  test("a GCash Order shows where to pay and the proof form once confirmed", () => {
+    render(<OrderPlacedView details={details} firstName="Jude" order={order({ paymentMethod: "gcash", status: "confirmed" })} />);
+    expect(screen.getByText("Thank you, Jude!")).toBeTruthy();
+    expect(screen.getByText("0917 000 0000")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Submit payment" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Pay later in My orders" })).toBeTruthy();
+  });
+
+  test("an Order not yet confirmed shows the details but no proof form, and Cash on Delivery shows no details", () => {
+    const { unmount } = render(<OrderPlacedView details={details} order={order({ paymentMethod: "maya", status: "placed" })} />);
+    expect(screen.getByText("0918 111 1111")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Submit payment" })).toBeNull();
+    unmount();
+    render(<OrderPlacedView details={details} order={order({ paymentMethod: "cash-on-delivery" })} />);
+    expect(screen.queryByTestId("payment-details")).toBeNull();
   });
 });

@@ -37,13 +37,13 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
       <div className="flex items-center gap-3">
         <Wallet aria-hidden className="size-[22px] shrink-0 text-warning" strokeWidth={1.5} />
         <div className="flex min-w-0 flex-col gap-0.5">
-          <p className="font-serif text-lg leading-[1.35] text-ink">{rejection ? "Payment proof not accepted · Upload again" : `Submit your ${label} payment`}</p>
+          <p className="font-serif text-lg leading-[1.35] text-ink">{rejection ? `We couldn't accept your ${label} payment proof` : `Submit your ${label} payment`}</p>
           <p className="text-sm tracking-[0.35px] text-body">
             Send {formatPeso(amountInCentavos)} via {label}, then enter the reference number from your receipt.
           </p>
         </div>
       </div>
-      {rejection ? <p className="text-sm font-medium text-red-700" role="status">Reason: {rejection.reason}</p> : null}
+      {rejection ? <p className="text-sm font-medium text-red-700" role="status">Reason: {rejection.reason}. Please send a new screenshot and its reference number.</p> : null}
       <PaymentDetailsCard detail={details.find((detail) => detail.method === method)} />
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
         <div className="flex flex-1 flex-col gap-2">
@@ -68,7 +68,7 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
           htmlFor={`gcash-screenshot-${orderId}`}
         >
           <Upload aria-hidden className="size-[18px]" strokeWidth={1.5} />
-          <span className="max-w-48 truncate">{fileName ?? "Add screenshot (optional)"}</span>
+          <span className="max-w-48 truncate">{fileName ?? (rejection ? "Upload new screenshot" : "Add screenshot (optional)")}</span>
           <input
             accept="image/jpeg,image/png"
             className="sr-only"
@@ -79,7 +79,7 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
           />
         </label>
         <Button disabled={pending} size="pill-lg" type="submit" variant="pill">
-          {pending ? "Submitting…" : rejection ? "Upload again" : "Submit payment"}
+          {pending ? "Submitting…" : rejection ? "Send new proof" : "Submit payment"}
         </Button>
       </div>
       {state.message ? <p className="text-sm font-medium text-primary" role="alert">{state.message}</p> : null}
