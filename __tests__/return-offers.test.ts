@@ -39,7 +39,7 @@ test("reports each delivered Order's lines, delivery time, locked lines and Requ
 
   expect(offers.has(other.id)).toBe(false);
   expect(offers.get(order.id)).toMatchObject({
-    deliveredAtMs: deliveredAt.getTime(), windowExtended: false,
+    deliveredAtMs: deliveredAt.getTime(), windowExtended: false, paymentMethod: "cash-on-delivery",
     requested: { id: pending.id, number: `RMA-${pending.id}` },
     lines: [{ id: kept.id, returnable: true }, { id: finished.id, returnable: false }],
   });
