@@ -1,3 +1,5 @@
+import { and, eq } from "drizzle-orm";
+import { orders, orderCancellations } from "@/lib/db/schema";
 import { after } from "next/server";
 import { ZodError } from "zod";
 import { currentVisitor } from "@/lib/customer/current-visitor";
@@ -26,4 +28,15 @@ export async function POST(request: Request, context: RouteContext<"/api/orders/
     if (e instanceof CancellationError) return Response.json({ error: e.message }, { status: 409 });
     return Response.json({ error: "Cancellation request could not be confirmed. Refresh before retrying." }, { status: 503 });
   }
+}
+
+export async function GET(_request: Request, context: RouteContext<"/api/orders/[id]/cancellation">) {
+  const visitor = await currentVisitor();
+  if (visitor.state !== "customer") return Response.json({ error: "Sign in as a Customer to continue." }, { status: 401 });
+  const id = Number((await context.params).id);
+  if (!Number.isSafeInteger(id) || id < 1) return Response.json({ error: "Invalid Order number." }, { status: 400 });
+  const [row] = await getDatabase().select({ requestId: orderCancellations.id, state: orderCancellations.status, approval: orderCancellations.approvalStatus, declineReason: orderCancellations.declineReason })
+    .from(orderCancellations).innerJoin(orders, eq(orders.id, orderCancellations.orderId)).where(and(eq(orders.id, id), eq(orders.customerId, visitor.customer.userId)));
+  if (!row) return Response.json({ error: "Cancellation request was not found." }, { status: 404 });
+  return Response.json({ requestId: row.requestId, status: row.state === "waiting-manager" ? row.approval : row.state, declineReason: row.declineReason });
 }

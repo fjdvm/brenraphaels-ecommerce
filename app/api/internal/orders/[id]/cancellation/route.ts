@@ -1,5 +1,7 @@
 import { after } from "next/server";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
+import { staffAttribution } from "@/lib/validators/staff";
+import { cancellationRequestInput } from "@/lib/orders/cancellations";
 import { getDatabase } from "@/lib/db";
 import { verifyCreomsCredential } from "@/lib/orders/creoms-credential";
 import { createOrderCancellations, CancellationError, staffCancellationRequestInput, cancellationSettlementInput } from "@/lib/orders/cancellations";
@@ -17,7 +19,11 @@ export async function POST(request: Request, context: RouteContext<"/api/interna
   try {
     const raw = await request.json(), service = createOrderCancellations(getDatabase());
     let result;
-    if (raw?.action === "request") {
+    if (raw?.action === "decide") {
+      const input = z.object({ action: z.literal("decide"), requestId: z.uuid(), decision: z.enum(["approved", "declined"]),
+        reason: cancellationRequestInput.shape.reason, ...staffAttribution.shape }).strict().parse(raw);
+      result = await service.decide(id, input.requestId, input.decision, input.reason, { id: input.staffId, name: input.staffName });
+    } else if (raw?.action === "request") {
       const input = staffCancellationRequestInput.parse(raw);
       result = await service.request(id, { reason: input.reason }, { type: "staff", id: input.staffId, name: input.staffName });
       scheduleStaffSignal("Return");

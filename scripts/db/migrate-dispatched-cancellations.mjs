@@ -8,7 +8,8 @@ if (!url) throw new Error("DATABASE_URL_UNPOOLED is required");
 const sql = postgres(url, { max: 1, ssl: "require", connect_timeout: 10, onnotice: () => {} });
 try {
   const journal = JSON.parse(await readFile(new URL("../../drizzle/meta/_journal.json", import.meta.url), "utf8")).entries;
-  const entry = journal.find(item => item.tag === "0034_dispatched_cancellations");
+  const tag = process.argv.includes("--decisions") ? "0035_cancellation_decisions" : "0034_dispatched_cancellations";
+  const entry = journal.find(item => item.tag === tag);
   const previous = journal.find(item => item.idx === entry.idx - 1);
   const migration = await readFile(new URL(`../../drizzle/${entry.tag}.sql`, import.meta.url), "utf8");
   const hash = createHash("sha256").update(migration).digest("hex");
@@ -20,9 +21,9 @@ try {
       if (Number(applied.created_at) !== entry.when) {
         await tx`update drizzle.__drizzle_migrations set created_at = ${entry.when} where hash = ${hash}`;
       }
-      console.log("0034 already applied; confirming the reader grant.");
+      console.log(`${entry.tag} already applied; confirming the reader grant.`);
     } else {
-      if (Number(last?.created_at) !== previous.when) throw new Error("Expected migration 0033 as the latest migration; no change applied.");
+      if (Number(last?.created_at) !== previous.when) throw new Error(`Expected ${previous.tag} as the latest migration; no change applied.`);
       for (const statement of migration.split("--> statement-breakpoint")) {
         if (statement.trim()) await tx.unsafe(statement);
       }
@@ -30,7 +31,7 @@ try {
     }
     await tx`grant select on public.order_cancellations to creoms_readonly`;
   });
-  console.log("0034_dispatched_cancellations and creoms_readonly SELECT grant confirmed.");
+  console.log(`${tag} and creoms_readonly SELECT grant confirmed.`);
 } finally {
   await sql.end();
 }

@@ -504,6 +504,7 @@ export const orderCancellations = pgTable("order_cancellations", {
   actorType: text("actor_type").notNull(), actorId: text("actor_id").notNull(), actorName: text("actor_name").notNull(),
   status: text("status").notNull().default("waiting-manager"),
   stockOutcome: text("stock_outcome"), refundMethod: text("refund_method"), refundProofFileId: text("refund_proof_file_id"),
+  approvalStatus: text("approval_status").notNull().default("waiting-manager"), declineReason: text("decline_reason"),
   settledById: text("settled_by_id"), settledByName: text("settled_by_name"), settledAt: timestamp("settled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, table => [uniqueIndex("order_cancellations_order").on(table.orderId),
