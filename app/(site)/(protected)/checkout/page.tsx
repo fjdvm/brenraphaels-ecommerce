@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 async function CheckoutPageContent() {
   const customer = await requireCustomer();
   const cart = await createCartStore(getDatabase()).get(customer.userId);
-  return <CheckoutView cart={cart} addresses={customer.addresses} provinces={listProvinces()} paymentDetails={paymentDetails()} />;
+  return <CheckoutView cart={cart} addresses={customer.addresses} provinces={listProvinces()} paymentDetails={await paymentDetails()} />;
 }
 
 export default function CheckoutPage() {

@@ -53,7 +53,7 @@ async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/p
   return (
     <>
       <LiveOrders />
-      <OrdersBrowser paymentDetails={paymentDetails()} focusOrderId={focusOrderId} orders={withFeedback} returns={returns} />
+      <OrdersBrowser paymentDetails={await paymentDetails()} focusOrderId={focusOrderId} orders={withFeedback} returns={returns} />
     </>
   );
 }
