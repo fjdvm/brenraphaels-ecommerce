@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   index,
   primaryKey,
   integer,
@@ -143,11 +144,42 @@ export const cartMerges = pgTable("cart_merges", {
     .notNull(),
 });
 
+/**
+ * A Customer's Senior Citizen or PWD ID check. The ID number is never stored: only `idHash`, an HMAC of it under
+ * a server secret, so the same number cannot verify a second account. The photo is deleted right after review.
+ */
+export const seniorPwdVerifications = pgTable("senior_pwd_verifications", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  customerId: text("customer_id").notNull().references(() => customers.id, { onDelete: "restrict" }),
+  idType: text("id_type").notNull(),
+  status: text("status").notNull().default("pending"),
+  idHash: text("id_hash").notNull(),
+  /** Private File id of the ID photo (front); cleared once reviewed or after 7 days. */
+  photoFileId: text("photo_file_id"),
+  /** Private File id of the back of the ID, when the number is there. */
+  photoBackFileId: text("photo_back_file_id"),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  /** Opaque br-auth-service Staff id and name snapshot; never a foreign key. */
+  decidedById: text("decided_by_id"),
+  decidedByName: text("decided_by_name"),
+  declineReason: text("decline_reason"),
+  /** The ID's expiry date; the discount stops on it. */
+  expiresOn: date("expires_on"),
+}, (table) => [
+  index("senior_pwd_verifications_customer").on(table.customerId),
+  index("senior_pwd_verifications_hash").on(table.idHash),
+]);
+
 export const orders = pgTable("orders", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   customerId: text("customer_id")
     .notNull()
     .references(() => customers.id, { onDelete: "restrict" }),
+  /** The ID check this Order waits on; the Order confirms only once it is approved. */
+  seniorPwdVerificationId: integer("senior_pwd_verification_id").references(() => seniorPwdVerifications.id, { onDelete: "restrict" }),
+  /** 5% of one unit of the chosen item, in centavos; counts only while the verification is approved. */
+  seniorPwdDiscountInCentavos: integer("senior_pwd_discount_in_centavos"),
   fulfillmentMethod: text("fulfillment_method").notNull(),
   paymentMethod: text("payment_method").notNull(),
   status: text("status").notNull(),

@@ -11,6 +11,8 @@ import { referenceProblem } from "./payment-proof";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
 import { createCartStore } from "./cart";
+import { seniorPwdDiscount, type IdType } from "../senior-pwd/id-number";
+import { activeVerification, submitVerification } from "../senior-pwd/store";
 import type { AuditEvent } from "../audit/gateway";
 
 export { paymentMethods, prepaidMethods, MANAGER_AFTER_REJECTIONS, isPrepaid, type PaymentMethod } from "./payment-methods";
@@ -107,6 +109,11 @@ export type PlaceOrderInput = {
   paymentMethod: PaymentMethod;
   /** Required for Delivery and ignored for Pickup. */
   addressId?: number;
+  /**
+   * The Senior Citizen / PWD discount: which Cart line gets 5% off one unit. A Customer with an approved ID
+   * sends only the line; otherwise the ID type, number and the uploaded photo(s) are needed too.
+   */
+  seniorPwd?: { lineId: number; idType?: IdType; idNumber?: string; photoFileId?: string; photoBackFileId?: string };
 };
 
 export type SubmitPaymentProofInput = {
@@ -715,6 +722,25 @@ export function createOrderStore<
         deliveryAddress = chosenAddress;
       }
 
+      // The 5% discount: an approved ID applies now; otherwise the ID goes to Staff and the Order waits for them.
+      let seniorPwdVerificationId: number | null = null;
+      let seniorPwdDiscountInCentavos: number | null = null;
+      let waitingForIdCheck = false;
+      if (input.seniorPwd) {
+        const line = cart.lines.find((candidate) => candidate.id === input.seniorPwd!.lineId);
+        if (!line) throw new Error("Choose one item from your Cart for the discount.");
+        const approved = await activeVerification(transaction, customerId);
+        if (approved) {
+          seniorPwdVerificationId = approved.id;
+        } else {
+          const { idType, idNumber, photoFileId, photoBackFileId } = input.seniorPwd;
+          if (!idType || !idNumber || !photoFileId) throw new Error("Add the type, number and a photo of your ID to get the discount.");
+          seniorPwdVerificationId = await submitVerification(transaction, customerId, { idType, idNumber, photoFileId, photoBackFileId });
+          waitingForIdCheck = true;
+        }
+        seniorPwdDiscountInCentavos = seniorPwdDiscount(line.priceInCentavos);
+      }
+
       await createStockReservations(transaction, stock).reserve(attemptId, cart);
       const freeDelivery = input.fulfillmentMethod === "delivery" && cart.subtotalInCentavos > 250_000;
       const [order] = await transaction
@@ -724,7 +750,10 @@ export function createOrderStore<
           fulfillmentMethod: input.fulfillmentMethod,
           paymentMethod: input.paymentMethod,
           // The undiscounted Cart subtotal determines Free delivery.
-          status: input.fulfillmentMethod === "delivery" && !freeDelivery ? "placed" : "confirmed",
+          // An Order whose ID is still being checked is never confirmed automatically.
+          status: (input.fulfillmentMethod === "delivery" && !freeDelivery) || waitingForIdCheck ? "placed" : "confirmed",
+          seniorPwdVerificationId,
+          seniorPwdDiscountInCentavos,
           subtotalInCentavos: cart.subtotalInCentavos,
           deliveryFeeInCentavos: freeDelivery ? 0 : null,
         })
@@ -743,7 +772,7 @@ export function createOrderStore<
       }
       // Only submitted lines are consumed; additions in another tab remain in the Cart.
       await transaction.delete(cartLines).where(inArray(cartLines.id, cart.lines.map(line => line.id)));
-      if (freeDelivery) await transaction.insert(customerNotifications).values({
+      if (freeDelivery && !waitingForIdCheck) await transaction.insert(customerNotifications).values({
         idempotencyKey: `order.free-delivery:${order.id}`, orderId: order.id, customerId,
         type: "order.free-delivery", title: "Order confirmed · free delivery",
         body: `Order #${order.id} is confirmed with Free delivery. No quote is needed.`,
