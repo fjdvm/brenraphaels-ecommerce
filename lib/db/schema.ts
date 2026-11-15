@@ -447,3 +447,19 @@ export const stockOutbox = pgTable("stock_outbox", {
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
 });
+
+/** Staff-owned failed attempts, preserved for COD checks even after rebooking. */
+export const failedDeliveries = pgTable("failed_deliveries", {
+  id: text("id").primaryKey(),
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  reason: text("reason").notNull(),
+  nextStep: text("next_step").notNull(),
+  customerMessage: text("customer_message").notNull(),
+  staffId: text("staff_id").notNull(),
+  staffName: text("staff_name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  disposition: text("disposition"),
+  disposedAt: timestamp("disposed_at", { withTimezone: true }),
+  rebookedAt: timestamp("rebooked_at", { withTimezone: true }),
+  courier: jsonb("courier").$type<import("../validators/courier").CourierBooking>(),
+}, table => [index("failed_deliveries_order").on(table.orderId), check("failed_deliveries_disposition_check", sql`${table.disposition} in ('restock', 'write-off')`)]);
