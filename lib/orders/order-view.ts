@@ -1,4 +1,5 @@
-import { isPrepaid, type Order, type OrderStatus } from "./orders";
+import { isPrepaid } from "./payment-methods";
+import type { Order, OrderStatus } from "./orders";
 
 /** The slice of an Order that decides how it is presented on the My orders page. */
 export type OrderView = Pick<Order, "fulfillmentMethod" | "paymentMethod" | "status" | "deliveryFeeInCentavos" | "paymentProof" | "paymentProofRejection">;

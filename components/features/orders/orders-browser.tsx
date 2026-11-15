@@ -12,7 +12,7 @@ import { TrackDelivery } from "@/components/features/orders/track-delivery";
 import { OrderReturn } from "@/components/features/orders/order-return";
 import { ReturnsList } from "@/components/features/orders/returns-list";
 import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
-import { isPrepaid } from "@/lib/orders/orders";
+import { isPrepaid } from "@/lib/orders/payment-methods";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { formatPeso } from "@/lib/catalog/currency";
 import {
