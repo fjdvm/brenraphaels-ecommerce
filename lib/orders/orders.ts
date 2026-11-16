@@ -1,3 +1,5 @@
+import { paymentRecipient } from "./payment-details";
+import { confirmedProofInput } from "./payment-proof";
 import { after } from "next/server";
 import { createStockReservations } from "./stock-reservations";
 import { gatewayShopStock, type ShopStock } from "./stock";
@@ -117,6 +119,9 @@ export type PlaceOrderInput = {
 };
 
 export type SubmitPaymentProofInput = {
+  confirmedAmountInCentavos?: number;
+  confirmedPaidAt?: Date;
+  confirmedRecipient?: string;
   gcashReferenceNumber: string;
   screenshotFileId?: string;
 };
@@ -582,6 +587,7 @@ export function createOrderStore<
     if (persistedOrder.deliveryFeeQuoteRequired) {
       throw new Error("Quote a Delivery fee before submitting Payment proof.");
     }
+    const confirmed = confirmedProofInput.parse(input);
     const problem = referenceProblem(persistedOrder.paymentMethod, input.gcashReferenceNumber);
     if (problem) throw new Error(problem);
     const resubmission = persistedOrder.status === "awaiting payment" && persistedOrder.paymentProofRejectedAt !== null;
@@ -591,6 +597,7 @@ export function createOrderStore<
         : "Payment proof can only be submitted for a confirmed Order.");
     }
 
+    const expectedRecipient = await paymentRecipient(persistedOrder.paymentMethod);
     const submittedAt = new Date();
     const updatedOrder = await db.transaction(async (transaction) => {
       const [updated] = await transaction
@@ -614,6 +621,10 @@ export function createOrderStore<
       if (!updated) return undefined;
       await transaction.insert(orderPaymentProofs).values({
         orderId, reference: input.gcashReferenceNumber, screenshotFileId: input.screenshotFileId ?? null, submittedAt,
+        confirmedAmountInCentavos: confirmed.confirmedAmountInCentavos ?? null,
+        confirmedPaidAt: confirmed.confirmedPaidAt ?? null,
+        confirmedRecipient: confirmed.confirmedRecipient ?? null,
+        expectedRecipient: expectedRecipient ?? null,
       });
       return updated;
     });

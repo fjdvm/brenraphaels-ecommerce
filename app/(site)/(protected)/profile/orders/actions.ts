@@ -1,5 +1,7 @@
 "use server";
 
+import { confirmedProofFields, confirmedAmountField, confirmedPaidAtField } from "@/lib/orders/payment-proof";
+
 import { scheduleOrdersChanged } from "@/lib/orders/staff-signal";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -44,7 +46,7 @@ export type OrderReceivedState = {
   message?: string;
 };
 
-const paymentProofInput = z.object({ gcashReferenceNumber: referenceNumberField });
+const paymentProofInput = z.object({ gcashReferenceNumber: referenceNumberField, ...confirmedProofFields, confirmedAmount: confirmedAmountField.optional(), confirmedPaidAt: confirmedPaidAtField.optional() });
 const cancellationInput = z.object({ orderId: positiveIntegerField("Order ID") });
 
 /** Cancels a Customer-owned Order when its status is still before dispatch. */
@@ -93,6 +95,9 @@ export async function submitPaymentProof(
   const customer = await requireCustomer();
   const parsed = paymentProofInput.safeParse({
     gcashReferenceNumber: formData.get("gcashReferenceNumber"),
+    confirmedAmount: formData.get("confirmedAmount") || undefined,
+    confirmedPaidAt: formData.get("confirmedPaidAt") || undefined,
+    confirmedRecipient: formData.get("confirmedRecipient") || undefined,
   });
   if (!parsed.success) {
     return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
@@ -116,6 +121,8 @@ export async function submitPaymentProof(
 
   try {
     await createOrderStore(getDatabase()).submitPaymentProof(customer.userId, orderId, {
+      ...parsed.data,
+      confirmedAmountInCentavos: parsed.data.confirmedAmount,
       gcashReferenceNumber: parsed.data.gcashReferenceNumber,
       screenshotFileId,
     });

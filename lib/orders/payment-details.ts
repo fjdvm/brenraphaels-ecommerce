@@ -50,3 +50,10 @@ export async function paymentDetails(): Promise<PaymentDetail[]> {
     list("bank-transfer", [["Bank", s.bankName], ["Account name", s.bankAccountName], ["Account number", s.bankAccountNumber]]),
   ];
 }
+
+/** Structured shop account for proof checks; independent of display labels. */
+export async function paymentRecipient(method: PaymentMethod): Promise<string | undefined> {
+  const s = await settings();
+  const accounts = { gcash: s.gcashNumber, maya: s.mayaNumber, "bank-transfer": s.bankAccountNumber, "cash-on-delivery": "" };
+  return accounts[method] || undefined;
+}

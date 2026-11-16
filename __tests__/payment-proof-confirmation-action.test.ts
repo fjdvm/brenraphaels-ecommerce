@@ -1,0 +1,38 @@
+import { beforeEach, expect, test, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ submit: vi.fn(), customer: vi.fn() }));
+vi.mock("@/lib/customer/current-visitor", () => ({ requireCustomer: mocks.customer }));
+vi.mock("@/lib/db", () => ({ getDatabase: vi.fn() }));
+vi.mock("@/lib/orders/orders", () => ({ createOrderStore: () => ({ submitPaymentProof: mocks.submit }) }));
+vi.mock("@/lib/orders/staff-signal", () => ({ scheduleOrdersChanged: vi.fn(), scheduleStaffSignal: vi.fn() }));
+vi.mock("@/lib/notifications/staff-signal", () => ({ scheduleStaffSignal: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+import { submitPaymentProof } from "@/app/(site)/(protected)/profile/orders/actions";
+
+beforeEach(() => {
+  vi.clearAllMocks(); mocks.customer.mockResolvedValue({ userId: "c1" });
+  mocks.submit.mockResolvedValue({});
+});
+const fields = () => {
+  const form = new FormData();
+  form.set("gcashReferenceNumber", "1234567890"); form.set("confirmedAmount", "120.05");
+  form.set("confirmedPaidAt", "2026-01-02T10:30"); form.set("confirmedRecipient", "0917 123 4567");
+  form.set("expectedRecipient", "attacker-controlled"); return form;
+};
+test("submits exactly the Customer's confirmed values", async () => {
+  expect(await submitPaymentProof(7, {}, fields())).toMatchObject({ message: expect.stringContaining("submitted") });
+  expect(mocks.submit).toHaveBeenCalledWith("c1", 7, expect.objectContaining({
+    gcashReferenceNumber: "1234567890", confirmedAmountInCentavos: 12005,
+    confirmedPaidAt: new Date("2026-01-02T02:30:00Z"), confirmedRecipient: "0917 123 4567",
+  }));
+});
+test("rejects invalid amounts and dates before submitting a proof", async () => {
+  const form = fields(); form.set("confirmedAmount", "120.555"); form.set("confirmedPaidAt", "bad date");
+  expect(await submitPaymentProof(7, {}, form)).toMatchObject({ fieldErrors: { confirmedAmount: expect.any(Array), confirmedPaidAt: expect.any(Array) } });
+  expect(mocks.submit).not.toHaveBeenCalled();
+});
+test("rejects an impossible calendar date instead of normalizing it", async () => {
+  const form = fields(); form.set("confirmedPaidAt", "2026-02-30T12:00");
+  expect(await submitPaymentProof(7, {}, form)).toMatchObject({ fieldErrors: { confirmedPaidAt: expect.any(Array) } });
+  expect(mocks.submit).not.toHaveBeenCalled();
+});

@@ -8,6 +8,7 @@ import { createOrderStore, OrderStatusUpdateError } from "../lib/orders/orders";
 import { FakeShopStock } from "./helpers/fake-shop-stock";
 import { createTestDatabase } from "./helpers/test-database";
 
+vi.mock("../lib/orders/payment-details", () => ({ paymentRecipient: async () => "09171234567" }));
 vi.mock("next/server", () => ({ after: (work: () => Promise<void>) => work() }));
 let client: PGlite;
 const ana = { staffId: "s1", staffName: "Ana" };
@@ -75,4 +76,23 @@ describe("payment proof rejection and resubmission", () => {
     await expect(store.advance(order.id, { status: "paid", ...ana, approvedAnyway: { reason: " " } })).rejects.toThrow("Manager must approve");
     await expect(store.advance(order.id, { status: "paid", ...ana, approvedAnyway: { reason: "Seen in bank app" } })).resolves.toMatchObject({ status: "paid" });
   });
+});
+
+test("keeps Customer-confirmed values on each proof without accepting or rejecting it", async () => {
+  const { store, order } = await confirmedOrder();
+  const result = await store.submitPaymentProof("c1", order.id, {
+    gcashReferenceNumber: "1234567890", confirmedAmountInCentavos: 100,
+    confirmedPaidAt: new Date("2020-01-01T00:00:00Z"), confirmedRecipient: "wrong account",
+    ...{ expectedRecipient: "untrusted client account" },
+  });
+  expect(result.status).toBe("awaiting payment");
+  const { rows } = await client.query("select confirmed_amount_in_centavos, confirmed_paid_at, confirmed_recipient, expected_recipient, rejected_at from order_payment_proofs");
+  expect(rows).toEqual([expect.objectContaining({ confirmed_amount_in_centavos: 100, confirmed_paid_at: new Date("2020-01-01T00:00:00Z"), confirmed_recipient: "wrong account", expected_recipient: "09171234567", rejected_at: null })]);
+});
+
+test("does not store confirmed values against another Customer's Order", async () => {
+  const { store, order } = await confirmedOrder();
+  await expect(store.submitPaymentProof("someone-else", order.id, { gcashReferenceNumber: "1234567890", confirmedAmountInCentavos: 100 })).rejects.toThrow("not found");
+  const { rows } = await client.query("select id from order_payment_proofs");
+  expect(rows).toEqual([]);
 });
