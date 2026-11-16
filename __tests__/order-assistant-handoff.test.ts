@@ -180,6 +180,24 @@ describe("Send to our team", () => {
     expect(message.body).toContain("Please call about my refund.");
   });
 
+  test("a summary written before the chat moved on cannot be sent", async () => {
+    const id = await order("jane");
+    const chatId = await handedOffChat(id);
+    await prepareHandoff({ customerId: "jane", chatId }, handoffDeps(model("The customer asked for a refund.")));
+    await answerOrderQuestion({ customerId: "jane", message: "Where is my order?", chatId, pageOrderId: id },
+      { orders: createOrderReader(db), products: createProductReader(db), chats: createChatStore(db), complete: model("It is dispatched."), now });
+
+    await expect(sendHandoff({ customerId: "jane", chatId }, sendDeps())).rejects.toThrow("changed");
+    expect(await db.select().from(tickets)).toHaveLength(0);
+  });
+
+  test("a link the Customer typed is not a record: a summary repeating it is dropped", async () => {
+    const id = await order("jane");
+    const chatId = await handedOffChat(id, "Refund please, see https://evil.example/x");
+    const draft = await prepareHandoff({ customerId: "jane", chatId }, handoffDeps(model("The customer shared https://evil.example/x.")));
+    expect(draft.status).toBe("dropped");
+  });
+
   test("pressing it twice opens one Ticket", async () => {
     const id = await order("jane");
     const chatId = await handedOffChat(id);

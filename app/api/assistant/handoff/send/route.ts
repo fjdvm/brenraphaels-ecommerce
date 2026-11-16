@@ -1,18 +1,19 @@
 import { z } from "zod";
 
-import { createHandoffStore, HandoffError, sendHandoff } from "@/lib/assistant-handoff/handoff";
+import { createHandoffStore, HandoffError, maxSummaryLength, sendHandoff } from "@/lib/assistant-handoff/handoff";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { sendTicketCreatedEmail } from "@/lib/email/ticket-created-email";
 import { scheduleStaffSignal } from "@/lib/notifications/staff-signal";
 import { createTicketStore } from "@/lib/support/tickets";
+import { multilineTextField } from "@/lib/validators/fields";
 
 export const runtime = "nodejs";
 
 const body = z.object({
   chatId: z.number().int().positive().max(2_147_483_647),
   /** The Customer's own words, when they edited the summary or wrote one because it was dropped. */
-  summary: z.string().max(4_000).optional(),
+  summary: multilineTextField("Note", { max: maxSummaryLength, optional: true, pattern: /^[\p{L}\p{M}\p{N}\p{P}\p{S} \t\r\n]+$/u, patternMessage: "Enter a note without invisible characters" }),
 }).strict();
 
 /** The Customer pressed "Send to our team": the one place a chat becomes a Ticket. */
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   const tickets = createTicketStore(getDatabase());
   try {
     const { ticketId } = await sendHandoff(
-      { customerId: visitor.customer.userId, chatId: input.chatId, summary: input.summary },
+      { customerId: visitor.customer.userId, chatId: input.chatId, summary: input.summary ?? undefined },
       { handoffs: createHandoffStore(getDatabase()), tickets },
     );
     scheduleStaffSignal("Ticket");

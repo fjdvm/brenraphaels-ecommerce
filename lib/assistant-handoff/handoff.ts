@@ -14,6 +14,7 @@ import type { OrderReader } from "../assistant/readers";
 export class HandoffError extends Error {}
 
 /** How many of the latest chat turns the Handoff summary reads. */
+const unwritten = "We could not write a summary just now. Write a few words for our team instead.";
 const summaryTurns = 20;
 /** The longest summary the Customer may send, in characters. */
 export const maxSummaryLength = 1_000;
@@ -69,7 +70,9 @@ export function createHandoffStore<R extends PgQueryResultHKT, S extends Record<
         setWhere: ne(assistantHandoffs.status, "sent"),
       }).returning();
       // A conflict on a sent summary updates nothing and returns no row: hand back the sent one.
-      return row ?? (await this.forChat(values.chatId))!;
+      if (row) return row;
+      const [sent] = await db.select().from(assistantHandoffs).where(eq(assistantHandoffs.chatId, values.chatId));
+      return sent;
     },
     async claim(handoffId, sentSummary, sentSource, sentAt) {
       const [row] = await db.update(assistantHandoffs).set({ status: "sent", sentSummary, sentSource, sentAt })
@@ -80,8 +83,10 @@ export function createHandoffStore<R extends PgQueryResultHKT, S extends Record<
       await db.update(assistantHandoffs).set({ status, sentSummary: null, sentSource: null, sentAt: null }).where(eq(assistantHandoffs.id, handoffId));
     },
     async attach(handoffId, chatId, ticketId) {
-      await db.update(assistantHandoffs).set({ ticketId }).where(eq(assistantHandoffs.id, handoffId));
-      await db.update(assistantChats).set({ ticketId }).where(eq(assistantChats.id, chatId));
+      await db.transaction(async (tx) => {
+        await tx.update(assistantHandoffs).set({ ticketId }).where(eq(assistantHandoffs.id, handoffId));
+        await tx.update(assistantChats).set({ ticketId }).where(eq(assistantChats.id, chatId));
+      });
     },
   };
 }
@@ -158,13 +163,15 @@ export async function prepareHandoff(input: { customerId: string; chatId: number
 
   const recent = turns.slice(-summaryTurns);
   const transcript = recent.map((turn) => `${turn.sender === "customer" ? "Customer" : "Assistant"}: ${maskContact(turn.body)}`).join("\n");
+  // Only what the assistant already said (and our code checked) counts as known; a date or link the Customer typed does not.
+  const assistantLines = recent.filter((turn) => turn.sender === "assistant").map((turn) => turn.body).join("\n");
   const facts = [`Handed off because: ${reasonLabel(reason)}.`, order ? orderFactsText(order, now) : "No Order is linked."].join("\n");
 
   let summary: string | null = null;
   let sentToModel: string | null = null;
   let note: string | undefined;
   if ((await deps.chats.modelCallsSince(startOfShopDay(now))) >= dailyModelBudget) {
-    note = "We could not write a summary just now. Write a few words for our team instead.";
+    note = unwritten;
   } else {
     const messages: ModelMessage[] = [
       { role: "system", content: handoffPrompt },
@@ -173,13 +180,12 @@ export async function prepareHandoff(input: { customerId: string; chatId: number
     sentToModel = JSON.stringify(messages);
     try {
       const answer = (await deps.complete(messages)).trim();
-      // The chat itself is a record the summary may quote from, so its dates and links count as known.
-      const problem = factCheck(answer, { text: `${facts}\n${transcript}`, orderId: order?.id, status: order?.status, kind: "handoff" });
+            const problem = factCheck(answer, { text: `${facts}\n${assistantLines}`, orderId: order?.id, status: order?.status, kind: "handoff" });
       if (problem) note = "The summary did not match your order records, so we dropped it. Write a few words for our team instead.";
       else summary = answer;
     } catch {
       sentToModel = null;
-      note = "We could not write a summary just now. Write a few words for our team instead.";
+      note = unwritten;
     }
   }
 
@@ -210,7 +216,7 @@ export async function sendHandoff(
   if (!turns) throw new HandoffError("Chat was not found.");
   const handoff = await deps.handoffs.forChat(input.chatId);
   if (!handoff) throw new HandoffError("Ask for a summary first.");
-  if (handoff.status === "sent") return { ticketId: await ticketOf(handoff.id) };
+  if (handoff.status === "sent") return { ticketId: await waitForTicketOf(handoff.id) };
 
   const written = input.summary?.trim();
   let text: string;
@@ -221,6 +227,7 @@ export async function sendHandoff(
     text = parsed.data;
     source = text === handoff.summary ? "assistant" : "customer";
   } else if (handoff.status === "drafted" && handoff.summary) {
+    if (handoff.throughMessageId !== turns[turns.length - 1].id) throw new HandoffError("Your chat has changed since this summary was written. Ask for a new one.");
     text = handoff.summary;
     source = "assistant";
   } else {
@@ -228,7 +235,7 @@ export async function sendHandoff(
   }
 
   const claimed = await deps.handoffs.claim(handoff.id, text, source, deps.now ?? new Date());
-  if (!claimed) return { ticketId: await ticketOf(handoff.id) };
+  if (!claimed) return { ticketId: await waitForTicketOf(handoff.id) };
   try {
     const ticket = await deps.tickets.open(input.customerId, {
       subject: `From the order assistant: ${reasonLabel(handoff.reason)}`.slice(0, 160),
@@ -244,7 +251,7 @@ export async function sendHandoff(
   }
 
   /** The Ticket another press opened; waits briefly for it to be attached. */
-  async function ticketOf(handoffId: number): Promise<number> {
+  async function waitForTicketOf(handoffId: number): Promise<number> {
     for (let attempt = 0; attempt < 20; attempt += 1) {
       const row = await deps.handoffs.forChat(input.chatId);
       if (row?.id === handoffId && row.ticketId) return row.ticketId;
