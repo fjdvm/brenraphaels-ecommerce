@@ -547,3 +547,32 @@ export const orderCancellations = pgTable("order_cancellations", {
 }, table => [uniqueIndex("order_cancellations_order").on(table.orderId),
   check("order_cancellations_status", sql`${table.status} in ('waiting-manager', 'settling', 'cancelled')`),
   check("order_cancellations_stock", sql`${table.stockOutcome} in ('restock','write-off')`)]);
+
+/** One Order assistant conversation of a Customer. A chat attached to a Ticket follows the Ticket; others are deleted after the retention. */
+export const assistantChats = pgTable("assistant_chats", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  customerId: text("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "cascade" }),
+  /** Set when the Customer sent the chat to the team; the chat is then kept with that Ticket. */
+  ticketId: integer("ticket_id").references(() => tickets.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [index("assistant_chats_customer").on(table.customerId), index("assistant_chats_created").on(table.createdAt)]);
+
+/** One turn of an Order assistant chat, stored with the Orders looked up and the exact text sent to the model. */
+export const assistantMessages = pgTable("assistant_messages", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  chatId: integer("chat_id").notNull().references(() => assistantChats.id, { onDelete: "cascade" }),
+  /** `customer` or `assistant`. */
+  sender: text("sender").notNull(),
+  body: text("body").notNull(),
+  /** `answered`, `handoff` or `fallback` on an assistant turn; null on the Customer's. */
+  outcome: text("outcome"),
+  /** Why the turn handed off or fell back, e.g. `refund` or `fact_check_failed`. */
+  reason: text("reason"),
+  /** The Customer's own Order this turn looked up; null when none was. */
+  orderId: integer("order_id"),
+  /** Exactly what was sent to the model; null when no model was called. */
+  sentToModel: text("sent_to_model"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [index("assistant_messages_chat").on(table.chatId), index("assistant_messages_created").on(table.createdAt)]);
