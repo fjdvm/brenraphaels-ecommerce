@@ -99,10 +99,17 @@ export async function answerOrderQuestion(input: AssistantInput, deps: Assistant
   }
 
   const handoff = handoffReasonFor(message);
-  if (handoff) return finish({ outcome: "handoff", reason: handoff, text: handoffTexts[handoff] ?? handoffText, ticketButton: true });
+  // A handoff remembers the Customer's own Order the chat was about, so the Ticket can link it.
+  if (handoff) {
+    const { order } = await requestedOrder();
+    return finish({ outcome: "handoff", reason: handoff, text: handoffTexts[handoff] ?? handoffText, ticketButton: true }, { orderId: order?.id });
+  }
 
   const kind = questionKindOf(message);
-  if (!kind) return finish({ outcome: "handoff", reason: "outside_scope", text: handoffText, ticketButton: true });
+  if (!kind) {
+    const { order } = await requestedOrder();
+    return finish({ outcome: "handoff", reason: "outside_scope", text: handoffText, ticketButton: true }, { orderId: order?.id });
+  }
 
   if (kind === "product") {
     const product = await deps.products.findMentioned(message);
