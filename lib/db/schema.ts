@@ -381,6 +381,10 @@ export const ticketMessages = pgTable("ticket_messages", {
   attachmentPathname: text("attachment_pathname"),
   /** Id of the optional file in file storage, set by CREOMS. */
   fileId: text("file_id"),
+  /** An Internal note: Staff-only, never returned to the Customer, never a Staff reply. */
+  internal: boolean("internal").default(false).notNull(),
+  /** Who wrote an Internal note; null on every other Message. */
+  authorName: text("author_name"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

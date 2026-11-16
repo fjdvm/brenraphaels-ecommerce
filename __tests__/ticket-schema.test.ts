@@ -63,6 +63,26 @@ describe("Ticket schema", () => {
     expect(row.status).toBe("open");
   });
 
+  test("an Internal note never reaches the Customer: not in the thread, not as an attachment, not as a notification", async () => {
+    const database = drizzle(client);
+    await migrate(database, { migrationsFolder: "drizzle" });
+    await database.insert(customers).values(customer);
+    const store = createTicketStore(database);
+    const ticket = await store.open("customer-1", { subject: "Hi", category: "Other", body: "Help" });
+    const [note] = await database
+      .insert(ticketMessages)
+      .values({ ticketId: ticket.id, sender: "staff", body: "Courier lost it", internal: true, authorName: "Maria", fileId: "f1" })
+      .returning();
+    await database.insert(ticketMessages).values({ ticketId: ticket.id, sender: "staff", body: "We are on it" });
+
+    const seen = (await store.get(ticket.id, "customer-1"))!;
+    expect(seen.messages.map((m) => m.body)).toEqual(["Help", "We are on it"]);
+    expect(await store.getAttachment(note.id, "customer-1")).toBeUndefined();
+    const notified = await client.query<{ key: string }>("select idempotency_key as key from customer_notifications");
+    expect(notified.rows).toHaveLength(1);
+    expect(notified.rows[0].key).not.toBe(`ticket.reply:${note.id}`);
+  });
+
   test("time spent On hold is counted by the database whoever changes the status", async () => {
     const database = drizzle(client);
     await migrate(database, { migrationsFolder: "drizzle" });
@@ -111,7 +131,8 @@ describe("Ticket schema", () => {
     // The On hold migration adds its columns to the same table; the drizzle select below reads them.
     const onHoldSql = readFileSync("drizzle/0037_ticket_on_hold.sql", "utf8");
     const holdClockSql = readFileSync("drizzle/0038_ticket_hold_clock.sql", "utf8");
-    for (const statement of [migrationSql, onHoldSql, holdClockSql].flatMap((sql) => sql.split("--> statement-breakpoint"))) {
+    const notesSql = readFileSync("drizzle/0039_ticket_internal_notes.sql", "utf8");
+    for (const statement of [migrationSql, onHoldSql, holdClockSql, notesSql].flatMap((sql) => sql.split("--> statement-breakpoint"))) {
       if (statement.trim()) await client.exec(statement);
     }
 
