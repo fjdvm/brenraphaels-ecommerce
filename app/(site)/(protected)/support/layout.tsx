@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 
 import { BackButton } from "@/components/shared/back-button";
+import { OrderAssistant } from "@/components/features/assistant/order-assistant";
 import { SupportInboxSkeleton } from "@/components/features/support/skeletons";
 import { SupportInbox } from "@/components/features/support/support-inbox";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ export default function SupportLayout({ children }: { children: ReactNode }) {
         </Suspense>
         <div className="h-full min-h-0 min-w-0">{children}</div>
       </div>
+      <OrderAssistant />
     </section>
   );
 }

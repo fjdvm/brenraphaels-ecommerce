@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { OrderAssistant } from "@/components/features/assistant/order-assistant";
 import { AccountEmptyState } from "@/components/features/customer/account-empty-state";
 import { OrdersSkeleton } from "@/components/features/customer/skeletons";
 import { LiveOrders } from "@/components/features/orders/live-orders";
@@ -55,6 +56,7 @@ async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/p
   return (
     <>
       <LiveOrders />
+      <OrderAssistant pageOrderId={focusOrderId} />
       <OrdersBrowser paymentDetails={await paymentDetails()} focusOrderId={focusOrderId} orders={withFeedback} returns={returns} />
     </>
   );
