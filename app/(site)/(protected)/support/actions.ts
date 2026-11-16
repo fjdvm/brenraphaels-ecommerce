@@ -9,7 +9,7 @@ import { getDatabase } from "@/lib/db";
 import { sendTicketCompletedEmail } from "@/lib/email/ticket-completed-email";
 import { sendTicketCreatedEmail } from "@/lib/email/ticket-created-email";
 import { liveConversationUrl } from "@/lib/support/live";
-import { completedTicketError, completeTicketAndNotify, createTicketStore, openTicketAndNotify, ticketInput } from "@/lib/support/tickets";
+import { completedTicketError, completeTicketAndNotify, createTicketStore, followUpNotFoundError, openTicketAndNotify, readTicketRating, ticketInput } from "@/lib/support/tickets";
 import { gatewayTicketFiles } from "@/lib/support/ticket-files";
 import { ticketMessageInput } from "@/lib/support/ticket-message";
 import { uploadTicketAttachment, validateTicketAttachment } from "@/lib/support/ticket-attachment";
@@ -96,6 +96,7 @@ export async function createTicket(
     subject: formData.get("subject"),
     category: formData.get("category"),
     orderId: formData.get("orderId"),
+    followUpOfId: formData.get("followUpOfId"),
     body: formData.get("body"),
   });
   const attachment = readAttachment(formData);
@@ -123,6 +124,9 @@ export async function createTicket(
   } catch (error) {
     if (error instanceof Error && error.message === "Order was not found.") {
       return { fieldErrors: { orderId: ["Choose one of your Orders"] } };
+    }
+    if (error instanceof Error && error.message === followUpNotFoundError) {
+      return { message: "That Ticket can't be followed up. Open a new Ticket instead." };
     }
     if (error instanceof Error && error.message === attachmentUnavailable) {
       return { fieldErrors: { attachment: [attachmentUnavailable] } };
@@ -218,8 +222,11 @@ function refreshTicket(ticketId: number) {
   revalidatePath("/support", "layout");
 }
 
-/** Completes a Customer-owned Ticket, thanks the Customer by email and refreshes its detail and list entries. */
-export async function completeTicket(ticketId: number): Promise<TicketStatusState> {
+/**
+ * Completes a Customer-owned Ticket, thanks the Customer by email and refreshes its detail and list entries.
+ * The optional rating is saved once with it; a rating that cannot be read is no rating and never blocks completing.
+ */
+export async function completeTicket(ticketId: number, rating?: { stars: number; comment?: string }): Promise<TicketStatusState> {
   if (!positiveIntegerField("Ticket ID").safeParse(String(ticketId)).success) {
     return { message: "We couldn't complete this Ticket. Please try again." };
   }
@@ -229,7 +236,7 @@ export async function completeTicket(ticketId: number): Promise<TicketStatusStat
     await completeTicketAndNotify(ticketId, customer.userId, customer.email, {
       ticketStore: ticketStore(),
       mailer: { send: sendTicketCompletedEmail },
-    });
+    }, readTicketRating(rating));
   } catch (error) {
     if (error instanceof Error && error.message === "Ticket was not found.") {
       return { message: "This Ticket is no longer available." };

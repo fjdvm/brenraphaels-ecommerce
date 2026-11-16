@@ -121,7 +121,7 @@ describe("Ticket actions", () => {
   test("completes a Customer-owned Ticket, thanks them by email and refreshes its detail and Support list", async () => {
     await expect(completeTicket(12)).resolves.toEqual({ completed: true });
 
-    expect(complete).toHaveBeenCalledWith(12, "customer-1");
+    expect(complete).toHaveBeenCalledWith(12, "customer-1", undefined);
     expect(sendTicketCompletedEmail).toHaveBeenCalledWith("jane@example.com", { id: 12, status: "completed" });
     expect(revalidatePath).toHaveBeenCalledWith("/support/12");
     expect(revalidatePath).toHaveBeenCalledWith("/support");
@@ -274,5 +274,15 @@ describe("Ticket actions", () => {
 
     await expect(ticketLiveUrl(12)).resolves.toBeNull();
     error.mockRestore();
+  });
+});
+
+describe("completeTicket rating", () => {
+  test("passes a valid rating to the store and ignores an unusable one, so confirming is never blocked", async () => {
+    await expect(completeTicket(12, { stars: 5, comment: "  Great  " })).resolves.toEqual({ completed: true });
+    expect(complete).toHaveBeenLastCalledWith(12, "customer-1", { stars: 5, comment: "Great" });
+
+    await expect(completeTicket(12, { stars: 9 })).resolves.toEqual({ completed: true });
+    expect(complete).toHaveBeenLastCalledWith(12, "customer-1", undefined);
   });
 });

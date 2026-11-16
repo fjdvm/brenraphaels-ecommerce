@@ -1,10 +1,12 @@
-import { and, asc, desc, eq, inArray, lte } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 import { customers, orders, ticketMessages, tickets } from "../db/schema";
 import { optionalPositiveIntegerField, textField } from "../validators/fields";
 import { ticketMessageInput } from "./ticket-message";
+import type { TicketRating } from "./ticket-rating";
+export { readTicketRating, type TicketRating } from "./ticket-rating";
 
 export const ticketCategories = [
   "Order Issue",
@@ -29,6 +31,8 @@ export const ticketInput = z.object({
   }),
   category: z.enum(ticketCategories, { error: "Choose a valid category" }),
   orderId: optionalPositiveIntegerField("Order ID"),
+  /** The Completed Ticket this one follows up. */
+  followUpOfId: optionalPositiveIntegerField("Follow-up of"),
   body: ticketMessageInput.shape.body,
 });
 
@@ -49,12 +53,15 @@ export type Ticket = {
   category: TicketCategory;
   orderId: number | null;
   status: string;
+  /** The Completed Ticket this one follows up, or null. */
+  followUpOfId: number | null;
   createdAt: Date;
   messages: TicketMessage[];
 };
 /** A Message's image: in file-storage, or (older Messages) in Vercel Blob. */
 export type StoredAttachment = { fileId: string } | { pathname: string };
 export const completedTicketError = "Ticket is completed.";
+export const followUpNotFoundError = "Follow-up Ticket was not found.";
 
 /** The columns that clear when a Ticket leaves On hold. */
 const clearedHold = { holdReason: null, holdNote: null, holdUntil: null } as const;
@@ -71,8 +78,8 @@ export type TicketStore = {
   ): Promise<Ticket & { messageId: number }>;
   /** Where a Message's image lives, for the Customer who owns its Ticket; undefined when it has none or is not theirs. */
   getAttachment(messageId: number, customerId: string): Promise<StoredAttachment | undefined>;
-  /** Completes an Open or Resolved Ticket; Completed is final. */
-  complete(ticketId: number, customerId: string): Promise<Ticket>;
+  /** Completes an Open or Resolved Ticket; Completed is final. The rating is optional and saved once with it. */
+  complete(ticketId: number, customerId: string, rating?: TicketRating): Promise<Ticket>;
   /** Returns every On hold Ticket whose hold is due at `now` to Open and returns how many came back. */
   returnDueHolds(now: Date): Promise<number>;
   /** Returns a Resolved Ticket to Open because the Customer says it is not fixed. */
@@ -123,8 +130,9 @@ export async function completeTicketAndNotify(
   customerId: string,
   recipientEmail: string,
   dependencies: { ticketStore: TicketStore; mailer: TicketCompletedMailer },
+  rating?: TicketRating,
 ): Promise<Ticket> {
-  const ticket = await dependencies.ticketStore.complete(ticketId, customerId);
+  const ticket = await dependencies.ticketStore.complete(ticketId, customerId, rating);
   try {
     await dependencies.mailer.send(recipientEmail, ticket);
   } catch (error) {
@@ -184,6 +192,7 @@ export function createTicketStore<
       category: row.category as TicketCategory,
       orderId: row.orderId,
       status: row.status,
+      followUpOfId: row.followUpOfId,
       createdAt: row.createdAt,
       messages: await messagesForTicket(row.id),
     };
@@ -219,6 +228,14 @@ export function createTicketStore<
         .where(and(eq(orders.id, parsed.orderId), eq(orders.customerId, customerId)));
       if (!order) throw new Error("Order was not found.");
     }
+    if (parsed.followUpOfId !== undefined) {
+      // Only the Customer's own Completed Ticket can be followed up; it stays Completed.
+      const [earlier] = await db
+        .select({ id: tickets.id })
+        .from(tickets)
+        .where(and(eq(tickets.id, parsed.followUpOfId), eq(tickets.customerId, customerId), eq(tickets.status, "completed")));
+      if (!earlier) throw new Error(followUpNotFoundError);
+    }
     const [ticket] = await db
       .insert(tickets)
       .values({
@@ -226,6 +243,7 @@ export function createTicketStore<
         subject: parsed.subject,
         category: parsed.category,
         orderId: parsed.orderId,
+        followUpOfId: parsed.followUpOfId,
         status: "open",
       })
       .returning();
@@ -289,7 +307,21 @@ export function createTicketStore<
     return (await get(ticketId, customerId))!;
   }
 
-  const complete = (ticketId: number, customerId: string) => transition(ticketId, customerId, ["open", "on_hold", "resolved"], "completed");
+  async function complete(ticketId: number, customerId: string, rating?: TicketRating): Promise<Ticket> {
+    const completed = await transition(ticketId, customerId, ["open", "on_hold", "resolved"], "completed");
+    if (rating) {
+      // Once, never edited: only a Ticket with no rating yet takes one. A failure here must not undo the completion.
+      try {
+        await db
+          .update(tickets)
+          .set({ rating: rating.stars, ratingComment: rating.comment ?? null, ratedAt: new Date() })
+          .where(and(eq(tickets.id, ticketId), eq(tickets.customerId, customerId), isNull(tickets.ratedAt)));
+      } catch (error) {
+        console.error("Ticket rating could not be saved", error);
+      }
+    }
+    return completed;
+  }
   const reportNotFixed = (ticketId: number, customerId: string) => transition(ticketId, customerId, ["resolved"], "open");
 
   async function autoCompleteResolved(resolvedBefore: Date) {

@@ -331,9 +331,9 @@ export function TicketThread({
           </p>
           <Link
             className="w-fit text-sm font-medium text-primary hover:underline"
-            href="/support/new"
+            href={`/support/new?followUp=${ticketId}`}
           >
-            Need more help? Open a new Ticket
+            Need more help?
           </Link>
         </div>
       ) : (

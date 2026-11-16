@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   check,
   date,
@@ -362,6 +363,13 @@ export const tickets = pgTable("tickets", {
   holdStartedAt: timestamp("hold_started_at", { withTimezone: true }),
   /** Seconds the Ticket has spent On hold in finished holds; the Service level clock stops for them. Kept by the same trigger. */
   heldSeconds: integer("held_seconds").notNull().default(0),
+  /** The Completed Ticket this one follows up; null for an ordinary Ticket. The old Ticket stays Completed. */
+  followUpOfId: integer("follow_up_of_id").references((): AnyPgColumn => tickets.id, { onDelete: "restrict" }),
+  /** The Customer's optional 1 to 5 stars, given once when they confirm a fix or complete the Ticket; never edited. Staff-only. */
+  rating: integer("rating"),
+  /** The Customer's optional comment with the rating. Staff-only. */
+  ratingComment: text("rating_comment"),
+  ratedAt: timestamp("rated_at", { withTimezone: true }),
   /** When staff last marked the Ticket Resolved. */
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
