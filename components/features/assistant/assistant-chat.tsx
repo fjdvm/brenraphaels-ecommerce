@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useRef, useState, type FormEvent } from "react";
 
 import {
-  cardOrderId, chipsFor, failureReply, ticketHref,
-  type Chip, type PanelCard, type PanelMessage, type PanelReply,
+  cardOrderId, chipsFor, failureReply, handoffPrepareFailed, ticketHref,
+  type Chip, type HandoffReply, type PanelCard, type PanelMessage, type PanelReply,
 } from "@/lib/assistant/panel";
 import { cn } from "@/lib/utils";
+
+import { HandoffCard, type HandoffPhase } from "./handoff-card";
 
 const chipStyle = "border border-line px-3 py-1.5 text-xs tracking-[0.35px] text-primary hover:bg-lavender-soft rounded-full";
 
@@ -41,7 +43,10 @@ export function AssistantChat({ pageOrderId }: { pageOrderId?: number }) {
   ]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [handoff, setHandoff] = useState<HandoffPhase>();
+  const [handoffError, setHandoffError] = useState<string>();
   const chatId = useRef<number | undefined>(undefined);
+  const [chatIdState, setChatIdState] = useState<number>();
   const nextId = useRef(1);
   // "Check another order" stops the Order page from deciding which Order is meant.
   const [pageOrder, setPageOrderState] = useState(pageOrderId);
@@ -73,12 +78,39 @@ export function AssistantChat({ pageOrderId }: { pageOrderId?: number }) {
     } catch {
       reply = failureReply();
     }
-    if (reply.chatId) chatId.current = reply.chatId;
+    if (reply.chatId) {
+      chatId.current = reply.chatId;
+      setChatIdState(reply.chatId);
+    }
     setMessages((current) => [
       ...current.map((entry) => (entry.id === id && entry.from === "customer" ? { ...entry, status: "sent" as const } : entry)),
       { id: nextId.current++, from: "assistant", text: reply.text, card: reply.card, choices: reply.choices, ticketButton: reply.ticketButton },
     ]);
     setBusy(false);
+  }
+
+  /** "Talk to a teammate": writes the summary and shows it. Nothing is sent to the team yet. */
+  async function startHandoff(orderForTicket?: number) {
+    // No chat yet means nothing to summarise: go to the normal Ticket form.
+    if (!chatId.current) {
+      window.location.assign(ticketHref(orderForTicket));
+      return;
+    }
+    setHandoffError(undefined);
+    setHandoff({ kind: "preparing" });
+    try {
+      const response = await fetch("/api/assistant/handoff", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId: chatId.current }),
+      });
+      if (!response.ok) throw new Error("refused");
+      const draft = (await response.json()) as HandoffReply & { ticketId: number | null };
+      setHandoff(draft.status === "sent" && draft.ticketId ? { kind: "sent", ticketId: draft.ticketId } : { kind: "review", draft });
+    } catch {
+      setHandoff(undefined);
+      setHandoffError(handoffPrepareFailed);
+    }
   }
 
   function onSubmit(event: FormEvent) {
@@ -144,18 +176,35 @@ export function AssistantChat({ pageOrderId }: { pageOrderId?: number }) {
                 </ul>
               ) : null}
               {message.ticketButton ? (
-                <Link className={cn(chipStyle, "ml-[42px] self-start bg-primary text-white hover:bg-primary")} href={ticketHref(cardOrderId(message.card) ?? orderId)}>
+                <button
+                  className={cn(chipStyle, "ml-[42px] self-start bg-primary text-white hover:bg-primary")}
+                  disabled={busy || handoff?.kind === "preparing"}
+                  onClick={() => void startHandoff(cardOrderId(message.card) ?? orderId)}
+                  type="button"
+                >
                   Talk to a teammate
-                </Link>
+                </button>
               ) : null}
             </div>
           ),
         )}
+        {handoff && chatIdState ? (
+          <HandoffCard
+            chatId={chatIdState}
+            key={handoff.kind === "review" ? `review-${handoff.draft.summary ?? "none"}` : handoff.kind}
+            onCancel={() => setHandoff(undefined)}
+            onSent={(ticketId) => setHandoff({ kind: "sent", ticketId })}
+            phase={handoff}
+          />
+        ) : null}
+        {handoffError ? <p className="ml-[42px] text-xs text-red-700" role="alert">{handoffError}</p> : null}
       </div>
       <div className="flex flex-col gap-2.5 border-t border-line bg-white px-4 pb-7 pt-3">
         <div className="flex flex-wrap gap-2">
           {chipsFor(orderId, card).map((chip) =>
-            chip.kind === "link" ? (
+            chip.kind === "link" && chip.label === "Talk to a person" && chatIdState ? (
+              <button className={chipStyle} disabled={busy || handoff?.kind === "preparing"} key={chip.label} onClick={() => void startHandoff(orderId)} type="button">{chip.label}</button>
+            ) : chip.kind === "link" ? (
               <Link className={chipStyle} href={chip.href} key={chip.label}>{chip.label}</Link>
             ) : (
               <button className={chipStyle} disabled={busy} key={chip.kind === "pick" ? "pick" : chip.label} onClick={() => runChip(chip)} type="button">

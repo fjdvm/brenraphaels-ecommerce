@@ -57,3 +57,17 @@ export function chipsFor(orderId: number | undefined, card: PanelCard | undefine
 export function failureReply(): PanelReply {
   return { outcome: "fallback", text: fallbackReplyText, ticketButton: true };
 }
+
+/** What `POST /api/assistant/handoff` returns: the Handoff summary shown to the Customer before anything is sent. */
+export type HandoffReply = {
+  status: "drafted" | "dropped" | "sent";
+  summary: string | null;
+  reason: string;
+  orderId: number | null;
+  ticketId: number | null;
+  note?: string;
+};
+
+/** The plain reason shown when preparing or sending the Handoff fails. */
+export const handoffPrepareFailed = "We couldn't prepare your note. Please try again, or write a few words for our team.";
+export const handoffSendFailed = "We couldn't send your note. Nothing was sent. Please try again.";
