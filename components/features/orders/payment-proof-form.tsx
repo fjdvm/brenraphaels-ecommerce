@@ -47,6 +47,23 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
       </div>
       {rejection ? <p className="text-sm font-medium text-red-700" role="status">Reason: {rejection.reason}. Please send a new screenshot and its reference number.</p> : null}
       <PaymentDetailsCard detail={details.find((detail) => detail.method === method)} />
+      {Object.entries(state.fieldErrors ?? {}).filter(([field]) => field !== "gcashReferenceNumber").map(([field, errors]) =>
+        errors?.map(error => <p key={`${field}-${error}`} role="alert" className="text-sm text-red-700">{error}</p>))}
+      <fieldset className="grid gap-4 sm:grid-cols-3">
+        <legend className="mb-2 text-sm font-medium text-ink">Confirm the values on your receipt</legend>
+        <div className="flex flex-col gap-2">
+          <Label className={fieldLabelClass} htmlFor={`proof-amount-${orderId}`}>Amount paid (₱)</Label>
+          <Input className={fieldClass} id={`proof-amount-${orderId}`} name="confirmedAmount" type="number" min="0" max="21474836.47" step="0.01" />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label className={fieldLabelClass} htmlFor={`proof-date-${orderId}`}>Payment date and time (Philippine time)</Label>
+          <Input className={fieldClass} id={`proof-date-${orderId}`} name="confirmedPaidAt" type="datetime-local" />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label className={fieldLabelClass} htmlFor={`proof-recipient-${orderId}`}>Recipient account number</Label>
+          <Input className={fieldClass} id={`proof-recipient-${orderId}`} name="confirmedRecipient" maxLength={160} />
+        </div>
+      </fieldset>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
         <div className="flex flex-1 flex-col gap-2">
           <Label className={fieldLabelClass} htmlFor={`gcash-reference-${orderId}`} required>{label} reference number</Label>

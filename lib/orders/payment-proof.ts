@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { textField } from "../validators/fields";
 import type { TicketFiles } from "../support/ticket-files";
 import { cleanFileName } from "../validators/sanitize";
@@ -48,3 +49,17 @@ export async function uploadPaymentProofScreenshot(file: File, files: Pick<Ticke
     bytes: new Uint8Array(await file.arrayBuffer()),
   });
 }
+
+/** Customer-confirmed fields are optional for older clients; checks explain missing values. */
+export const confirmedProofFields = {
+  confirmedAmountInCentavos: z.number().int().min(0).max(2147483647).optional(),
+  confirmedPaidAt: z.date().refine(date => Number.isFinite(date.getTime()), "Enter a valid payment date").optional(),
+  confirmedRecipient: textField("Recipient", { min: 1, max: 160, pattern: /^[\p{L}\p{N} .+'’()/-]+$/u, patternMessage: "Enter the account number or name on your receipt" }).optional(),
+};
+export const confirmedProofInput = z.object(confirmedProofFields);
+
+/** Preserve centavos exactly; reject rounding, exponents and non-decimal input. */
+export const confirmedAmountField = textField("Amount paid", {
+  min: 1, max: 20, pattern: /^\d+(?:\.\d{1,2})?$/,
+  patternMessage: "Enter an amount with at most two decimal places",
+}).transform(value => Math.round(Number(value) * 100)).pipe(z.number().int().min(0).max(2147483647));

@@ -1,5 +1,8 @@
 "use server";
 
+import { confirmedProofFields, confirmedAmountField } from "@/lib/orders/payment-proof";
+import { paymentDetails } from "@/lib/orders/payment-details";
+
 import { scheduleOrdersChanged } from "@/lib/orders/staff-signal";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -44,7 +47,7 @@ export type OrderReceivedState = {
   message?: string;
 };
 
-const paymentProofInput = z.object({ gcashReferenceNumber: referenceNumberField });
+const paymentProofInput = z.object({ gcashReferenceNumber: referenceNumberField, ...confirmedProofFields, confirmedAmount: confirmedAmountField.optional() });
 const cancellationInput = z.object({ orderId: positiveIntegerField("Order ID") });
 
 /** Cancels a Customer-owned Order when its status is still before dispatch. */
@@ -93,6 +96,9 @@ export async function submitPaymentProof(
   const customer = await requireCustomer();
   const parsed = paymentProofInput.safeParse({
     gcashReferenceNumber: formData.get("gcashReferenceNumber"),
+    confirmedAmount: formData.get("confirmedAmount") || undefined,
+    confirmedPaidAt: formData.get("confirmedPaidAt") ? new Date(`${String(formData.get("confirmedPaidAt"))}+08:00`) : undefined,
+    confirmedRecipient: formData.get("confirmedRecipient") || undefined,
   });
   if (!parsed.success) {
     return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
@@ -115,7 +121,15 @@ export async function submitPaymentProof(
   }
 
   try {
-    await createOrderStore(getDatabase()).submitPaymentProof(customer.userId, orderId, {
+    const store = createOrderStore(getDatabase());
+    const ownOrder = (await store.listForCustomer(customer.userId)).find(order => order.id === orderId);
+    if (!ownOrder) return { message: "Order was not found." };
+    const detail = (await paymentDetails()).find(detail => detail.method === ownOrder.paymentMethod);
+    const expectedRecipient = detail?.lines.find(line => /number/i.test(line.label))?.value;
+    await store.submitPaymentProof(customer.userId, orderId, {
+      ...parsed.data,
+      confirmedAmountInCentavos: parsed.data.confirmedAmount,
+      expectedRecipient,
       gcashReferenceNumber: parsed.data.gcashReferenceNumber,
       screenshotFileId,
     });
