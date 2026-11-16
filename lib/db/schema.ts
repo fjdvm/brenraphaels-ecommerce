@@ -358,6 +358,10 @@ export const tickets = pgTable("tickets", {
   holdNote: text("hold_note"),
   /** When the Ticket returns to Open by itself. */
   holdUntil: timestamp("hold_until", { withTimezone: true }),
+  /** When the current hold began; set and cleared by a database trigger on every status change, so every writer is counted. */
+  holdStartedAt: timestamp("hold_started_at", { withTimezone: true }),
+  /** Seconds the Ticket has spent On hold in finished holds; the Service level clock stops for them. Kept by the same trigger. */
+  heldSeconds: integer("held_seconds").notNull().default(0),
   /** When staff last marked the Ticket Resolved. */
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })

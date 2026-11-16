@@ -63,6 +63,31 @@ describe("Ticket schema", () => {
     expect(row.status).toBe("open");
   });
 
+  test("time spent On hold is counted by the database whoever changes the status", async () => {
+    const database = drizzle(client);
+    await migrate(database, { migrationsFolder: "drizzle" });
+    await database.insert(customers).values(customer);
+    const [ticket] = await database.insert(tickets).values({ customerId: "customer-1", subject: "Hi", category: "Other" }).returning();
+
+    await client.query("update tickets set status = 'on_hold' where id = $1", [ticket.id]);
+    await client.query("update tickets set hold_started_at = now() - interval '90 seconds' where id = $1", [ticket.id]);
+    const [held] = await database.select().from(tickets);
+    expect(held.holdStartedAt).not.toBeNull();
+    expect(held.heldSeconds).toBe(0);
+
+    await client.query("update tickets set status = 'open' where id = $1", [ticket.id]);
+    const [back] = await database.select().from(tickets);
+    expect(back.holdStartedAt).toBeNull();
+    expect(back.heldSeconds).toBeGreaterThanOrEqual(90);
+
+    // A second hold adds to the first.
+    await client.query("update tickets set status = 'on_hold' where id = $1", [ticket.id]);
+    await client.query("update tickets set hold_started_at = now() - interval '60 seconds' where id = $1", [ticket.id]);
+    await client.query("update tickets set status = 'completed' where id = $1", [ticket.id]);
+    const [done] = await database.select().from(tickets);
+    expect(done.heldSeconds).toBeGreaterThanOrEqual(150);
+  });
+
   test("existing Tickets keep their Messages and map closed to Completed, open to Open", async () => {
     // Apply everything before the new migration, as production is today, then seed old-shape Tickets.
     const migrationSql = readFileSync("drizzle/0015_ticket_crms_fields.sql", "utf8");
@@ -85,7 +110,8 @@ describe("Ticket schema", () => {
 
     // The On hold migration adds its columns to the same table; the drizzle select below reads them.
     const onHoldSql = readFileSync("drizzle/0037_ticket_on_hold.sql", "utf8");
-    for (const statement of [...migrationSql.split("--> statement-breakpoint"), ...onHoldSql.split("--> statement-breakpoint")]) {
+    const holdClockSql = readFileSync("drizzle/0038_ticket_hold_clock.sql", "utf8");
+    for (const statement of [migrationSql, onHoldSql, holdClockSql].flatMap((sql) => sql.split("--> statement-breakpoint"))) {
       if (statement.trim()) await client.exec(statement);
     }
 
