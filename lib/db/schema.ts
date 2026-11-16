@@ -576,3 +576,32 @@ export const assistantMessages = pgTable("assistant_messages", {
   sentToModel: text("sent_to_model"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [index("assistant_messages_chat").on(table.chatId), index("assistant_messages_created").on(table.createdAt)]);
+
+/**
+ * The Handoff summary of an Order assistant chat: written from the chat and the Order record, shown to the Customer, and only
+ * turned into a Ticket when they press "Send to our team". Kept here, never on the Ticket, apart from the Staff-facing Ticket summary.
+ */
+export const assistantHandoffs = pgTable("assistant_handoffs", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  chatId: integer("chat_id").notNull().references(() => assistantChats.id, { onDelete: "cascade" }),
+  /** The Customer's own Order the chat was about; becomes the Ticket's Linked order. */
+  orderId: integer("order_id"),
+  /** Why the chat was handed off, e.g. `refund`, `person_requested` or `fact_check_failed`. */
+  reason: text("reason").notNull(),
+  /** `drafted` (shown, waiting for the Customer), `dropped` (no summary could be trusted; the Customer writes their own) or `sent`. */
+  status: text("status").notNull(),
+  /** The summary written for the Customer; null when it was dropped. */
+  summary: text("summary"),
+  /** The text the Customer approved or wrote themselves; set when sent. */
+  sentSummary: text("sent_summary"),
+  /** `assistant` or `customer`: whose words the sent summary is. */
+  sentSource: text("sent_source"),
+  /** Exactly what was sent to the model; null when no model was called. */
+  sentToModel: text("sent_to_model"),
+  /** The last chat message the summary covers; a newer message makes a new summary. */
+  throughMessageId: integer("through_message_id").notNull(),
+  ticketId: integer("ticket_id").references(() => tickets.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+}, (table) => [uniqueIndex("assistant_handoffs_chat").on(table.chatId),
+  check("assistant_handoffs_status", sql`${table.status} in ('drafted','dropped','sent')`)]);

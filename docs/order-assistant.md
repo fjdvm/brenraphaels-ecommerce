@@ -14,3 +14,14 @@ A signed-in Customer asks about their own Orders and the shop through `POST /api
 - **Stored**: `assistant_chats` and `assistant_messages` keep the Customer, the Order looked up and exactly what was sent. The daily
   job `/api/cron/assistant-chat-retention` (workflow `assistant-chat-retention.yml`) deletes chats past the retention unless `ticket_id` is set.
 - **Read-only**: `readers.ts` only selects. A test fails if the module imports an Order, Ticket or Return write path.
+
+## Handoff (ticket #493)
+
+- `POST /api/assistant/handoff` `{ chatId }` writes the **Handoff summary** from the Customer's own chat and their Order's status words (`lib/assistant-handoff/handoff.ts`)
+  and returns it. It opens no Ticket and tells the team nothing. A Customer asking for a person, or any always-handoff reason, leads here.
+- The summary goes through the same fact check as answers, in `handoff` mode: it may say what the Customer asked for ("asked for a refund") but not promise or suggest an outcome.
+  A summary that fails, or a model that is down or over budget, is **dropped** (`status: "dropped"`, `summary: null`) and the Customer writes their own.
+- `POST /api/assistant/handoff/send` `{ chatId, summary? }` is the only place a chat becomes a Ticket, only when the Customer presses "Send to our team". The Ticket has
+  the Order as its Linked order, the reason and the approved (or the Customer's own) words as its first Message, and `assistant_chats.ticket_id` attaches the chat. Pressing twice opens one Ticket.
+- The summary lives in `assistant_handoffs` (status, summary, sent text and source, what the model saw, the Ticket), never on the Ticket, apart from the Staff-facing Ticket summary.
+- This code is outside `lib/assistant/` on purpose: that folder stays read-only (a test enforces it), and this is the one Customer-approved write path.

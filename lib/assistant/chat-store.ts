@@ -1,7 +1,7 @@
 import { and, count, desc, eq, gte, inArray, isNotNull, isNull, lt } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { assistantChats, assistantMessages } from "../db/schema";
+import { assistantChats, assistantHandoffs, assistantMessages } from "../db/schema";
 import { chatRetentionDays } from "./policy";
 
 export type StoredTurn = {
@@ -57,7 +57,10 @@ export function createChatStore<R extends PgQueryResultHKT, S extends Record<str
     async modelCallsSince(since) {
       const [row] = await db.select({ total: count() }).from(assistantMessages)
         .where(and(isNotNull(assistantMessages.sentToModel), gte(assistantMessages.createdAt, since)));
-      return row.total;
+      // Handoff summaries come out of the same daily budget.
+      const [handoffs] = await db.select({ total: count() }).from(assistantHandoffs)
+        .where(and(isNotNull(assistantHandoffs.sentToModel), gte(assistantHandoffs.createdAt, since)));
+      return row.total + handoffs.total;
     },
     async save(chatId, turns) {
       if (turns.length === 0) return;

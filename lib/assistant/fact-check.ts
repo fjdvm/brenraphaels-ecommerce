@@ -7,13 +7,23 @@ const url = /https?:\/\/[^\s)]+/gi;
 const peso = /(?:₱|php\s?|\bpiso\b)\s?[\d,]+(?:\.\d+)?/gi;
 const orderRef = /(?:#|order\s*(?:no\.?|number)?\s*)(\d{1,9})\b/gi;
 const promise = /refund|replac|discount|voucher|compensat|guarantee|free of charge|libre/i;
+/**
+ * For a Handoff summary, which has to be able to say what the Customer asked for ("asked for a refund"): only language that
+ * promises or suggests an outcome counts, such as "will be refunded", "we can replace" or "entitled to a discount".
+ */
+const handoffPromise = new RegExp([
+  "guarantee|free of charge|libre|promis|rest assured|entitled|eligible|deserve",
+  "\\b(?:will|would|should|shall|can|could|may|going to|'ll)\\s+(?:also\\s+|then\\s+|likely\\s+)?(?:be\\s+)?(?:fully\\s+)?(?:refund|replac|credit|compensat|reimburs|discount)",
+  "\\b(?:we|team|shop|store|staff)\\b[^.]{0,40}\\b(?:refund|replac|compensat|reimburs)(?:e|es|ed|ing)?\\b",
+  "\\b(?:full|a|the)\\s+refund\\s+(?:is|will|has|within)|\\b(?:within|by)\\s+\\d+\\s+(?:business\\s+)?days?",
+].join("|"), "i");
 
 /**
  * Compares the model's answer with the records. Every date, time, link, peso amount and Order number it states must
  * come from the facts it was given, it may not name a different status, and it may not promise anything.
  * Returns the first problem, or undefined when the answer is consistent.
  */
-export function factCheck(answer: string, facts: { text: string; orderId?: number; status?: string }): string | undefined {
+export function factCheck(answer: string, facts: { text: string; orderId?: number; status?: string; kind?: "answer" | "handoff" }): string | undefined {
   const text = answer.trim();
   if (!text) return "empty answer";
   if (text.length > 900) return "answer too long";
@@ -26,7 +36,7 @@ export function factCheck(answer: string, facts: { text: string; orderId?: numbe
   for (const match of text.matchAll(orderRef)) {
     if (facts.orderId === undefined || Number(match[1]) !== facts.orderId) return `another order: ${match[0]}`;
   }
-  if (promise.test(text)) return "promise";
+  if ((facts.kind === "handoff" ? handoffPromise : promise).test(text)) return "promise";
   if (facts.status) {
     for (const other of statuses.filter((status) => status !== facts.status)) {
       if (new RegExp(`\\b(?:has been|have been|is|was|already|been|are now)\\s+${other}\\b`, "i").test(text)) return `wrong status: ${other}`;
