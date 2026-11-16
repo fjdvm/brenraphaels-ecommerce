@@ -501,3 +501,77 @@ describe("On hold Tickets", () => {
     await expect(store.complete(ticket.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
   });
 });
+
+describe("Ticket rating and Follow-up Ticket", () => {
+  const open = (store: ReturnType<typeof createTicketStore>, extra: object = {}) =>
+    store.open("customer-1", { subject: "My delivery issue", category: "Delivery Issue", body: "Where is it?", ...extra });
+  const row = async (id: number) => (await drizzle(client).select().from(tickets).where(eq(tickets.id, id)))[0];
+
+  test("completing with a rating saves stars and comment once", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await open(store);
+
+    await store.complete(ticket.id, "customer-1", { stars: 4, comment: "Quick help" });
+
+    expect(await row(ticket.id)).toMatchObject({ status: "completed", rating: 4, ratingComment: "Quick help", ratedAt: expect.any(Date) });
+  });
+
+  test("completing without a rating leaves it empty, so skipping never blocks confirming", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await open(store);
+
+    await expect(store.complete(ticket.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
+
+    expect(await row(ticket.id)).toMatchObject({ rating: null, ratingComment: null, ratedAt: null });
+  });
+
+  test("a rating is never edited after it is given", async () => {
+    const database = drizzle(client);
+    const store = createTicketStore(database);
+    const ticket = await open(store);
+    await store.complete(ticket.id, "customer-1", { stars: 5 });
+
+    await expect(store.complete(ticket.id, "customer-1", { stars: 1, comment: "Changed my mind" })).rejects.toThrow("Ticket is completed.");
+
+    expect(await row(ticket.id)).toMatchObject({ rating: 5, ratingComment: null });
+  });
+
+  test("the database refuses stars outside 1 to 5", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await open(store);
+    await expect(drizzle(client).update(tickets).set({ rating: 6 }).where(eq(tickets.id, ticket.id))).rejects.toThrow();
+  });
+
+  test("auto-complete never takes a rating and a rating never reopens the Ticket", async () => {
+    const database = drizzle(client);
+    const store = createTicketStore(database);
+    const ticket = await open(store);
+    await database.update(tickets).set({ status: "resolved", resolvedAt: new Date(0) }).where(eq(tickets.id, ticket.id));
+
+    await autoCompleteResolvedTicketsAndNotify(new Date(), { ticketStore: store, mailer: { send: vi.fn() } });
+
+    expect(await row(ticket.id)).toMatchObject({ status: "completed", rating: null });
+  });
+
+  test("a Follow-up Ticket links to the Customer's Completed Ticket, which stays Completed", async () => {
+    const store = createTicketStore(drizzle(client));
+    const earlier = await open(store);
+    await store.complete(earlier.id, "customer-1");
+
+    const followUp = await open(store, { subject: "Still no refund", followUpOfId: earlier.id });
+
+    expect(followUp).toMatchObject({ status: "open", followUpOfId: earlier.id });
+    expect(await row(earlier.id)).toMatchObject({ status: "completed" });
+    await expect(store.get(earlier.id, "customer-1")).resolves.toMatchObject({ followUpOfId: null });
+  });
+
+  test("a Follow-up needs the Customer's own Completed Ticket", async () => {
+    const store = createTicketStore(drizzle(client));
+    const stillOpen = await open(store);
+    const others = await store.open("customer-2", { subject: "Theirs", category: "Other", body: "Hi" });
+    await store.complete(others.id, "customer-2");
+
+    await expect(open(store, { followUpOfId: stillOpen.id })).rejects.toThrow("Follow-up Ticket was not found.");
+    await expect(open(store, { followUpOfId: others.id })).rejects.toThrow("Follow-up Ticket was not found.");
+  });
+});

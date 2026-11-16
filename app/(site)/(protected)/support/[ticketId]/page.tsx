@@ -5,9 +5,10 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { ConversationSkeleton } from "@/components/features/support/skeletons";
+import { CompleteTicket } from "@/components/features/support/complete-ticket";
 import { TicketThread } from "@/components/features/support/ticket-thread";
 import { Button } from "@/components/ui/button";
-import { completeTicket, reportTicketNotFixed } from "@/app/(site)/(protected)/support/actions";
+import { reportTicketNotFixed } from "@/app/(site)/(protected)/support/actions";
 import { formatPeso } from "@/lib/catalog/currency";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
@@ -35,11 +36,6 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
     ? undefined
     : (await createOrderStore(database).listForCustomer(customer.userId)).find((order) => order.id === ticket.orderId);
 
-  async function complete() {
-    "use server";
-    await completeTicket(currentTicketId);
-  }
-
   async function notFixed() {
     "use server";
     await reportTicketNotFixed(currentTicketId);
@@ -66,6 +62,11 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs tracking-[0.35px] text-muted">
             <span>Ticket #{ticket.id} · {categoryLabel(ticket.category)}</span>
+            {ticket.followUpOfId !== null ? (
+              <Link className="text-primary hover:underline" href={`/support/${ticket.followUpOfId}`}>
+                Follow-up of Ticket #{ticket.followUpOfId}
+              </Link>
+            ) : null}
             {relatedOrder ? (
               <Link
                 className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-primary transition-colors hover:bg-lavender-soft"
@@ -78,22 +79,14 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
           </div>
         </div>
         {status === "open" ? (
-          <form action={complete}>
-            <Button size="pill-sm" type="submit" variant="pill-outline">
-              Mark as completed
-            </Button>
-          </form>
+          <CompleteTicket label="Mark as completed" outline ticketId={ticket.id} />
         ) : null}
       </div>
       {status === "resolved" ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-lavender-soft px-5 py-4 sm:px-8">
           <p className="text-sm tracking-[0.35px] text-ink">Our team marked this Ticket as resolved. Is it fixed?</p>
           <div className="flex flex-wrap gap-2">
-            <form action={complete}>
-              <Button size="pill-sm" type="submit">
-                Yes, it&apos;s fixed
-              </Button>
-            </form>
+            <CompleteTicket label="Yes, it's fixed" ticketId={ticket.id} />
             <form action={notFixed}>
               <Button size="pill-sm" type="submit" variant="pill-outline">
                 Not fixed

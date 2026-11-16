@@ -132,7 +132,8 @@ describe("Ticket schema", () => {
     const onHoldSql = readFileSync("drizzle/0037_ticket_on_hold.sql", "utf8");
     const holdClockSql = readFileSync("drizzle/0038_ticket_hold_clock.sql", "utf8");
     const notesSql = readFileSync("drizzle/0039_ticket_internal_notes.sql", "utf8");
-    for (const statement of [migrationSql, onHoldSql, holdClockSql, notesSql].flatMap((sql) => sql.split("--> statement-breakpoint"))) {
+    const ratingSql = readFileSync("drizzle/0040_ticket_rating_follow_up.sql", "utf8");
+    for (const statement of [migrationSql, onHoldSql, holdClockSql, notesSql, ratingSql].flatMap((sql) => sql.split("--> statement-breakpoint"))) {
       if (statement.trim()) await client.exec(statement);
     }
 

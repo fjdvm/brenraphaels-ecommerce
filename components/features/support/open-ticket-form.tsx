@@ -28,9 +28,15 @@ const categoryChips: Record<TicketCategory, { label: string; icon: ReactNode }> 
 export function OpenTicketForm({
   orders,
   defaultOrderId,
+  defaultCategory,
+  followUpOfId,
 }: {
   orders: { id: number; label: string }[];
   defaultOrderId?: number;
+  /** Pre-selected for a Follow-up Ticket; still editable. */
+  defaultCategory?: TicketCategory;
+  /** The Completed Ticket this one follows up. */
+  followUpOfId?: number;
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(createTicket, initialState);
@@ -58,6 +64,13 @@ export function OpenTicketForm({
         </Link>
       </div>
 
+      {followUpOfId ? (
+        <>
+          <input name="followUpOfId" type="hidden" value={followUpOfId} />
+          <p className="text-sm tracking-[0.35px] text-primary">Follow-up of Ticket #{followUpOfId}</p>
+        </>
+      ) : null}
+
       <Field error={state.fieldErrors?.subject?.[0]} id="ticket-subject" label="Subject" required>
         <Input
           aria-invalid={Boolean(state.fieldErrors?.subject)}
@@ -77,7 +90,7 @@ export function OpenTicketForm({
         <div className="flex flex-wrap gap-2.5">
           {ticketCategories.map((category, index) => (
             <label className="cursor-pointer" key={category}>
-              <input className="peer sr-only" name="category" required={index === 0} type="radio" value={category} />
+              <input className="peer sr-only" defaultChecked={category === defaultCategory} name="category" required={index === 0} type="radio" value={category} />
               <span className="flex items-center gap-2 rounded-full border border-line bg-white px-[18px] py-2.5 text-sm font-medium tracking-[0.35px] text-ink transition-colors peer-checked:border-2 peer-checked:border-primary peer-checked:bg-lavender peer-checked:text-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring">
                 {categoryChips[category].icon}
                 {categoryChips[category].label}
