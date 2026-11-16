@@ -5,4 +5,4 @@ export const prepaidMethods = ["gcash", "maya", "bank-transfer"] as const;
 /** After this many rejected proofs, only a Manager can approve the Order. */
 export const MANAGER_AFTER_REJECTIONS = 3;
 export type PaymentMethod = (typeof paymentMethods)[number];
-export const isPrepaid = (method: string): boolean => (prepaidMethods as readonly string[]).includes(method);
+export const isPrepaid = (method: string): method is (typeof prepaidMethods)[number] => (prepaidMethods as readonly string[]).includes(method);

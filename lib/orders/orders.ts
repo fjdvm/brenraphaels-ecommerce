@@ -1,3 +1,4 @@
+import { paymentRecipient } from "./payment-details";
 import { confirmedProofInput } from "./payment-proof";
 import { after } from "next/server";
 import { createStockReservations } from "./stock-reservations";
@@ -121,8 +122,6 @@ export type SubmitPaymentProofInput = {
   confirmedAmountInCentavos?: number;
   confirmedPaidAt?: Date;
   confirmedRecipient?: string;
-  /** Set by the server from the shop payment settings, never from browser input. */
-  expectedRecipient?: string;
   gcashReferenceNumber: string;
   screenshotFileId?: string;
 };
@@ -598,6 +597,7 @@ export function createOrderStore<
         : "Payment proof can only be submitted for a confirmed Order.");
     }
 
+    const expectedRecipient = await paymentRecipient(persistedOrder.paymentMethod);
     const submittedAt = new Date();
     const updatedOrder = await db.transaction(async (transaction) => {
       const [updated] = await transaction
@@ -624,7 +624,7 @@ export function createOrderStore<
         confirmedAmountInCentavos: confirmed.confirmedAmountInCentavos ?? null,
         confirmedPaidAt: confirmed.confirmedPaidAt ?? null,
         confirmedRecipient: confirmed.confirmedRecipient ?? null,
-        expectedRecipient: input.expectedRecipient ?? null,
+        expectedRecipient: expectedRecipient ?? null,
       });
       return updated;
     });

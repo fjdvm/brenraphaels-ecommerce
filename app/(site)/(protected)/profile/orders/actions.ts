@@ -1,7 +1,6 @@
 "use server";
 
-import { confirmedProofFields, confirmedAmountField } from "@/lib/orders/payment-proof";
-import { paymentDetails } from "@/lib/orders/payment-details";
+import { confirmedProofFields, confirmedAmountField, confirmedPaidAtField } from "@/lib/orders/payment-proof";
 
 import { scheduleOrdersChanged } from "@/lib/orders/staff-signal";
 import { revalidatePath } from "next/cache";
@@ -47,7 +46,7 @@ export type OrderReceivedState = {
   message?: string;
 };
 
-const paymentProofInput = z.object({ gcashReferenceNumber: referenceNumberField, ...confirmedProofFields, confirmedAmount: confirmedAmountField.optional() });
+const paymentProofInput = z.object({ gcashReferenceNumber: referenceNumberField, ...confirmedProofFields, confirmedAmount: confirmedAmountField.optional(), confirmedPaidAt: confirmedPaidAtField.optional() });
 const cancellationInput = z.object({ orderId: positiveIntegerField("Order ID") });
 
 /** Cancels a Customer-owned Order when its status is still before dispatch. */
@@ -97,7 +96,7 @@ export async function submitPaymentProof(
   const parsed = paymentProofInput.safeParse({
     gcashReferenceNumber: formData.get("gcashReferenceNumber"),
     confirmedAmount: formData.get("confirmedAmount") || undefined,
-    confirmedPaidAt: formData.get("confirmedPaidAt") ? new Date(`${String(formData.get("confirmedPaidAt"))}+08:00`) : undefined,
+    confirmedPaidAt: formData.get("confirmedPaidAt") || undefined,
     confirmedRecipient: formData.get("confirmedRecipient") || undefined,
   });
   if (!parsed.success) {
@@ -121,15 +120,9 @@ export async function submitPaymentProof(
   }
 
   try {
-    const store = createOrderStore(getDatabase());
-    const ownOrder = (await store.listForCustomer(customer.userId)).find(order => order.id === orderId);
-    if (!ownOrder) return { message: "Order was not found." };
-    const detail = (await paymentDetails()).find(detail => detail.method === ownOrder.paymentMethod);
-    const expectedRecipient = detail?.lines.find(line => /number/i.test(line.label))?.value;
-    await store.submitPaymentProof(customer.userId, orderId, {
+    await createOrderStore(getDatabase()).submitPaymentProof(customer.userId, orderId, {
       ...parsed.data,
       confirmedAmountInCentavos: parsed.data.confirmedAmount,
-      expectedRecipient,
       gcashReferenceNumber: parsed.data.gcashReferenceNumber,
       screenshotFileId,
     });

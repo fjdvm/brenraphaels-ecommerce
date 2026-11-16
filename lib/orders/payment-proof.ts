@@ -63,3 +63,12 @@ export const confirmedAmountField = textField("Amount paid", {
   min: 1, max: 20, pattern: /^\d+(?:\.\d{1,2})?$/,
   patternMessage: "Enter an amount with at most two decimal places",
 }).transform(value => Math.round(Number(value) * 100)).pipe(z.number().int().min(0).max(2147483647));
+
+/** datetime-local is explicitly Philippine time; reject calendar normalization. */
+export const confirmedPaidAtField = textField("Payment date", {
+  min: 16, max: 16, pattern: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/,
+  patternMessage: "Enter a valid payment date and time",
+}).refine(value => {
+  const date = new Date(`${value}Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 16) === value;
+}, "Enter a real calendar date and time").transform(value => new Date(`${value}+08:00`));
