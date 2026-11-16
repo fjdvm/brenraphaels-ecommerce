@@ -267,6 +267,13 @@
       "when": 1795700000000,
       "tag": "0037_ticket_on_hold",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1795800000000,
+      "tag": "0038_ticket_hold_clock",
+      "breakpoints": true
     }
   ]
 }
