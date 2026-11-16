@@ -336,6 +336,7 @@ function OrderDetails({
           orderId={order.id}
           rejection={order.paymentProofRejection ? { reason: order.paymentProofRejection.reason } : null}
           deadline={formatPlacedAt(paymentDeadline(order))}
+          placedAt={order.createdAt}
         />
       ) : null}
       {order.paymentProofHistory && order.paymentProofHistory.length > 0 ? (

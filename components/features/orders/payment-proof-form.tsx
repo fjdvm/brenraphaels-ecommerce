@@ -1,7 +1,7 @@
 "use client";
 
 import { Upload, Wallet } from "lucide-react";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 
 import { submitPaymentProof, type PaymentProofState } from "@/app/(site)/(protected)/profile/orders/actions";
 import { Button } from "@/components/ui/button";
@@ -12,14 +12,19 @@ import { PaymentDetailsCard } from "@/components/features/orders/payment-details
 import { formatPeso } from "@/lib/catalog/currency";
 import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
 import type { PaymentMethod } from "@/lib/orders/orders";
+import { checkReceipt, readReceiptText, readScreenshotText } from "@/lib/orders/screenshot-reading";
 
 const initialState: PaymentProofState = {};
+
+type Field = "reference" | "amount" | "paidAt";
+type Values = Record<Field, string>;
+const emptyValues: Values = { reference: "", amount: "", paidAt: "" };
 
 /**
  * The warning panel where a Customer sends their reference number and optional receipt, with where to pay.
  * After staff turn a proof down it says why and asks again.
  */
-export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", details = [], rejection, deadline }: {
+export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", details = [], rejection, deadline, placedAt }: {
   orderId: number;
   amountInCentavos: number;
   method?: PaymentMethod;
@@ -28,11 +33,63 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
   rejection?: { reason: string } | null;
   /** When the Order is cancelled if still unpaid. */
   deadline?: string;
+  /** When the Order was placed; a receipt dated before it fails the date check. */
+  placedAt?: Date;
 }) {
   const label = PAYMENT_LABELS[method];
   const [state, action, pending] = useActionState(submitPaymentProof.bind(null, orderId), initialState);
   const [fileName, setFileName] = useState<string>();
+  const [values, setValues] = useState<Values>(emptyValues);
+  // Fields still holding exactly what the screenshot reading filled in; typing over one clears its label.
+  const [read, setRead] = useState<ReadonlySet<Field>>(new Set());
+  const [reading, setReading] = useState(false);
+  const [readNote, setReadNote] = useState<string>();
+  const latestRead = useRef(0);
   const referenceError = state.fieldErrors?.gcashReferenceNumber?.[0];
+
+  const type = (field: Field) => (event: { target: { value: string } }) => {
+    setValues((current) => ({ ...current, [field]: event.target.value }));
+    setRead((current) => { const next = new Set(current); next.delete(field); return next; });
+  };
+
+  // Runs once per picked file, in this browser; the screenshot is only uploaded when the Customer submits.
+  async function readFile(file: File | undefined) {
+    setFileName(file?.name);
+    setReadNote(undefined);
+    const attempt = ++latestRead.current;
+    if (!file) { setRead(new Set()); return; }
+    setReading(true);
+    try {
+      const receipt = readReceiptText(await readScreenshotText(file));
+      if (attempt !== latestRead.current) return;
+      const next: Partial<Values> = {};
+      if (receipt.reference) next.reference = receipt.reference;
+      if (receipt.amountInCentavos !== undefined) next.amount = (receipt.amountInCentavos / 100).toFixed(2);
+      if (receipt.paidAt) next.paidAt = receipt.paidAt;
+      setValues((current) => ({ ...current, ...next }));
+      setRead(new Set(Object.keys(next) as Field[]));
+      if (Object.keys(next).length === 0) setReadNote("We couldn't read this screenshot. Type the details from your receipt instead.");
+    } catch {
+      if (attempt !== latestRead.current) return;
+      setRead(new Set());
+      setReadNote("We couldn't read this screenshot. Type the details from your receipt instead.");
+    } finally {
+      if (attempt === latestRead.current) setReading(false);
+    }
+  }
+
+  const checks = placedAt
+    ? checkReceipt(
+        { amountInCentavos: read.has("amount") && values.amount ? Math.round(Number(values.amount) * 100) : undefined, paidAt: read.has("paidAt") ? values.paidAt : undefined },
+        { totalInCentavos: amountInCentavos, placedAt },
+      )
+    : {};
+  const note = (field: Field, check?: { passed: boolean; note: string }) =>
+    read.has(field) ? (
+      <p className={check && !check.passed ? "text-xs text-red-700" : "text-xs text-green-700"} data-testid={`read-note-${field}`}>
+        Read from your screenshot{check ? ` · ${check.note}` : ""}
+      </p>
+    ) : null;
 
   return (
     <form action={action} className="flex flex-col gap-[18px] bg-warning-soft p-5 sm:p-7">
@@ -53,11 +110,13 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
         <legend className="mb-2 text-sm font-medium text-ink">Confirm the values on your receipt</legend>
         <div className="flex flex-col gap-2">
           <Label className={fieldLabelClass} htmlFor={`proof-amount-${orderId}`}>Amount paid (₱)</Label>
-          <Input className={fieldClass} id={`proof-amount-${orderId}`} name="confirmedAmount" type="number" min="0" max="21474836.47" step="0.01" />
+          <Input className={fieldClass} id={`proof-amount-${orderId}`} name="confirmedAmount" onChange={type("amount")} type="number" min="0" max="21474836.47" step="0.01" value={values.amount} />
+          {note("amount", checks.amount)}
         </div>
         <div className="flex flex-col gap-2">
           <Label className={fieldLabelClass} htmlFor={`proof-date-${orderId}`}>Payment date and time (Philippine time)</Label>
-          <Input className={fieldClass} id={`proof-date-${orderId}`} name="confirmedPaidAt" type="datetime-local" />
+          <Input className={fieldClass} id={`proof-date-${orderId}`} name="confirmedPaidAt" onChange={type("paidAt")} type="datetime-local" value={values.paidAt} />
+          {note("paidAt", checks.date)}
         </div>
         <div className="flex flex-col gap-2">
           <Label className={fieldLabelClass} htmlFor={`proof-recipient-${orderId}`}>Recipient account number</Label>
@@ -75,9 +134,12 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
             inputMode={method === "bank-transfer" ? "text" : "numeric"}
             maxLength={method === "bank-transfer" ? 30 : 20}
             name="gcashReferenceNumber"
+            onChange={type("reference")}
+            value={values.reference}
             placeholder="e.g. 1234 567 890123"
             required
           />
+          {note("reference")}
           {referenceError ? (
             <p className="text-sm text-red-700" id={`gcash-reference-${orderId}-error`} role="alert">{referenceError}</p>
           ) : null}
@@ -93,7 +155,7 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
             className="sr-only"
             id={`gcash-screenshot-${orderId}`}
             name="screenshot"
-            onChange={(event) => setFileName(event.target.files?.[0]?.name)}
+            onChange={(event) => void readFile(event.target.files?.[0])}
             type="file"
           />
         </label>
@@ -101,6 +163,9 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
           {pending ? "Submitting…" : rejection ? "Send new proof" : "Submit payment"}
         </Button>
       </div>
+      {reading ? <p className="text-sm text-body" role="status">Reading your screenshot in this browser…</p> : null}
+      {readNote ? <p className="text-sm text-body" role="status">{readNote}</p> : null}
+      {read.size > 0 ? <p className="text-xs text-body">Wrong number? Just type over it. Our team still checks the payment before marking your order paid. Your screenshot was read in this browser and not sent anywhere to be read.</p> : null}
       {deadline ? <p className="text-xs tracking-[0.35px] text-ink">Send it by {deadline}, or the order will be cancelled.</p> : null}
       {state.message ? <p className="text-sm font-medium text-primary" role="alert">{state.message}</p> : null}
     </form>
