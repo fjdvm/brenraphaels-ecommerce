@@ -172,7 +172,7 @@ export function createTicketStore<
         createdAt: ticketMessages.createdAt,
       })
       .from(ticketMessages)
-      .where(eq(ticketMessages.ticketId, ticketId))
+      .where(and(eq(ticketMessages.ticketId, ticketId), eq(ticketMessages.internal, false)))
       .orderBy(asc(ticketMessages.id));
     return messages.map((message) => ({ ...message, sender: message.sender as TicketMessage["sender"] }));
   }
@@ -322,7 +322,7 @@ export function createTicketStore<
       .select({ fileId: ticketMessages.fileId, pathname: ticketMessages.attachmentPathname })
       .from(ticketMessages)
       .innerJoin(tickets, eq(tickets.id, ticketMessages.ticketId))
-      .where(and(eq(ticketMessages.id, messageId), eq(tickets.customerId, customerId)));
+      .where(and(eq(ticketMessages.id, messageId), eq(ticketMessages.internal, false), eq(tickets.customerId, customerId)));
     if (row?.fileId) return { fileId: row.fileId };
     return row?.pathname ? { pathname: row.pathname } : undefined;
   }

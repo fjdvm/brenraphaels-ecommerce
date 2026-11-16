@@ -16,3 +16,7 @@ GRANT SELECT, UPDATE ON TABLE tickets TO creoms_tickets;
 GRANT SELECT, INSERT ON TABLE ticket_messages TO creoms_tickets;
 -- ticket_messages uses an identity column, so inserting needs its sequence.
 GRANT USAGE, SELECT ON SEQUENCE ticket_messages_id_seq TO creoms_tickets;
+
+-- Internal notes (fjdvm/epic-crms#386) are rows in ticket_messages with internal = true. The grants above already cover
+-- them (table-level INSERT, so the new internal and author_name columns need nothing more). Re-running is harmless:
+GRANT SELECT, INSERT ON TABLE ticket_messages TO creoms_tickets;
