@@ -93,7 +93,8 @@ describe("the panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await screen.findByText("You've reached today's limit.");
     expect(screen.getByRole("group", { name: "Order #7" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Talk to a teammate" }).getAttribute("href")).toBe("/support/new?order=7");
+    // The button starts the Handoff step, which shows a summary before anything is sent.
+    expect(screen.getByRole("button", { name: "Talk to a teammate" })).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -102,7 +103,7 @@ describe("the panel", () => {
     const input = await openPanel();
     fireEvent.change(input, { target: { value: "hello order" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    await waitFor(() => expect(screen.getByRole("link", { name: "Talk to a teammate" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Talk to a teammate" })).toBeTruthy());
     expect(screen.queryByText("sending...")).toBeNull();
   });
 

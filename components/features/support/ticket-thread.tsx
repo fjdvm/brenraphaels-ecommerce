@@ -12,12 +12,14 @@ import {
   useState,
 } from "react";
 
+import { AssistantSummaryCard } from "./assistant-summary-card";
 import { connectLive } from "./live-socket";
 import { sendMessage } from "@/app/(site)/(protected)/support/actions";
 import {
   formatClock,
   formatDayAndClock,
 } from "@/lib/notifications/relative-time";
+import type { TicketAssistantSummary } from "@/lib/assistant-handoff/ticket-summary";
 import type { TicketMessage } from "@/lib/support/tickets";
 import type { ConnectLive, LiveConnection } from "@/lib/support/live";
 import { validateTicketAttachment } from "@/lib/support/ticket-attachment";
@@ -47,12 +49,15 @@ export function TicketThread({
   createdAt,
   completed = false,
   messages: savedMessages,
+  assistantSummary,
   connect = connectLive,
 }: {
   ticketId: number;
   createdAt: Date;
   completed?: boolean;
   messages: TicketMessage[];
+  /** Set when the Ticket was opened from the Order assistant. */
+  assistantSummary?: TicketAssistantSummary;
   connect?: ConnectLive;
 }) {
   const router = useRouter();
@@ -244,6 +249,11 @@ export function TicketThread({
               Ticket opened · {formatDayAndClock(createdAt)}
             </p>
           </li>
+          {assistantSummary ? (
+            <li className="flex">
+              <AssistantSummaryCard summary={assistantSummary} />
+            </li>
+          ) : null}
           {optimisticMessages.map((threadMessage) => {
             const mine = threadMessage.sender === "customer";
             return (

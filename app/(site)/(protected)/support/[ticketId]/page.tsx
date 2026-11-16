@@ -10,6 +10,7 @@ import { TicketThread } from "@/components/features/support/ticket-thread";
 import { Button } from "@/components/ui/button";
 import { reportTicketNotFixed } from "@/app/(site)/(protected)/support/actions";
 import { formatPeso } from "@/lib/catalog/currency";
+import { ticketAssistantSummary } from "@/lib/assistant-handoff/ticket-summary";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { orderTotalInCentavos } from "@/lib/orders/order-view";
@@ -35,6 +36,8 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
   const relatedOrder = ticket.orderId === null
     ? undefined
     : (await createOrderStore(database).listForCustomer(customer.userId)).find((order) => order.id === ticket.orderId);
+
+  const assistantSummary = await ticketAssistantSummary(database, customer.userId, ticket.id);
 
   async function notFixed() {
     "use server";
@@ -95,7 +98,7 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
           </div>
         </div>
       ) : null}
-      <TicketThread completed={status === "completed"} createdAt={ticket.createdAt} messages={ticket.messages} ticketId={ticket.id} />
+      <TicketThread assistantSummary={assistantSummary} completed={status === "completed"} createdAt={ticket.createdAt} messages={ticket.messages} ticketId={ticket.id} />
     </div>
   );
 }
