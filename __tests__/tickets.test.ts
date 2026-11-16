@@ -441,3 +441,63 @@ describe("Daily auto-complete of Resolved Tickets", () => {
     expect(mailer.send).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("On hold Tickets", () => {
+  const now = new Date("2026-10-20T12:00:00Z");
+  const hour = 60 * 60 * 1000;
+
+  async function held(store: ReturnType<typeof createTicketStore>, until: Date) {
+    const ticket = await store.open("customer-1", { subject: "Where is my cake?", category: "Delivery Issue", body: "Late." });
+    await drizzle(client)
+      .update(tickets)
+      .set({ status: "on_hold", holdReason: "courier", holdNote: "Lalamove is down", holdUntil: until })
+      .where(eq(tickets.id, ticket.id));
+    return ticket;
+  }
+
+  test("a Customer Message returns an On hold Ticket to Open at once and clears the hold", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await held(store, new Date(now.getTime() + 5 * hour));
+
+    await expect(store.addMessage(ticket.id, "customer-1", { body: "Any news?" })).resolves.toMatchObject({ status: "open" });
+
+    const [row] = await drizzle(client).select().from(tickets).where(eq(tickets.id, ticket.id));
+    expect(row).toMatchObject({ status: "open", holdReason: null, holdNote: null, holdUntil: null });
+  });
+
+  test("the scheduled job returns only due holds to Open", async () => {
+    const store = createTicketStore(drizzle(client));
+    const due = await held(store, new Date(now.getTime() - hour));
+    const later = await held(store, new Date(now.getTime() + hour));
+
+    await expect(store.returnDueHolds(now)).resolves.toBe(1);
+    await expect(store.returnDueHolds(now)).resolves.toBe(0);
+
+    await expect(store.get(due.id, "customer-1")).resolves.toMatchObject({ status: "open" });
+    await expect(store.get(later.id, "customer-1")).resolves.toMatchObject({ status: "on_hold" });
+  });
+
+  test("the auto-complete job ignores On hold Tickets", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await held(store, new Date(now.getTime() + hour));
+    await drizzle(client).update(tickets).set({ resolvedAt: new Date(now.getTime() - 10 * 24 * hour) }).where(eq(tickets.id, ticket.id));
+
+    await expect(autoCompleteResolvedTicketsAndNotify(now, { ticketStore: store, mailer: { send: vi.fn() } })).resolves.toBe(0);
+    await expect(store.get(ticket.id, "customer-1")).resolves.toMatchObject({ status: "on_hold" });
+  });
+
+  test("never gives the Customer the reason, note or date", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await held(store, new Date(now.getTime() + hour));
+
+    const seen = JSON.stringify(await store.get(ticket.id, "customer-1"));
+    expect(seen).not.toMatch(/courier|Lalamove|holdReason|holdNote|holdUntil/);
+  });
+
+  test("the Customer can still complete an On hold Ticket", async () => {
+    const store = createTicketStore(drizzle(client));
+    const ticket = await held(store, new Date(now.getTime() + hour));
+
+    await expect(store.complete(ticket.id, "customer-1")).resolves.toMatchObject({ status: "completed" });
+  });
+});

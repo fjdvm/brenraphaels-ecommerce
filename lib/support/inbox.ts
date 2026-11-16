@@ -19,11 +19,16 @@ export function ticketPreview(ticket: InboxTicket): { text: string; at: Date } {
   return { text: `${who}: ${last.body.replace(/\s+/g, " ").trim()}`, at: last.createdAt };
 }
 
+/** Open and On hold Tickets are still being worked on; the Customer sees both as open ("We're on it"). */
+export function isActive(status: string) {
+  return status === "open" || status === "on_hold";
+}
+
 /** A closed Ticket counts as resolved. */
 export function filterTickets(tickets: InboxTicket[], tab: TicketTab, query: string) {
   const needle = query.trim().toLowerCase();
   return tickets.filter((ticket) => {
-    if ((ticket.status === "open") !== (tab === "open")) return false;
+    if (isActive(ticket.status) !== (tab === "open")) return false;
     if (!needle) return true;
     const haystack = [ticket.subject, ticket.category, ticket.orderId === null ? "" : `order #${ticket.orderId}`]
       .join(" ")

@@ -45,8 +45,10 @@ async function TicketDetail({ params }: { params: PageProps<"/support/[ticketId]
     await reportTicketNotFixed(currentTicketId);
   }
 
+  // On hold is the shop's own business: the Customer sees "We're on it", never the reason or the date.
+  const onHold = ticket.status === "on_hold";
   const status = ticket.status === "completed" ? "completed" : ticket.status === "resolved" ? "resolved" : "open";
-  const statusLabel = { open: "Open", resolved: "Resolved", completed: "Completed" }[status];
+  const statusLabel = onHold ? "We're on it" : { open: "Open", resolved: "Resolved", completed: "Completed" }[status];
 
   return (
     <div className="flex h-full min-h-[600px] flex-col">

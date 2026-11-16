@@ -83,7 +83,9 @@ describe("Ticket schema", () => {
       INSERT INTO ticket_messages (ticket_id, sender, body) VALUES (1, 'customer', 'one'), (2, 'customer', 'two');
     `);
 
-    for (const statement of migrationSql.split("--> statement-breakpoint")) {
+    // The On hold migration adds its columns to the same table; the drizzle select below reads them.
+    const onHoldSql = readFileSync("drizzle/0037_ticket_on_hold.sql", "utf8");
+    for (const statement of [...migrationSql.split("--> statement-breakpoint"), ...onHoldSql.split("--> statement-breakpoint")]) {
       if (statement.trim()) await client.exec(statement);
     }
 

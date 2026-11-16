@@ -33,6 +33,14 @@ describe("ticketPreview", () => {
   });
 });
 
+describe("On hold in the inbox", () => {
+  test("an On hold Ticket is listed as open, never as resolved", () => {
+    const held = [ticket({ id: 9, status: "on_hold" })];
+    expect(filterTickets(held, "open", "").map((t) => t.id)).toEqual([9]);
+    expect(filterTickets(held, "resolved", "")).toEqual([]);
+  });
+});
+
 describe("filterTickets", () => {
   const tickets = [
     ticket({ id: 1, subject: "Payment not reflecting" }),

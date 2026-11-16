@@ -1,0 +1,31 @@
+name: Return held Tickets to Open
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: return-held-tickets
+  cancel-in-progress: false
+
+jobs:
+  return-held:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Return held Tickets to Open
+        env:
+          STOREFRONT_URL: ${{ vars.STOREFRONT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$STOREFRONT_URL" ]; then echo "::error::STOREFRONT_URL repository variable is not set"; exit 1; fi
+          if [ -z "$CRON_SECRET" ]; then echo "::error::CRON_SECRET repository secret is not set"; exit 1; fi
+          curl --fail-with-body --silent --show-error \
+            --connect-timeout 10 --max-time 300 \
+            --retry 2 --retry-delay 10 --retry-all-errors \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "${STOREFRONT_URL%/}/api/cron/return-held-tickets"
