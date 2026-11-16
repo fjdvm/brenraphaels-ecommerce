@@ -47,7 +47,7 @@ export function OrderPlacedView({ order, details, firstName }: { order: Order; d
                 ))}
               </ol>
               {needsPayment(order) ? (
-                <PaymentProofForm amountInCentavos={total} deadline={formatPlacedAt(paymentDeadline(order))} method={order.paymentMethod} orderId={order.id} />
+                <PaymentProofForm amountInCentavos={total} deadline={formatPlacedAt(paymentDeadline(order))} method={order.paymentMethod} orderId={order.id} placedAt={order.createdAt} />
               ) : (
                 <p className="text-sm text-body">
                   {order.status === "awaiting payment" ? "Your reference number was sent. We'll email you once it's verified." : "We'll confirm your Order first. Then you can submit your reference number here or in My orders."}
