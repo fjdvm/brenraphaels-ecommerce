@@ -51,7 +51,15 @@ export async function POST(
     const update = parseInternalOrderStatusUpdate(await request.json());
     if (update.status === "delivered") await verifyDeliveryPhoto(update.deliveryPhotoFileId);
     const orderStore = createOrderStore(getDatabase());
-    const order = await orderStore.advance(orderId, update);
+    let replayed = false;
+    let order: Order;
+    if (update.status === "confirmed") {
+      const { status: _status, ...amounts } = update;
+      void _status;
+      ({ order, replayed } = await orderStore.confirm(orderId, amounts));
+    } else {
+      order = await orderStore.advance(orderId, update);
+    }
     scheduleOrdersChanged();
     // Confirm the committed change before email or gateway latency can exhaust CREOMS's timeout.
     after(async () => {
@@ -66,6 +74,7 @@ export async function POST(
       }
       if (
         update.status === "confirmed"
+        && !replayed
         && order.fulfillmentMethod === "delivery"
         && order.deliveryFeeInCentavos !== null
       ) {

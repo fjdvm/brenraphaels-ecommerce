@@ -245,7 +245,7 @@ export function CheckoutView({
           <Button asChild variant="link" size="link-sm" className="self-start">
             <Link href="/cart">Edit cart</Link>
           </Button>
-          <p className="text-xs tracking-wide text-muted">You can cancel your order anytime until it&apos;s dispatched.</p>
+          <p className="text-xs tracking-wide text-muted">You can cancel your order until the shop confirms it.</p>
         </aside>
       </div>
       <Dialog open={confirming} onOpenChange={(open) => { if (!isPending) setConfirming(open); }}>

@@ -330,6 +330,13 @@
       "when": 1796400000000,
       "tag": "0046_no_automatic_free_delivery",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1796486400000,
+      "tag": "0047_order_confirmation_amounts",
+      "breakpoints": true
     }
   ]
 }

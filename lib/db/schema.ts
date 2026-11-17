@@ -197,6 +197,10 @@ export const orders = pgTable("orders", {
   // Pickup Orders never have a Delivery fee; delivery fees are added by CREOMS.
   deliveryFeeInCentavos: integer("delivery_fee_in_centavos"),
   deliveryFeeQuoteRequired: boolean("delivery_fee_quote_required").default(false).notNull(),
+  /** The final amounts Staff confirmed, saved once at confirmation and never recalculated. Empty on Orders not yet confirmed by Staff. */
+  approvedDiscountInCentavos: integer("approved_discount_in_centavos"),
+  totalInCentavos: integer("total_in_centavos"),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
   // GCash Payment proof: a reference number and optional screenshot the Customer
   // submits once the Order is confirmed. This app stores it but never verifies
   // it or marks the Order paid itself — that happens via the internal API.

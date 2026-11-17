@@ -7,7 +7,7 @@ import { gatewayProductImages, productThumbnail, type ProductImageFiles, type Pr
 import { and, asc, desc, eq, inArray, isNull, isNotNull, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { orderCancellations, failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, productImages, products, stockOutbox } from "../db/schema";
+import { seniorPwdVerifications, orderCancellations, failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, productImages, products, stockOutbox } from "../db/schema";
 import { courierBooking, type CourierBooking } from "../validators/courier";
 import { referenceProblem } from "./payment-proof";
 import { fileIdField } from "../validators/file-id";
@@ -84,6 +84,10 @@ export type Order = {
   subtotalInCentavos: number;
   // Pickup Orders never have one; Delivery Orders get theirs once staff quote it.
   deliveryFeeInCentavos: number | null;
+  /** The final amounts Staff confirmed; empty until then, and never recalculated afterwards. */
+  approvedDiscountInCentavos?: number | null;
+  totalInCentavos?: number | null;
+  confirmedAt?: Date | null;
   packedBy?: { id: string; name: string; at: Date } | null;
   paidById: string | null;
   paidByName: string | null;
@@ -129,8 +133,19 @@ export type SubmitPaymentProofInput = {
 /** Where an Order's payment-proof screenshot lives: file-storage, or legacy Vercel Blob. */
 export type StoredPaymentScreenshot = { fileId: string } | { pathname: string };
 
+/** What Staff saw when they pressed Confirm Order: the storefront checks each figure against its own. */
+export type OrderConfirmation = {
+  subtotalInCentavos: number;
+  approvedDiscountInCentavos: number;
+  /** Null for a Pickup Order; ₱0 is a valid entered fee for Delivery. */
+  deliveryFeeInCentavos: number | null;
+  totalInCentavos: number;
+};
+
 export type AdvanceOrderInput = {
   status: OrderStatus;
+  /** Verified and saved with the move to confirmed. */
+  confirmation?: OrderConfirmation;
   deliveryFeeInCentavos?: number;
   deliveryPhotoFileId?: string;
   courier?: CourierBooking;
@@ -151,6 +166,8 @@ export type OrderStore = {
     input: AdvanceOrderInput,
   ): Promise<Order>;
   cancel(customerId: string, orderId: number): Promise<Order>;
+  /** Confirms with the final amounts; repeating the same call changes nothing and reports `replayed`. */
+  confirm(orderId: number, confirmation: OrderConfirmation): Promise<{ order: Order; replayed: boolean }>;
   cancelItems(orderId: number, lineIds: number[], staff: { staffId: string; staffName: string }, expectedStatus: string): Promise<Order>;
   customerEmailForOrder(orderId: number): Promise<string | undefined>;
   customerIdForOrder(orderId: number): Promise<string | undefined>;
@@ -267,6 +284,9 @@ export function createOrderStore<
       status: row.status as OrderStatus,
       subtotalInCentavos: row.subtotalInCentavos,
       deliveryFeeInCentavos: row.deliveryFeeInCentavos,
+      approvedDiscountInCentavos: row.approvedDiscountInCentavos,
+      totalInCentavos: row.totalInCentavos,
+      confirmedAt: row.confirmedAt,
       packedBy: row.packedById && row.packedByName && row.packedAt ? { id: row.packedById, name: row.packedByName, at: row.packedAt } : null,
       paidById: row.paidById,
       paidByName: row.paidByName,
@@ -385,6 +405,11 @@ export function createOrderStore<
     if (!requote && !permittedNextStatuses[currentStatus].includes(input.status)) {
       throw new OrderTransitionError(input.status, currentStatus);
     }
+    if (input.confirmation) {
+      if (input.status !== "confirmed") throw new OrderStatusUpdateError("Final amounts can only be saved when confirming an Order.");
+      const wrong = await confirmationProblem(persistedOrder, input.confirmation);
+      if (wrong) throw new OrderStatusUpdateError(wrong);
+    }
     const deliveryPhotoFileId = input.status === "delivered" ? fileIdField.parse(input.deliveryPhotoFileId) : undefined;
     if (
       input.deliveryFeeInCentavos !== undefined
@@ -442,6 +467,11 @@ export function createOrderStore<
           ...(input.deliveryFeeInCentavos === undefined
             ? {}
             : { deliveryFeeInCentavos: input.deliveryFeeInCentavos }),
+          ...(input.confirmation ? {
+            approvedDiscountInCentavos: input.confirmation.approvedDiscountInCentavos,
+            totalInCentavos: input.confirmation.totalInCentavos,
+            confirmedAt: persistedOrder.confirmedAt ?? new Date(),
+          } : {}),
         })
         // Keep a concurrent update from overwriting a status that was just advanced.
         .where(and(
@@ -489,6 +519,52 @@ export function createOrderStore<
 
     deferRelease(releaseId);
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
+  }
+
+  /** The discount Staff may approve: the Senior/PWD discount counts only while its ID is approved. */
+  async function expectedDiscount(row: typeof orders.$inferSelect): Promise<number> {
+    if (row.seniorPwdVerificationId === null) return 0;
+    const [verification] = await db.select({ status: seniorPwdVerifications.status }).from(seniorPwdVerifications)
+      .where(eq(seniorPwdVerifications.id, row.seniorPwdVerificationId));
+    return verification?.status === "approved" ? row.seniorPwdDiscountInCentavos ?? 0 : 0;
+  }
+
+  /** Why these amounts cannot be saved, or undefined when each matches the storefront's own figures. */
+  async function confirmationProblem(row: typeof orders.$inferSelect, c: OrderConfirmation): Promise<string | undefined> {
+    const fee = c.deliveryFeeInCentavos;
+    if (row.fulfillmentMethod === "pickup" && fee !== null) return "A Pickup Order has no Delivery fee.";
+    if (row.fulfillmentMethod === "delivery" && fee === null) return "A confirmed Delivery Order must include its Delivery fee.";
+    if (c.subtotalInCentavos !== row.subtotalInCentavos) return "The subtotal does not match this Order's subtotal. Refresh the Order before confirming.";
+    if (c.approvedDiscountInCentavos !== await expectedDiscount(row)) return "The approved discount does not match this Order's discount. Refresh the Order before confirming.";
+    if (c.totalInCentavos !== c.subtotalInCentavos - c.approvedDiscountInCentavos + (fee ?? 0)) {
+      return "The total does not match subtotal minus approved discount plus Delivery fee. Refresh the Order before confirming.";
+    }
+    return undefined;
+  }
+
+  async function confirm(orderId: number, c: OrderConfirmation): Promise<{ order: Order; replayed: boolean }> {
+    const replay = async () => {
+      const [row] = await db.select().from(orders).where(eq(orders.id, orderId));
+      if (!row) throw new OrderStatusUpdateError("Order was not found.");
+      if (!row.confirmedAt || row.deliveryFeeQuoteRequired) return null;
+      const same = row.subtotalInCentavos === c.subtotalInCentavos && (row.approvedDiscountInCentavos ?? 0) === c.approvedDiscountInCentavos
+        && row.deliveryFeeInCentavos === c.deliveryFeeInCentavos && row.totalInCentavos === c.totalInCentavos;
+      if (!same) throw new OrderStatusUpdateError("This Order was already confirmed with different amounts. Refresh the Order.");
+      return { order: await toOrder(row, await linesForOrder(row.id)), replayed: true };
+    };
+    const already = await replay();
+    if (already) return already;
+    try {
+      const order = await advance(orderId, {
+        status: "confirmed", confirmation: c,
+        ...(c.deliveryFeeInCentavos === null ? {} : { deliveryFeeInCentavos: c.deliveryFeeInCentavos }),
+      });
+      return { order, replayed: false };
+    } catch (error) {
+      // A concurrent identical confirm that won the race is the same request repeated.
+      if (error instanceof OrderStatusUpdateError) { const raced = await replay().catch(() => null); if (raced) return raced; }
+      throw error;
+    }
   }
 
   /** Cancel whole line items atomically; the Delivery fee stays as quoted. */
@@ -541,10 +617,12 @@ export function createOrderStore<
   /** Cancels an Order only when it belongs to the Customer and the state machine permits it. */
   async function cancel(customerId: string, orderId: number): Promise<Order> {
     const [persistedOrder] = await db
-      .select({ id: orders.id })
+      .select({ id: orders.id, status: orders.status, confirmedAt: orders.confirmedAt })
       .from(orders)
       .where(and(eq(orders.id, orderId), eq(orders.customerId, customerId)));
     if (!persistedOrder) throw new Error("Order was not found.");
+    // Once Staff confirm, the Customer can no longer cancel; Staff cancel up to preparing and a Manager after dispatch.
+    if (persistedOrder.confirmedAt) throw new OrderTransitionError("cancelled", persistedOrder.status as OrderStatus);
 
     return advance(persistedOrder.id, { status: "cancelled" });
   }
@@ -806,5 +884,5 @@ export function createOrderStore<
     }
   }
 
-  return { place, listForCustomer, advance, cancel, cancelItems, customerEmailForOrder, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, rejectPaymentProof };
+  return { place, listForCustomer, advance, confirm, cancel, cancelItems, customerEmailForOrder, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, rejectPaymentProof };
 }
