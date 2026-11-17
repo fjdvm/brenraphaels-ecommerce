@@ -201,6 +201,10 @@ export const orders = pgTable("orders", {
   approvedDiscountInCentavos: integer("approved_discount_in_centavos"),
   totalInCentavos: integer("total_in_centavos"),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  /** How much of the ID's ₱125 weekly cap other Orders had used when this one was confirmed, in centavos. */
+  seniorPwdAllowanceUsedInCentavos: integer("senior_pwd_allowance_used_in_centavos"),
+  /** Why the Senior/PWD discount was reduced at confirmation; null when it was not. */
+  seniorPwdReductionReason: text("senior_pwd_reduction_reason"),
   // GCash Payment proof: a reference number and optional screenshot the Customer
   // submits once the Order is confirmed. This app stores it but never verifies
   // it or marks the Order paid itself — that happens via the internal API.

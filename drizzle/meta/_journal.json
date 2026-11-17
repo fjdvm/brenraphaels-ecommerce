@@ -337,6 +337,13 @@
       "when": 1796486400000,
       "tag": "0047_order_confirmation_amounts",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1796572800000,
+      "tag": "0048_senior_pwd_weekly_cap",
+      "breakpoints": true
     }
   ]
 }

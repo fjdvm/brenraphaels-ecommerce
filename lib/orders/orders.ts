@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { createStockReservations } from "./stock-reservations";
 import { gatewayShopStock, type ShopStock } from "./stock";
 import { gatewayProductImages, productThumbnail, type ProductImageFiles, type ProductImageReference } from "../catalog/product-images";
-import { and, asc, desc, eq, inArray, isNull, isNotNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, isNotNull, lt, ne, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { seniorPwdVerifications, orderCancellations, failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, productImages, products, stockOutbox } from "../db/schema";
@@ -13,7 +13,7 @@ import { referenceProblem } from "./payment-proof";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
 import { createCartStore } from "./cart";
-import { seniorPwdDiscount, type IdType } from "../senior-pwd/id-number";
+import { capSeniorPwdDiscount, philippineWeek, seniorPwdDiscount, type IdType } from "../senior-pwd/id-number";
 import { activeVerification, submitVerification } from "../senior-pwd/store";
 import type { AuditEvent } from "../audit/gateway";
 
@@ -88,6 +88,11 @@ export type Order = {
   approvedDiscountInCentavos?: number | null;
   totalInCentavos?: number | null;
   confirmedAt?: Date | null;
+  /**
+   * The Senior/PWD discount's weekly-cap figures, never the ID number: saved at confirmation, a live preview before.
+   * Null when the Order has no discount.
+   */
+  seniorPwd?: { discountInCentavos: number; allowanceUsedInCentavos: number; reductionReason: string | null } | null;
   packedBy?: { id: string; name: string; at: Date } | null;
   paidById: string | null;
   paidByName: string | null;
@@ -287,6 +292,7 @@ export function createOrderStore<
       approvedDiscountInCentavos: row.approvedDiscountInCentavos,
       totalInCentavos: row.totalInCentavos,
       confirmedAt: row.confirmedAt,
+      seniorPwd: await seniorPwdFigures(row),
       packedBy: row.packedById && row.packedByName && row.packedAt ? { id: row.packedById, name: row.packedByName, at: row.packedAt } : null,
       paidById: row.paidById,
       paidByName: row.paidByName,
@@ -407,8 +413,9 @@ export function createOrderStore<
     }
     if (input.confirmation) {
       if (input.status !== "confirmed") throw new OrderStatusUpdateError("Final amounts can only be saved when confirming an Order.");
-      const wrong = await confirmationProblem(persistedOrder, input.confirmation);
-      if (wrong) throw new OrderStatusUpdateError(wrong);
+      // The quick checks come first; the discount is checked again under the ID's lock inside the transaction.
+      const early = confirmationProblem(persistedOrder, input.confirmation);
+      if (early) throw new OrderStatusUpdateError(early);
     }
     const deliveryPhotoFileId = input.status === "delivered" ? fileIdField.parse(input.deliveryPhotoFileId) : undefined;
     if (
@@ -448,6 +455,14 @@ export function createOrderStore<
     const updatedOrder = await db.transaction(async (transaction) => {
       // Serialize delivery with failed-attempt decisions and refuse disposed goods.
       await transaction.select({ id: orders.id }).from(orders).where(eq(orders.id, orderId)).for("update");
+      // The weekly cap is checked under a lock on the ID, so two Orders from one ID cannot both pass it.
+      let quote: SeniorPwdQuote | undefined;
+      if (input.confirmation) {
+        await lockSeniorPwdId(transaction, persistedOrder);
+        quote = await seniorPwdQuote(transaction, persistedOrder, new Date());
+        const wrong = confirmationProblem(persistedOrder, input.confirmation, quote.discountInCentavos);
+        if (wrong) throw new OrderStatusUpdateError(wrong);
+      }
       const [cancellation] = await transaction.select().from(orderCancellations).where(eq(orderCancellations.orderId, orderId));
       if (cancellation?.status === "settling") throw new OrderStatusUpdateError("Cancellation settlement has started. Refresh the Order.");
       if (input.status === "delivered") {
@@ -470,6 +485,8 @@ export function createOrderStore<
           ...(input.confirmation ? {
             approvedDiscountInCentavos: input.confirmation.approvedDiscountInCentavos,
             totalInCentavos: input.confirmation.totalInCentavos,
+            ...(quote && persistedOrder.seniorPwdVerificationId !== null
+              ? { seniorPwdAllowanceUsedInCentavos: quote.allowanceUsedInCentavos, seniorPwdReductionReason: quote.reason } : {}),
             confirmedAt: persistedOrder.confirmedAt ?? new Date(),
           } : {}),
         })
@@ -521,21 +538,57 @@ export function createOrderStore<
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
   }
 
-  /** The discount Staff may approve: the Senior/PWD discount counts only while its ID is approved. */
-  async function expectedDiscount(row: typeof orders.$inferSelect): Promise<number> {
-    if (row.seniorPwdVerificationId === null) return 0;
-    const [verification] = await db.select({ status: seniorPwdVerifications.status }).from(seniorPwdVerifications)
+  type SeniorPwdQuote = { discountInCentavos: number; allowanceUsedInCentavos: number; reason: string | null };
+  type Handle = Pick<typeof db, "select" | "execute">;
+
+  /** The ID's hash, which ties together every verification and Order that used the same ID. */
+  async function idHashOf(handle: Handle, row: typeof orders.$inferSelect): Promise<string | null> {
+    if (row.seniorPwdVerificationId === null) return null;
+    const [verification] = await handle.select({ idHash: seniorPwdVerifications.idHash }).from(seniorPwdVerifications)
       .where(eq(seniorPwdVerifications.id, row.seniorPwdVerificationId));
-    return verification?.status === "approved" ? row.seniorPwdDiscountInCentavos ?? 0 : 0;
+    return verification?.idHash ?? null;
+  }
+
+  async function lockSeniorPwdId(handle: Handle, row: typeof orders.$inferSelect) {
+    const idHash = await idHashOf(handle, row);
+    if (idHash) await handle.execute(sql`select pg_advisory_xact_lock(hashtext(${idHash}))`);
+  }
+
+  /**
+   * The discount Staff may approve now: 5% of one item, counted only while the ID is approved, and held to what the ID has
+   * left of its ₱125 for the Monday-to-Sunday week (Philippine Time) of `at`. Cancelled Orders count for nothing, so they
+   * give their allowance back. The Order itself never counts against itself.
+   */
+  async function seniorPwdQuote(handle: Handle, row: typeof orders.$inferSelect, at: Date): Promise<SeniorPwdQuote> {
+    if (row.seniorPwdVerificationId === null) return { discountInCentavos: 0, allowanceUsedInCentavos: 0, reason: null };
+    const [verification] = await handle.select({ status: seniorPwdVerifications.status, idHash: seniorPwdVerifications.idHash })
+      .from(seniorPwdVerifications).where(eq(seniorPwdVerifications.id, row.seniorPwdVerificationId));
+    if (verification?.status !== "approved") return { discountInCentavos: 0, allowanceUsedInCentavos: 0, reason: null };
+    const { start, end } = philippineWeek(at);
+    const [used] = await handle.select({ total: sql<number>`coalesce(sum(${orders.approvedDiscountInCentavos}), 0)::int` })
+      .from(orders).innerJoin(seniorPwdVerifications, eq(orders.seniorPwdVerificationId, seniorPwdVerifications.id))
+      .where(and(eq(seniorPwdVerifications.idHash, verification.idHash), ne(orders.id, row.id), ne(orders.status, "cancelled"),
+        isNotNull(orders.confirmedAt), gte(orders.confirmedAt, start), lt(orders.confirmedAt, end)));
+    return capSeniorPwdDiscount(row.seniorPwdDiscountInCentavos ?? 0, used?.total ?? 0);
+  }
+
+  /** What CREOMS reads: the saved figures once confirmed, the live preview before. Never the ID number. */
+  async function seniorPwdFigures(row: typeof orders.$inferSelect): Promise<Order["seniorPwd"]> {
+    if (row.seniorPwdVerificationId === null) return null;
+    if (row.confirmedAt && row.approvedDiscountInCentavos !== null) {
+      return { discountInCentavos: row.approvedDiscountInCentavos, allowanceUsedInCentavos: row.seniorPwdAllowanceUsedInCentavos ?? 0, reductionReason: row.seniorPwdReductionReason };
+    }
+    const quote = await seniorPwdQuote(db, row, new Date());
+    return { discountInCentavos: quote.discountInCentavos, allowanceUsedInCentavos: quote.allowanceUsedInCentavos, reductionReason: quote.reason };
   }
 
   /** Why these amounts cannot be saved, or undefined when each matches the storefront's own figures. */
-  async function confirmationProblem(row: typeof orders.$inferSelect, c: OrderConfirmation): Promise<string | undefined> {
+  function confirmationProblem(row: typeof orders.$inferSelect, c: OrderConfirmation, expectedDiscount?: number): string | undefined {
     const fee = c.deliveryFeeInCentavos;
     if (row.fulfillmentMethod === "pickup" && fee !== null) return "A Pickup Order has no Delivery fee.";
     if (row.fulfillmentMethod === "delivery" && fee === null) return "A confirmed Delivery Order must include its Delivery fee.";
     if (c.subtotalInCentavos !== row.subtotalInCentavos) return "The subtotal does not match this Order's subtotal. Refresh the Order before confirming.";
-    if (c.approvedDiscountInCentavos !== await expectedDiscount(row)) return "The approved discount does not match this Order's discount. Refresh the Order before confirming.";
+    if (expectedDiscount !== undefined && c.approvedDiscountInCentavos !== expectedDiscount) return "The approved discount does not match this Order's discount. Refresh the Order before confirming.";
     if (c.totalInCentavos !== c.subtotalInCentavos - c.approvedDiscountInCentavos + (fee ?? 0)) {
       return "The total does not match subtotal minus approved discount plus Delivery fee. Refresh the Order before confirming.";
     }
