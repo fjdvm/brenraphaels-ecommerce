@@ -10,12 +10,12 @@ import { gatewayReturnEvidence } from "./evidence-files";
 import { notifyReturnChange } from "./return-notices";
 import { ReturnRequestError } from "./return-input";
 import { ReturnTransitionError } from "./returns";
+import { isSameOrigin } from "@/lib/security/same-origin";
 
 export async function handleCustomerReturn(request: Request, idParam: string, action: "request" | "upload" | "cancel") {
   const visitor = await currentVisitor();
   if (visitor.state !== "customer") return Response.json({ error: "Sign in as a Customer to continue." }, { status: 401 });
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
+  if (!isSameOrigin(request)) return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
   const id = positiveIntegerField(action === "cancel" ? "Return ID" : "Order ID", { max: 2147483647 }).safeParse(idParam);
   if (!id.success) return Response.json({ error: "Enter a valid id." }, { status: 400 });
 

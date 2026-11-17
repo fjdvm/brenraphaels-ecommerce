@@ -7,12 +7,12 @@ import { getDatabase } from "@/lib/db";
 import { createOrderCancellations, CancellationError } from "@/lib/orders/cancellations";
 import { scheduleStaffSignal } from "@/lib/notifications/staff-signal";
 import { createStockReservations } from "@/lib/orders/stock-reservations";
+import { isSameOrigin } from "@/lib/security/same-origin";
 
 export async function POST(request: Request, context: RouteContext<"/api/orders/[id]/cancellation">) {
   const visitor = await currentVisitor();
   if (visitor.state !== "customer") return Response.json({ error: "Sign in as a Customer to continue." }, { status: 401 });
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
+  if (!isSameOrigin(request)) return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
   const id = Number((await context.params).id);
   if (!Number.isSafeInteger(id) || id < 1) return Response.json({ error: "Invalid Order number." }, { status: 400 });
   try {
