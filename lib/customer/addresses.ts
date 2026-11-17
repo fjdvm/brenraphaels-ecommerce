@@ -2,7 +2,9 @@ import { and, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
+import type { AuditEvent } from "../audit/gateway";
 import { addresses } from "../db/schema";
+import { changedFieldNames, recordProfileUpdated } from "./profile-audit";
 import { addressFields, addressLabels } from "./address-fields";
 
 export const customerAddressSchema = z.object({
@@ -32,7 +34,7 @@ export type AddressStore = {
     userId: string,
     addressId: number,
     input: z.output<typeof customerAddressSchema>,
-  ): Promise<boolean>;
+  ): Promise<string[] | null>;
   setDefault(userId: string, addressId: number): Promise<boolean>;
   delete(userId: string, addressId: number): Promise<"deleted" | "last-address" | "not-found">;
 };
@@ -52,12 +54,11 @@ export function createAddressStore<
       return address.id;
     },
     async update(userId, addressId, input) {
-      const updated = await db
-        .update(addresses)
-        .set(input)
-        .where(and(eq(addresses.id, addressId), eq(addresses.customerId, userId)))
-        .returning({ id: addresses.id });
-      return updated.length === 1;
+      const owned = and(eq(addresses.id, addressId), eq(addresses.customerId, userId));
+      const [before] = await db.select().from(addresses).where(owned);
+      if (!before) return null;
+      await db.update(addresses).set(input).where(owned);
+      return changedFieldNames<Record<string, unknown>>(before, input);
     },
     async setDefault(userId, addressId) {
       return db.transaction(async (transaction) => {
@@ -128,16 +129,21 @@ export async function addCustomerAddress(
 export async function updateCustomerAddress(
   addressId: number,
   input: CustomerAddressInput,
-  dependencies: { userId: string; addressStore: AddressStore },
+  dependencies: {
+    userId: string;
+    addressStore: AddressStore;
+    audit?: (event: AuditEvent) => Promise<void>;
+  },
 ) {
-  const updated = await dependencies.addressStore.update(
+  const changed = await dependencies.addressStore.update(
     dependencies.userId,
     addressId,
     customerAddressSchema.parse(input),
   );
-  if (!updated) {
+  if (!changed) {
     throw new CustomerAddressNotFoundError();
   }
+  await recordProfileUpdated(changed, dependencies);
 }
 
 export async function setCustomerDefaultAddress(

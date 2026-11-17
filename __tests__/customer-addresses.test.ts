@@ -1,6 +1,6 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   addCustomerAddress,
@@ -254,3 +254,19 @@ async function expectExactlyOneDefaultAddress(customerId: string) {
     ),
   ).toMatchObject({ rows: [{ count: 1 }] });
 }
+
+describe("Customer Address update audit", () => {
+  test("records the changed field names only", async () => {
+    const audit = vi.fn(async () => {});
+    const [{ id }] = (await client.query<{ id: number }>("select id from addresses where customer_id = 'customer-1'")).rows;
+    await updateCustomerAddress(
+      id,
+      { label: "Home", street: "9 Ninth Street", barangay: "Barangay One", city: "Quezon City", province: "Metro Manila", postalCode: "1101" },
+      { userId: "customer-1", addressStore: addressStore(), audit },
+    );
+    expect(audit).toHaveBeenCalledTimes(1);
+    const event = (audit.mock.calls[0] as unknown as [Record<string, string>])[0];
+    expect(event.description).toBe("Profile updated: street, postalCode");
+    expect(JSON.stringify(event)).not.toContain("Ninth");
+  });
+});

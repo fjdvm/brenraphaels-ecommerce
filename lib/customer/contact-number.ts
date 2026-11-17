@@ -3,6 +3,8 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 import { customers } from "../db/schema";
+import type { AuditEvent } from "../audit/gateway";
+import { recordProfileUpdated } from "./profile-audit";
 import { phoneField } from "../validators/fields";
 
 const philippineMobileNumber = /^(\+63|0)9\d{9}$/;
@@ -18,7 +20,8 @@ export const customerContactNumberSchema = z.object({
 export type CustomerContactNumber = z.input<typeof customerContactNumberSchema>;
 
 export type ContactNumberStore = {
-  update(userId: string, contactNumber: string): Promise<void>;
+  /** Saves the number and returns the names of the fields that changed. */
+  update(userId: string, contactNumber: string): Promise<string[]>;
 };
 
 export function createContactNumberStore<
@@ -27,10 +30,15 @@ export function createContactNumberStore<
 >(db: PgDatabase<TQueryResult, TSchema>): ContactNumberStore {
   return {
     async update(userId, contactNumber) {
+      const [before] = await db
+        .select({ contactNumber: customers.contactNumber })
+        .from(customers)
+        .where(eq(customers.id, userId));
       await db
         .update(customers)
         .set({ contactNumber })
         .where(eq(customers.id, userId));
+      return before?.contactNumber === contactNumber ? [] : ["contactNumber"];
     },
   };
 }
@@ -38,8 +46,13 @@ export function createContactNumberStore<
 /** Changes the Contact number belonging to the authenticated Customer only. */
 export async function updateCustomerContactNumber(
   input: CustomerContactNumber,
-  dependencies: { userId: string; contactNumberStore: ContactNumberStore },
+  dependencies: {
+    userId: string;
+    contactNumberStore: ContactNumberStore;
+    audit?: (event: AuditEvent) => Promise<void>;
+  },
 ) {
   const { contactNumber } = customerContactNumberSchema.parse(input);
-  await dependencies.contactNumberStore.update(dependencies.userId, contactNumber);
+  const changed = await dependencies.contactNumberStore.update(dependencies.userId, contactNumber);
+  await recordProfileUpdated(changed, dependencies);
 }

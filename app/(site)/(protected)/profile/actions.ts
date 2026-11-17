@@ -20,6 +20,7 @@ import {
   setCustomerDefaultAddress,
   updateCustomerAddress,
 } from "@/lib/customer/addresses";
+import { auditProfileEvent } from "@/lib/customer/profile-audit";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import {
@@ -61,6 +62,7 @@ export async function saveCustomerName(
   await updateCustomerName(parsed.data, {
     userId: customer.userId,
     customerNameStore: createCustomerNameStore(getDatabase()),
+    audit: auditProfileEvent,
   });
   revalidatePath("/profile", "layout");
   return { saved: true };
@@ -81,6 +83,7 @@ export async function saveContactNumber(
   await updateCustomerContactNumber(parsed.data, {
     userId: customer.userId,
     contactNumberStore: createContactNumberStore(getDatabase()),
+    audit: auditProfileEvent,
   });
   revalidatePath("/profile", "layout");
 
@@ -151,7 +154,11 @@ export async function updateAddress(
 
   const customer = await requireCustomer();
   try {
-    const dependencies = { userId: customer.userId, addressStore: createAddressStore(getDatabase()) };
+    const dependencies = {
+      userId: customer.userId,
+      addressStore: createAddressStore(getDatabase()),
+      audit: auditProfileEvent,
+    };
     await updateCustomerAddress(parsedId.data, parsed.data, dependencies);
     if (wantsDefault(formData)) await setCustomerDefaultAddress(parsedId.data, dependencies);
   } catch (error) {
