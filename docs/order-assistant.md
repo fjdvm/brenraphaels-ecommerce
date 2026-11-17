@@ -10,6 +10,8 @@ A signed-in Customer asks about their own Orders and the shop through `POST /api
   A failure returns the Order card and `ticketButton: true`.
 - **Model sees** the masked question, the last 6 turns and the status words, dates and courier link. No name, address, phone, email or amounts.
 - **Limits, fixed in `policy.ts`**: 30 messages per Customer per Manila day, 500 characters, 1,000 model calls a day across the assistant, chats kept 90 days.
+- **Small talk and scope**: a message that is none of the recognised kinds (greeting, thanks, follow-up, off-topic) is not handed off. It goes to the model with no records attached; the system prompt keeps it to orders, payments, delivery, pickup, returns, shop rules and products, and the fact check still blocks any order, date, amount or promise. Ticket #329.
+- **Models**: `ASSISTANT_GROQ_MODEL` (default `openai/gpt-oss-120b`) and `ASSISTANT_GEMINI_MODEL` (default `gemini-2.5-flash`).
 - **Keys**: `ASSISTANT_GROQ_API_KEY`, then `ASSISTANT_GEMINI_API_KEY`. Separate from the CREOMS Staff keys. With none set the assistant is unavailable and answers with the card.
 - **Stored**: `assistant_chats` and `assistant_messages` keep the Customer, the Order looked up and exactly what was sent. The daily
   job `/api/cron/assistant-chat-retention` (workflow `assistant-chat-retention.yml`) deletes chats past the retention unless `ticket_id` is set.

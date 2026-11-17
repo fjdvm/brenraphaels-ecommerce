@@ -142,13 +142,28 @@ describe("always hand off", () => {
     ["person_requested", "I want to talk to a person"],
     ["person_requested", "Gusto ko makausap ang tao"],
     ["upset", "This is unacceptable, I'm so angry"],
-    ["outside_scope", "What is the capital of France?"],
   ] as const)("%s: %s", async (reason, message) => {
     const id = await order("jane");
     const complete = fakeModel();
     const reply = await answerOrderQuestion({ customerId: "jane", message, pageOrderId: id }, deps(complete));
     expect(reply).toMatchObject({ outcome: "handoff", reason, ticketButton: true });
     expect(complete).not.toHaveBeenCalled();
+  });
+});
+
+describe("small talk and off-topic messages", () => {
+  test("a greeting or off-topic message goes to the model with no records, and its reply is shown without a card", async () => {
+    const complete = fakeModel("Hi! I can only help with Bren Raphael's orders and shop questions.");
+    const reply = await answerOrderQuestion({ customerId: "jane", message: "What is the capital of France?" }, deps(complete));
+    expect(reply).toMatchObject({ outcome: "answered", ticketButton: false, text: "Hi! I can only help with Bren Raphael's orders and shop questions." });
+    expect(reply.card).toBeUndefined();
+    expect(complete).toHaveBeenCalledOnce();
+    expect(JSON.stringify(complete.mock.calls[0][0])).toContain("No order or shop records are attached");
+  });
+
+  test("small talk cannot state an order, date, amount or promise", async () => {
+    const reply = await answerOrderQuestion({ customerId: "jane", message: "hello!" }, deps(fakeModel("Your order #5 arrives Dec 25, 2026.")));
+    expect(reply).toMatchObject({ outcome: "fallback", reason: "fact_check_failed", ticketButton: true });
   });
 });
 
