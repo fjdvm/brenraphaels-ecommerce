@@ -15,6 +15,8 @@ const {
   sendOrderDeliveredEmail,
   sendOrderDispatchedEmail,
   sendOrderPaidEmail,
+  sendOnceAndRecord,
+  sendOrderPickupConfirmedEmail,
 } = vi.hoisted(() => ({
   sendPackingAudit: vi.fn(async () => {}),
   afterTasks: [] as Array<() => Promise<void>>,
@@ -29,6 +31,8 @@ const {
   sendOrderDeliveredEmail: vi.fn(),
   sendOrderDispatchedEmail: vi.fn(),
   sendOrderPaidEmail: vi.fn(),
+  sendOnceAndRecord: vi.fn(async (_id: number, _kind: string, send: () => Promise<void>) => { await send(); return "sent"; }),
+  sendOrderPickupConfirmedEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/orders/stock-reservations", () => ({ createStockReservations: () => ({ sendPending: sendPackingAudit }) }));
@@ -38,6 +42,8 @@ vi.mock("@/lib/db", () => ({ getDatabase }));
 vi.mock("@/lib/email/order-confirmed-email", () => ({ sendOrderConfirmedEmail }));
 vi.mock("@/lib/email/order-delivered-email", () => ({ sendOrderDeliveredEmail }));
 vi.mock("@/lib/email/order-dispatched-email", () => ({ sendOrderDispatchedEmail }));
+vi.mock("@/lib/email/outcomes", () => ({ sendOnceAndRecord }));
+vi.mock("@/lib/email/order-pickup-confirmed-email", () => ({ sendOrderPickupConfirmedEmail }));
 vi.mock("@/lib/email/order-paid-email", () => ({ sendOrderPaidEmail }));
 vi.mock("@/lib/orders/live-events", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/orders/live-events")>()),
@@ -77,6 +83,8 @@ beforeEach(() => {
   sendOrderConfirmedEmail.mockReset().mockResolvedValue(undefined);
   sendOrderDeliveredEmail.mockReset().mockResolvedValue(undefined);
   sendOrderPaidEmail.mockReset().mockResolvedValue(undefined);
+  sendOrderPickupConfirmedEmail.mockReset().mockResolvedValue(undefined);
+  sendOnceAndRecord.mockClear();
   sendOrderDispatchedEmail.mockReset().mockResolvedValue(undefined);
   createOrderStore.mockClear();
   getDatabase.mockClear();
@@ -155,6 +163,21 @@ describe("POST /api/internal/orders/[id]/status", () => {
       deliveryFeeInCentavos: 8000,
       subtotalInCentavos: 21900,
     }));
+  });
+
+  test("a confirmed COD Pickup Order gets its confirmation email once, through the outcome record", async () => {
+    advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
+    expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
+    expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "pickup-confirmed", expect.any(Function));
+    expect(sendOrderPickupConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
+  });
+
+  test("a replayed confirm sends no Pickup email", async () => {
+    advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
+    confirm.mockImplementation(async () => ({ order: await advance(), replayed: true }));
+    await postAndNotify(statusRequest(), context);
+    expect(sendOrderPickupConfirmedEmail).not.toHaveBeenCalled();
   });
 
   test("emails the Customer once staff mark a GCash Order paid", async () => {

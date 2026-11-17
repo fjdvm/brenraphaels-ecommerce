@@ -351,6 +351,13 @@
       "when": 1794949234479,
       "tag": "0049_address_region",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1796659200000,
+      "tag": "0050_order_email_outcomes",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,8 @@ import { getDatabase } from "@/lib/db";
 import { sendOrderConfirmedEmail } from "@/lib/email/order-confirmed-email";
 import { sendOrderDeliveredEmail } from "@/lib/email/order-delivered-email";
 import { sendOrderDispatchedEmail } from "@/lib/email/order-dispatched-email";
+import { sendOnceAndRecord } from "@/lib/email/outcomes";
+import { sendOrderPickupConfirmedEmail } from "@/lib/email/order-pickup-confirmed-email";
 import { sendOrderPaidEmail } from "@/lib/email/order-paid-email";
 import { DeliveryPhotoUnavailable, InvalidDeliveryPhoto, verifyDeliveryPhoto } from "@/lib/orders/verify-delivery-photo";
 import { verifyCreomsCredential } from "@/lib/orders/creoms-credential";
@@ -79,6 +81,19 @@ export async function POST(
         && order.deliveryFeeInCentavos !== null
       ) {
         await notifyCustomer(orderStore, order, "confirmed", sendOrderConfirmedEmail);
+      }
+      if (
+        update.status === "confirmed"
+        && !replayed
+        && order.fulfillmentMethod === "pickup"
+        && order.paymentMethod === "cash-on-delivery"
+      ) {
+        try {
+          const recipient = await orderStore.customerEmailForOrder(order.id);
+          if (recipient) await sendOnceAndRecord(order.id, "pickup-confirmed", () => sendOrderPickupConfirmedEmail(recipient, order));
+        } catch (error) {
+          console.error("Pickup confirmation email outcome could not be recorded", error);
+        }
       }
       if (update.status === "paid") {
         await notifyCustomer(orderStore, order, "paid", sendOrderPaidEmail);

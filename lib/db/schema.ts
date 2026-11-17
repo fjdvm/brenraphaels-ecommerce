@@ -626,3 +626,16 @@ export const assistantHandoffs = pgTable("assistant_handoffs", {
   sentAt: timestamp("sent_at", { withTimezone: true }),
 }, (table) => [uniqueIndex("assistant_handoffs_chat").on(table.chatId),
   check("assistant_handoffs_status", sql`${table.status} in ('drafted','dropped','sent')`)]);
+
+/**
+ * One row per Order and kind of Customer email. The primary key is the idempotency key: the first insert claims the
+ * send, so a repeated confirmation never emails twice. `status` records whether it went out, and why not when it failed.
+ */
+export const orderEmailOutcomes = pgTable("order_email_outcomes", {
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  kind: text("kind").notNull(),
+  status: text("status", { enum: ["sending", "sent", "failed"] }).notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, table => [primaryKey({ columns: [table.orderId, table.kind] })]);
