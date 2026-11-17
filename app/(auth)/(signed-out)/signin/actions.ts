@@ -3,7 +3,9 @@
 import { redirect } from "next/navigation";
 
 import { safeReturnPath } from "@/lib/auth/route-access";
+import { isDeletedCustomerEmail } from "@/lib/customer/delete-account";
 import { signInCustomer } from "@/lib/customer/sign-in";
+import { getDatabase } from "@/lib/db";
 import { neonSignInAuth } from "@/lib/neon-auth/server";
 
 export type SignInFormState = {
@@ -22,7 +24,7 @@ export async function submitSignIn(
 ): Promise<SignInFormState> {
   const result = await signInCustomer(
     { email: text(formData.get("email")), password: text(formData.get("password")) },
-    { auth: neonSignInAuth },
+    { auth: neonSignInAuth, isDeleted: (email) => isDeletedCustomerEmail(email, getDatabase()) },
   );
 
   if (result.status === "invalid") {

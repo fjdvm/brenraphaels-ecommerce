@@ -38,6 +38,9 @@ export const customers = pgTable("customers", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+  // Set when the Customer deletes their account. The profile is hidden and the
+  // login refused; no row or field is ever deleted or nulled.
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 /** One row per Customer whose welcome email was claimed; the primary key is the idempotency key. */

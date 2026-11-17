@@ -23,7 +23,7 @@ const credentialsSchema = z.object({
 
 export async function signInCustomer(
   input: { email: string; password: string },
-  dependencies: { auth: SignInAuth },
+  dependencies: { auth: SignInAuth; isDeleted?: (email: string) => Promise<boolean> },
 ): Promise<SignInResult> {
   const credentials = credentialsSchema.safeParse(input);
   if (!credentials.success) {
@@ -31,6 +31,10 @@ export async function signInCustomer(
   }
 
   const { email } = credentials.data;
+  // A Deleted Customer's login is disabled: refuse before Neon Auth can start a session.
+  if (await dependencies.isDeleted?.(email)) {
+    return { status: "invalid", message: invalidCredentialsMessage };
+  }
   const outcome = await dependencies.auth.signIn({
     email,
     password: credentials.data.password,

@@ -18,8 +18,7 @@ test("Returns migrate over existing Orders, retain their data and can be migrate
     writeFileSync(join(baseline, "meta/_journal.json"), JSON.stringify(journal));
     const database = drizzle(client);
     await migrate(database, { migrationsFolder: baseline });
-    await database.insert(customers).values({ id: "c1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
-      email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
+    await client.query("INSERT INTO customers (id, first_name, last_name, full_name, email, contact_number, marketing_opt_in) VALUES ('c1', 'Maria', 'Santos', 'Maria Santos', 'maria@example.com', '09171234567', false)");
     // Raw SQL: the baseline predates columns the current schema lists.
     const { rows: [order] } = await client.query<{ id: number }>("INSERT INTO orders (customer_id, status, fulfillment_method, payment_method, subtotal_in_centavos) VALUES ('c1', 'delivered', 'delivery', 'cash-on-delivery', 10000) RETURNING id");
     const [line] = await database.insert(orderLines).values({ orderId: order.id, productName: "Halaya", sizeLabel: "Small",
@@ -62,8 +61,7 @@ test("Resolution migration preserves legacy refund Returns and round-trips repla
     writeFileSync(join(baseline, "meta/_journal.json"), JSON.stringify(journal));
     const database = drizzle(client);
     await migrate(database, { migrationsFolder: baseline });
-    await database.insert(customers).values({ id: "c1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
-      email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
+    await client.query("INSERT INTO customers (id, first_name, last_name, full_name, email, contact_number, marketing_opt_in) VALUES ('c1', 'Maria', 'Santos', 'Maria Santos', 'maria@example.com', '09171234567', false)");
     // Raw SQL: the baseline predates columns the current schema lists.
     const { rows: [order] } = await client.query<{ id: number }>("INSERT INTO orders (customer_id, status, fulfillment_method, payment_method, subtotal_in_centavos) VALUES ('c1', 'delivered', 'pickup', 'cash-on-delivery', 10000) RETURNING id");
     // Exercise the pre-0020 schema, which has no Resolution columns yet.
