@@ -62,6 +62,8 @@ export type DeliveryAddress = {
   barangay: string;
   city: string;
   province: string;
+  /** Set when picked from the PSGC lists; older Orders have none. */
+  region?: string | null;
   postalCode: string;
   country: string;
 };
@@ -256,6 +258,7 @@ export function createOrderStore<
         barangay: orderDeliveryAddresses.barangay,
         city: orderDeliveryAddresses.city,
         province: orderDeliveryAddresses.province,
+        region: orderDeliveryAddresses.region,
         postalCode: orderDeliveryAddresses.postalCode,
         country: orderDeliveryAddresses.country,
       })
@@ -838,6 +841,7 @@ export function createOrderStore<
             barangay: addresses.barangay,
             city: addresses.city,
             province: addresses.province,
+            region: addresses.region,
             postalCode: addresses.postalCode,
             country: addresses.country,
           })

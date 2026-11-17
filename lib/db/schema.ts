@@ -74,6 +74,8 @@ export const addresses = pgTable(
     barangay: text("barangay").notNull(),
     city: text("city").notNull(),
     province: text("province").notNull(),
+    /** Set when the Address was picked from the PSGC lists; older Addresses have none. */
+    region: text("region"),
     postalCode: text("postal_code").notNull(),
     country: text("country").notNull(),
     isDefault: boolean("is_default").notNull(),
@@ -308,6 +310,8 @@ export const orderDeliveryAddresses = pgTable("order_delivery_addresses", {
   barangay: text("barangay").notNull(),
   city: text("city").notNull(),
   province: text("province").notNull(),
+  /** Set when the Address was picked from the PSGC lists; older Orders have none and show as plain text. */
+  region: text("region"),
   postalCode: text("postal_code").notNull(),
   country: text("country").notNull(),
 });

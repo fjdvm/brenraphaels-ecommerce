@@ -12,7 +12,7 @@ import {
   placeOrder,
   type CheckoutAddressState,
 } from "@/app/(site)/(protected)/checkout/actions";
-import { LocationFields } from "@/components/features/auth/location-fields";
+import { PsgcAddressFields } from "@/components/features/address/psgc-address-fields";
 import {
   sanitizePostalCodeInput,
   sanitizeStreetInput,
@@ -31,6 +31,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatPeso } from "@/lib/catalog/currency";
+import { formatAddressLine } from "@/lib/address/format";
 import type { CustomerAddress } from "@/lib/customer/visitor";
 import type { Cart } from "@/lib/orders/cart";
 import type { PaymentMethod } from "@/lib/orders/orders";
@@ -49,13 +50,11 @@ const initialAddressState: CheckoutAddressState = {};
 export function CheckoutView({
   cart,
   addresses,
-  provinces,
   paymentDetails = [],
   seniorPwdStanding = { verified: false, expiresOn: null },
 }: {
   cart: Cart;
   addresses: CustomerAddress[];
-  provinces: string[];
   /** Where each prepaid method is paid, as the shop set it. */
   paymentDetails?: PaymentDetail[];
   /** Whether the Customer already has an approved Senior/PWD ID. */
@@ -147,7 +146,7 @@ export function CheckoutView({
             </fieldset>
           </Panel>
           {fulfillmentMethod === "delivery" ? (
-            <DeliveryAddressChoice addresses={addresses} addressId={addressId} onAddressIdChange={setAddressId} provinces={provinces} />
+            <DeliveryAddressChoice addresses={addresses} addressId={addressId} onAddressIdChange={setAddressId} />
           ) : null}
           <Panel title={`${fulfillmentMethod === "delivery" ? "3" : "2"}. Payment method`}>
             <fieldset className="grid gap-4 sm:grid-cols-2">
@@ -268,7 +267,7 @@ export function CheckoutView({
             <dt className="text-muted">{fulfillmentMethod === "delivery" ? "Delivery to" : "Pickup at"}</dt>
             <dd className="text-right text-ink">
               {fulfillmentMethod === "delivery" && selectedAddress
-                ? `${selectedAddress.street}, ${selectedAddress.barangay}, ${selectedAddress.city}, ${selectedAddress.province} ${selectedAddress.postalCode}`
+                ? formatAddressLine(selectedAddress)
                 : "Antipolo store"}
             </dd>
             <dt className="text-muted">Payment</dt>
@@ -366,25 +365,25 @@ function Choice({ checked, description, icon: Icon, label, name, onChange, value
   );
 }
 
-function DeliveryAddressChoice({ addresses, addressId, onAddressIdChange, provinces }: { addresses: CustomerAddress[]; addressId?: number; onAddressIdChange: (id: number) => void; provinces: string[] }) {
-  return <Panel title="2. Delivery details" action={<AddAddressDialog onAddressAdded={onAddressIdChange} provinces={provinces} />}>
+function DeliveryAddressChoice({ addresses, addressId, onAddressIdChange }: { addresses: CustomerAddress[]; addressId?: number; onAddressIdChange: (id: number) => void; }) {
+  return <Panel title="2. Delivery details" action={<AddAddressDialog onAddressAdded={onAddressIdChange} />}>
     {addresses.length === 0 ? <p className="text-sm text-warning">Add an Address before placing a Delivery Order.</p> : <fieldset className="flex flex-col gap-4">
       <legend className="sr-only">Delivery Address</legend>
       {addresses.map((address) => <label className={optionClass(address.id === addressId)} key={address.id}>
         <input checked={address.id === addressId} className="sr-only" name="delivery-address" onChange={() => onAddressIdChange(address.id)} type="radio" value={address.id} />
         <RadioDot checked={address.id === addressId} />
         <MapPin aria-hidden className="size-[22px] shrink-0 text-ink" />
-        <span className="flex min-w-0 flex-1 flex-col gap-1 leading-normal tracking-wide"><span className="text-sm font-medium text-ink">{address.label}{address.isDefault ? " · Default" : ""}</span><span className="text-xs text-body">{address.street}, {address.barangay}, {address.city}, {address.province} {address.postalCode}</span></span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1 leading-normal tracking-wide"><span className="text-sm font-medium text-ink">{address.label}{address.isDefault ? " · Default" : ""}</span><span className="text-xs text-body">{formatAddressLine(address)}</span></span>
       </label>)}
     </fieldset>}
   </Panel>;
 }
 
-function AddAddressDialog({ onAddressAdded, provinces }: { onAddressAdded: (id: number) => void; provinces: string[] }) {
+function AddAddressDialog({ onAddressAdded }: { onAddressAdded: (id: number) => void; }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(addCheckoutAddress, initialAddressState);
   useEffect(() => { if (state.addressId) { onAddressAdded(state.addressId); router.refresh(); } }, [onAddressAdded, router, state.addressId]);
   const streetError = state.fieldErrors?.street?.[0];
   const postalError = state.fieldErrors?.postalCode?.[0];
-  return <Dialog><DialogTrigger asChild><Button type="button" variant="link" size="link-sm"><Plus aria-hidden className="size-4" />Add an address</Button></DialogTrigger><DialogContent><DialogTitle className="font-serif text-3xl text-primary">Add an Address</DialogTitle><DialogDescription className="mt-2 text-on-surface-variant">Save a new Address and use it for this Delivery Order.</DialogDescription><form action={action} className="mt-6 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><Label htmlFor="checkout-label" required>Label</Label><select className="mt-1 h-11 w-full border border-input bg-white px-3" defaultValue="Home" id="checkout-label" name="label"><option>Home</option><option>Work</option><option>Other</option></select></div><div className="sm:col-span-2"><Label htmlFor="checkout-street" required>Street address</Label><Input aria-describedby={streetError ? "checkout-street-error" : undefined} aria-invalid={Boolean(streetError)} autoComplete="street-address" id="checkout-street" name="street" onInput={sanitizeStreetInput} required />{streetError ? <p className="mt-1 text-sm text-red-700" id="checkout-street-error" role="alert">{streetError}</p> : null}</div><LocationFields errors={state.fieldErrors ?? {}} idSuffix="-checkout" provinces={provinces} /><div><Label htmlFor="postalCode-checkout" required>Postal code</Label><Input aria-describedby={postalError ? "postalCode-checkout-error" : undefined} aria-invalid={Boolean(postalError)} autoComplete="postal-code" id="postalCode-checkout" inputMode="numeric" maxLength={4} name="postalCode" onInput={sanitizePostalCodeInput} required />{postalError ? <p className="mt-1 text-sm text-red-700" id="postalCode-checkout-error" role="alert">{postalError}</p> : null}</div><p className="text-sm text-on-surface-variant sm:col-span-2">Country: Philippines</p><Button disabled={pending} type="submit">{pending ? "Adding…" : "Add Address"}</Button></form></DialogContent></Dialog>;
+  return <Dialog><DialogTrigger asChild><Button type="button" variant="link" size="link-sm"><Plus aria-hidden className="size-4" />Add an address</Button></DialogTrigger><DialogContent><DialogTitle className="font-serif text-3xl text-primary">Add an Address</DialogTitle><DialogDescription className="mt-2 text-on-surface-variant">Save a new Address and use it for this Delivery Order.</DialogDescription><form action={action} className="mt-6 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><Label htmlFor="checkout-label" required>Label</Label><select className="mt-1 h-11 w-full border border-input bg-white px-3" defaultValue="Home" id="checkout-label" name="label"><option>Home</option><option>Work</option><option>Other</option></select></div><div className="sm:col-span-2"><Label htmlFor="checkout-street" required>Street address</Label><Input aria-describedby={streetError ? "checkout-street-error" : undefined} aria-invalid={Boolean(streetError)} autoComplete="street-address" id="checkout-street" name="street" onInput={sanitizeStreetInput} required />{streetError ? <p className="mt-1 text-sm text-red-700" id="checkout-street-error" role="alert">{streetError}</p> : null}</div><PsgcAddressFields errors={state.fieldErrors ?? {}} /><div><Label htmlFor="postalCode-checkout" required>Postal code</Label><Input aria-describedby={postalError ? "postalCode-checkout-error" : undefined} aria-invalid={Boolean(postalError)} autoComplete="postal-code" id="postalCode-checkout" inputMode="numeric" maxLength={4} name="postalCode" onInput={sanitizePostalCodeInput} required />{postalError ? <p className="mt-1 text-sm text-red-700" id="postalCode-checkout-error" role="alert">{postalError}</p> : null}</div><Button disabled={pending} type="submit">{pending ? "Adding…" : "Add Address"}</Button></form></DialogContent></Dialog>;
 }

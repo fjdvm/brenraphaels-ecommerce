@@ -291,6 +291,24 @@ describe("Order", () => {
     ]);
   });
 
+  test("copies a picked Address's Region onto the Order, and an older Address leaves it empty", async () => {
+    const database = drizzle(client);
+    await client.query(`
+      insert into addresses (customer_id, label, street, barangay, city, province, region, postal_code, country, is_default)
+      values ('customer-1', 'Home', '1 First Street', 'Barangay One', 'Quezon City', '', 'NCR', '1100', 'Philippines', true),
+             ('customer-1', 'Work', '2 Old Street', 'Barangay Two', 'Cebu City', 'Cebu', null, '6000', 'Philippines', false)
+    `);
+    const { rows } = await client.query<{ id: number; label: string }>("select id, label from addresses where customer_id = 'customer-1' order by id");
+    const cart = createCartStore(database);
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const picked = await createOrderStore(database).place("customer-1", { fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", addressId: rows[0].id });
+    expect(picked.deliveryAddress).toMatchObject({ region: "NCR", province: "" });
+
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const older = await createOrderStore(database).place("customer-1", { fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", addressId: rows[1].id });
+    expect(older.deliveryAddress).toMatchObject({ region: null, street: "2 Old Street" });
+  });
+
   test("advances an Order one legal status at a time", async () => {
     const database = drizzle(client);
     await client.query(`

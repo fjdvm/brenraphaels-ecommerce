@@ -8,8 +8,8 @@ import { idNumberField, idTypes, validateIdPhoto } from "@/lib/senior-pwd/id-num
 import { gatewayTicketFiles } from "@/lib/support/ticket-files";
 import { fileIdField } from "@/lib/validators/file-id";
 import { cleanFileName } from "@/lib/validators/sanitize";
-import { locationErrors } from "@/lib/address/locations";
-import { addCustomerAddress, createAddressStore, customerAddressSchema } from "@/lib/customer/addresses";
+import { addPickedAddress, createAddressStore, customerAddressSchema } from "@/lib/customer/addresses";
+import { DEFAULT_COUNTRY, resolveAddress } from "@/lib/psgc";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { sendOrderPlacedEmail } from "@/lib/email/order-placed-email";
@@ -63,33 +63,36 @@ export type CheckoutAddressState = {
   addressId?: number;
 };
 
-function addressFormValues(formData: FormData) {
-  return {
-    label: formData.get("label"),
-    street: formData.get("street"),
-    barangay: formData.get("barangay"),
-    city: formData.get("city"),
-    province: formData.get("province"),
-    postalCode: formData.get("postalCode"),
-  };
-}
+const pickedFields = customerAddressSchema.pick({ label: true, street: true, postalCode: true });
 
-/** Adds an Address without making the Customer leave checkout. */
+/** Adds an Address without making the Customer leave checkout. Country, Region, Province, City and Barangay arrive as PSGC codes. */
 export async function addCheckoutAddress(
   _previousState: CheckoutAddressState,
   formData: FormData,
 ): Promise<CheckoutAddressState> {
-  const parsed = customerAddressSchema.safeParse(addressFormValues(formData));
+  const parsed = pickedFields.safeParse({
+    label: formData.get("label"),
+    street: formData.get("street"),
+    postalCode: formData.get("postalCode"),
+  });
   if (!parsed.success) {
     return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
   }
-  const badLocation = locationErrors(parsed.data);
-  if (Object.keys(badLocation).length > 0) {
-    return { fieldErrors: badLocation };
+  if (formData.get("country") !== DEFAULT_COUNTRY) {
+    return { fieldErrors: { address: ["We deliver within the Philippines only."] } };
+  }
+  const resolved = await resolveAddress({
+    regionCode: String(formData.get("regionCode") ?? ""),
+    provinceCode: String(formData.get("provinceCode") ?? ""),
+    cityCode: String(formData.get("cityCode") ?? ""),
+    barangayCode: String(formData.get("barangayCode") ?? ""),
+  });
+  if (!resolved.ok) {
+    return { fieldErrors: { address: [resolved.message] } };
   }
 
   const customer = await requireCustomer();
-  const addressId = await addCustomerAddress(parsed.data, {
+  const addressId = await addPickedAddress({ ...parsed.data, ...resolved.address }, {
     userId: customer.userId,
     addressStore: createAddressStore(getDatabase()),
   });

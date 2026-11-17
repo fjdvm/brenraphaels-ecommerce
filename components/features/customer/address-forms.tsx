@@ -17,6 +17,7 @@ import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addressLabels } from "@/lib/customer/address-fields";
+import { formatAddressLine } from "@/lib/address/format";
 import type { CustomerAddress } from "@/lib/customer/visitor";
 import { cn } from "@/lib/utils";
 import { sanitizePostalCodeInput, sanitizeStreetInput } from "./input-sanitizers";
@@ -159,7 +160,7 @@ function AddressCard({
         {recipient.name} · {recipient.contactNumber}
       </p>
       <p className="text-sm leading-[1.6] tracking-[0.35px] text-body">
-        {address.street}, {address.barangay}, {address.city}, {address.province} {address.postalCode}
+        {formatAddressLine(address)}
         <br />
         {address.country}
       </p>
