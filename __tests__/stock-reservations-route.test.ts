@@ -36,7 +36,7 @@ test("the authorized job expires an unpaid Order and publishes live invalidation
   vi.stubEnv("CUSTOMER_NOTIFICATION_CRON_SECRET", "job-secret");
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.example.com");
   await database.insert(customers).values({ id: "jane", firstName: "Jane", lastName: "Doe", fullName: "Jane Doe", email: "jane@example.com", contactNumber: "09171234567", marketingOptIn: false });
-  const [order] = await database.insert(orders).values({ customerId: "jane", fulfillmentMethod: "pickup", paymentMethod: "gcash", status: "confirmed", subtotalInCentavos: 10000, createdAt: new Date("2026-01-01T00:00:00Z") }).returning();
+  const [order] = await database.insert(orders).values({ customerId: "jane", fulfillmentMethod: "pickup", paymentMethod: "gcash", status: "confirmed", subtotalInCentavos: 10000, createdAt: new Date("2026-01-01T00:00:00Z"), confirmedAt: new Date("2026-01-01T00:00:00Z") }).returning();
   const response = await GET(new Request("https://shop.example.com/api/cron/stock-reservations", { headers: { authorization: "Bearer job-secret" } }));
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ cancelled: 1 });
