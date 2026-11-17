@@ -46,6 +46,7 @@ export type AssistantDependencies = {
 const handoffText = "I can't help with this one, but a teammate can. Press “Talk to a teammate” and we will pick it up.";
 const noOrderText = "I couldn't find that order on your account. Choose one of your orders, or talk to a teammate.";
 const fallbackText = "I can't answer that right now. Here is what I can see, and a teammate can help with the rest.";
+const generalFacts = "No order or shop records are attached to this message. Do not state anything about a specific order, date, amount or delivery.";
 const capText = "You've reached today's limit of messages to the assistant. Here is what I can see, and a teammate can help from here.";
 
 const handoffTexts: Partial<Record<HandoffReason, string>> = {
@@ -106,10 +107,6 @@ export async function answerOrderQuestion(input: AssistantInput, deps: Assistant
   }
 
   const kind = questionKindOf(message);
-  if (!kind) {
-    const { order } = await requestedOrder();
-    return finish({ outcome: "handoff", reason: "outside_scope", text: handoffText, ticketButton: true }, { orderId: order?.id });
-  }
 
   if (kind === "product") {
     const product = await deps.products.findMentioned(message);
@@ -125,7 +122,11 @@ export async function answerOrderQuestion(input: AssistantInput, deps: Assistant
   let order: AssistantOrder | undefined;
   let card: Card | undefined;
   let factsText: string;
-  if ((orderKinds as readonly QuestionKind[]).includes(kind)) {
+  if (!kind) {
+    // Small talk, follow-ups and anything that is not one of the recognised kinds: the model chats and judges the scope itself,
+    // with no records attached, so the fact check holds it to stating no order, date, amount or promise.
+    factsText = generalFacts;
+  } else if ((orderKinds as readonly QuestionKind[]).includes(kind)) {
     const requested = await requestedOrder();
     if (requested.asked) {
       order = requested.order;
