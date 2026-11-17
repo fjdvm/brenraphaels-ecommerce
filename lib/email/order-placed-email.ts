@@ -1,6 +1,7 @@
 import type { Order } from "../orders/orders";
 import { FEE_TO_FOLLOW_COPY } from "@/lib/orders/fee-to-follow-copy";
 import { formatPeso } from "../catalog/currency";
+import { loadPickupInstructions, pickupInstructionLines } from "../pickup/instructions";
 import { createBrevoTransport, requiredEnvironment } from "./brevo-transport";
 
 /** Sends the Customer confirmation that their Order was placed. */
@@ -9,6 +10,8 @@ export async function sendOrderPlacedEmail(recipient: string, order: Order) {
   const lines = order.lines.map((line) => (
     `${line.productName} — ${line.sizeLabel} × ${line.quantity}: ${formatPeso(line.priceInCentavos * line.quantity)}`
   ));
+
+  const pickup = order.fulfillmentMethod === "pickup" ? pickupInstructionLines(await loadPickupInstructions(), order) : [];
 
   await transport.sendMail({
     from: sender,
@@ -20,6 +23,7 @@ export async function sendOrderPlacedEmail(recipient: string, order: Order) {
         ? `Your Delivery Order is placed. ${FEE_TO_FOLLOW_COPY}`
         : "Your Pickup Order is confirmed. Please pay cash when you collect it.",
       "",
+      ...(pickup.length ? [...pickup, ""] : []),
       "Your items:",
       ...lines,
       "",
