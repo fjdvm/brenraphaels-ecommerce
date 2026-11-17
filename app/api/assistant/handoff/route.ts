@@ -6,6 +6,7 @@ import { createOrderReader } from "@/lib/assistant/readers";
 import { createHandoffStore, HandoffError, prepareHandoff } from "@/lib/assistant-handoff/handoff";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
+import { isSameOrigin } from "@/lib/security/same-origin";
 
 export const runtime = "nodejs";
 
@@ -18,8 +19,7 @@ const body = z.object({ chatId: z.number().int().positive().max(2_147_483_647) }
 export async function POST(request: Request) {
   const visitor = await currentVisitor();
   if (visitor.state !== "customer") return Response.json({ error: "Sign in to use the assistant." }, { status: 401 });
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
+  if (!isSameOrigin(request)) return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
   let input: z.infer<typeof body>;
   try {
     input = body.parse(await request.json());

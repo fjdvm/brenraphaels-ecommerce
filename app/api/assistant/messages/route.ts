@@ -7,6 +7,7 @@ import { maxMessageLength } from "@/lib/assistant/policy";
 import { createOrderReader, createProductReader } from "@/lib/assistant/readers";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
+import { isSameOrigin } from "@/lib/security/same-origin";
 
 export const runtime = "nodejs";
 
@@ -22,8 +23,7 @@ const body = z.object({
 export async function POST(request: Request) {
   const visitor = await currentVisitor();
   if (visitor.state !== "customer") return Response.json({ error: "Sign in to use the assistant." }, { status: 401 });
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
+  if (!isSameOrigin(request)) return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
   let input: z.infer<typeof body>;
   try {
     input = body.parse(await request.json());
