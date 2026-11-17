@@ -14,6 +14,16 @@ const statusUpdate = z.discriminatedUnion("status", [
     ...staffAttribution.shape,
   }).strict(),
   z.object({
+    status: z.literal("confirmed"),
+    subtotalInCentavos: z.number().int().nonnegative(),
+    approvedDiscountInCentavos: z.number().int().nonnegative(),
+    /** Null for Pickup; ₱0 is a valid entered fee for Delivery. */
+    deliveryFeeInCentavos: z.number().int().nonnegative().nullable(),
+    totalInCentavos: z.number().int().nonnegative(),
+    staffId: z.unknown().optional(),
+    staffName: z.unknown().optional(),
+  }).strict(),
+  z.object({
     status: z.literal("delivered"),
     deliveryPhotoFileId: fileIdField,
     deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
@@ -28,7 +38,7 @@ const statusUpdate = z.discriminatedUnion("status", [
     staffName: z.unknown().optional(),
   }).strict(),
   z.object({
-    status: z.enum(orderStatuses).exclude(["paid", "received", "delivered", "dispatched", "preparing"]),
+    status: z.enum(orderStatuses).exclude(["paid", "received", "delivered", "dispatched", "preparing", "confirmed"]),
     deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
     // Attribution is only used for paid; other moves ignore it.
     staffId: z.unknown().optional(),
@@ -42,6 +52,13 @@ export type InternalOrderStatusUpdate = ReturnType<typeof parseInternalOrderStat
 export function parseInternalOrderStatusUpdate(payload: unknown) {
   const update = statusUpdate.parse(payload);
   if (update.status === "paid" || update.status === "preparing") return update;
+  if (update.status === "confirmed") return {
+    status: update.status,
+    subtotalInCentavos: update.subtotalInCentavos,
+    approvedDiscountInCentavos: update.approvedDiscountInCentavos,
+    deliveryFeeInCentavos: update.deliveryFeeInCentavos,
+    totalInCentavos: update.totalInCentavos,
+  };
   if (update.status === "delivered") return {
     status: update.status,
     deliveryPhotoFileId: update.deliveryPhotoFileId,

@@ -9,7 +9,8 @@ import type { Cart } from "./cart";
 import { gatewayShopStock, StockRefusedError, StockUnavailableError, type ShopStock } from "./stock";
 
 type Reservation = typeof stockReservations.$inferSelect;
-const unpaidStatuses = ["placed", "confirmed", "awaiting payment"];
+// Placed Orders have no confirmation yet, so they have no payment clock.
+const unpaidStatuses = ["confirmed", "awaiting payment"];
 const prepaidMethods = ["gcash", "maya", "bank-transfer"];
 const day = 24 * 60 * 60 * 1000;
 
@@ -147,19 +148,19 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
     return released;
   }
 
-  /** The Order row lock serializes expiry with payment and Staff decisions. */
+  /** An Online payment Order unpaid 24 hours after Staff confirmed it is cancelled; the clock starts at confirmation, not placement. The Order row lock serializes expiry with payment and Staff decisions. */
   async function expire(now = new Date(), publish?: (customerId: string, orderId: number) => Promise<void>) {
     const due = await db.select({ id: orders.id }).from(orders).where(and(
       inArray(orders.paymentMethod, prepaidMethods), inArray(orders.status, unpaidStatuses),
-      lte(orders.createdAt, new Date(now.getTime() - day)),
-    )).orderBy(orders.createdAt).limit(50);
+      lte(orders.confirmedAt, new Date(now.getTime() - day)),
+    )).orderBy(orders.confirmedAt).limit(50);
     let cancelled = 0;
     for (const candidate of due) {
       let changed: { customerId: string; orderId: number } | undefined;
       await db.transaction(async tx => {
         const [order] = await tx.select().from(orders).where(and(eq(orders.id, candidate.id),
           inArray(orders.paymentMethod, prepaidMethods), inArray(orders.status, unpaidStatuses),
-          lte(orders.createdAt, new Date(now.getTime() - day)),
+          lte(orders.confirmedAt, new Date(now.getTime() - day)),
         )).for("update", { skipLocked: true });
         if (!order) return;
         await tx.update(orders).set({ status: "cancelled" }).where(eq(orders.id, order.id));

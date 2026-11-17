@@ -9,6 +9,7 @@ import { formatPlacedAt, needsPayment, orderTotalInCentavos, paymentDeadline } f
 import type { Order } from "@/lib/orders/orders";
 import { isPrepaid } from "@/lib/orders/payment-methods";
 import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
+import { pickupReminder, type PickupInstructions } from "@/lib/pickup/instructions";
 
 const STEPS = [
   { title: "Send the exact amount", note: "To the shop's account shown above" },
@@ -17,10 +18,11 @@ const STEPS = [
 ] as const;
 
 /** The screen after checkout: where to pay, the proof form once the Order can take it, and the summary. */
-export function OrderPlacedView({ order, details, firstName }: { order: Order; details: PaymentDetail[]; firstName?: string }) {
+export function OrderPlacedView({ order, details, firstName, pickup = null }: { order: Order; details: PaymentDetail[]; firstName?: string; pickup?: PickupInstructions | null }) {
   const label = PAYMENT_LABELS[order.paymentMethod];
   const prepaid = isPrepaid(order.paymentMethod);
   const total = orderTotalInCentavos(order);
+  const reminder = order.fulfillmentMethod === "pickup" ? pickupReminder(order) : null;
   const feePending = order.fulfillmentMethod === "delivery" && order.deliveryFeeInCentavos === null;
 
   return (
@@ -57,6 +59,19 @@ export function OrderPlacedView({ order, details, firstName }: { order: Order; d
           ) : (
             <p className="text-sm text-body">Pay cash when {order.fulfillmentMethod === "pickup" ? "you collect" : "we deliver"} your Order. No proof is needed.</p>
           )}
+          {order.fulfillmentMethod === "pickup" && (pickup || reminder) ? (
+            <section aria-labelledby="pickup-heading" className="flex flex-col gap-2 border border-line bg-surface-soft p-4 text-sm tracking-[0.35px] text-body">
+              <h3 className="font-medium text-ink" id="pickup-heading">Pickup instructions</h3>
+              {pickup ? (
+                <>
+                  <p><span className="text-muted">Address: </span>{pickup.address}</p>
+                  <p><span className="text-muted">Hours: </span>{pickup.hours}</p>
+                  {pickup.note ? <p>{pickup.note}</p> : null}
+                </>
+              ) : null}
+              {reminder ? <p className="font-medium text-ink">{reminder}</p> : null}
+            </section>
+          ) : null}
           <Button asChild className="self-start" variant="link"><Link href="/profile/orders">{prepaid ? "Pay later in My orders" : "View my orders"}</Link></Button>
         </section>
         <aside aria-labelledby="placed-summary" className="flex w-full flex-col gap-4 border border-line bg-white p-8 lg:w-[460px] lg:shrink-0">

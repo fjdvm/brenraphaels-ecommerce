@@ -182,8 +182,8 @@ test.each(["failure", "timeout"])("retries a Notification after %s while deliver
   expect(mocks.email).toHaveBeenCalledTimes(1);
   expect((await call()).status).toBe(409);
   offline = false;
-  expect(await (await retry()).json()).toEqual({ sent: 1 });
-  expect(await (await retry()).json()).toEqual({ sent: 0 });
+  expect(await (await retry()).json()).toEqual({ sent: 1, emailsSent: 0 });
+  expect(await (await retry()).json()).toEqual({ sent: 0, emailsSent: 0 });
   expect(attempts).toEqual([`order.delivered:${orderId}`, `order.delivered:${orderId}`]);
   expect(inbox.size).toBe(1);
   expect(mocks.email).toHaveBeenCalledTimes(1);
@@ -209,5 +209,5 @@ test("a failed Notification does not prevent a later pending Notification being 
     const notification = JSON.parse(init.body as string);
     return new Response(null, { status: notification.idempotencyKey === `order.delivered:${firstOrderId}` ? 503 : 201 });
   });
-  expect(await (await retry()).json()).toEqual({ sent: 1 });
+  expect(await (await retry()).json()).toEqual({ sent: 1, emailsSent: 0 });
 });

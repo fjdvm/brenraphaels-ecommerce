@@ -28,8 +28,18 @@ export class LastCustomerAddressError extends Error {
   }
 }
 
+/** An Address chosen from the PSGC lists: names are already checked against the list, and Province is empty for Metro Manila and independent cities. */
+export type PickedAddressInput = Pick<z.output<typeof customerAddressSchema>, "label" | "street" | "postalCode"> & {
+  region: string;
+  province: string;
+  city: string;
+  barangay: string;
+};
+
+const pickedAddressSchema = customerAddressSchema.pick({ label: true, street: true, postalCode: true });
+
 export type AddressStore = {
-  add(userId: string, input: z.output<typeof customerAddressSchema>): Promise<number>;
+  add(userId: string, input: z.output<typeof customerAddressSchema> | PickedAddressInput): Promise<number>;
   update(
     userId: string,
     addressId: number,
@@ -124,6 +134,17 @@ export async function addCustomerAddress(
     dependencies.userId,
     customerAddressSchema.parse(input),
   );
+}
+
+export async function addPickedAddress(
+  input: PickedAddressInput,
+  dependencies: { userId: string; addressStore: AddressStore },
+) {
+  const { label, street, postalCode } = pickedAddressSchema.parse(input);
+  return dependencies.addressStore.add(dependencies.userId, {
+    label, street, postalCode,
+    region: input.region, province: input.province, city: input.city, barangay: input.barangay,
+  });
 }
 
 export async function updateCustomerAddress(

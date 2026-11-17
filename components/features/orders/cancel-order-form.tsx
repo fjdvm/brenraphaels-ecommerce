@@ -17,7 +17,7 @@ export function CancelOrderForm({ orderId }: { orderId: number }) {
     <form action={action} className="flex flex-col gap-3">
       <input name="orderId" type="hidden" value={orderId} />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <p className="mr-auto text-xs tracking-[0.35px] text-muted">You can cancel this order until it&apos;s dispatched.</p>
+        <p className="mr-auto text-xs tracking-[0.35px] text-muted">You can cancel this order until the shop confirms it.</p>
         <MessageUsLink orderId={orderId} />
         <Button disabled={pending} size="pill-sm" type="submit" variant="pill-outline">
           {pending ? "Cancelling…" : "Cancel order"}

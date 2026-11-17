@@ -133,7 +133,7 @@ test.each(["gcash", "maya", "bank-transfer"])("%s expires at exactly 24 hours, r
   const { db, stock, store, maintenance, first } = await fixture();
   const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
   const placed = new Date("2026-11-01T00:00:00Z");
-  await db.update(orders).set({ createdAt: placed, paymentMethod: method }).where(eq(orders.id, order.id));
+  await db.update(orders).set({ confirmedAt: placed, paymentMethod: method }).where(eq(orders.id, order.id));
   const audit = vi.fn(async () => {}), email = vi.fn(async () => {});
   expect(await maintenance.expire(new Date("2026-11-01T23:59:59.999Z"))).toBe(0);
   expect((await store.listForCustomer("jane"))[0].status).toBe("confirmed");
@@ -152,10 +152,22 @@ test.each(["gcash", "maya", "bank-transfer"])("%s expires at exactly 24 hours, r
 test.each(["cash-on-delivery", "paid", "preparing", "dispatched", "delivered", "received", "cancelled"])("expiry leaves %s Orders untouched", async state => {
   const { db, stock, store, maintenance, first } = await fixture();
   const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: state === "cash-on-delivery" ? "cash-on-delivery" : "gcash" });
-  await db.update(orders).set({ createdAt: new Date("2026-10-01T00:00:00Z"), ...(state === "cash-on-delivery" ? {} : { status: state }) }).where(eq(orders.id, order.id));
+  await db.update(orders).set({ confirmedAt: new Date("2026-10-01T00:00:00Z"), ...(state === "cash-on-delivery" ? {} : { status: state }) }).where(eq(orders.id, order.id));
   expect(await maintenance.expire(new Date("2026-11-01T00:00:00Z"))).toBe(0);
   expect(stock.remaining(stock.productForSize(first.id))).toBe(48);
   expect((await store.listForCustomer("jane"))[0].status).toBe(state === "cash-on-delivery" ? "confirmed" : state);
+});
+
+test("the 24-hour clock starts at confirmation, not placement, and unconfirmed Orders never expire", async () => {
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.example.com");
+  const { db, store, maintenance, stock, first } = await fixture();
+  const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
+  await db.update(orders).set({ status: "placed", createdAt: new Date("2026-10-01T00:00:00Z"), confirmedAt: null }).where(eq(orders.id, order.id));
+  expect(await maintenance.expire(new Date("2026-11-01T00:00:00Z"))).toBe(0);
+  await db.update(orders).set({ status: "confirmed", confirmedAt: new Date("2026-10-31T12:00:00Z") }).where(eq(orders.id, order.id));
+  expect(await maintenance.expire(new Date("2026-11-01T11:59:59.999Z"))).toBe(0);
+  expect(stock.remaining(stock.productForSize(first.id))).toBe(48);
+  expect(await maintenance.expire(new Date("2026-11-01T12:00:00Z"))).toBe(1);
 });
 
 test("abandoned checkout recovery survives a process crash before Order commit", async () => {
@@ -172,7 +184,7 @@ test("expiry email waits for stock release and retries an ambiguous gateway ackn
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.example.com");
   const { db, store, stock, maintenance } = await fixture();
   const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
-  await db.update(orders).set({ createdAt: new Date("2026-10-01T00:00:00Z") }).where(eq(orders.id, order.id));
+  await db.update(orders).set({ confirmedAt: new Date("2026-10-01T00:00:00Z") }).where(eq(orders.id, order.id));
   await maintenance.expire(new Date("2026-11-01T00:00:00Z"));
   const audit = vi.fn(async () => {});
   const received = new Set<string>();
@@ -193,11 +205,11 @@ test("expiry email waits for stock release and retries an ambiguous gateway ackn
   expect(email).toHaveBeenCalledTimes(2);
 });
 
-test.each(["placed", "awaiting payment"])("expiry includes unpaid %s Orders", async status => {
+test.each(["confirmed", "awaiting payment"])("expiry includes unpaid %s Orders", async status => {
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.example.com");
   const { db, store, maintenance, stock, first } = await fixture();
   const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
-  await db.update(orders).set({ status, createdAt: new Date("2026-11-01T00:00:00Z") }).where(eq(orders.id, order.id));
+  await db.update(orders).set({ status, confirmedAt: new Date("2026-11-01T00:00:00Z") }).where(eq(orders.id, order.id));
   expect(await maintenance.expire(new Date("2026-11-02T00:00:00Z"))).toBe(1);
   await maintenance.drain();
   expect((await store.listForCustomer("jane"))[0].status).toBe("cancelled");
@@ -240,7 +252,7 @@ test("a refused audit backlog never starves an expiry email", async () => {
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.example.com");
   const { db, store, maintenance } = await fixture();
   const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
-  await db.update(orders).set({ createdAt: new Date("2026-11-01T00:00:00Z") }).where(eq(orders.id, order.id));
+  await db.update(orders).set({ confirmedAt: new Date("2026-11-01T00:00:00Z") }).where(eq(orders.id, order.id));
   await maintenance.expire(new Date("2026-11-02T00:00:00Z"));
   await maintenance.drain();
   await db.insert(stockOutbox).values(Array.from({ length: 60 }, (_, index) => ({

@@ -49,3 +49,30 @@ export function validateIdPhoto(file: File) {
 export function philippineToday(now: Date): string {
   return new Date(now.getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
+
+/** One ID never gets more than this much discount in a week (₱125), in centavos. */
+export const WEEKLY_DISCOUNT_CAP_IN_CENTAVOS = 12_500;
+
+/** The Monday-to-Sunday week (Philippine Time) that `at` falls in: from Monday 00:00 up to, not including, the next Monday 00:00. */
+export function philippineWeek(at: Date): { start: Date; end: Date } {
+  const shifted = new Date(at.getTime() + 8 * 60 * 60 * 1000);
+  const sinceMonday = (shifted.getUTCDay() + 6) % 7;
+  const mondayUtc = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate() - sinceMonday);
+  const start = new Date(mondayUtc - 8 * 60 * 60 * 1000);
+  return { start, end: new Date(start.getTime() + 7 * 86_400_000) };
+}
+
+const peso = (centavos: number) => `₱${(centavos / 100).toFixed(2)}`;
+
+/**
+ * The 5% discount held to what this ID has left of its weekly cap. `reason` is set only when the discount was reduced
+ * and never contains the ID number.
+ */
+export function capSeniorPwdDiscount(wantedInCentavos: number, usedThisWeekInCentavos: number) {
+  const left = Math.max(0, WEEKLY_DISCOUNT_CAP_IN_CENTAVOS - usedThisWeekInCentavos);
+  const discountInCentavos = Math.min(wantedInCentavos, left);
+  const reason = discountInCentavos < wantedInCentavos
+    ? `This ID has used ${peso(Math.min(usedThisWeekInCentavos, WEEKLY_DISCOUNT_CAP_IN_CENTAVOS))} of its ${peso(WEEKLY_DISCOUNT_CAP_IN_CENTAVOS)} weekly limit, so the discount was reduced from ${peso(wantedInCentavos)} to ${peso(discountInCentavos)}.`
+    : null;
+  return { discountInCentavos, allowanceUsedInCentavos: usedThisWeekInCentavos, reason };
+}

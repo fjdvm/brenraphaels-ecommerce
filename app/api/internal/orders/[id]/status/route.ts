@@ -8,11 +8,17 @@ import { getDatabase } from "@/lib/db";
 import { sendOrderConfirmedEmail } from "@/lib/email/order-confirmed-email";
 import { sendOrderDeliveredEmail } from "@/lib/email/order-delivered-email";
 import { sendOrderDispatchedEmail } from "@/lib/email/order-dispatched-email";
+import { sendOrderDeliveryConfirmedEmail } from "@/lib/email/order-delivery-confirmed-email";
+import { sendOnceAndRecord } from "@/lib/email/outcomes";
+import { sendOrderPickupConfirmedEmail } from "@/lib/email/order-pickup-confirmed-email";
+import { sendOrderOnlineDeliveryConfirmedEmail } from "@/lib/email/order-online-delivery-confirmed-email";
+import { sendOrderOnlinePickupConfirmedEmail } from "@/lib/email/order-online-pickup-confirmed-email";
 import { sendOrderPaidEmail } from "@/lib/email/order-paid-email";
 import { DeliveryPhotoUnavailable, InvalidDeliveryPhoto, verifyDeliveryPhoto } from "@/lib/orders/verify-delivery-photo";
 import { verifyCreomsCredential } from "@/lib/orders/creoms-credential";
 import { parseInternalOrderStatusUpdate } from "@/lib/orders/internal-status";
 import { publishAfterCommit, publishCustomerOrderEvent } from "@/lib/orders/live-events";
+import { isPrepaid } from "@/lib/orders/payment-methods";
 import { createOrderStore, OrderStatusUpdateError, type Order, type OrderStore } from "@/lib/orders/orders";
 
 export const runtime = "nodejs";
@@ -51,7 +57,15 @@ export async function POST(
     const update = parseInternalOrderStatusUpdate(await request.json());
     if (update.status === "delivered") await verifyDeliveryPhoto(update.deliveryPhotoFileId);
     const orderStore = createOrderStore(getDatabase());
-    const order = await orderStore.advance(orderId, update);
+    let replayed = false;
+    let order: Order;
+    if (update.status === "confirmed") {
+      const { status: _status, ...amounts } = update;
+      void _status;
+      ({ order, replayed } = await orderStore.confirm(orderId, amounts));
+    } else {
+      order = await orderStore.advance(orderId, update);
+    }
     scheduleOrdersChanged();
     // Confirm the committed change before email or gateway latency can exhaust CREOMS's timeout.
     after(async () => {
@@ -66,10 +80,46 @@ export async function POST(
       }
       if (
         update.status === "confirmed"
+        && !replayed
         && order.fulfillmentMethod === "delivery"
         && order.deliveryFeeInCentavos !== null
       ) {
-        await notifyCustomer(orderStore, order, "confirmed", sendOrderConfirmedEmail);
+        if (order.paymentMethod === "cash-on-delivery" || isPrepaid(order.paymentMethod)) {
+          const online = isPrepaid(order.paymentMethod);
+          try {
+            const recipient = await orderStore.customerEmailForOrder(order.id);
+            if (recipient) {
+              await sendOnceAndRecord(
+                order.id,
+                online ? "online-delivery-confirmed" : "delivery-confirmed",
+                () => online ? sendOrderOnlineDeliveryConfirmedEmail(recipient, order) : sendOrderDeliveryConfirmedEmail(recipient, order),
+              );
+            }
+          } catch (error) {
+            console.error("Delivery confirmation email outcome could not be recorded", error);
+          }
+        } else {
+          await notifyCustomer(orderStore, order, "confirmed", sendOrderConfirmedEmail);
+        }
+      }
+      if (
+        update.status === "confirmed"
+        && !replayed
+        && order.fulfillmentMethod === "pickup"
+      ) {
+        const online = isPrepaid(order.paymentMethod);
+        try {
+          const recipient = await orderStore.customerEmailForOrder(order.id);
+          if (recipient) {
+            await sendOnceAndRecord(
+              order.id,
+              online ? "online-pickup-confirmed" : "pickup-confirmed",
+              () => online ? sendOrderOnlinePickupConfirmedEmail(recipient, order) : sendOrderPickupConfirmedEmail(recipient, order),
+            );
+          }
+        } catch (error) {
+          console.error("Pickup confirmation email outcome could not be recorded", error);
+        }
       }
       if (update.status === "paid") {
         await notifyCustomer(orderStore, order, "paid", sendOrderPaidEmail);

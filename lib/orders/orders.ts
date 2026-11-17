@@ -4,16 +4,16 @@ import { after } from "next/server";
 import { createStockReservations } from "./stock-reservations";
 import { gatewayShopStock, type ShopStock } from "./stock";
 import { gatewayProductImages, productThumbnail, type ProductImageFiles, type ProductImageReference } from "../catalog/product-images";
-import { and, asc, desc, eq, inArray, isNull, isNotNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, isNotNull, lt, ne, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { orderCancellations, failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, productImages, products, stockOutbox } from "../db/schema";
+import { seniorPwdVerifications, orderCancellations, failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, productImages, products, stockOutbox } from "../db/schema";
 import { courierBooking, type CourierBooking } from "../validators/courier";
 import { referenceProblem } from "./payment-proof";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
 import { createCartStore } from "./cart";
-import { seniorPwdDiscount, type IdType } from "../senior-pwd/id-number";
+import { capSeniorPwdDiscount, philippineWeek, seniorPwdDiscount, type IdType } from "../senior-pwd/id-number";
 import { activeVerification, submitVerification } from "../senior-pwd/store";
 import type { AuditEvent } from "../audit/gateway";
 
@@ -62,6 +62,8 @@ export type DeliveryAddress = {
   barangay: string;
   city: string;
   province: string;
+  /** Set when picked from the PSGC lists; older Orders have none. */
+  region?: string | null;
   postalCode: string;
   country: string;
 };
@@ -84,6 +86,15 @@ export type Order = {
   subtotalInCentavos: number;
   // Pickup Orders never have one; Delivery Orders get theirs once staff quote it.
   deliveryFeeInCentavos: number | null;
+  /** The final amounts Staff confirmed; empty until then, and never recalculated afterwards. */
+  approvedDiscountInCentavos?: number | null;
+  totalInCentavos?: number | null;
+  confirmedAt?: Date | null;
+  /**
+   * The Senior/PWD discount's weekly-cap figures, never the ID number: saved at confirmation, a live preview before.
+   * Null when the Order has no discount.
+   */
+  seniorPwd?: { discountInCentavos: number; allowanceUsedInCentavos: number; reductionReason: string | null } | null;
   packedBy?: { id: string; name: string; at: Date } | null;
   paidById: string | null;
   paidByName: string | null;
@@ -129,8 +140,19 @@ export type SubmitPaymentProofInput = {
 /** Where an Order's payment-proof screenshot lives: file-storage, or legacy Vercel Blob. */
 export type StoredPaymentScreenshot = { fileId: string } | { pathname: string };
 
+/** What Staff saw when they pressed Confirm Order: the storefront checks each figure against its own. */
+export type OrderConfirmation = {
+  subtotalInCentavos: number;
+  approvedDiscountInCentavos: number;
+  /** Null for a Pickup Order; ₱0 is a valid entered fee for Delivery. */
+  deliveryFeeInCentavos: number | null;
+  totalInCentavos: number;
+};
+
 export type AdvanceOrderInput = {
   status: OrderStatus;
+  /** Verified and saved with the move to confirmed. */
+  confirmation?: OrderConfirmation;
   deliveryFeeInCentavos?: number;
   deliveryPhotoFileId?: string;
   courier?: CourierBooking;
@@ -151,8 +173,12 @@ export type OrderStore = {
     input: AdvanceOrderInput,
   ): Promise<Order>;
   cancel(customerId: string, orderId: number): Promise<Order>;
+  /** Confirms with the final amounts; repeating the same call changes nothing and reports `replayed`. */
+  confirm(orderId: number, confirmation: OrderConfirmation): Promise<{ order: Order; replayed: boolean }>;
   cancelItems(orderId: number, lineIds: number[], staff: { staffId: string; staffName: string }, expectedStatus: string): Promise<Order>;
   customerEmailForOrder(orderId: number): Promise<string | undefined>;
+  /** One Order with its lines, for work that runs without a Customer session (email retries). */
+  getById(orderId: number): Promise<Order | undefined>;
   customerIdForOrder(orderId: number): Promise<string | undefined>;
   submitPaymentProof(
     customerId: string,
@@ -177,22 +203,9 @@ export async function placeOrderAndNotify(
   customerId: string,
   recipientEmail: string,
   input: PlaceOrderInput,
-  dependencies: { orderStore: OrderStore; mailer: OrderMailer; audit?: (event: AuditEvent) => Promise<void> },
+  dependencies: { orderStore: OrderStore; mailer: OrderMailer },
 ): Promise<Order> {
   const order = await dependencies.orderStore.place(customerId, input);
-  if (order.fulfillmentMethod === "delivery" && order.subtotalInCentavos > 250_000 && order.deliveryFeeInCentavos === 0) {
-    try {
-      await dependencies.audit?.({
-        source: "Ecommerce", action: "free_delivery.applied", outcome: "success",
-        actor: { type: "system", id: "free-delivery", display_name: "Free delivery" },
-        target: { type: "order", id: String(order.id), display_name: `Order #${order.id}` },
-        description: `Free delivery applied to Order #${order.id}; subtotal is over ₱2,500. No quote is needed.`,
-        occurred_at: order.createdAt.toISOString(), idempotency_key: `free_delivery.applied:${order.id}`,
-      });
-    } catch (error) {
-      console.error("Free delivery audit event could not be written", error);
-    }
-  }
   try {
     await dependencies.mailer.send(recipientEmail, order);
   } catch (error) {
@@ -247,6 +260,7 @@ export function createOrderStore<
         barangay: orderDeliveryAddresses.barangay,
         city: orderDeliveryAddresses.city,
         province: orderDeliveryAddresses.province,
+        region: orderDeliveryAddresses.region,
         postalCode: orderDeliveryAddresses.postalCode,
         country: orderDeliveryAddresses.country,
       })
@@ -280,6 +294,10 @@ export function createOrderStore<
       status: row.status as OrderStatus,
       subtotalInCentavos: row.subtotalInCentavos,
       deliveryFeeInCentavos: row.deliveryFeeInCentavos,
+      approvedDiscountInCentavos: row.approvedDiscountInCentavos,
+      totalInCentavos: row.totalInCentavos,
+      confirmedAt: row.confirmedAt,
+      seniorPwd: await seniorPwdFigures(row),
       packedBy: row.packedById && row.packedByName && row.packedAt ? { id: row.packedById, name: row.packedByName, at: row.packedAt } : null,
       paidById: row.paidById,
       paidByName: row.paidByName,
@@ -363,10 +381,6 @@ export function createOrderStore<
       .where(eq(orders.id, orderId));
     if (!persistedOrder) throw new OrderStatusUpdateError("Order was not found.");
 
-    if (persistedOrder.fulfillmentMethod === "delivery" && persistedOrder.subtotalInCentavos > 250_000 &&
-        input.deliveryFeeInCentavos !== undefined && input.deliveryFeeInCentavos !== 0) {
-      throw new OrderStatusUpdateError("Free delivery applies to this Order. The Delivery fee must be ₱0.");
-    }
     if (input.status === "delivered" && persistedOrder.deliveryPhotoFileId !== null) {
       throw new OrderStatusUpdateError("Delivery photo is already set.");
     }
@@ -401,6 +415,12 @@ export function createOrderStore<
     }
     if (!requote && !permittedNextStatuses[currentStatus].includes(input.status)) {
       throw new OrderTransitionError(input.status, currentStatus);
+    }
+    if (input.confirmation) {
+      if (input.status !== "confirmed") throw new OrderStatusUpdateError("Final amounts can only be saved when confirming an Order.");
+      // The quick checks come first; the discount is checked again under the ID's lock inside the transaction.
+      const early = confirmationProblem(persistedOrder, input.confirmation);
+      if (early) throw new OrderStatusUpdateError(early);
     }
     const deliveryPhotoFileId = input.status === "delivered" ? fileIdField.parse(input.deliveryPhotoFileId) : undefined;
     if (
@@ -440,6 +460,14 @@ export function createOrderStore<
     const updatedOrder = await db.transaction(async (transaction) => {
       // Serialize delivery with failed-attempt decisions and refuse disposed goods.
       await transaction.select({ id: orders.id }).from(orders).where(eq(orders.id, orderId)).for("update");
+      // The weekly cap is checked under a lock on the ID, so two Orders from one ID cannot both pass it.
+      let quote: SeniorPwdQuote | undefined;
+      if (input.confirmation) {
+        await lockSeniorPwdId(transaction, persistedOrder);
+        quote = await seniorPwdQuote(transaction, persistedOrder, new Date());
+        const wrong = confirmationProblem(persistedOrder, input.confirmation, quote.discountInCentavos);
+        if (wrong) throw new OrderStatusUpdateError(wrong);
+      }
       const [cancellation] = await transaction.select().from(orderCancellations).where(eq(orderCancellations.orderId, orderId));
       if (cancellation?.status === "settling") throw new OrderStatusUpdateError("Cancellation settlement has started. Refresh the Order.");
       if (input.status === "delivered") {
@@ -459,6 +487,13 @@ export function createOrderStore<
           ...(input.deliveryFeeInCentavos === undefined
             ? {}
             : { deliveryFeeInCentavos: input.deliveryFeeInCentavos }),
+          ...(input.confirmation ? {
+            approvedDiscountInCentavos: input.confirmation.approvedDiscountInCentavos,
+            totalInCentavos: input.confirmation.totalInCentavos,
+            ...(quote && persistedOrder.seniorPwdVerificationId !== null
+              ? { seniorPwdAllowanceUsedInCentavos: quote.allowanceUsedInCentavos, seniorPwdReductionReason: quote.reason } : {}),
+            confirmedAt: persistedOrder.confirmedAt ?? new Date(),
+          } : {}),
         })
         // Keep a concurrent update from overwriting a status that was just advanced.
         .where(and(
@@ -508,7 +543,89 @@ export function createOrderStore<
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
   }
 
-  /** Cancel whole line items atomically; the remaining gross subtotal decides Free delivery. */
+  type SeniorPwdQuote = { discountInCentavos: number; allowanceUsedInCentavos: number; reason: string | null };
+  type Handle = Pick<typeof db, "select" | "execute">;
+
+  /** The ID's hash, which ties together every verification and Order that used the same ID. */
+  async function idHashOf(handle: Handle, row: typeof orders.$inferSelect): Promise<string | null> {
+    if (row.seniorPwdVerificationId === null) return null;
+    const [verification] = await handle.select({ idHash: seniorPwdVerifications.idHash }).from(seniorPwdVerifications)
+      .where(eq(seniorPwdVerifications.id, row.seniorPwdVerificationId));
+    return verification?.idHash ?? null;
+  }
+
+  async function lockSeniorPwdId(handle: Handle, row: typeof orders.$inferSelect) {
+    const idHash = await idHashOf(handle, row);
+    if (idHash) await handle.execute(sql`select pg_advisory_xact_lock(hashtext(${idHash}))`);
+  }
+
+  /**
+   * The discount Staff may approve now: 5% of one item, counted only while the ID is approved, and held to what the ID has
+   * left of its ₱125 for the Monday-to-Sunday week (Philippine Time) of `at`. Cancelled Orders count for nothing, so they
+   * give their allowance back. The Order itself never counts against itself.
+   */
+  async function seniorPwdQuote(handle: Handle, row: typeof orders.$inferSelect, at: Date): Promise<SeniorPwdQuote> {
+    if (row.seniorPwdVerificationId === null) return { discountInCentavos: 0, allowanceUsedInCentavos: 0, reason: null };
+    const [verification] = await handle.select({ status: seniorPwdVerifications.status, idHash: seniorPwdVerifications.idHash })
+      .from(seniorPwdVerifications).where(eq(seniorPwdVerifications.id, row.seniorPwdVerificationId));
+    if (verification?.status !== "approved") return { discountInCentavos: 0, allowanceUsedInCentavos: 0, reason: null };
+    const { start, end } = philippineWeek(at);
+    const [used] = await handle.select({ total: sql<number>`coalesce(sum(${orders.approvedDiscountInCentavos}), 0)::int` })
+      .from(orders).innerJoin(seniorPwdVerifications, eq(orders.seniorPwdVerificationId, seniorPwdVerifications.id))
+      .where(and(eq(seniorPwdVerifications.idHash, verification.idHash), ne(orders.id, row.id), ne(orders.status, "cancelled"),
+        isNotNull(orders.confirmedAt), gte(orders.confirmedAt, start), lt(orders.confirmedAt, end)));
+    return capSeniorPwdDiscount(row.seniorPwdDiscountInCentavos ?? 0, used?.total ?? 0);
+  }
+
+  /** What CREOMS reads: the saved figures once confirmed, the live preview before. Never the ID number. */
+  async function seniorPwdFigures(row: typeof orders.$inferSelect): Promise<Order["seniorPwd"]> {
+    if (row.seniorPwdVerificationId === null) return null;
+    if (row.confirmedAt && row.approvedDiscountInCentavos !== null) {
+      return { discountInCentavos: row.approvedDiscountInCentavos, allowanceUsedInCentavos: row.seniorPwdAllowanceUsedInCentavos ?? 0, reductionReason: row.seniorPwdReductionReason };
+    }
+    const quote = await seniorPwdQuote(db, row, new Date());
+    return { discountInCentavos: quote.discountInCentavos, allowanceUsedInCentavos: quote.allowanceUsedInCentavos, reductionReason: quote.reason };
+  }
+
+  /** Why these amounts cannot be saved, or undefined when each matches the storefront's own figures. */
+  function confirmationProblem(row: typeof orders.$inferSelect, c: OrderConfirmation, expectedDiscount?: number): string | undefined {
+    const fee = c.deliveryFeeInCentavos;
+    if (row.fulfillmentMethod === "pickup" && fee !== null) return "A Pickup Order has no Delivery fee.";
+    if (row.fulfillmentMethod === "delivery" && fee === null) return "A confirmed Delivery Order must include its Delivery fee.";
+    if (c.subtotalInCentavos !== row.subtotalInCentavos) return "The subtotal does not match this Order's subtotal. Refresh the Order before confirming.";
+    if (expectedDiscount !== undefined && c.approvedDiscountInCentavos !== expectedDiscount) return "The approved discount does not match this Order's discount. Refresh the Order before confirming.";
+    if (c.totalInCentavos !== c.subtotalInCentavos - c.approvedDiscountInCentavos + (fee ?? 0)) {
+      return "The total does not match subtotal minus approved discount plus Delivery fee. Refresh the Order before confirming.";
+    }
+    return undefined;
+  }
+
+  async function confirm(orderId: number, c: OrderConfirmation): Promise<{ order: Order; replayed: boolean }> {
+    const replay = async () => {
+      const [row] = await db.select().from(orders).where(eq(orders.id, orderId));
+      if (!row) throw new OrderStatusUpdateError("Order was not found.");
+      if (!row.confirmedAt || row.deliveryFeeQuoteRequired) return null;
+      const same = row.subtotalInCentavos === c.subtotalInCentavos && (row.approvedDiscountInCentavos ?? 0) === c.approvedDiscountInCentavos
+        && row.deliveryFeeInCentavos === c.deliveryFeeInCentavos && row.totalInCentavos === c.totalInCentavos;
+      if (!same) throw new OrderStatusUpdateError("This Order was already confirmed with different amounts. Refresh the Order.");
+      return { order: await toOrder(row, await linesForOrder(row.id)), replayed: true };
+    };
+    const already = await replay();
+    if (already) return already;
+    try {
+      const order = await advance(orderId, {
+        status: "confirmed", confirmation: c,
+        ...(c.deliveryFeeInCentavos === null ? {} : { deliveryFeeInCentavos: c.deliveryFeeInCentavos }),
+      });
+      return { order, replayed: false };
+    } catch (error) {
+      // A concurrent identical confirm that won the race is the same request repeated.
+      if (error instanceof OrderStatusUpdateError) { const raced = await replay().catch(() => null); if (raced) return raced; }
+      throw error;
+    }
+  }
+
+  /** Cancel whole line items atomically; the Delivery fee stays as quoted. */
   async function cancelItems(orderId: number, lineIds: number[], staff: { staffId: string; staffName: string }, expectedStatus: string): Promise<Order> {
     if (!lineIds.length || new Set(lineIds).size !== lineIds.length ||
         lineIds.some(id => !Number.isSafeInteger(id) || id < 1)) {
@@ -558,10 +675,12 @@ export function createOrderStore<
   /** Cancels an Order only when it belongs to the Customer and the state machine permits it. */
   async function cancel(customerId: string, orderId: number): Promise<Order> {
     const [persistedOrder] = await db
-      .select({ id: orders.id })
+      .select({ id: orders.id, status: orders.status, confirmedAt: orders.confirmedAt })
       .from(orders)
       .where(and(eq(orders.id, orderId), eq(orders.customerId, customerId)));
     if (!persistedOrder) throw new Error("Order was not found.");
+    // Once Staff confirm, the Customer can no longer cancel; Staff cancel up to preparing and a Manager after dispatch.
+    if (persistedOrder.confirmedAt) throw new OrderTransitionError("cancelled", persistedOrder.status as OrderStatus);
 
     return advance(persistedOrder.id, { status: "cancelled" });
   }
@@ -684,6 +803,11 @@ export function createOrderStore<
     return customer?.email;
   }
 
+  async function getById(orderId: number): Promise<Order | undefined> {
+    const [row] = await db.select().from(orders).where(eq(orders.id, orderId));
+    return row ? toOrder(row, await linesForOrder(row.id)) : undefined;
+  }
+
   async function customerIdForOrder(orderId: number): Promise<string | undefined> {
     const [order] = await db.select({ customerId: orders.customerId }).from(orders).where(eq(orders.id, orderId));
     return order?.customerId;
@@ -724,6 +848,7 @@ export function createOrderStore<
             barangay: addresses.barangay,
             city: addresses.city,
             province: addresses.province,
+            region: addresses.region,
             postalCode: addresses.postalCode,
             country: addresses.country,
           })
@@ -755,20 +880,19 @@ export function createOrderStore<
       }
 
       await createStockReservations(transaction, stock).reserve(attemptId, cart);
-      const freeDelivery = input.fulfillmentMethod === "delivery" && cart.subtotalInCentavos > 250_000;
       const [order] = await transaction
         .insert(orders)
         .values({
           customerId,
           fulfillmentMethod: input.fulfillmentMethod,
           paymentMethod: input.paymentMethod,
-          // The undiscounted Cart subtotal determines Free delivery.
+          // A Delivery Order waits for a Delivery fee, whatever its subtotal.
           // An Order whose ID is still being checked is never confirmed automatically.
-          status: (input.fulfillmentMethod === "delivery" && !freeDelivery) || waitingForIdCheck ? "placed" : "confirmed",
+          status: input.fulfillmentMethod === "delivery" || waitingForIdCheck ? "placed" : "confirmed",
           seniorPwdVerificationId,
           seniorPwdDiscountInCentavos,
           subtotalInCentavos: cart.subtotalInCentavos,
-          deliveryFeeInCentavos: freeDelivery ? 0 : null,
+          deliveryFeeInCentavos: null,
         })
         .returning();
 
@@ -785,12 +909,6 @@ export function createOrderStore<
       }
       // Only submitted lines are consumed; additions in another tab remain in the Cart.
       await transaction.delete(cartLines).where(inArray(cartLines.id, cart.lines.map(line => line.id)));
-      if (freeDelivery && !waitingForIdCheck) await transaction.insert(customerNotifications).values({
-        idempotencyKey: `order.free-delivery:${order.id}`, orderId: order.id, customerId,
-        type: "order.free-delivery", title: "Order confirmed · free delivery",
-        body: `Order #${order.id} is confirmed with Free delivery. No quote is needed.`,
-        link: `/profile/orders?order=${order.id}`,
-      });
       if (order.status === "confirmed" && isPrepaid(order.paymentMethod)) {
         await transaction.insert(customerNotifications).values(paymentNeededNotification(order));
       }
@@ -830,5 +948,5 @@ export function createOrderStore<
     }
   }
 
-  return { place, listForCustomer, advance, cancel, cancelItems, customerEmailForOrder, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, rejectPaymentProof };
+  return { place, listForCustomer, advance, confirm, cancel, cancelItems, customerEmailForOrder, getById, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, rejectPaymentProof };
 }

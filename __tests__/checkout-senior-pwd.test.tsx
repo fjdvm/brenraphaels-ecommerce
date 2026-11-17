@@ -17,7 +17,7 @@ const cart = {
 } as unknown as Cart;
 
 const view = (standing?: { verified: boolean; expiresOn: string | null }) =>
-  render(<CheckoutView cart={cart} addresses={[]} provinces={[]} seniorPwdStanding={standing} />);
+  render(<CheckoutView cart={cart} addresses={[]} seniorPwdStanding={standing} />);
 const placeButton = () => screen.getByRole("button", { name: /Place order/ }) as HTMLButtonElement;
 const photo = (name: string) => new File(["x"], name, { type: "image/png" });
 

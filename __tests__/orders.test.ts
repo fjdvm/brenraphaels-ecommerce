@@ -54,39 +54,55 @@ async function firstSizeId() {
 }
 
 describe("Order", () => {
-  test.each([250000, 250001])("Delivery placement enforces the ₱2,500 boundary: %i", async (subtotal) => {
+  test.each([1000, 250000, 250001, 900000])("a Delivery Order of %i centavos is never confirmed automatically", async (subtotal) => {
     const database = drizzle(client);
-    await database.update(sizes).set({ priceInCentavos: subtotal - 1 });
+    await database.update(sizes).set({ priceInCentavos: subtotal });
     await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
-    const [extra] = await database.insert(sizes).values({ productSlug: "ube-jam", label: "Extra", priceInCentavos: 1, available: true }).returning();
-    await createCartStore(database).addSize("customer-1", extra.id, 1);
     await client.exec("insert into addresses (customer_id, label, street, barangay, city, province, postal_code, country, is_default) values ('customer-1', 'Home', '1 Main St', 'San Jose', 'Pasig', 'Metro Manila', '1600', 'Philippines', true)");
     const address = await client.query<{id: number}>("select id from addresses limit 1");
     const store = createOrderStore(database);
-    const audit = vi.fn(async () => {});
-    const placed = await placeOrderAndNotify("customer-1", "jane@example.com", { fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", addressId: address.rows[0].id }, { orderStore: store, mailer: { send: sendOrderPlacedEmail }, audit });
-    expect(sendMail).toHaveBeenCalledTimes(1);
-    if (subtotal === 250001) {
-      expect(audit).toHaveBeenCalledWith(expect.objectContaining({ action: "free_delivery.applied", actor: { type: "system", id: "free-delivery", display_name: "Free delivery" }, idempotency_key: `free_delivery.applied:${placed.id}` }));
-      expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ subject: `Order confirmed · free delivery · #${placed.id}`, text: expect.stringContaining("No quote is needed") }));
-    } else {
-      expect(audit).not.toHaveBeenCalled();
-      expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("Delivery fee: To be confirmed") }));
-    }
-    expect(placed).toMatchObject({ subtotalInCentavos: subtotal, status: subtotal === 250001 ? "confirmed" : "placed", deliveryFeeInCentavos: subtotal === 250001 ? 0 : null });
-    if (subtotal === 250001) {
-      await expect(database.update(orders).set({ deliveryFeeInCentavos: 100 }).where(eq(orders.id, placed.id))).rejects.toThrow();
-      await expect(store.advance(placed.id, { status: "confirmed", deliveryFeeInCentavos: 100 })).rejects.toThrow();
-      await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ deliveryFeeInCentavos: 0 }]);
-      const [extraLine] = await database.select().from(orderLines).where(eq(orderLines.sizeLabel, "Extra"));
-      await store.cancelItems(placed.id, [extraLine.id], { staffId: "ana", staffName: "Ana" }, "confirmed");
-      await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ status: "confirmed", deliveryFeeInCentavos: null, subtotalInCentavos: 250000 }]);
-      await expect(store.advance(placed.id, { status: "confirmed", deliveryFeeInCentavos: 19000 })).resolves.toMatchObject({ status: "confirmed", deliveryFeeInCentavos: 19000 });
-
-    }
+    const placed = await placeOrderAndNotify("customer-1", "jane@example.com", { fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", addressId: address.rows[0].id }, { orderStore: store, mailer: { send: sendOrderPlacedEmail } });
+    expect(placed).toMatchObject({ subtotalInCentavos: subtotal, status: "placed", deliveryFeeInCentavos: null });
+    expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("Delivery fee: To be confirmed") }));
+    expect(sendMail).not.toHaveBeenCalledWith(expect.objectContaining({ subject: expect.stringContaining("free delivery") }));
+    const [row] = await database.select().from(orders).where(eq(orders.id, placed.id));
+    expect(row).toMatchObject({ status: "placed", deliveryFeeInCentavos: null });
+    const notices = await client.query("select 1 from customer_notifications where type = 'order.free-delivery'");
+    expect(notices.rows).toHaveLength(0);
+    // Staff may enter any fee, including ₱0, whatever the subtotal.
+    await expect(store.advance(placed.id, { status: "confirmed", deliveryFeeInCentavos: 0 })).resolves.toMatchObject({ status: "confirmed", deliveryFeeInCentavos: 0 });
   });
 
-  test.each(["confirmed", "awaiting payment", "paid", "preparing"])("GCash partial cancellation keeps %s and continues after a new quote", async phase => {
+  test("a Delivery fee above ₱0 is accepted on a large Delivery Order, and a missing fee is refused", async () => {
+    const database = drizzle(client);
+    await database.update(sizes).set({ priceInCentavos: 900000 });
+    await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
+    await client.exec("insert into addresses (customer_id, label, street, barangay, city, province, postal_code, country, is_default) values ('customer-1', 'Home', '1 Main St', 'San Jose', 'Pasig', 'Metro Manila', '1600', 'Philippines', true)");
+    const address = await client.query<{id: number}>("select id from addresses limit 1");
+    const store = createOrderStore(database);
+    const placed = await store.place("customer-1", { fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", addressId: address.rows[0].id });
+    await expect(store.advance(placed.id, { status: "confirmed" })).rejects.toThrow("must include its Delivery fee");
+    await expect(store.advance(placed.id, { status: "confirmed", deliveryFeeInCentavos: 19000 })).resolves.toMatchObject({ status: "confirmed", deliveryFeeInCentavos: 19000 });
+  });
+
+  test("a Pickup Order still has no Delivery fee", async () => {
+    const database = drizzle(client);
+    await database.update(sizes).set({ priceInCentavos: 900000 });
+    await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
+    const store = createOrderStore(database);
+    const placed = await store.place("customer-1", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+    expect(placed).toMatchObject({ status: "confirmed", deliveryFeeInCentavos: null });
+  });
+
+  test("an Order confirmed under the old free-delivery rule keeps its fee and status", async () => {
+    const database = drizzle(client);
+    await client.exec(`insert into orders (customer_id, fulfillment_method, payment_method, status, subtotal_in_centavos, delivery_fee_in_centavos)
+      values ('customer-1', 'delivery', 'cash-on-delivery', 'confirmed', 300000, 0)`);
+    const store = createOrderStore(database);
+    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ status: "confirmed", deliveryFeeInCentavos: 0, subtotalInCentavos: 300000 }]);
+  });
+
+  test.each(["confirmed", "awaiting payment", "paid", "preparing"])("GCash partial cancellation keeps the quoted fee and %s", async phase => {
     const database = drizzle(client);
     await database.update(sizes).set({ priceInCentavos: 250000 });
     await createCartStore(database).addSize("customer-1", await firstSizeId(), 1);
@@ -96,19 +112,15 @@ describe("Order", () => {
     const address = await client.query<{id: number}>("select id from addresses limit 1");
     const store = createOrderStore(database);
     const order = await store.place("customer-1", { fulfillmentMethod: "delivery", paymentMethod: "gcash", addressId: address.rows[0].id });
+    expect(order).toMatchObject({ status: "placed", deliveryFeeInCentavos: null });
+    await store.advance(order.id, { status: "confirmed", deliveryFeeInCentavos: 19000 });
     if (phase !== "confirmed") await store.submitPaymentProof("customer-1", order.id, { gcashReferenceNumber: "1234567890" });
     if (["paid", "preparing"].includes(phase)) await store.advance(order.id, { status: "paid", staffId: "ana", staffName: "Ana" });
     if (phase === "preparing") await store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
     const [line] = await database.select().from(orderLines).where(eq(orderLines.sizeLabel, "Extra"));
     await expect(store.cancelItems(order.id, [line.id], { staffId: "ana", staffName: "Ana" }, "placed")).rejects.toThrow("already changed");
     await store.cancelItems(order.id, [line.id], { staffId: "ana", staffName: "Ana" }, phase);
-    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ status: phase, deliveryFeeInCentavos: null }]);
-    await expect(store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" })).rejects.toThrow("Quote a Delivery fee");
-    await expect(store.advance(order.id, { status: "confirmed", deliveryFeeInCentavos: 19000 })).resolves.toMatchObject({ status: phase, deliveryFeeInCentavos: 19000 });
-    if (phase === "confirmed") await expect(store.submitPaymentProof("customer-1", order.id, { gcashReferenceNumber: "1234567890" })).resolves.toMatchObject({ status: "awaiting payment" });
-    if (phase === "awaiting payment") await expect(store.advance(order.id, { status: "paid", staffId: "ana", staffName: "Ana" })).resolves.toMatchObject({ status: "paid" });
-    if (phase === "paid") await expect(store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" })).resolves.toMatchObject({ status: "preparing" });
-    if (phase === "preparing") await expect(store.advance(order.id, { status: "dispatched", courier: booking })).resolves.toMatchObject({ status: "dispatched" });
+    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ status: phase, deliveryFeeInCentavos: 19000, subtotalInCentavos: 250000 }]);
   });
 
   test("shows a File-backed Product image in Order history instead of the retained Blob address", async () => {
@@ -277,6 +289,24 @@ describe("Order", () => {
     await expect(createOrderStore(database).listForCustomer("customer-1")).resolves.toMatchObject([
       { id: order.id, deliveryAddress: { street: "1 First Street" } },
     ]);
+  });
+
+  test("copies a picked Address's Region onto the Order, and an older Address leaves it empty", async () => {
+    const database = drizzle(client);
+    await client.query(`
+      insert into addresses (customer_id, label, street, barangay, city, province, region, postal_code, country, is_default)
+      values ('customer-1', 'Home', '1 First Street', 'Barangay One', 'Quezon City', '', 'NCR', '1100', 'Philippines', true),
+             ('customer-1', 'Work', '2 Old Street', 'Barangay Two', 'Cebu City', 'Cebu', null, '6000', 'Philippines', false)
+    `);
+    const { rows } = await client.query<{ id: number; label: string }>("select id, label from addresses where customer_id = 'customer-1' order by id");
+    const cart = createCartStore(database);
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const picked = await createOrderStore(database).place("customer-1", { fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", addressId: rows[0].id });
+    expect(picked.deliveryAddress).toMatchObject({ region: "NCR", province: "" });
+
+    await cart.addSize("customer-1", await firstSizeId(), 1);
+    const older = await createOrderStore(database).place("customer-1", { fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", addressId: rows[1].id });
+    expect(older.deliveryAddress).toMatchObject({ region: null, street: "2 Old Street" });
   });
 
   test("advances an Order one legal status at a time", async () => {

@@ -74,6 +74,8 @@ export const addresses = pgTable(
     barangay: text("barangay").notNull(),
     city: text("city").notNull(),
     province: text("province").notNull(),
+    /** Set when the Address was picked from the PSGC lists; older Addresses have none. */
+    region: text("region"),
     postalCode: text("postal_code").notNull(),
     country: text("country").notNull(),
     isDefault: boolean("is_default").notNull(),
@@ -197,6 +199,14 @@ export const orders = pgTable("orders", {
   // Pickup Orders never have a Delivery fee; delivery fees are added by CREOMS.
   deliveryFeeInCentavos: integer("delivery_fee_in_centavos"),
   deliveryFeeQuoteRequired: boolean("delivery_fee_quote_required").default(false).notNull(),
+  /** The final amounts Staff confirmed, saved once at confirmation and never recalculated. Empty on Orders not yet confirmed by Staff. */
+  approvedDiscountInCentavos: integer("approved_discount_in_centavos"),
+  totalInCentavos: integer("total_in_centavos"),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  /** How much of the ID's ₱125 weekly cap other Orders had used when this one was confirmed, in centavos. */
+  seniorPwdAllowanceUsedInCentavos: integer("senior_pwd_allowance_used_in_centavos"),
+  /** Why the Senior/PWD discount was reduced at confirmation; null when it was not. */
+  seniorPwdReductionReason: text("senior_pwd_reduction_reason"),
   // GCash Payment proof: a reference number and optional screenshot the Customer
   // submits once the Order is confirmed. This app stores it but never verifies
   // it or marks the Order paid itself — that happens via the internal API.
@@ -300,6 +310,8 @@ export const orderDeliveryAddresses = pgTable("order_delivery_addresses", {
   barangay: text("barangay").notNull(),
   city: text("city").notNull(),
   province: text("province").notNull(),
+  /** Set when the Address was picked from the PSGC lists; older Orders have none and show as plain text. */
+  region: text("region"),
   postalCode: text("postal_code").notNull(),
   country: text("country").notNull(),
 });
@@ -614,3 +626,20 @@ export const assistantHandoffs = pgTable("assistant_handoffs", {
   sentAt: timestamp("sent_at", { withTimezone: true }),
 }, (table) => [uniqueIndex("assistant_handoffs_chat").on(table.chatId),
   check("assistant_handoffs_status", sql`${table.status} in ('drafted','dropped','sent')`)]);
+
+/**
+ * One row per Order and kind of Customer email. The primary key is the idempotency key: the first insert claims the
+ * send, so a repeated confirmation never emails twice. `status` records whether it went out, is waiting for a retry, or failed for good (with the reason).
+ */
+export const orderEmailOutcomes = pgTable("order_email_outcomes", {
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  kind: text("kind").notNull(),
+  status: text("status", { enum: ["sending", "sent", "retrying", "failed"] }).notNull(),
+  reason: text("reason"),
+  /** Sends tried so far, the first one included. */
+  attempts: integer("attempts").default(0).notNull(),
+  /** When the retry job may try again; set only while `status` is "retrying". */
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, table => [primaryKey({ columns: [table.orderId, table.kind] })]);

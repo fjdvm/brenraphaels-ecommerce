@@ -171,7 +171,8 @@ function OrderCard({
   onToggle: () => void;
 }) {
   const badges = orderBadges(order);
-  const cancellable = !["dispatched", "delivered", "received", "cancelled"].includes(order.status);
+  // Once Staff confirm an Order the Customer can no longer cancel it here; they message the shop instead.
+  const cancellable = !order.confirmedAt && !["dispatched", "delivered", "received", "cancelled"].includes(order.status);
   const firstLine = order.lines[0];
   const summary = order.lines.map((line) => `${line.productName} · ${line.sizeLabel} × ${line.quantity}`).join("  ·  ");
   const detailsId = `order-${order.id}-details`;

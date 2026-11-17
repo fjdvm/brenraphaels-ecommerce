@@ -8,6 +8,7 @@ import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { createOrderStore } from "@/lib/orders/orders";
 import { paymentDetails } from "@/lib/orders/payment-details";
+import { loadPickupInstructions } from "@/lib/pickup/instructions";
 
 export const metadata: Metadata = { title: "Order placed" };
 export const dynamic = "force-dynamic";
@@ -20,7 +21,8 @@ async function OrderPlacedContent({ params }: { params: PageProps<"/checkout/pla
   const order = orders.find((candidate) => candidate.id === Number(id));
   if (!order) notFound();
 
-  return <OrderPlacedView order={order} details={await paymentDetails()} firstName={customer.firstName} />;
+  const pickup = order.fulfillmentMethod === "pickup" ? await loadPickupInstructions() : null;
+  return <OrderPlacedView order={order} details={await paymentDetails()} firstName={customer.firstName} pickup={pickup} />;
 }
 
 export default function OrderPlacedPage({ params }: PageProps<"/checkout/placed/[id]">) {

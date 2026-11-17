@@ -5,6 +5,7 @@ const {
   sendPackingAudit,
   afterTasks,
   advance,
+  confirm,
   createOrderStore,
   customerEmailForOrder,
   customerIdForOrder,
@@ -14,11 +15,17 @@ const {
   sendOrderDeliveredEmail,
   sendOrderDispatchedEmail,
   sendOrderPaidEmail,
+  sendOnceAndRecord,
+  sendOrderPickupConfirmedEmail,
+  sendOrderDeliveryConfirmedEmail,
+  sendOrderOnlinePickupConfirmedEmail,
+  sendOrderOnlineDeliveryConfirmedEmail,
 } = vi.hoisted(() => ({
   sendPackingAudit: vi.fn(async () => {}),
   afterTasks: [] as Array<() => Promise<void>>,
   advance: vi.fn(),
-  createOrderStore: vi.fn(() => ({ advance, customerEmailForOrder, customerIdForOrder })),
+  confirm: vi.fn(),
+  createOrderStore: vi.fn(() => ({ advance, confirm, customerEmailForOrder, customerIdForOrder })),
   customerEmailForOrder: vi.fn(),
   customerIdForOrder: vi.fn(),
   getDatabase: vi.fn(),
@@ -27,6 +34,11 @@ const {
   sendOrderDeliveredEmail: vi.fn(),
   sendOrderDispatchedEmail: vi.fn(),
   sendOrderPaidEmail: vi.fn(),
+  sendOnceAndRecord: vi.fn(async (_id: number, _kind: string, send: () => Promise<void>) => { await send(); return "sent"; }),
+  sendOrderPickupConfirmedEmail: vi.fn(),
+  sendOrderDeliveryConfirmedEmail: vi.fn(),
+  sendOrderOnlinePickupConfirmedEmail: vi.fn(),
+  sendOrderOnlineDeliveryConfirmedEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/orders/stock-reservations", () => ({ createStockReservations: () => ({ sendPending: sendPackingAudit }) }));
@@ -36,6 +48,11 @@ vi.mock("@/lib/db", () => ({ getDatabase }));
 vi.mock("@/lib/email/order-confirmed-email", () => ({ sendOrderConfirmedEmail }));
 vi.mock("@/lib/email/order-delivered-email", () => ({ sendOrderDeliveredEmail }));
 vi.mock("@/lib/email/order-dispatched-email", () => ({ sendOrderDispatchedEmail }));
+vi.mock("@/lib/email/order-delivery-confirmed-email", () => ({ sendOrderDeliveryConfirmedEmail }));
+vi.mock("@/lib/email/order-online-delivery-confirmed-email", () => ({ sendOrderOnlineDeliveryConfirmedEmail }));
+vi.mock("@/lib/email/order-online-pickup-confirmed-email", () => ({ sendOrderOnlinePickupConfirmedEmail }));
+vi.mock("@/lib/email/outcomes", () => ({ sendOnceAndRecord }));
+vi.mock("@/lib/email/order-pickup-confirmed-email", () => ({ sendOrderPickupConfirmedEmail }));
 vi.mock("@/lib/email/order-paid-email", () => ({ sendOrderPaidEmail }));
 vi.mock("@/lib/orders/live-events", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/orders/live-events")>()),
@@ -68,20 +85,28 @@ beforeEach(() => {
     deliveryFeeInCentavos: 8000,
     subtotalInCentavos: 21900,
   });
+  confirm.mockReset().mockImplementation(async () => ({ order: await advance(), replayed: false }));
   customerEmailForOrder.mockReset().mockResolvedValue("jane@example.com");
   customerIdForOrder.mockReset().mockResolvedValue("customer-7");
   publishCustomerOrderEvent.mockReset().mockResolvedValue(undefined);
   sendOrderConfirmedEmail.mockReset().mockResolvedValue(undefined);
   sendOrderDeliveredEmail.mockReset().mockResolvedValue(undefined);
   sendOrderPaidEmail.mockReset().mockResolvedValue(undefined);
+  sendOrderPickupConfirmedEmail.mockReset().mockResolvedValue(undefined);
+  sendOrderDeliveryConfirmedEmail.mockReset().mockResolvedValue(undefined);
+  sendOrderOnlinePickupConfirmedEmail.mockReset().mockResolvedValue(undefined);
+  sendOrderOnlineDeliveryConfirmedEmail.mockReset().mockResolvedValue(undefined);
+  sendOnceAndRecord.mockClear();
   sendOrderDispatchedEmail.mockReset().mockResolvedValue(undefined);
   createOrderStore.mockClear();
   getDatabase.mockClear();
 });
 
+const confirmAmounts = { subtotalInCentavos: 21900, approvedDiscountInCentavos: 0, deliveryFeeInCentavos: 8000, totalInCentavos: 29900 };
+
 function statusRequest(credential = mintCreomsCredential()) {
   return new Request("https://shop.example.test/api/internal/orders/12/status", {
-    body: JSON.stringify({ status: "confirmed", deliveryFeeInCentavos: 8000 }),
+    body: JSON.stringify({ status: "confirmed", ...confirmAmounts }),
     headers: {
       "Authorization": `Bearer ${credential}`,
       "Content-Type": "application/json",
@@ -143,13 +168,53 @@ describe("POST /api/internal/orders/[id]/status", () => {
 
   test("accepts a request carrying a valid CREOMS service credential", async () => {
     expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
-    expect(advance).toHaveBeenCalledWith(12, { status: "confirmed", deliveryFeeInCentavos: 8000 });
+    expect(confirm).toHaveBeenCalledWith(12, confirmAmounts);
     expect(customerEmailForOrder).toHaveBeenCalledWith(12);
     expect(sendOrderConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({
       id: 12,
       deliveryFeeInCentavos: 8000,
       subtotalInCentavos: 21900,
     }));
+  });
+
+  test("a confirmed COD Pickup Order gets its confirmation email once, through the outcome record", async () => {
+    advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
+    expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
+    expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "pickup-confirmed", expect.any(Function));
+    expect(sendOrderPickupConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
+  });
+
+  test("a confirmed COD Delivery Order gets its confirmation email once, through the outcome record", async () => {
+    advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", deliveryFeeInCentavos: 0, subtotalInCentavos: 21900 });
+    expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
+    expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "delivery-confirmed", expect.any(Function));
+    expect(sendOrderDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
+  });
+
+  test("a confirmed Online payment Delivery Order gets its Pay for Your Order email once, through the outcome record", async () => {
+    advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "delivery", paymentMethod: "gcash", deliveryFeeInCentavos: 8000, subtotalInCentavos: 21900 });
+    expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
+    expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "online-delivery-confirmed", expect.any(Function));
+    expect(sendOrderOnlineDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderDeliveryConfirmedEmail).not.toHaveBeenCalled();
+    expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
+  });
+
+  test("a confirmed Online payment Pickup Order gets its Pay for Your Order email once, through the outcome record", async () => {
+    advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "pickup", paymentMethod: "gcash", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
+    expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
+    expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "online-pickup-confirmed", expect.any(Function));
+    expect(sendOrderOnlinePickupConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderPickupConfirmedEmail).not.toHaveBeenCalled();
+  });
+
+  test("a replayed confirm sends no Pickup email", async () => {
+    advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
+    confirm.mockImplementation(async () => ({ order: await advance(), replayed: true }));
+    await postAndNotify(statusRequest(), context);
+    expect(sendOrderPickupConfirmedEmail).not.toHaveBeenCalled();
   });
 
   test("emails the Customer once staff mark a GCash Order paid", async () => {
@@ -223,7 +288,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     expect(publishCustomerOrderEvent).toHaveBeenCalledWith("customer-7", { type: "order.updated", orderId: "12" });
   });
 
-  test.each(["confirmed", "dispatched", "delivered"])(
+  test.each(["dispatched", "delivered"])(
     "%s does not need or forward Staff attribution", async (status) => {
       for (const staff of [{}, { staffId: "staff-17", staffName: "Ana Cruz" }]) {
         const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
@@ -274,6 +339,30 @@ describe("POST /api/internal/orders/[id]/status", () => {
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
   });
 
+  test("confirm needs all four amounts, and a mismatch is refused with its reason", async () => {
+    const { OrderStatusUpdateError } = await import("@/lib/orders/orders");
+    const send = (body: unknown) => postAndNotify(new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify(body), headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" }, method: "POST",
+    }), context);
+    expect((await send({ status: "confirmed", deliveryFeeInCentavos: 8000 })).status).toBe(400);
+    expect((await send({ status: "confirmed", ...confirmAmounts, totalInCentavos: undefined })).status).toBe(400);
+    expect(confirm).not.toHaveBeenCalled();
+    confirm.mockRejectedValueOnce(new OrderStatusUpdateError("The total does not match subtotal minus approved discount plus Delivery fee."));
+    const refused = await send({ status: "confirmed", ...confirmAmounts, totalInCentavos: 1 });
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toEqual({ error: expect.stringContaining("total does not match") });
+    expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
+    expect(publishCustomerOrderEvent).not.toHaveBeenCalled();
+  });
+
+  test("repeating the same confirm answers with the Order and sends no second email", async () => {
+    const order = { id: 12, status: "confirmed", fulfillmentMethod: "delivery", deliveryFeeInCentavos: 8000, subtotalInCentavos: 21900 };
+    confirm.mockResolvedValueOnce({ order, replayed: false }).mockResolvedValueOnce({ order, replayed: true });
+    expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
+    expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
+    expect(sendOrderConfirmedEmail).toHaveBeenCalledTimes(1);
+  });
+
   test("refuses a missing, wrong, expired or retired credential with 401 before advancing the Order", async () => {
     const missing = new Request("https://shop.example.test/api/internal/orders/12/status", {
       body: JSON.stringify({ status: "confirmed" }),
@@ -314,7 +403,7 @@ describe("Customer Order events", () => {
   test.each(["confirmed", "cancelled"])("a committed %s change publishes one event for the Order's Customer", async (status) => {
     advance.mockResolvedValueOnce({ id: 12, status, fulfillmentMethod: "pickup", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
     const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, ...(status === "confirmed" ? { ...confirmAmounts, deliveryFeeInCentavos: null, totalInCentavos: 21900 } : {}) }),
       headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
       method: "POST",
     });
@@ -327,9 +416,9 @@ describe("Customer Order events", () => {
 
   test("a refused, invalid or unauthorized change publishes nothing", async () => {
     const { OrderTransitionError } = await import("@/lib/orders/orders");
-    advance.mockRejectedValueOnce(new OrderTransitionError("confirmed", "delivered"));
+    confirm.mockRejectedValueOnce(new OrderTransitionError("confirmed", "delivered"));
     expect((await postAndNotify(statusRequest(), context)).status).toBe(409);
-    advance.mockRejectedValueOnce(new Error("connection reset"));
+    confirm.mockRejectedValueOnce(new Error("connection reset"));
     expect((await postAndNotify(statusRequest(), context)).status).toBe(503);
     expect((await postAndNotify(statusRequest("invalid"), context)).status).toBe(401);
     const invalid = new Request("https://shop.example.test/api/internal/orders/12/status", {
