@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { AuditEvent } from "../lib/audit/gateway";
 import { deleteAccount } from "../lib/customer/delete-account";
 import { restoreReturningCustomer } from "../lib/customer/returning-customer";
-import { signUpCustomer, type CustomerStore, type NeonAuth } from "../lib/customer/sign-up";
+import { renderWelcomeBackEmail } from "../lib/email/welcome-back-email";
+import { createWelcomeEmailStore, signUpCustomer, type CustomerStore, type NeonAuth } from "../lib/customer/sign-up";
 import { removeNeonLogin } from "../lib/neon-auth/management";
 import { createTestDatabase } from "./helpers/test-database";
 
@@ -51,6 +52,66 @@ describe("Returning Customer restored", () => {
 
   test("does nothing for an email that is not a Deleted Customer", async () => {
     expect(await restoreReturningCustomer("other@example.com", "x", { db: drizzle(client) })).toBe("not-deleted");
+  });
+});
+
+describe("Welcome-back email", () => {
+  const withEmail = (send: (e: string, n: string) => Promise<void>, audit?: (e: AuditEvent) => Promise<void>) =>
+    restoreReturningCustomer("Jane@Example.com", "new", {
+      db: drizzle(client),
+      audit,
+      welcomeBack: { store: createWelcomeEmailStore(drizzle(client)), send },
+    });
+
+  test("sends one welcome-back email to the restored Customer", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    await withEmail(send);
+    expect(send).toHaveBeenCalledWith("jane@example.com", "Jane");
+  });
+
+  test("a retry sends no second email", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    await withEmail(send);
+    await withEmail(send);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  test("is not sent before verification, when nothing is restored", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    await restoreReturningCustomer("other@example.com", "x", {
+      db: drizzle(client),
+      welcomeBack: { store: createWelcomeEmailStore(drizzle(client)), send },
+    });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  test("audits sent once, with no email address", async () => {
+    const audit = vi.fn().mockResolvedValue(undefined);
+    const send = vi.fn().mockResolvedValue(undefined);
+    await withEmail(send, audit);
+    await withEmail(send, audit);
+    const events = audit.mock.calls.map(([e]) => e as AuditEvent).filter((e) => e.action === "welcome_back_email");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ outcome: "success", description: "Welcome-back email sent" });
+    expect(JSON.stringify(events)).not.toContain("jane@example.com");
+  });
+
+  test("audits a failure with its reason, never fails the restore, and frees the claim", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const audit = vi.fn().mockResolvedValue(undefined);
+    const send = vi.fn().mockRejectedValue(new Error("550 jane@example.com rejected"));
+    expect(await withEmail(send, audit)).toBe("restored");
+    const events = audit.mock.calls.map(([e]) => e as AuditEvent).filter((e) => e.action === "welcome_back_email");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ outcome: "failure", description: "Welcome-back email failed: 550 [email] rejected" });
+    expect(JSON.stringify(events)).not.toContain("jane@example.com");
+    expect(await rowsOf(`select 1 from welcome_emails`)).toHaveLength(0);
+  });
+
+  test("has its own template, not the first welcome", () => {
+    const { subject, html } = renderWelcomeBackEmail({ firstName: "Jane", shopUrl: "https://s/shop", logoUrl: "https://s/l.jpeg" });
+    expect(subject).toContain("Welcome back");
+    expect(html).toContain("Welcome back, Jane");
   });
 });
 

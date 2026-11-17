@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import type { AuditEvent } from "../audit/gateway";
+import type { WelcomeEmailStore } from "./sign-up";
 
 export type RestoreOutcome = "restored" | "not-deleted";
 
@@ -24,15 +25,20 @@ export async function restoreReturningCustomer<
   dependencies: {
     db: PgDatabase<TQueryResult, TSchema>;
     audit?: (event: AuditEvent) => Promise<void>;
+    /** Sends the welcome-back email once per return. A failure never fails the restore. */
+    welcomeBack?: {
+      store: WelcomeEmailStore;
+      send: (recipient: string, firstName: string) => Promise<void>;
+    };
   },
 ): Promise<RestoreOutcome> {
   const { db, audit } = dependencies;
 
   const restored = await db.transaction(async (tx) => {
     const found = await tx.execute(
-      sql`select id, deleted_at from customers where lower(email) = lower(${email}) and deleted_at is not null for update`,
+      sql`select id, deleted_at, first_name from customers where lower(email) = lower(${email}) and deleted_at is not null for update`,
     );
-    const deleted = rows(found)[0] as { id: string; deleted_at: Date } | undefined;
+    const deleted = rows(found)[0] as { id: string; deleted_at: Date; first_name: string } | undefined;
     if (!deleted) return null;
 
     if (deleted.id !== loginId) {
@@ -89,7 +95,59 @@ export async function restoreReturningCustomer<
       console.error("Customer returned audit event failed", error);
     }
   }
+
+  if (dependencies.welcomeBack) {
+    const { store, send } = dependencies.welcomeBack;
+    const customer = { type: "customer", id: loginId, display_name: "Customer" };
+    // One claim per return (the Deleted Customer's id and deletion time), so a
+    // retry sends one email and a second return later still gets its own.
+    const claimKey = `welcome-back:${restored.id}:${new Date(restored.deleted_at).toISOString()}`;
+    const recordOutcome = async (result: "sent" | "failed", reason?: string) => {
+      if (!audit) return;
+      try {
+        await audit({
+          source: "Ecommerce",
+          action: "welcome_back_email",
+          outcome: result === "sent" ? "success" : "failure",
+          actor: customer,
+          subject: customer,
+          target: customer,
+          description: result === "sent" ? "Welcome-back email sent" : `Welcome-back email failed: ${reason}`,
+          occurred_at: new Date().toISOString(),
+          idempotency_key: `welcome-back-email:${result}:${claimKey}`,
+        });
+      } catch (error) {
+        console.error("Welcome-back email audit event failed", error);
+      }
+    };
+    try {
+      if (await store.claim(claimKey)) {
+        try {
+          await send(email.toLowerCase(), restored.first_name);
+          await recordOutcome("sent");
+        } catch (error) {
+          await store.release(claimKey);
+          await recordOutcome("failed", failureReason(error, email));
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error("Welcome-back email failed", error);
+    }
+  }
   return "restored";
+}
+
+function failureReason(error: unknown, recipient: string) {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message
+      .replaceAll(recipient, "[email]")
+      .replace(/[^\s<>"']+@[^\s<>"']+/g, "[email]")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 200) || "Unknown error"
+  );
 }
 
 function rows(result: unknown): Row[] {

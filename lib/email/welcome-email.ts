@@ -18,20 +18,35 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
-export function renderWelcomeEmail({
-  firstName,
+export type WelcomeEmailInput = { firstName: string; shopUrl: string; logoUrl: string };
+
+export function renderWelcomeEmail({ firstName, shopUrl, logoUrl }: WelcomeEmailInput) {
+  return renderBrandedEmail({
+    subject: `Welcome to ${brandName}`,
+    heading: `Welcome, ${firstName}`,
+    body: "Your account is ready. Browse our ube jam and halaya, and order whenever you like.",
+    reason: `You're receiving this email because you signed up at ${brandName}.`,
+    shopUrl,
+    logoUrl,
+  });
+}
+
+/** The shop's email layout shared by the welcome and welcome-back emails. */
+export function renderBrandedEmail({
+  subject,
+  heading,
+  body,
+  reason,
   shopUrl,
   logoUrl,
 }: {
-  firstName: string;
+  subject: string;
+  heading: string;
+  body: string;
+  reason: string;
   shopUrl: string;
   logoUrl: string;
 }) {
-  const subject = `Welcome to ${brandName}`;
-  const heading = `Welcome, ${firstName}`;
-  const body =
-    "Your account is ready. Browse our ube jam and halaya, and order whenever you like.";
-  const reason = `You're receiving this email because you signed up at ${brandName}.`;
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(subject)}</title></head>
 <body style="margin:0;padding:0;background:${page};">

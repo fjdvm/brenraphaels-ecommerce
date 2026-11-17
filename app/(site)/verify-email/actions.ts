@@ -16,6 +16,8 @@ import { getDatabase } from "@/lib/db";
 import { emailField } from "@/lib/validators/fields";
 import { neonVerificationAuth, getVisitorSession } from "@/lib/neon-auth/server";
 import { restoreReturningCustomer } from "@/lib/customer/returning-customer";
+import { createWelcomeEmailStore } from "@/lib/customer/sign-up";
+import { sendWelcomeBackEmail } from "@/lib/email/welcome-back-email";
 import { writeAuditEvent } from "@/lib/audit/gateway";
 
 export type ResendVerificationState = {
@@ -38,6 +40,7 @@ export async function confirmVerificationEmail(token: string | undefined) {
         await restoreReturningCustomer(visitor.email, visitor.userId, {
           db: getDatabase(),
           audit: (event) => writeAuditEvent(event),
+          welcomeBack: { store: createWelcomeEmailStore(getDatabase()), send: sendWelcomeBackEmail },
         });
       }
     } catch (error) {
