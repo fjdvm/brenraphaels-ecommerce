@@ -8,7 +8,7 @@ import { startOfShopDay, type ChatStore } from "../assistant/chat-store";
 import { factCheck } from "../assistant/fact-check";
 import { orderFactsText } from "../assistant/facts";
 import { dailyModelBudget, maskContact, type HandoffReason } from "../assistant/policy";
-import type { Completer, ModelMessage } from "../assistant/model";
+import { cleanModelText, type Completer, type ModelMessage } from "../assistant/model";
 import type { OrderReader } from "../assistant/readers";
 
 export class HandoffError extends Error {}
@@ -179,7 +179,7 @@ export async function prepareHandoff(input: { customerId: string; chatId: number
     ];
     sentToModel = JSON.stringify(messages);
     try {
-      const answer = (await deps.complete(messages)).trim();
+      const answer = cleanModelText(await deps.complete(messages)).trim();
             const problem = factCheck(answer, { text: `${facts}\n${assistantLines}`, orderId: order?.id, status: order?.status, kind: "handoff" });
       if (problem) note = "The summary did not match your order records, so we dropped it. Write a few words for our team instead.";
       else summary = answer;
@@ -218,17 +218,17 @@ export async function sendHandoff(
   if (!handoff) throw new HandoffError("Ask for a summary first.");
   if (handoff.status === "sent") return { ticketId: await waitForTicketOf(handoff.id) };
 
-  const written = input.summary?.trim();
+  const written = input.summary === undefined ? undefined : cleanModelText(input.summary).trim();
   let text: string;
   let source: "assistant" | "customer";
   if (written) {
     const parsed = ticketMessageInput.shape.body.safeParse(written);
     if (!parsed.success || parsed.data.length > maxSummaryLength) throw new HandoffError(`Keep your note under ${maxSummaryLength} characters, without special characters.`);
     text = parsed.data;
-    source = text === handoff.summary ? "assistant" : "customer";
+    source = text === (handoff.summary === null ? null : cleanModelText(handoff.summary)) ? "assistant" : "customer";
   } else if (handoff.status === "drafted" && handoff.summary) {
     if (handoff.throughMessageId !== turns[turns.length - 1].id) throw new HandoffError("Your chat has changed since this summary was written. Ask for a new one.");
-    text = handoff.summary;
+    text = cleanModelText(handoff.summary);
     source = "assistant";
   } else {
     throw new HandoffError("Write a few words for our team first.");
