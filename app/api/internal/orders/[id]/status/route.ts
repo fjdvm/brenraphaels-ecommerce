@@ -8,6 +8,7 @@ import { getDatabase } from "@/lib/db";
 import { sendOrderConfirmedEmail } from "@/lib/email/order-confirmed-email";
 import { sendOrderDeliveredEmail } from "@/lib/email/order-delivered-email";
 import { sendOrderDispatchedEmail } from "@/lib/email/order-dispatched-email";
+import { sendOrderDeliveryConfirmedEmail } from "@/lib/email/order-delivery-confirmed-email";
 import { sendOnceAndRecord } from "@/lib/email/outcomes";
 import { sendOrderPickupConfirmedEmail } from "@/lib/email/order-pickup-confirmed-email";
 import { sendOrderPaidEmail } from "@/lib/email/order-paid-email";
@@ -80,7 +81,16 @@ export async function POST(
         && order.fulfillmentMethod === "delivery"
         && order.deliveryFeeInCentavos !== null
       ) {
-        await notifyCustomer(orderStore, order, "confirmed", sendOrderConfirmedEmail);
+        if (order.paymentMethod === "cash-on-delivery") {
+          try {
+            const recipient = await orderStore.customerEmailForOrder(order.id);
+            if (recipient) await sendOnceAndRecord(order.id, "delivery-confirmed", () => sendOrderDeliveryConfirmedEmail(recipient, order));
+          } catch (error) {
+            console.error("Delivery confirmation email outcome could not be recorded", error);
+          }
+        } else {
+          await notifyCustomer(orderStore, order, "confirmed", sendOrderConfirmedEmail);
+        }
       }
       if (
         update.status === "confirmed"
