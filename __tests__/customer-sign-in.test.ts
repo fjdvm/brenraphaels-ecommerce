@@ -73,6 +73,15 @@ describe("Customer sign-in input hygiene", () => {
     });
   });
 
+  test("still accepts an existing password that breaks today's password rule", async () => {
+    const auth = authStub("signed-in");
+
+    await expect(
+      signInCustomer({ email: "jane@example.com", password: "abc" }, { auth }),
+    ).resolves.toEqual({ status: "signed-in" });
+    expect(auth.signIn).toHaveBeenCalledWith({ email: "jane@example.com", password: "abc" });
+  });
+
   test("rejects an oversized password without asking Neon", async () => {
     const auth = authStub("signed-in");
 

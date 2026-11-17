@@ -49,6 +49,21 @@ function authStub(userId = "neon-user-1") {
 }
 
 describe("Customer sign-up", () => {
+  test.each(["Ab1!", "password1!", "Password!!", "Password11"])(
+    "rejects the weak password %s on the server without creating a login",
+    async (password) => {
+      const auth = authStub();
+
+      await expect(
+        signUpCustomer(
+          { ...validSignUp, password, confirmPassword: password },
+          { auth, customerStore: customerStore() },
+        ),
+      ).rejects.toThrow();
+      expect(auth.createLogin).not.toHaveBeenCalled();
+    },
+  );
+
   test("creates a login, Customer, and default Home Address", async () => {
     const auth = authStub();
 
