@@ -3,6 +3,14 @@ export type ModelMessage = { role: "system" | "user" | "assistant"; content: str
 /** Writes the conversation around the facts. Throws when no model can answer; the caller then falls back to the Order card. */
 export type Completer = (messages: ModelMessage[]) => Promise<string>;
 
+/**
+ * Models write "10:19 AM" with a narrow no-break space and sometimes a zero-width one; the Ticket message check rejects
+ * invisible characters, so a summary that read fine could not be sent. Turn the spaces into plain spaces and drop the zero-width ones.
+ */
+export function cleanModelText(text: string): string {
+  return text.replace(/[\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]/g, " ").replace(/[\u00ad\u200b-\u200d\u2060\ufeff]/g, "");
+}
+
 export class ModelUnavailableError extends Error {}
 
 const timeoutMs = 12_000;
@@ -61,7 +69,7 @@ export function createCompleter(env: Env = process.env, fetcher: typeof fetch = 
     let last: unknown;
     for (const attempt of attempts) {
       try {
-        return await attempt();
+        return cleanModelText(await attempt());
       } catch (error) {
         last = error;
       }

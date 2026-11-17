@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { answerOrderQuestion, type AssistantDependencies } from "../lib/assistant/answer";
 import { factCheck } from "../lib/assistant/fact-check";
 import { createChatStore } from "../lib/assistant/chat-store";
-import { createCompleter, ModelUnavailableError, type Completer } from "../lib/assistant/model";
+import { cleanModelText, createCompleter, ModelUnavailableError, type Completer } from "../lib/assistant/model";
 import { chatRetentionDays, dailyMessageCap, maxMessageLength } from "../lib/assistant/policy";
 import { createOrderReader, createProductReader } from "../lib/assistant/readers";
 import { assistantChats, assistantMessages, customers, orders, products, tickets } from "../lib/db/schema";
@@ -182,6 +182,17 @@ describe("how to pay", () => {
     const id = await order("jane");
     const reply = await answerOrderQuestion({ customerId: "jane", message: `how do i pay for order #${id}?` }, deps(fakeModel("Your order is confirmed.")));
     expect(reply.card?.title).toBe(`Order #${id}`);
+  });
+});
+
+describe("cleanModelText", () => {
+  test("turns no-break spaces into plain spaces and drops zero-width characters", () => {
+    expect(cleanModelText("10:19\u202fAM\u00a0today\u200b!")).toBe("10:19 AM today!");
+  });
+  test("the completer returns cleaned text", async () => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ choices: [{ message: { content: "At 3:45\u202fPM" } }] }));
+    const complete = createCompleter({ ASSISTANT_GROQ_API_KEY: "g" }, fetcher as unknown as typeof fetch);
+    await expect(complete([{ role: "user", content: "hi" }])).resolves.toBe("At 3:45 PM");
   });
 });
 

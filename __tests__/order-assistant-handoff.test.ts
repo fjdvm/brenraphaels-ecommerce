@@ -57,6 +57,29 @@ afterEach(async () => {
   await client.close();
 });
 
+describe("invisible spaces from the model", () => {
+  test("a summary with a narrow no-break space is cleaned, and the Customer can send it as drafted", async () => {
+    const id = await order("jane", { createdAt: new Date("2026-11-10T02:19:00Z") });
+    const chatId = await handedOffChat(id);
+    const draft = await prepareHandoff({ customerId: "jane", chatId }, handoffDeps(model(`The customer asked for a refund on order #${id}. It was placed on Nov 10, 2026, 10:19\u202fAM.`)));
+    expect(draft.summary).toContain("10:19 AM");
+    expect(draft.summary).not.toMatch(/[\u00a0\u202f]/);
+    const sent = await sendHandoff({ customerId: "jane", chatId, summary: draft.summary! }, sendDeps());
+    expect(sent.ticketId).toBeGreaterThan(0);
+    const [row] = await db.select().from(assistantHandoffs).where(eq(assistantHandoffs.chatId, chatId));
+    expect(row.sentSource).toBe("assistant");
+  });
+
+  test("a drafted summary stored with a narrow no-break space still sends", async () => {
+    const id = await order("jane");
+    const chatId = await handedOffChat(id);
+    await prepareHandoff({ customerId: "jane", chatId }, handoffDeps(model("The customer asked about a refund.")));
+    await db.update(assistantHandoffs).set({ summary: "The customer asked at 10:19\u202fAM." }).where(eq(assistantHandoffs.chatId, chatId));
+    const sent = await sendHandoff({ customerId: "jane", chatId }, sendDeps());
+    expect(sent.ticketId).toBeGreaterThan(0);
+  });
+});
+
 describe("Handoff summary", () => {
   test("is written and shown, and nothing reaches the team until the Customer approves it", async () => {
     const id = await order("jane", { courier: "Lalamove", courierTrackingUrl: "https://track.example/abc" });
