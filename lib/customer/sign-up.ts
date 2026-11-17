@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import type { AuditEvent } from "../audit/gateway";
-import { addresses, customers } from "../db/schema";
+import { addresses, customers, welcomeEmails } from "../db/schema";
 import {
   composeFullName,
   customerSignUpSchema,
@@ -40,6 +40,31 @@ export type CustomerStore = {
   hasEmail(email: string): Promise<boolean>;
   save(details: CustomerDetails): Promise<SaveCustomerOutcome>;
 };
+
+/** Claims the one welcome email a Customer gets; true only the first time. */
+export type WelcomeEmailStore = {
+  claim(customerId: string): Promise<boolean>;
+  release(customerId: string): Promise<void>;
+};
+
+export function createWelcomeEmailStore<
+  TQueryResult extends PgQueryResultHKT,
+  TSchema extends Record<string, unknown>,
+>(db: PgDatabase<TQueryResult, TSchema>): WelcomeEmailStore {
+  return {
+    async claim(customerId) {
+      const rows = await db
+        .insert(welcomeEmails)
+        .values({ customerId })
+        .onConflictDoNothing()
+        .returning({ id: welcomeEmails.customerId });
+      return rows.length === 1;
+    },
+    async release(customerId) {
+      await db.delete(welcomeEmails).where(eq(welcomeEmails.customerId, customerId));
+    },
+  };
+}
 
 export type NeonAuth = {
   createLogin(details: {
@@ -133,6 +158,11 @@ export async function signUpCustomer(
     customerStore: CustomerStore;
     /** Writes the "registration" Audit Event. Optional; a failure never fails sign-up. */
     audit?: (event: AuditEvent) => Promise<void>;
+    /** Sends the welcome email once per Customer. A failure never fails sign-up. */
+    welcome?: {
+      store: WelcomeEmailStore;
+      send(email: string, firstName: string): Promise<void>;
+    };
   },
 ) {
   const signUp = customerSignUpSchema.parse(input);
@@ -202,6 +232,24 @@ export async function signUpCustomer(
       });
     } catch (error) {
       console.error("Registration audit event failed", error);
+    }
+  }
+
+  if (outcome !== "email-taken" && dependencies.welcome) {
+    const { store, send } = dependencies.welcome;
+    // The claim is the idempotency key: a retry or double submit finds it taken.
+    try {
+      if (await store.claim(login.userId)) {
+        try {
+          await send(email, signUp.firstName);
+        } catch (error) {
+          // Free the claim so a retried sign-up can still send the one email.
+          await store.release(login.userId);
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error("Welcome email failed", error);
     }
   }
 

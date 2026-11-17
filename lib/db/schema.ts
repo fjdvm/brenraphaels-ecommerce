@@ -40,6 +40,12 @@ export const customers = pgTable("customers", {
     .notNull(),
 });
 
+/** One row per Customer whose welcome email was claimed; the primary key is the idempotency key. */
+export const welcomeEmails = pgTable("welcome_emails", {
+  customerId: text("customer_id").primaryKey(),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const emailVerificationResends = pgTable("email_verification_resends", {
   email: text("email").primaryKey(),
   lastSentAt: timestamp("last_sent_at", { withTimezone: true }).notNull(),
