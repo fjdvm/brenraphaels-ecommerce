@@ -120,3 +120,21 @@ export function composeFullName(name: {
 }) {
   return [name.firstName, name.middleName, name.lastName].filter(Boolean).join(" ");
 }
+
+/**
+ * The message for one sign-up field as it is left, or undefined when it is fine. Uses the same step
+ * schema as Continue and the server, so the inline message never differs from the submitted one.
+ */
+export function signUpFieldError(
+  step: number,
+  field: string,
+  values: ReturnType<typeof signUpFormValues>,
+): string | undefined {
+  const result = signUpSteps[step].schema.safeParse(values);
+  // The "boxes match" rule only runs once every other field is valid, so check it on its own here.
+  if (field === "confirmPassword" && values.confirmPassword && values.password !== values.confirmPassword) {
+    return "Passwords do not match";
+  }
+  if (result.success) return undefined;
+  return z.flattenError(result.error as z.ZodError<Record<string, unknown>>).fieldErrors[field]?.[0];
+}

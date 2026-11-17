@@ -4,7 +4,7 @@ import { TurnstileWidget } from "@/components/features/auth/turnstile-widget";
 
 import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState, useTransition, type FormEvent } from "react";
+import { useRef, useState, useTransition, type FocusEvent, type FormEvent } from "react";
 import { z } from "zod";
 
 import { submitSignUp } from "@/app/(auth)/(signed-out)/signup/actions";
@@ -23,8 +23,9 @@ import {
   type FieldErrors,
 } from "@/components/features/auth/customer-details-fields";
 import { metPasswordRules, passwordRules } from "@/lib/validators/password-rules";
-import { signUpFormValues, signUpSteps } from "@/lib/customer/sign-up-schema";
+import { signUpFieldError, signUpFormValues, signUpSteps } from "@/lib/customer/sign-up-schema";
 import { emailMaximumLength, passwordMaximumLength } from "@/lib/validators/fields";
+import { sanitizeEmailInput } from "@/components/features/customer/input-sanitizers";
 import { cn } from "@/lib/utils";
 
 /** Live checklist of the password rules; each chip turns green once its rule is met. */
@@ -70,6 +71,16 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
         ?.querySelector<HTMLElement>(`[data-step="${next}"] input`)
         ?.focus(),
     );
+  }
+
+  /** Shows a field's message as the Customer leaves it, with the same rules as Continue. */
+  function handleBlur(event: FocusEvent<HTMLFormElement>) {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || !target.name || target.type === "checkbox" || target.type === "radio") {
+      return;
+    }
+    const message = signUpFieldError(step, target.name, signUpFormValues(new FormData(event.currentTarget)));
+    setErrors((current) => ({ ...current, [target.name]: message ? [message] : undefined }));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -141,7 +152,7 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
         ))}
       </ol>
 
-      <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-[22px]" noValidate>
+      <form ref={formRef} onSubmit={handleSubmit} onBlur={handleBlur} className="flex flex-col gap-[22px]" noValidate>
         <div data-step="0" hidden={step !== 0} className="flex flex-col gap-[22px]">
           <NameFields errors={errors} />
           <Field
@@ -151,6 +162,7 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
             autoComplete="email"
             maxLength={emailMaximumLength}
             error={errors.email?.[0]}
+            onInput={sanitizeEmailInput}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
