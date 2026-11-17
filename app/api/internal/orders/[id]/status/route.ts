@@ -11,6 +11,7 @@ import { sendOrderDispatchedEmail } from "@/lib/email/order-dispatched-email";
 import { sendOrderDeliveryConfirmedEmail } from "@/lib/email/order-delivery-confirmed-email";
 import { sendOnceAndRecord } from "@/lib/email/outcomes";
 import { sendOrderPickupConfirmedEmail } from "@/lib/email/order-pickup-confirmed-email";
+import { sendOrderOnlineDeliveryConfirmedEmail } from "@/lib/email/order-online-delivery-confirmed-email";
 import { sendOrderOnlinePickupConfirmedEmail } from "@/lib/email/order-online-pickup-confirmed-email";
 import { sendOrderPaidEmail } from "@/lib/email/order-paid-email";
 import { DeliveryPhotoUnavailable, InvalidDeliveryPhoto, verifyDeliveryPhoto } from "@/lib/orders/verify-delivery-photo";
@@ -83,10 +84,17 @@ export async function POST(
         && order.fulfillmentMethod === "delivery"
         && order.deliveryFeeInCentavos !== null
       ) {
-        if (order.paymentMethod === "cash-on-delivery") {
+        if (order.paymentMethod === "cash-on-delivery" || isPrepaid(order.paymentMethod)) {
+          const online = isPrepaid(order.paymentMethod);
           try {
             const recipient = await orderStore.customerEmailForOrder(order.id);
-            if (recipient) await sendOnceAndRecord(order.id, "delivery-confirmed", () => sendOrderDeliveryConfirmedEmail(recipient, order));
+            if (recipient) {
+              await sendOnceAndRecord(
+                order.id,
+                online ? "online-delivery-confirmed" : "delivery-confirmed",
+                () => online ? sendOrderOnlineDeliveryConfirmedEmail(recipient, order) : sendOrderDeliveryConfirmedEmail(recipient, order),
+              );
+            }
           } catch (error) {
             console.error("Delivery confirmation email outcome could not be recorded", error);
           }
