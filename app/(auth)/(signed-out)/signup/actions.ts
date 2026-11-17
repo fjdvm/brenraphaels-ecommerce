@@ -15,6 +15,7 @@ import {
   signUpCustomer,
 } from "@/lib/customer/sign-up";
 import { customerSignUpSchema, signUpFormValues } from "@/lib/customer/sign-up-schema";
+import { writeAuditEvent } from "@/lib/audit/gateway";
 import { getDatabase } from "@/lib/db";
 import { neonAuth } from "@/lib/neon-auth/server";
 
@@ -48,6 +49,7 @@ export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
   try {
     const result = await signUpCustomer(parsed.data, {
       auth: neonAuth,
+      audit: (event) => writeAuditEvent(event),
       customerStore: createCustomerStore(getDatabase()),
     });
     return { email: result.email };

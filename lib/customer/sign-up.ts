@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
+import type { AuditEvent } from "../audit/gateway";
 import { addresses, customers } from "../db/schema";
 import {
   composeFullName,
@@ -127,7 +128,12 @@ export function createCustomerStore<
 
 export async function signUpCustomer(
   input: CustomerSignUp,
-  dependencies: { auth: NeonAuth; customerStore: CustomerStore },
+  dependencies: {
+    auth: NeonAuth;
+    customerStore: CustomerStore;
+    /** Writes the "registration" Audit Event. Optional; a failure never fails sign-up. */
+    audit?: (event: AuditEvent) => Promise<void>;
+  },
 ) {
   const signUp = customerSignUpSchema.parse(input);
   const email = signUp.email.toLowerCase();
@@ -155,8 +161,9 @@ export async function signUpCustomer(
     return { email };
   }
 
+  let outcome: SaveCustomerOutcome;
   try {
-    await dependencies.customerStore.save({
+    outcome = await dependencies.customerStore.save({
       userId: login.userId,
       firstName: signUp.firstName,
       middleName: signUp.middleName || null,
@@ -175,6 +182,27 @@ export async function signUpCustomer(
     });
   } catch (error) {
     throw new CustomerDetailsSaveError(error);
+  }
+
+  if (outcome !== "email-taken" && dependencies.audit) {
+    // The key makes a retried or double-submitted sign-up record it once. No
+    // email address or field value goes in the event.
+    const customer = { type: "customer", id: login.userId, display_name: "Customer" };
+    try {
+      await dependencies.audit({
+        source: "Ecommerce",
+        action: "registration",
+        outcome: "success",
+        actor: customer,
+        subject: customer,
+        target: customer,
+        description: "Customer registered",
+        occurred_at: new Date().toISOString(),
+        idempotency_key: `registration:${login.userId}`,
+      });
+    } catch (error) {
+      console.error("Registration audit event failed", error);
+    }
   }
 
   return { email };
