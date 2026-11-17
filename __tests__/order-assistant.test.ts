@@ -7,6 +7,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { answerOrderQuestion, type AssistantDependencies } from "../lib/assistant/answer";
+import { factCheck } from "../lib/assistant/fact-check";
 import { createChatStore } from "../lib/assistant/chat-store";
 import { createCompleter, ModelUnavailableError, type Completer } from "../lib/assistant/model";
 import { chatRetentionDays, dailyMessageCap, maxMessageLength } from "../lib/assistant/policy";
@@ -164,6 +165,46 @@ describe("small talk and off-topic messages", () => {
   test("small talk cannot state an order, date, amount or promise", async () => {
     const reply = await answerOrderQuestion({ customerId: "jane", message: "hello!" }, deps(fakeModel("Your order #5 arrives Dec 25, 2026.")));
     expect(reply).toMatchObject({ outcome: "fallback", reason: "fact_check_failed", ticketButton: true });
+  });
+});
+
+describe("how to pay", () => {
+  test.each(["how do i pay with gcash?", "Paano magbayad?", "what payment methods do you accept?", "do you accept GCash?"])("%s is a shop question, not an Order picker", async (message) => {
+    await order("jane");
+    await order("jane");
+    const reply = await answerOrderQuestion({ customerId: "jane", message }, deps(fakeModel("You can pay with GCash or cash on delivery.")));
+    expect(reply).toMatchObject({ outcome: "answered", ticketButton: false });
+    expect(reply.choices).toBeUndefined();
+    expect(reply.card?.title).toBe("Shop information");
+  });
+
+  test("with an Order number it is still that Order's payment", async () => {
+    const id = await order("jane");
+    const reply = await answerOrderQuestion({ customerId: "jane", message: `how do i pay for order #${id}?` }, deps(fakeModel("Your order is confirmed.")));
+    expect(reply.card?.title).toBe(`Order #${id}`);
+  });
+});
+
+describe("fact check spacing", () => {
+  const facts = "Order #5\nStatus: confirmed\nPlaced: Nov 10, 2026, 3:45 PM";
+  test.each([
+    ["a narrow no-break space in the answer", "It was placed on Nov 10, 2026, 3:45\u202fPM."],
+    ["a no-break space in the answer", "It was placed on Nov 10, 2026, 3:45\u00a0PM."],
+  ])("accepts %s", (_name, answer) => {
+    expect(factCheck(answer, { text: facts, orderId: 5, status: "confirmed" })).toBeUndefined();
+  });
+  test("accepts a narrow no-break space in the records", () => {
+    expect(factCheck("It was placed on Nov 10, 2026, 3:45 PM.", { text: facts.replace("3:45 PM", "3:45\u202fPM"), orderId: 5, status: "confirmed" })).toBeUndefined();
+  });
+  test("'was placed on <date>' says when it was placed, not that its status is placed", () => {
+    expect(factCheck("It was placed on Nov 10, 2026, 3:45 PM.", { text: facts, orderId: 5, status: "confirmed" })).toBeUndefined();
+    expect(factCheck("It was paid by GCash.", { text: facts, orderId: 5, status: "confirmed" })).toBeUndefined();
+  });
+  test("still rejects a different status", () => {
+    expect(factCheck("Your order is delivered.", { text: facts, orderId: 5, status: "confirmed" })).toMatch(/wrong status/);
+  });
+  test("still rejects a time that is not in the records", () => {
+    expect(factCheck("It was placed at 4:10 PM.", { text: facts, orderId: 5, status: "confirmed" })).toMatch(/not in the records/);
   });
 });
 

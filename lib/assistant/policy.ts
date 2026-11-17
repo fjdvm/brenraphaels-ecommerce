@@ -66,8 +66,13 @@ const kindPatterns: { kind: QuestionKind; pattern: RegExp }[] = [
   { kind: "shop_info", pattern: /pick ?up|opening|open (on|at|today|until)|hours|schedule|closed|sunday|address|location|where (is|are) (the |your )?(store|shop)|saan (kayo|ang tindahan)|oras ng/i },
 ];
 
+/** "How do I pay?", "do you accept GCash?": a question about the shop's way of paying, not about one Order's payment. */
+const howToPayPattern = /how (do|can|should|to) (i |we |you )?(pay|order|checkout)|paano (ako |kami )?(mag-?bayad|mag-?order|magbayad)|payment (methods?|options?)|(do|can) you (accept|take)|accept(ed)? (gcash|maya|cod|cash)|(what|which) (can|do) i (pay|use)|saan (ako )?(pwedeng )?(mag-?bayad|magbayad)/i;
+
 /** What the message is asking, or undefined when it is none of the recognised kinds. */
 export function questionKindOf(message: string): QuestionKind | undefined {
+  // With an Order number in the message it is about that Order's payment, so it keeps its kind.
+  if (typedOrderNumber(message) === undefined && howToPayPattern.test(message)) return "shop_rules";
   return kindPatterns.find(({ pattern }) => pattern.test(message))?.kind;
 }
 
