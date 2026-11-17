@@ -629,13 +629,17 @@ export const assistantHandoffs = pgTable("assistant_handoffs", {
 
 /**
  * One row per Order and kind of Customer email. The primary key is the idempotency key: the first insert claims the
- * send, so a repeated confirmation never emails twice. `status` records whether it went out, and why not when it failed.
+ * send, so a repeated confirmation never emails twice. `status` records whether it went out, is waiting for a retry, or failed for good (with the reason).
  */
 export const orderEmailOutcomes = pgTable("order_email_outcomes", {
   orderId: integer("order_id").notNull().references(() => orders.id),
   kind: text("kind").notNull(),
-  status: text("status", { enum: ["sending", "sent", "failed"] }).notNull(),
+  status: text("status", { enum: ["sending", "sent", "retrying", "failed"] }).notNull(),
   reason: text("reason"),
+  /** Sends tried so far, the first one included. */
+  attempts: integer("attempts").default(0).notNull(),
+  /** When the retry job may try again; set only while `status` is "retrying". */
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, table => [primaryKey({ columns: [table.orderId, table.kind] })]);

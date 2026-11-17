@@ -98,10 +98,10 @@ describe("email outcome record", () => {
     expect(updates[0]).toMatchObject({ status: "sent", reason: null });
   });
 
-  test("records failed with the reason and does not throw", async () => {
+  test("a failed first send is kept for retry with the reason and does not throw", async () => {
     const { db, updates } = fakeDb(false);
-    expect(await sendOnceAndRecord(7, "pickup-confirmed", async () => { throw new Error("SMTP down"); }, db)).toBe("failed");
-    expect(updates[0]).toMatchObject({ status: "failed", reason: "SMTP down" });
+    expect(await sendOnceAndRecord(7, "pickup-confirmed", async () => { throw new Error("SMTP down"); }, db)).toBe("retrying");
+    expect(updates[0]).toMatchObject({ status: "retrying", reason: "SMTP down" });
   });
 
   test("a second confirmation sends nothing", async () => {

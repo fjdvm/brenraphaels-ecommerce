@@ -177,6 +177,8 @@ export type OrderStore = {
   confirm(orderId: number, confirmation: OrderConfirmation): Promise<{ order: Order; replayed: boolean }>;
   cancelItems(orderId: number, lineIds: number[], staff: { staffId: string; staffName: string }, expectedStatus: string): Promise<Order>;
   customerEmailForOrder(orderId: number): Promise<string | undefined>;
+  /** One Order with its lines, for work that runs without a Customer session (email retries). */
+  getById(orderId: number): Promise<Order | undefined>;
   customerIdForOrder(orderId: number): Promise<string | undefined>;
   submitPaymentProof(
     customerId: string,
@@ -801,6 +803,11 @@ export function createOrderStore<
     return customer?.email;
   }
 
+  async function getById(orderId: number): Promise<Order | undefined> {
+    const [row] = await db.select().from(orders).where(eq(orders.id, orderId));
+    return row ? toOrder(row, await linesForOrder(row.id)) : undefined;
+  }
+
   async function customerIdForOrder(orderId: number): Promise<string | undefined> {
     const [order] = await db.select({ customerId: orders.customerId }).from(orders).where(eq(orders.id, orderId));
     return order?.customerId;
@@ -941,5 +948,5 @@ export function createOrderStore<
     }
   }
 
-  return { place, listForCustomer, advance, confirm, cancel, cancelItems, customerEmailForOrder, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, rejectPaymentProof };
+  return { place, listForCustomer, advance, confirm, cancel, cancelItems, customerEmailForOrder, getById, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, rejectPaymentProof };
 }

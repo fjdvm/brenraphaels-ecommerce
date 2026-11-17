@@ -358,6 +358,13 @@
       "when": 1796659200000,
       "tag": "0050_order_email_outcomes",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1796745600000,
+      "tag": "0051_order_email_retries",
+      "breakpoints": true
     }
   ]
 }
