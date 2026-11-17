@@ -76,7 +76,7 @@ export const deliveryFeeText = `Delivery fees usually fall between ₱${delivery
 export const shopInfoText = `Pickup is at our store: ${address}. Hours: ${storeSchedule.map((row) => `${row.days} ${row.hours}`).join("; ")}. ${closedDay}.`;
 
 export const shopRulesText =
-  "You can cancel an order before it is dispatched. A GCash order that is not paid within 24 hours is cancelled. You can request a Return within 24 hours of delivery. Delivery is free for orders over ₱2,500. We accept GCash and cash on delivery.";
+  "You can cancel an order before it is dispatched. A GCash order that is not paid within 24 hours is cancelled. You can request a Return within 24 hours of delivery. Delivery is free for orders over ₱2,500. We accept GCash and cash on delivery. For GCash, pay with the details shown at checkout, then send your payment proof with the reference number from your order page.";
 
 /** Fixed shop facts for the kinds that need no Order. */
 export function shopFact(kind: QuestionKind): string | undefined {

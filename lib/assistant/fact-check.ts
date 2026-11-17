@@ -23,11 +23,14 @@ const handoffPromise = new RegExp([
  * come from the facts it was given, it may not name a different status, and it may not promise anything.
  * Returns the first problem, or undefined when the answer is consistent.
  */
+/** Models and Intl write a time as "3:45 PM" with a no-break or narrow no-break space; to the Customer it is the same text. */
+const normalise = (value: string) => value.replace(/[\s\u00a0\u202f]+/g, " ");
+
 export function factCheck(answer: string, facts: { text: string; orderId?: number; status?: string; kind?: "answer" | "handoff" }): string | undefined {
-  const text = answer.trim();
+  const text = normalise(answer).trim();
   if (!text) return "empty answer";
   if (text.length > 900) return "answer too long";
-  const known = facts.text.toLowerCase();
+  const known = normalise(facts.text).toLowerCase();
   for (const pattern of [monthDate, numericDate, clock, url, peso]) {
     for (const match of text.match(pattern) ?? []) {
       if (!known.includes(match.replace(/[.,]$/, "").toLowerCase())) return `not in the records: ${match}`;
@@ -39,7 +42,7 @@ export function factCheck(answer: string, facts: { text: string; orderId?: numbe
   if ((facts.kind === "handoff" ? handoffPromise : promise).test(text)) return "promise";
   if (facts.status) {
     for (const other of statuses.filter((status) => status !== facts.status)) {
-      if (new RegExp(`\\b(?:has been|have been|is|was|already|been|are now)\\s+${other}\\b`, "i").test(text)) return `wrong status: ${other}`;
+      if (new RegExp(`\\b(?:has been|have been|is|was|already|been|are now)\\s+${other}\\b(?!\\s+(?:on|at|by|via|in|with|through|from)\\b)`, "i").test(text)) return `wrong status: ${other}`;
     }
   }
   return undefined;
