@@ -323,6 +323,13 @@
       "when": 1796300000000,
       "tag": "0045_customer_deleted_at",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1796400000000,
+      "tag": "0046_no_automatic_free_delivery",
+      "breakpoints": true
     }
   ]
 }

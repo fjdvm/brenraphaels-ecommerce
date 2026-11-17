@@ -30,9 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FreeDeliveryProgress } from "@/components/features/orders/free-delivery-progress";
 import { formatPeso } from "@/lib/catalog/currency";
-import { qualifiesForFreeDelivery } from "@/lib/orders/free-delivery";
 import type { CustomerAddress } from "@/lib/customer/visitor";
 import type { Cart } from "@/lib/orders/cart";
 import type { PaymentMethod } from "@/lib/orders/orders";
@@ -100,7 +98,6 @@ export function CheckoutView({
   }
 
   const selectedAddress = addresses.find((address) => address.id === addressId);
-  const freeDelivery = fulfillmentMethod === "delivery" && qualifiesForFreeDelivery(cart.subtotalInCentavos);
   const deliveryBlocked = fulfillmentMethod === "delivery" && !addressId;
 
   if (cart.lines.length === 0) {
@@ -213,12 +210,12 @@ export function CheckoutView({
           ) : null}
           <div className="flex items-center justify-between text-sm tracking-wide text-body">
             <span>{fulfillmentMethod === "delivery" ? "Delivery" : "Pickup"}</span>
-            {fulfillmentMethod === "delivery" && !freeDelivery ? <span className="text-warning">To be confirmed</span> : <span className={freeDelivery ? "text-success" : undefined}>Free</span>}
+            {fulfillmentMethod === "delivery" ? <span className="text-warning">To be confirmed</span> : <span>Free</span>}
           </div>
           <div className="flex items-center justify-between border-t border-line pt-[22px]">
             <span className="text-sm font-medium tracking-wide text-ink">Total</span>
             <span className="font-serif text-[22px] leading-[1.3] text-primary">
-              {formatPeso(total)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
+              {formatPeso(total)}{fulfillmentMethod === "delivery" ? " + delivery" : ""}
             </span>
           </div>
           {discount > 0 && !seniorPwdStanding.verified ? (
@@ -227,19 +224,11 @@ export function CheckoutView({
               Your order is confirmed after we check your ID. If we can&apos;t approve it, we&apos;ll email you and the order continues at full price.
             </p>
           ) : null}
-          {freeDelivery ? (
-            <p className="flex items-start gap-2.5 bg-success-soft p-4 text-xs leading-normal tracking-wide text-ink">
-              <Check aria-hidden className="size-[18px] shrink-0 text-success" />
-              Free delivery — your items are over ₱2,500. {discount > 0 && !seniorPwdStanding.verified ? "Your order is confirmed once we check your ID." : "Your order is confirmed as soon as you place it."}
+          {fulfillmentMethod === "delivery" ? (
+            <p className="flex items-start gap-2.5 bg-warning-soft p-4 text-xs leading-normal tracking-wide text-ink">
+              <Truck aria-hidden className="size-[18px] shrink-0 text-warning" />
+              {FEE_TO_FOLLOW_COPY}
             </p>
-          ) : fulfillmentMethod === "delivery" ? (
-            <>
-              <FreeDeliveryProgress subtotalInCentavos={cart.subtotalInCentavos} />
-              <p className="flex items-start gap-2.5 bg-warning-soft p-4 text-xs leading-normal tracking-wide text-ink">
-                <Truck aria-hidden className="size-[18px] shrink-0 text-warning" />
-                {FEE_TO_FOLLOW_COPY}
-              </p>
-            </>
           ) : null}
           {message && <p role="alert" className="text-sm font-medium text-warning">{message}</p>}
           <Button
@@ -286,12 +275,6 @@ export function CheckoutView({
             <dd className="text-right text-ink">{PAYMENT_LABELS[paymentMethod]}</dd>
             <dt className="text-muted">Subtotal</dt>
             <dd className="text-right text-ink">{formatPeso(cart.subtotalInCentavos)}</dd>
-            {freeDelivery ? (
-              <>
-                <dt className="text-muted">Delivery</dt>
-                <dd className="text-right text-success">Free</dd>
-              </>
-            ) : null}
             {discount > 0 ? (
               <>
                 <dt className="text-muted">Senior/PWD 5%</dt>
@@ -300,10 +283,10 @@ export function CheckoutView({
             ) : null}
             <dt className="font-medium text-ink">Total</dt>
             <dd className="text-right font-serif text-[22px] leading-[1.3] text-primary">
-              {formatPeso(total)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
+              {formatPeso(total)}{fulfillmentMethod === "delivery" ? " + delivery" : ""}
             </dd>
           </dl>
-          {fulfillmentMethod === "delivery" && !freeDelivery ? (
+          {fulfillmentMethod === "delivery" ? (
             <p className="mt-4 text-xs leading-normal tracking-wide text-body">{FEE_TO_FOLLOW_COPY}</p>
           ) : null}
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
