@@ -11,11 +11,13 @@ import { sendOrderDispatchedEmail } from "@/lib/email/order-dispatched-email";
 import { sendOrderDeliveryConfirmedEmail } from "@/lib/email/order-delivery-confirmed-email";
 import { sendOnceAndRecord } from "@/lib/email/outcomes";
 import { sendOrderPickupConfirmedEmail } from "@/lib/email/order-pickup-confirmed-email";
+import { sendOrderOnlinePickupConfirmedEmail } from "@/lib/email/order-online-pickup-confirmed-email";
 import { sendOrderPaidEmail } from "@/lib/email/order-paid-email";
 import { DeliveryPhotoUnavailable, InvalidDeliveryPhoto, verifyDeliveryPhoto } from "@/lib/orders/verify-delivery-photo";
 import { verifyCreomsCredential } from "@/lib/orders/creoms-credential";
 import { parseInternalOrderStatusUpdate } from "@/lib/orders/internal-status";
 import { publishAfterCommit, publishCustomerOrderEvent } from "@/lib/orders/live-events";
+import { isPrepaid } from "@/lib/orders/payment-methods";
 import { createOrderStore, OrderStatusUpdateError, type Order, type OrderStore } from "@/lib/orders/orders";
 
 export const runtime = "nodejs";
@@ -96,11 +98,17 @@ export async function POST(
         update.status === "confirmed"
         && !replayed
         && order.fulfillmentMethod === "pickup"
-        && order.paymentMethod === "cash-on-delivery"
       ) {
+        const online = isPrepaid(order.paymentMethod);
         try {
           const recipient = await orderStore.customerEmailForOrder(order.id);
-          if (recipient) await sendOnceAndRecord(order.id, "pickup-confirmed", () => sendOrderPickupConfirmedEmail(recipient, order));
+          if (recipient) {
+            await sendOnceAndRecord(
+              order.id,
+              online ? "online-pickup-confirmed" : "pickup-confirmed",
+              () => online ? sendOrderOnlinePickupConfirmedEmail(recipient, order) : sendOrderPickupConfirmedEmail(recipient, order),
+            );
+          }
         } catch (error) {
           console.error("Pickup confirmation email outcome could not be recorded", error);
         }
