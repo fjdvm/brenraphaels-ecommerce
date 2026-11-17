@@ -1,6 +1,6 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   createContactNumberStore,
@@ -67,5 +67,26 @@ describe("Customer Contact number", () => {
         { id: "customer-2", contact_number: "09181112222" },
       ],
     });
+  });
+});
+
+describe("Customer Contact number audit", () => {
+  test("records field names only, and nothing when unchanged", async () => {
+    const audit = vi.fn(async () => {});
+    await updateCustomerContactNumber(
+      { contactNumber: "09171234567" },
+      { userId: "customer-1", contactNumberStore: contactNumberStore(), audit },
+    );
+    expect(audit).not.toHaveBeenCalled();
+
+    await updateCustomerContactNumber(
+      { contactNumber: "09175550101" },
+      { userId: "customer-1", contactNumberStore: contactNumberStore(), audit },
+    );
+    expect(audit).toHaveBeenCalledTimes(1);
+    const event = (audit.mock.calls[0] as unknown as [Record<string, string>])[0];
+    expect(event.action).toBe("profile_updated");
+    expect(event.description).toBe("Profile updated: contactNumber");
+    expect(JSON.stringify(event)).not.toContain("0917555");
   });
 });

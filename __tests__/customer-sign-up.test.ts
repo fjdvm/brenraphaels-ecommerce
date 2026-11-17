@@ -49,6 +49,21 @@ function authStub(userId = "neon-user-1") {
 }
 
 describe("Customer sign-up", () => {
+  test.each(["Ab1!", "password1!", "Password!!", "Password11"])(
+    "rejects the weak password %s on the server without creating a login",
+    async (password) => {
+      const auth = authStub();
+
+      await expect(
+        signUpCustomer(
+          { ...validSignUp, password, confirmPassword: password },
+          { auth, customerStore: customerStore() },
+        ),
+      ).rejects.toThrow();
+      expect(auth.createLogin).not.toHaveBeenCalled();
+    },
+  );
+
   test("creates a login, Customer, and default Home Address", async () => {
     const auth = authStub();
 
@@ -260,5 +275,49 @@ describe("Customer sign-up", () => {
         customerStore: customerStore(),
       }),
     ).rejects.toBeInstanceOf(SignUpAuthError);
+  });
+
+  describe("registration audit", () => {
+    test("records one registration event with no email address", async () => {
+      const audit = vi.fn().mockResolvedValue(undefined);
+
+      await signUpCustomer(validSignUp, {
+        auth: authStub("neon-user-1"),
+        customerStore: customerStore(),
+        audit,
+      });
+
+      expect(audit).toHaveBeenCalledOnce();
+      const event = audit.mock.calls[0][0];
+      expect(event).toMatchObject({
+        action: "registration",
+        outcome: "success",
+        subject: { id: "neon-user-1" },
+        idempotency_key: "registration:neon-user-1",
+      });
+      expect(JSON.stringify(event)).not.toContain("jane@example.com");
+    });
+
+    test("a retried sign-up sends the same idempotency key and creates one profile", async () => {
+      const audit = vi.fn().mockResolvedValue(undefined);
+      const store = customerStore();
+
+      await signUpCustomer(validSignUp, { auth: authStub("neon-user-1"), customerStore: store, audit });
+      await signUpCustomer(validSignUp, { auth: authStub("neon-user-1"), customerStore: store, audit });
+
+      // The second attempt finds the email and only resends confirmation.
+      expect(new Set(audit.mock.calls.map(([e]) => e.idempotency_key)).size).toBe(1);
+      expect(await client.query("select id from customers")).toMatchObject({
+        rows: [{ id: "neon-user-1" }],
+      });
+    });
+
+    test("an audit failure does not fail sign-up", async () => {
+      const audit = vi.fn().mockRejectedValue(new Error("gateway down"));
+
+      await expect(
+        signUpCustomer(validSignUp, { auth: authStub(), customerStore: customerStore(), audit }),
+      ).resolves.toEqual({ email: "jane@example.com" });
+    });
   });
 });

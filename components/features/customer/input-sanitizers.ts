@@ -29,3 +29,10 @@ export function sanitizePhoneInput(event: FormEvent<HTMLInputElement>) {
 export function sanitizeStreetInput(event: FormEvent<HTMLInputElement>) {
   replaceInputValue(event, event.currentTarget.value.replace(addressCharacters, ""));
 }
+
+const emailCharacters = /[^A-Za-z0-9.!#$%&'*+/=?^_`{|}~@-]/g;
+
+/** Keep only the characters an email address can have; spaces and symbols never enter the box. */
+export function sanitizeEmailInput(event: FormEvent<HTMLInputElement>) {
+  replaceInputValue(event, event.currentTarget.value.replace(emailCharacters, ""));
+}
