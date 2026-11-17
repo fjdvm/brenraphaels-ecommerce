@@ -19,6 +19,7 @@ import { customerSignUpSchema, signUpFormValues } from "@/lib/customer/sign-up-s
 import { sendWelcomeEmail } from "@/lib/email/welcome-email";
 import { writeAuditEvent } from "@/lib/audit/gateway";
 import { getDatabase } from "@/lib/db";
+import { removeNeonLogin } from "@/lib/neon-auth/management";
 import { neonAuth } from "@/lib/neon-auth/server";
 
 export type SignUpResult = {
@@ -53,6 +54,7 @@ export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
       auth: neonAuth,
       audit: (event) => writeAuditEvent(event),
       customerStore: createCustomerStore(getDatabase()),
+      removeLogin: (userId) => removeNeonLogin(userId),
       welcome: {
         store: createWelcomeEmailStore(getDatabase()),
         send: sendWelcomeEmail,

@@ -1,52 +1,78 @@
-import { and, eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import type { AuditEvent } from "../audit/gateway";
-import { customers } from "../db/schema";
-
-export type ReturningCustomerAuth = {
-  /** Replaces the login's password with the one typed at the new sign-up. */
-  replacePassword(email: string): Promise<void>;
-};
 
 export type RestoreOutcome = "restored" | "not-deleted";
 
+type Row = Record<string, unknown>;
+
 /**
- * Called only once the email is verified. A Deleted Customer who signed up again
- * gets the same profile back (history and Customer since untouched), after the
- * new password has replaced the old one; one "Customer returned" Audit Event is
- * recorded. If the password cannot be replaced nothing is restored.
+ * Called only once the email is verified, with the id of the fresh login that
+ * signing up again created. The Deleted Customer's profile comes back under
+ * that login: the row keeps every field (so Customer since is unchanged) and
+ * every record that pointed at the old login id, in any table with a
+ * `customer_id` column, now points at the new one. One "Customer returned"
+ * Audit Event is recorded, with no email address.
  */
 export async function restoreReturningCustomer<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
 >(
   email: string,
+  loginId: string,
   dependencies: {
     db: PgDatabase<TQueryResult, TSchema>;
-    auth: ReturningCustomerAuth;
     audit?: (event: AuditEvent) => Promise<void>;
   },
 ): Promise<RestoreOutcome> {
-  const { db, auth, audit } = dependencies;
-  const [deleted] = await db
-    .select({ id: customers.id, deletedAt: customers.deletedAt })
-    .from(customers)
-    .where(and(sql`lower(${customers.email}) = lower(${email})`, sql`${customers.deletedAt} is not null`))
-    .limit(1);
-  if (!deleted) return "not-deleted";
+  const { db, audit } = dependencies;
 
-  await auth.replacePassword(email.toLowerCase());
+  const restored = await db.transaction(async (tx) => {
+    const found = await tx.execute(
+      sql`select id, deleted_at from customers where lower(email) = lower(${email}) and deleted_at is not null for update`,
+    );
+    const deleted = rows(found)[0] as { id: string; deleted_at: Date } | undefined;
+    if (!deleted) return null;
 
-  const claimed = await db
-    .update(customers)
-    .set({ deletedAt: null })
-    .where(and(eq(customers.id, deleted.id), sql`${customers.deletedAt} is not null`))
-    .returning({ id: customers.id });
-  if (claimed.length === 0) return "not-deleted";
+    if (deleted.id !== loginId) {
+      const columns = rows(
+        await tx.execute(
+          sql`select column_name from information_schema.columns where table_schema = 'public' and table_name = 'customers' order by ordinal_position`,
+        ),
+      ).map((r) => String(r.column_name));
+      const lit = (value: string) => `'${value.replaceAll("'", "''")}'`;
+      const quote = (name: string) => `"${name}"`;
+      const copied = columns.map((c) =>
+        c === "id" ? lit(loginId) : c === "deleted_at" ? "null" : c === "email" ? `replace(email, ${lit(`#replaced:${deleted.id}`)}, '')` : quote(c),
+      );
+      // The email is unique, so the old row steps aside before the copy is inserted.
+      await tx.execute(sql`update customers set email = email || '#replaced:' || id where id = ${deleted.id}`);
+      await tx.execute(
+        sql.raw(
+          `insert into customers (${columns.map(quote).join(", ")}) select ${copied.join(", ")} from customers where id = ${lit(deleted.id)}`,
+        ),
+      );
+      const children = rows(
+        await tx.execute(
+          sql`select table_name, column_name from information_schema.columns where table_schema = 'public' and column_name = 'customer_id' and data_type = 'text' and table_name <> 'customers' and table_name in (select table_name from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE')`,
+        ),
+      );
+      for (const child of children) {
+        await tx.execute(
+          sql`update ${sql.identifier(String(child.table_name))} set ${sql.identifier(String(child.column_name))} = ${loginId} where ${sql.identifier(String(child.column_name))} = ${deleted.id}`,
+        );
+      }
+      await tx.execute(sql`delete from customers where id = ${deleted.id}`);
+    } else {
+      await tx.execute(sql`update customers set deleted_at = null where id = ${deleted.id}`);
+    }
+    return deleted;
+  });
+  if (!restored) return "not-deleted";
 
   if (audit) {
-    const customer = { type: "customer", id: deleted.id, display_name: "Customer" };
+    const customer = { type: "customer", id: loginId, display_name: "Customer" };
     try {
       await audit({
         source: "Ecommerce",
@@ -57,11 +83,15 @@ export async function restoreReturningCustomer<
         target: customer,
         description: "Customer returned",
         occurred_at: new Date().toISOString(),
-        idempotency_key: `customer-returned:${deleted.id}:${deleted.deletedAt?.toISOString()}`,
+        idempotency_key: `customer-returned:${restored.id}:${new Date(restored.deleted_at).toISOString()}`,
       });
     } catch (error) {
       console.error("Customer returned audit event failed", error);
     }
   }
   return "restored";
+}
+
+function rows(result: unknown): Row[] {
+  return Array.isArray(result) ? (result as Row[]) : ((result as { rows: Row[] }).rows ?? []);
 }

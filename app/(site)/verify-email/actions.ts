@@ -14,7 +14,9 @@ import { createVerificationResendStore } from "@/lib/customer/verification-resen
 import { createVerificationTokenStore } from "@/lib/customer/verification-token-store";
 import { getDatabase } from "@/lib/db";
 import { emailField } from "@/lib/validators/fields";
-import { neonVerificationAuth } from "@/lib/neon-auth/server";
+import { neonVerificationAuth, getVisitorSession } from "@/lib/neon-auth/server";
+import { restoreReturningCustomer } from "@/lib/customer/returning-customer";
+import { writeAuditEvent } from "@/lib/audit/gateway";
 
 export type ResendVerificationState = {
   message?: string;
@@ -26,7 +28,22 @@ export async function confirmVerificationEmail(token: string | undefined) {
     now: new Date(),
     tokenStore: createVerificationTokenStore(getDatabase()),
   });
-  if (result === "verified") scheduleStaffSignal("Customer");
+  if (result === "verified") {
+    scheduleStaffSignal("Customer");
+    // A Deleted Customer who signed up again is restored only now, once the
+    // email is verified. A failure here must not fail the verification.
+    try {
+      const visitor = await getVisitorSession();
+      if (visitor) {
+        await restoreReturningCustomer(visitor.email, visitor.userId, {
+          db: getDatabase(),
+          audit: (event) => writeAuditEvent(event),
+        });
+      }
+    } catch (error) {
+      console.error("Restoring a Returning Customer failed", error);
+    }
+  }
   return result;
 }
 

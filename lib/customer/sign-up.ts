@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import type { AuditEvent } from "../audit/gateway";
@@ -38,6 +38,8 @@ export type SaveCustomerOutcome =
 
 export type CustomerStore = {
   hasEmail(email: string): Promise<boolean>;
+  /** The id of the Deleted Customer with this email, if there is one. */
+  findDeletedId?(email: string): Promise<string | null>;
   save(details: CustomerDetails): Promise<SaveCustomerOutcome>;
 };
 
@@ -105,6 +107,14 @@ export function createCustomerStore<
         .where(eq(customers.email, email))
         .limit(1);
       return Boolean(customer);
+    },
+    async findDeletedId(email) {
+      const [customer] = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(eq(customers.email, email), isNotNull(customers.deletedAt)))
+        .limit(1);
+      return customer?.id ?? null;
     },
     async save(details) {
       return db.transaction(async (transaction) => {
@@ -175,12 +185,28 @@ export async function signUpCustomer(
       store: WelcomeEmailStore;
       send(email: string, firstName: string): Promise<void>;
     };
+    /**
+     * Removes a Deleted Customer's old login so signing up again creates a fresh
+     * one with the new password. The profile is restored only after the email is
+     * verified (see `restoreReturningCustomer`).
+     */
+    removeLogin?: (userId: string) => Promise<void>;
   },
 ) {
   const signUp = customerSignUpSchema.parse(input);
   const email = signUp.email.toLowerCase();
   const fullName = composeFullName(signUp);
   const existingCustomer = await dependencies.customerStore.hasEmail(email);
+  const deletedId = dependencies.removeLogin
+    ? await dependencies.customerStore.findDeletedId?.(email)
+    : null;
+  if (deletedId && dependencies.removeLogin) {
+    try {
+      await dependencies.removeLogin(deletedId);
+    } catch (error) {
+      throw new SignUpAuthError(error);
+    }
+  }
   let login: { userId: string };
   try {
     login = await dependencies.auth.createLogin({
