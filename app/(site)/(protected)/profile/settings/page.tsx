@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { ContactNumberForm } from "@/components/features/customer/contact-number-form";
 import { CustomerNameForm } from "@/components/features/customer/customer-name-form";
+import { DeleteAccountCard } from "@/components/features/customer/delete-account-card";
 import { PasswordResetCardForm } from "@/components/features/customer/password-reset-card-form";
 import { SettingsCard } from "@/components/features/customer/settings-card";
 import { SettingsSkeleton } from "@/components/features/customer/skeletons";
@@ -34,6 +35,9 @@ async function SettingsContent() {
       </SettingsCard>
       <SettingsCard title="Password" description="Use at least 8 characters with an uppercase letter, a number and a symbol.">
         <PasswordResetCardForm email={customer.email} />
+      </SettingsCard>
+      <SettingsCard title="Delete account" description="Close your account. This can't be done while an order, return or ticket is still in progress.">
+        <DeleteAccountCard />
       </SettingsCard>
     </div>
   );
