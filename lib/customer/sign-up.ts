@@ -151,6 +151,18 @@ export function createCustomerStore<
   };
 }
 
+/** A short failure reason with every email address (and the recipient) removed. */
+function failureReason(error: unknown, recipient: string) {
+  const message = error instanceof Error ? error.message : String(error);
+  const cleaned = message
+    .replaceAll(recipient, "[email]")
+    .replace(/[^\s<>"']+@[^\s<>"']+/g, "[email]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200);
+  return cleaned || "Unknown error";
+}
+
 export async function signUpCustomer(
   input: CustomerSignUp,
   dependencies: {
@@ -237,14 +249,40 @@ export async function signUpCustomer(
 
   if (outcome !== "email-taken" && dependencies.welcome) {
     const { store, send } = dependencies.welcome;
+    const customer = { type: "customer", id: login.userId, display_name: "Customer" };
+    // One event per outcome and Customer: the key makes a retry record it once.
+    // The reason never carries an email address.
+    const recordOutcome = async (result: "sent" | "failed", reason?: string) => {
+      if (!dependencies.audit) return;
+      try {
+        await dependencies.audit({
+          source: "Ecommerce",
+          action: "welcome_email",
+          outcome: result === "sent" ? "success" : "failure",
+          actor: customer,
+          subject: customer,
+          target: customer,
+          description:
+            result === "sent"
+              ? "Welcome email sent"
+              : `Welcome email failed: ${reason}`,
+          occurred_at: new Date().toISOString(),
+          idempotency_key: `welcome-email:${result}:${login.userId}`,
+        });
+      } catch (error) {
+        console.error("Welcome email audit event failed", error);
+      }
+    };
     // The claim is the idempotency key: a retry or double submit finds it taken.
     try {
       if (await store.claim(login.userId)) {
         try {
           await send(email, signUp.firstName);
+          await recordOutcome("sent");
         } catch (error) {
           // Free the claim so a retried sign-up can still send the one email.
           await store.release(login.userId);
+          await recordOutcome("failed", failureReason(error, email));
           throw error;
         }
       }

@@ -8,6 +8,7 @@ import {
   signUpCustomer,
   type CustomerSignUp,
 } from "../lib/customer/sign-up";
+import type { AuditEvent } from "../lib/audit/gateway";
 import { renderWelcomeEmail } from "../lib/email/welcome-email";
 import { createTestDatabase } from "./helpers/test-database";
 
@@ -28,7 +29,7 @@ let client: PGlite;
 beforeEach(async () => { client = await createTestDatabase(); });
 afterEach(async () => { await client.close(); });
 
-function run(send: (e: string, n: string) => Promise<void>) {
+function run(send: (e: string, n: string) => Promise<void>, audit?: (e: AuditEvent) => Promise<void>) {
   const db = drizzle(client);
   return signUpCustomer(signUp, {
     auth: {
@@ -36,6 +37,7 @@ function run(send: (e: string, n: string) => Promise<void>) {
       sendVerificationEmail: vi.fn().mockResolvedValue(undefined),
     },
     customerStore: createCustomerStore(db),
+    audit,
     welcome: { store: createWelcomeEmailStore(db), send },
   });
 }
@@ -60,5 +62,34 @@ describe("welcome email", () => {
     const { html, subject } = renderWelcomeEmail({ firstName: "<Jane>", shopUrl: "https://s/shop", logoUrl: "https://s/l.jpeg" });
     expect(subject).toContain("Welcome");
     expect(html).toContain("Welcome, &lt;Jane&gt;");
+  });
+
+  test("records the sent outcome once, with no email address", async () => {
+    const audit = vi.fn().mockResolvedValue(undefined);
+    const send = vi.fn().mockResolvedValue(undefined);
+    await run(send, audit);
+    await run(send, audit);
+    const events = audit.mock.calls.map(([e]) => e as AuditEvent).filter((e) => e.action === "welcome_email");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ outcome: "success", idempotency_key: "welcome-email:sent:u1" });
+    expect(JSON.stringify(events)).not.toContain("jane@example.com");
+  });
+
+  test("records the failed outcome with its reason and no email address", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const audit = vi.fn().mockResolvedValue(undefined);
+    const send = vi.fn().mockRejectedValue(new Error("550 mailbox jane@example.com rejected"));
+    await run(send, audit);
+    const events = audit.mock.calls.map(([e]) => e as AuditEvent).filter((e) => e.action === "welcome_email");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ outcome: "failure", idempotency_key: "welcome-email:failed:u1" });
+    expect(events[0].description).toContain("550 mailbox [email] rejected");
+    expect(JSON.stringify(events)).not.toContain("jane@example.com");
+  });
+
+  test("a failing audit write never fails sign-up", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const audit = vi.fn().mockRejectedValue(new Error("gateway down"));
+    await expect(run(vi.fn().mockResolvedValue(undefined), audit)).resolves.toEqual({ email: "jane@example.com" });
   });
 });
