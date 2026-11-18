@@ -199,10 +199,15 @@ export const orders = pgTable("orders", {
   // Pickup Orders never have a Delivery fee; delivery fees are added by CREOMS.
   deliveryFeeInCentavos: integer("delivery_fee_in_centavos"),
   deliveryFeeQuoteRequired: boolean("delivery_fee_quote_required").default(false).notNull(),
+  /** Free delivery judged once for a Delivery Order (#579), with the threshold in force; both stay as saved. Null threshold = not judged yet. */
+  freeDelivery: boolean("free_delivery").default(false).notNull(),
+  freeDeliveryThresholdInCentavos: integer("free_delivery_threshold_in_centavos"),
   /** The final amounts Staff confirmed, saved once at confirmation and never recalculated. Empty on Orders not yet confirmed by Staff. */
   approvedDiscountInCentavos: integer("approved_discount_in_centavos"),
   totalInCentavos: integer("total_in_centavos"),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  /** When an unpaid Online payment Order is cancelled; saved with `confirmedAt` in the same write and never moved by email delay, failure, retry or Resend. Null on Orders confirmed before this existed (24 hours after `confirmedAt`). */
+  paymentDeadlineAt: timestamp("payment_deadline_at", { withTimezone: true }),
   /** How much of the ID's ₱125 weekly cap other Orders had used when this one was confirmed, in centavos. */
   seniorPwdAllowanceUsedInCentavos: integer("senior_pwd_allowance_used_in_centavos"),
   /** Why the Senior/PWD discount was reduced at confirmation; null when it was not. */
@@ -236,6 +241,8 @@ export const orders = pgTable("orders", {
   codCollectedByName: text("cod_collected_by_name"),
   // When the Order became Delivered. Orders delivered before this column existed keep it empty.
   deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  /** When a Pickup Order became Picked up (`collected`); it stands in for `deliveredAt` for every rule. */
+  collectedAt: timestamp("collected_at", { withTimezone: true }),
   /** Private File id of proof of delivery; empty before delivery, for legacy Orders, or after removal. */
   deliveryPhotoFileId: text("delivery_photo_file_id"),
   receivedAt: timestamp("received_at", { withTimezone: true }),
@@ -271,6 +278,15 @@ export const orderPaymentProofs = pgTable("order_payment_proofs", {
   confirmedPaidAt: timestamp("confirmed_paid_at", { withTimezone: true }),
   confirmedRecipient: text("confirmed_recipient"),
   expectedRecipient: text("expected_recipient"),
+  /** The Payment account the Customer says they paid, copied whole so a later edit or deactivation never changes it. */
+  accountId: text("account_id"),
+  accountMethod: text("account_method"),
+  accountBankName: text("account_bank_name"),
+  accountLabel: text("account_label"),
+  accountName: text("account_name"),
+  accountNumber: text("account_number"),
+  /** One per form load, so a retried submit never saves a second proof. */
+  submissionKey: text("submission_key"),
   screenshotFileId: text("screenshot_file_id"),
   screenshotPathname: text("screenshot_pathname"),
   submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
@@ -278,7 +294,26 @@ export const orderPaymentProofs = pgTable("order_payment_proofs", {
   rejectedById: text("rejected_by_id"),
   rejectedByName: text("rejected_by_name"),
   rejectionReason: text("rejection_reason"),
-}, (table) => [index("order_payment_proofs_order").on(table.orderId)]);
+}, (table) => [
+  index("order_payment_proofs_order").on(table.orderId),
+  uniqueIndex("order_payment_proofs_submission_key").on(table.orderId, table.submissionKey),
+]);
+
+/**
+ * An Order whose Customer was locked out after the third rejected proof. One per Order; CREOMS reads it through its
+ * SELECT-only role and a Manager decides. `resolvedAt` stays null until a Manager approves the payment or the Order ends.
+ */
+export const managerReviews = pgTable("manager_reviews", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  /** Why the third proof was turned down. */
+  reason: text("reason").notNull(),
+  rejections: integer("rejections").notNull(),
+  openedAt: timestamp("opened_at", { withTimezone: true }).defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+}, (table) => [
+  uniqueIndex("manager_reviews_order").on(table.orderId),
+]);
 
 /** Immutable line-item copies, retained even if the catalog changes later. */
 export const orderLines = pgTable("order_lines", {

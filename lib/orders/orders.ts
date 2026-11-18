@@ -2,12 +2,17 @@ import { paymentRecipient } from "./payment-details";
 import { confirmedProofInput } from "./payment-proof";
 import { after } from "next/server";
 import { createStockReservations } from "./stock-reservations";
+import { qualifiesForFreeDelivery } from "./free-delivery";
+import { loadFreeDeliveryThreshold } from "./free-delivery-threshold";
+import { loadPaymentWindowHours } from "./payment-window";
+import { paymentDeadlinePassed } from "./payment-deadline";
+import { formatPlacedAt } from "./order-view";
 import { gatewayShopStock, type ShopStock } from "./stock";
 import { gatewayProductImages, productThumbnail, type ProductImageFiles, type ProductImageReference } from "../catalog/product-images";
 import { and, asc, desc, eq, gte, inArray, isNull, isNotNull, lt, ne, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { seniorPwdVerifications, orderCancellations, failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, productImages, products, stockOutbox } from "../db/schema";
+import { seniorPwdVerifications, orderCancellations, failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, managerReviews, productImages, products, stockOutbox } from "../db/schema";
 import { courierBooking, type CourierBooking } from "../validators/courier";
 import { referenceProblem } from "./payment-proof";
 import { fileIdField } from "../validators/file-id";
@@ -17,8 +22,8 @@ import { capSeniorPwdDiscount, philippineWeek, seniorPwdDiscount, type IdType } 
 import { activeVerification, submitVerification } from "../senior-pwd/store";
 import type { AuditEvent } from "../audit/gateway";
 
-export { paymentMethods, prepaidMethods, MANAGER_AFTER_REJECTIONS, isPrepaid, type PaymentMethod } from "./payment-methods";
-import { isPrepaid, MANAGER_AFTER_REJECTIONS, type PaymentMethod } from "./payment-methods";
+export { paymentMethods, prepaidMethods, MANAGER_AFTER_REJECTIONS, isLockedForManager, isPrepaid, type PaymentMethod } from "./payment-methods";
+import { isLockedForManager, isPrepaid, MANAGER_AFTER_REJECTIONS, type PaymentMethod } from "./payment-methods";
 
 export const fulfillmentMethods = ["pickup", "delivery"] as const;
 
@@ -31,6 +36,8 @@ export const orderStatuses = [
   "preparing",
   "dispatched",
   "delivered",
+  "ready for pickup",
+  "collected",
   "received",
   "cancelled",
 ] as const;
@@ -90,6 +97,12 @@ export type Order = {
   approvedDiscountInCentavos?: number | null;
   totalInCentavos?: number | null;
   confirmedAt?: Date | null;
+  /** When an unpaid Online payment Order is cancelled, saved with `confirmedAt`; null before confirmation and on Orders confirmed before it existed. */
+  paymentDeadlineAt?: Date | null;
+  /** Free delivery as judged when the Order was placed (or, for an older unconfirmed Order, when Staff confirmed it); never recalculated. */
+  freeDelivery?: boolean;
+  /** The Free delivery threshold in force when judged, in centavos; null before the rule has been judged. */
+  freeDeliveryThresholdInCentavos?: number | null;
   /**
    * The Senior/PWD discount's weekly-cap figures, never the ID number: saved at confirmation, a live preview before.
    * Null when the Order has no discount.
@@ -114,6 +127,8 @@ export type Order = {
   paymentProofRejection?: { reason: string; at: Date } | null;
   /** Proofs rejected so far. */
   paymentProofRejections?: number;
+  /** True after the third rejected proof: no more submissions, a Manager decides. */
+  paymentUnderManagerReview?: boolean;
   /** Every proof sent, oldest first, with why each rejected one was not accepted. */
   paymentProofHistory?: { reference: string | null; submittedAt: Date; rejection: { reason: string; at: Date } | null }[];
 };
@@ -136,6 +151,12 @@ export type SubmitPaymentProofInput = {
   confirmedRecipient?: string;
   gcashReferenceNumber: string;
   screenshotFileId?: string;
+  /** The account the Customer paid, saved whole with the proof. */
+  account?: { id: string; method: string; bankName: string | null; label: string; accountName: string; accountNumber: string };
+  /** One per form load; a retry with the same key returns the saved proof instead of making a second. */
+  submissionKey?: string;
+  /** Removes an uploaded screenshot that ended up unused (a replayed submit); best effort. */
+  discardFile?: (fileId: string) => Promise<void>;
 };
 
 /** Where an Order's payment-proof screenshot lives: file-storage, or legacy Vercel Blob. */
@@ -190,7 +211,7 @@ export type OrderStore = {
   ): Promise<Order>;
   getPaymentProofScreenshot(customerId: string, orderId: number): Promise<StoredPaymentScreenshot | undefined>;
   /** Staff turn down the latest proof: it is kept with the reason, and the Customer is told to upload again. */
-  rejectPaymentProof(orderId: number, input: { reason: string; staffId: string; staffName: string }): Promise<{ order: Order; rejections: number }>;
+  rejectPaymentProof(orderId: number, input: { reason: string; staffId: string; staffName: string }): Promise<{ order: Order; rejections: number; managerReview: boolean }>;
 };
 
 export type OrderMailer = {
@@ -231,6 +252,8 @@ export function createOrderStore<
   TSchema extends Record<string, unknown>,
 >(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages(), stock: ShopStock = gatewayShopStock(),
   defer: (work: () => Promise<void>) => void = work => after(work),
+  readThreshold: () => Promise<number | null> = () => loadFreeDeliveryThreshold(),
+  readPaymentWindowHours: () => Promise<number> = () => loadPaymentWindowHours(),
 ): OrderStore {
   const reservations = createStockReservations(db, stock);
   /** The same stock without reads, for use while rows are locked. */
@@ -292,6 +315,7 @@ export function createOrderStore<
       paymentProofHistory,
       paymentProofRejection,
       paymentProofRejections: row.paymentProofRejections,
+      paymentUnderManagerReview: isLockedForManager(row.paymentProofRejections) && row.paymentProofRejectedAt !== null,
       fulfillmentMethod: row.fulfillmentMethod as FulfillmentMethod,
       paymentMethod: row.paymentMethod as PaymentMethod,
       status: row.status as OrderStatus,
@@ -300,6 +324,9 @@ export function createOrderStore<
       approvedDiscountInCentavos: row.approvedDiscountInCentavos,
       totalInCentavos: row.totalInCentavos,
       confirmedAt: row.confirmedAt,
+      paymentDeadlineAt: row.paymentDeadlineAt,
+      freeDelivery: row.freeDelivery,
+      freeDeliveryThresholdInCentavos: row.freeDeliveryThresholdInCentavos,
       seniorPwd: await seniorPwdFigures(row),
       packedBy: row.packedById && row.packedByName && row.packedAt ? { id: row.packedById, name: row.packedByName, at: row.packedAt } : null,
       paidById: row.paidById,
@@ -401,9 +428,12 @@ export function createOrderStore<
         : ["preparing", "cancelled"],
       "awaiting payment": ["paid", "cancelled"],
       paid: ["preparing", "cancelled"],
-      preparing: ["dispatched", "cancelled"],
+      // Each method refuses the other's steps; a legacy Pickup Order already dispatched stays completable.
+      preparing: persistedOrder.fulfillmentMethod === "pickup" ? ["ready for pickup", "cancelled"] : ["dispatched", "cancelled"],
       dispatched: ["delivered"],
       delivered: [],
+      "ready for pickup": persistedOrder.fulfillmentMethod === "pickup" ? ["collected"] : [],
+      collected: [],
       received: [],
       cancelled: [],
     };
@@ -415,6 +445,7 @@ export function createOrderStore<
         !["confirmed", "cancelled"].includes(input.status)) {
       throw new OrderStatusUpdateError("Quote a Delivery fee before continuing this Order.");
     }
+    if (input.status === "collected" && persistedOrder.fulfillmentMethod !== "pickup") throw new OrderTransitionError(input.status, currentStatus);
     if (!requote && !permittedNextStatuses[currentStatus].includes(input.status)) {
       throw new OrderTransitionError(input.status, currentStatus);
     }
@@ -458,6 +489,16 @@ export function createOrderStore<
         throw new OrderStatusUpdateError("This proof was rejected. Wait for the Customer to send another.");
       }
     }
+    // An unconfirmed Delivery Order placed before free delivery shipped has no saved rule: judge it now, once, on the final amounts.
+    // Orders confirmed earlier are never touched, and an unreadable threshold leaves the rule unjudged.
+    const judgeNow = input.confirmation !== undefined && persistedOrder.fulfillmentMethod === "delivery"
+      && persistedOrder.freeDeliveryThresholdInCentavos === null && !persistedOrder.confirmedAt;
+    const judgedThreshold = judgeNow ? await readThreshold().catch(() => null) : null;
+    // The payment window is read once, here, and saved with the confirmation time in the same write below.
+    const confirming = input.confirmation !== undefined && !persistedOrder.confirmedAt;
+    const confirmedAt = confirming ? new Date() : persistedOrder.confirmedAt;
+    const paymentDeadlineAt = confirming && confirmedAt && isPrepaid(persistedOrder.paymentMethod)
+      ? new Date(confirmedAt.getTime() + (await readPaymentWindowHours()) * 3_600_000) : null;
     let releaseId: string | undefined;
     const updatedOrder = await db.transaction(async (transaction) => {
       // Serialize delivery with failed-attempt decisions and refuse disposed goods.
@@ -486,6 +527,7 @@ export function createOrderStore<
             riderName: courier.riderName || null, riderPlate: courier.riderPlate || null, riderPhone: courier.riderPhone || null,
           } : {}),
           ...(input.status === "delivered" ? { deliveredAt: new Date(), deliveryPhotoFileId } : {}),
+          ...(input.status === "collected" ? { collectedAt: new Date() } : {}),
           ...(input.deliveryFeeInCentavos === undefined
             ? {}
             : { deliveryFeeInCentavos: input.deliveryFeeInCentavos }),
@@ -494,7 +536,12 @@ export function createOrderStore<
             totalInCentavos: input.confirmation.totalInCentavos,
             ...(quote && persistedOrder.seniorPwdVerificationId !== null
               ? { seniorPwdAllowanceUsedInCentavos: quote.allowanceUsedInCentavos, seniorPwdReductionReason: quote.reason } : {}),
-            confirmedAt: persistedOrder.confirmedAt ?? new Date(),
+            confirmedAt: confirmedAt ?? new Date(),
+            ...(paymentDeadlineAt ? { paymentDeadlineAt } : {}),
+            ...(judgedThreshold === null ? {} : {
+              freeDelivery: qualifiesForFreeDelivery(input.confirmation.subtotalInCentavos - input.confirmation.approvedDiscountInCentavos, judgedThreshold),
+              freeDeliveryThresholdInCentavos: judgedThreshold,
+            }),
           } : {}),
         })
         // Keep a concurrent update from overwriting a status that was just advanced.
@@ -524,8 +571,21 @@ export function createOrderStore<
           link: `/profile/orders?order=${updatedOrder.id}`,
         });
       }
+      if (input.status === "collected") {
+        await transaction.insert(customerNotifications).values({
+          idempotencyKey: `order.collected:${updatedOrder.id}`,
+          orderId: updatedOrder.id,
+          customerId: updatedOrder.customerId,
+          type: "order.collected",
+          title: `Your Order #${updatedOrder.id} was picked up`,
+          body: "Your Order was picked up. Your Refund window is 24 hours from pickup to request a Return. Marking the Order received closes the window early.",
+          link: `/profile/orders?order=${updatedOrder.id}`,
+        });
+      }
       const content = input.status === "confirmed" && updatedOrder.fulfillmentMethod === "delivery"
         ? { type: "order.delivery-fee", title: `Delivery fee quoted for Order #${orderId}`, body: `Your Delivery fee is ₱${((updatedOrder.deliveryFeeInCentavos ?? 0) / 100).toFixed(2)}. View your confirmed Order.` }
+        : input.status === "ready for pickup"
+          ? { type: "order.ready-for-pickup", title: `Order #${orderId} is ready for pickup`, body: "Your Order is ready for pickup. View your Order for details." }
         : input.status === "dispatched"
           ? { type: "order.dispatched", title: `Order #${orderId} dispatched`, body: "Your Order has been dispatched. View your Order for details." }
           : input.status === "cancelled"
@@ -727,9 +787,20 @@ export function createOrderStore<
     if (persistedOrder.deliveryFeeQuoteRequired) {
       throw new Error("Quote a Delivery fee before submitting Payment proof.");
     }
+    if (input.submissionKey) {
+      const [saved] = await db.select({ id: orderPaymentProofs.id }).from(orderPaymentProofs)
+        .where(and(eq(orderPaymentProofs.orderId, orderId), eq(orderPaymentProofs.submissionKey, input.submissionKey)));
+      if (saved) {
+        if (input.screenshotFileId && input.discardFile) await input.discardFile(input.screenshotFileId).catch(() => undefined);
+        return toOrder(persistedOrder, await linesForOrder(persistedOrder.id));
+      }
+    }
     const confirmed = confirmedProofInput.parse(input);
     const problem = referenceProblem(persistedOrder.paymentMethod, input.gcashReferenceNumber);
     if (problem) throw new Error(problem);
+    if (isLockedForManager(persistedOrder.paymentProofRejections) && persistedOrder.paymentProofRejectedAt !== null) {
+      throw new Error("Your payment is under Manager review, so no new proof can be sent.");
+    }
     const resubmission = persistedOrder.status === "awaiting payment" && persistedOrder.paymentProofRejectedAt !== null;
     if (persistedOrder.status !== "confirmed" && !resubmission) {
       throw new Error(persistedOrder.status === "awaiting payment"
@@ -737,8 +808,12 @@ export function createOrderStore<
         : "Payment proof can only be submitted for a confirmed Order.");
     }
 
-    const expectedRecipient = await paymentRecipient(persistedOrder.paymentMethod);
     const submittedAt = new Date();
+    // A proof only counts in time, first or replacement; once the deadline has passed the Order is waiting to be cancelled.
+    if (paymentDeadlinePassed(persistedOrder, submittedAt)) {
+      throw new Error("The payment deadline for this Order has passed, so it can no longer take a proof.");
+    }
+    const expectedRecipient = await paymentRecipient(persistedOrder.paymentMethod);
     const updatedOrder = await db.transaction(async (transaction) => {
       const [updated] = await transaction
         .update(orders)
@@ -765,6 +840,9 @@ export function createOrderStore<
         confirmedPaidAt: confirmed.confirmedPaidAt ?? null,
         confirmedRecipient: confirmed.confirmedRecipient ?? null,
         expectedRecipient: expectedRecipient ?? null,
+        accountId: input.account?.id ?? null, accountMethod: input.account?.method ?? null, accountBankName: input.account?.bankName ?? null,
+        accountLabel: input.account?.label ?? null, accountName: input.account?.accountName ?? null, accountNumber: input.account?.accountNumber ?? null,
+        submissionKey: input.submissionKey ?? null,
       });
       return updated;
     });
@@ -773,10 +851,12 @@ export function createOrderStore<
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
   }
 
-  async function rejectPaymentProof(orderId: number, input: { reason: string; staffId: string; staffName: string }): Promise<{ order: Order; rejections: number }> {
+  async function rejectPaymentProof(orderId: number, input: { reason: string; staffId: string; staffName: string }): Promise<{ order: Order; rejections: number; managerReview: boolean }> {
     const actor = staffAttribution.parse(input);
     const reason = input.reason.trim();
     if (!reason) throw new OrderStatusUpdateError("Enter a reason for rejecting the proof.");
+    // The fresh window is the Admin's payment window, read before the transaction so an unreadable setting cannot abort it.
+    const windowHours = await readPaymentWindowHours();
     const updatedOrder = await db.transaction(async (transaction) => {
       const [order] = await transaction.select().from(orders).where(eq(orders.id, orderId)).for("update");
       if (!order) throw new OrderStatusUpdateError("Order was not found.");
@@ -792,16 +872,32 @@ export function createOrderStore<
       }).where(eq(orderPaymentProofs.id, latest.id));
       const [updated] = await transaction.update(orders).set({
         paymentProofRejectedAt: rejectedAt, paymentProofRejections: order.paymentProofRejections + 1,
+        // Each rejection starts a fresh payment window; the old deadline no longer applies.
+        paymentDeadlineAt: new Date(rejectedAt.getTime() + windowHours * 3_600_000),
       }).where(eq(orders.id, orderId)).returning();
-      await transaction.insert(customerNotifications).values({
+      const locked = isLockedForManager(updated.paymentProofRejections);
+      if (locked) {
+        // The third rejection locks submissions and leaves one record for CREOMS; a repeat never adds a second.
+        await transaction.insert(managerReviews).values({ orderId, reason, rejections: updated.paymentProofRejections }).onConflictDoNothing();
+      }
+      await transaction.insert(customerNotifications).values(locked ? {
+        idempotencyKey: `order.payment-under-review:${orderId}`, orderId, customerId: order.customerId,
+        type: "order.payment-under-review", title: `Your payment for Order #${orderId} is under Manager review`,
+        body: `Your payment proof was not accepted: ${reason} Your payment is under Manager review, so you cannot send another proof. We will contact you once it is decided.`,
+        link: `/profile/orders?order=${orderId}`,
+      } : {
         idempotencyKey: `order.payment-rejected:${orderId}:${updated.paymentProofRejections}`, orderId, customerId: order.customerId,
         type: "order.payment-rejected", title: `Payment proof not accepted for Order #${orderId}`,
-        body: `Your payment proof was not accepted: ${reason} Please upload it again.`,
+        body: `Your payment proof was not accepted: ${reason} Please upload it again by ${formatPlacedAt(updated.paymentDeadlineAt ?? rejectedAt)}.`,
         link: `/profile/orders?order=${orderId}`,
       }).onConflictDoNothing();
       return updated;
     });
-    return { order: await toOrder(updatedOrder, await linesForOrder(updatedOrder.id)), rejections: updatedOrder.paymentProofRejections };
+    return {
+      order: await toOrder(updatedOrder, await linesForOrder(updatedOrder.id)),
+      rejections: updatedOrder.paymentProofRejections,
+      managerReview: isLockedForManager(updatedOrder.paymentProofRejections),
+    };
   }
 
   /** The Customer's own payment-proof screenshot: its File id, else a legacy Blob pathname. */
@@ -846,6 +942,8 @@ export function createOrderStore<
       throw new Error(blocked.blockedByStock
         ? `${blocked.productName} (${blocked.sizeLabel}): ${blocked.blockedReason}` : "This Size is unavailable.");
     }
+    // Read outside the transaction: a failed read there would abort it. Null means the rule is judged at confirmation instead.
+    const threshold = input.fulfillmentMethod === "delivery" ? await readThreshold().catch(() => null) : null;
     const attemptId = await reservations.begin(customerId, checked);
     try {
     return await db.transaction(async (transaction) => {
@@ -900,6 +998,10 @@ export function createOrderStore<
         seniorPwdDiscountInCentavos = seniorPwdDiscount(line.priceInCentavos);
       }
 
+      // Free delivery is judged once, on the subtotal after discounts (an ID still being checked gives none yet), and saved with the threshold.
+      const discountNow = waitingForIdCheck ? 0 : seniorPwdDiscountInCentavos ?? 0;
+      const freeDelivery = threshold !== null && qualifiesForFreeDelivery(cart.subtotalInCentavos - discountNow, threshold);
+
       await createStockReservations(transaction, stock).reserve(attemptId, cart);
       const [order] = await transaction
         .insert(orders)
@@ -914,6 +1016,8 @@ export function createOrderStore<
           seniorPwdDiscountInCentavos,
           subtotalInCentavos: cart.subtotalInCentavos,
           deliveryFeeInCentavos: null,
+          freeDelivery,
+          freeDeliveryThresholdInCentavos: threshold,
         })
         .returning();
 
@@ -944,6 +1048,8 @@ export function createOrderStore<
         status: order.status as OrderStatus,
         subtotalInCentavos: order.subtotalInCentavos,
         deliveryFeeInCentavos: order.deliveryFeeInCentavos,
+        freeDelivery: order.freeDelivery,
+        freeDeliveryThresholdInCentavos: order.freeDeliveryThresholdInCentavos,
         createdAt: order.createdAt,
         deliveryAddress,
         paymentProof: null,

@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, lte, notExists } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lte, notExists, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { feedbackRequestContent } from "../notifications/feedback-request-content";
@@ -22,6 +22,9 @@ export type FeedbackRequestStore = {
   record(request: DueFeedbackRequest, sentAt: Date): Promise<void>;
 };
 
+/** `collected_at` stands in for `delivered_at`, so a Pickup Order's timer starts when it is picked up. */
+const completedAt = sql`coalesce(${orders.deliveredAt}, ${orders.collectedAt})`.mapWith(orders.deliveredAt);
+
 export function createFeedbackRequestStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
@@ -38,9 +41,9 @@ export function createFeedbackRequestStore<
         .from(orders)
         .innerJoin(customers, eq(orders.customerId, customers.id))
         .where(and(
-          inArray(orders.status, ["delivered", "received"]),
-          isNotNull(orders.deliveredAt),
-          lte(orders.deliveredAt, deliveredBefore),
+          inArray(orders.status, ["delivered", "collected", "received"]),
+          isNotNull(completedAt),
+          lte(completedAt, deliveredBefore),
           notExists(db.select({ one: feedbackRequests.orderId }).from(feedbackRequests).where(eq(feedbackRequests.orderId, orders.id))),
           notExists(db.select({ one: orderFeedback.orderId }).from(orderFeedback).where(eq(orderFeedback.orderId, orders.id))),
         ))

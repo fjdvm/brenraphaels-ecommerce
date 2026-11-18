@@ -4,7 +4,7 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { orderReturns, orders, tickets } from "../db/schema";
 
 /** Order statuses from placed up to and including dispatched. */
-export const inFlightOrderStatuses = ["placed", "confirmed", "awaiting payment", "paid", "preparing", "dispatched"];
+export const inFlightOrderStatuses = ["placed", "confirmed", "awaiting payment", "paid", "preparing", "dispatched", "ready for pickup"];
 export const inFlightReturnStatuses = ["requested", "approved"];
 export const inFlightTicketStatuses = ["open", "on_hold"];
 

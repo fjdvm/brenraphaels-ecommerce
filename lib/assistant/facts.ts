@@ -62,7 +62,7 @@ export function orderCard(order: AssistantOrder, now: Date): Card {
     lines.push({ label: "Courier", value: order.courierName }, { label: "Tracking link", value: order.courierTrackingUrl });
   }
   if (order.feePending) lines.push({ label: "Delivery fee", value: "a teammate will confirm it" });
-  if (order.deliveredAt) lines.push({ label: "Delivered", value: formatWhen(order.deliveredAt) });
+  if (order.deliveredAt) lines.push({ label: order.fulfillmentMethod === "pickup" ? "Picked up" : "Delivered", value: formatWhen(order.deliveredAt) });
   if (order.receivedAt) lines.push({ label: "Received", value: formatWhen(order.receivedAt) });
   const ends = returnWindowEnds(order);
   if (ends && !order.receivedAt) {

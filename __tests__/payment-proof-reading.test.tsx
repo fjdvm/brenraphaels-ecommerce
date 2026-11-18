@@ -12,7 +12,8 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 const placedAt = new Date("2026-10-16T06:00:00Z");
 const pick = () => fireEvent.change(screen.getByLabelText(/Add screenshot/), { target: { files: [new File(["x"], "gcash.jpg", { type: "image/jpeg" })] } });
-const renderForm = () => render(<PaymentProofForm amountInCentavos={20900} orderId={7} placedAt={placedAt} />);
+const accounts = [{ id: "a1", method: "gcash" as const, label: "Main", accountName: "Bren", accountNumber: "0917 000 0000", bankName: null, qrUrl: null }];
+const renderForm = () => render(<PaymentProofForm accounts={accounts} showAccounts={false} amountInCentavos={20900} orderId={7} placedAt={placedAt} />);
 const field = (label: RegExp) => screen.getByLabelText(label) as HTMLInputElement;
 
 test("picking a screenshot pre-fills the fields with checks and 'Read from your screenshot'", async () => {

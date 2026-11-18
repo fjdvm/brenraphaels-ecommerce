@@ -73,8 +73,8 @@ describe("orderBadges", () => {
     ]);
   });
 
-  test("capitalises multi-word statuses", () => {
-    expect(orderBadges(order({ status: "awaiting payment", paymentMethod: "gcash", paymentProof: { gcashReferenceNumber: "1", screenshotPathname: null, screenshotFileId: null, submittedAt: new Date() } }))[0].text).toBe("Awaiting payment");
+  test("a proof waiting for Staff shows Pending Verification", () => {
+    expect(orderBadges(order({ status: "awaiting payment", paymentMethod: "gcash", paymentProof: { gcashReferenceNumber: "1", screenshotPathname: null, screenshotFileId: null, submittedAt: new Date() } }))[0].text).toBe("Pending Verification");
   });
 });
 

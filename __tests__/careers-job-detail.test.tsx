@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { JobDetailBody, JobDetailHeader } from "../app/(careers)/careers/_components/job-detail";
+import { JobDetailBody, JobDetailHeader, requirementItems } from "../app/(careers)/careers/_components/job-detail";
 import type { JobPosting } from "../lib/careers/job-postings";
 
 const posting = (overrides: Partial<JobPosting> = {}): JobPosting => ({
@@ -71,6 +71,34 @@ describe("Job detail body", () => {
     expect(markup.match(/<li /g)).toHaveLength(2);
     expect(markup).not.toContain("- First");
     expect(markup).not.toContain("•");
+  });
+
+  test("skips the label line HRMS saves in front of Qualifications", () => {
+    // Exactly what HRMS saves for a posting with only Qualifications filled in (joinRequirements in the HRMS repo).
+    const items = requirementItems("Qualifications:\nAt least high school graduate\nAvailable Monday to Saturday");
+    expect(items).toEqual(["At least high school graduate", "Available Monday to Saturday"]);
+    const markup = renderToStaticMarkup(<JobDetailBody posting={posting({ requirements: "Qualifications:\nAt least high school graduate\nAvailable Monday to Saturday" })} />);
+    expect(markup.match(/<li /g)).toHaveLength(2);
+    expect(markup).not.toContain("Qualifications:");
+  });
+
+  test("skips both headings of the older form, which saved Responsibilities and Qualifications together", () => {
+    const saved = "Responsibilities:\nPack jars\nPrint labels\n\nQualifications:\nAt least high school graduate";
+    expect(requirementItems(saved)).toEqual(["Pack jars", "Print labels", "At least high school graduate"]);
+  });
+
+  test("ignores case and surrounding spaces when matching a label line", () => {
+    expect(requirementItems("  QUALIFICATIONS:  \nresponsibilities:\n\tA\n")).toEqual(["A"]);
+  });
+
+  test("keeps a line that merely contains the word, and a label without its colon", () => {
+    const lines = ["Qualifications: a degree", "Relevant qualifications are a plus", "Qualifications", "Responsibilities: none", "- Qualifications:"];
+    expect(requirementItems(lines.join("\n"))).toEqual(["Qualifications: a degree", "Relevant qualifications are a plus", "Qualifications", "Responsibilities: none", "Qualifications:"]);
+  });
+
+  test("still shows nothing when only a label was saved", () => {
+    const markup = renderToStaticMarkup(<JobDetailBody posting={posting({ requirements: "Qualifications:" })} />);
+    expect(markup).not.toContain("looking for");
   });
 
   test("hides What we're looking for when requirements are empty", () => {

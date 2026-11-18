@@ -3,6 +3,7 @@ import { z, ZodError } from "zod";
 
 import { getDatabase } from "@/lib/db";
 import { sendPaymentRejectedEmail } from "@/lib/email/payment-rejected-email";
+import { sendPaymentUnderReviewEmail } from "@/lib/email/payment-under-review-email";
 import { sendPendingCustomerNotifications } from "@/lib/notifications/outbox";
 import { verifyCreomsCredential } from "@/lib/orders/creoms-credential";
 import { publishAfterCommit, publishCustomerOrderEvent } from "@/lib/orders/live-events";
@@ -23,20 +24,20 @@ export async function POST(request: Request, context: RouteContext<"/api/interna
   try {
     const input = rejection.parse(await request.json());
     const store = createOrderStore(getDatabase());
-    const { order, rejections } = await store.rejectPaymentProof(id, input);
+    const { order, rejections, managerReview } = await store.rejectPaymentProof(id, input);
     scheduleOrdersChanged();
     after(async () => {
       await publishAfterCommit(store.customerIdForOrder(id), { type: "order.updated", orderId: String(id) }, publishCustomerOrderEvent);
       try {
         const recipient = await store.customerEmailForOrder(id);
-        if (recipient) await sendPaymentRejectedEmail(recipient, order, input.reason);
+        if (recipient) await (managerReview ? sendPaymentUnderReviewEmail : sendPaymentRejectedEmail)(recipient, order, input.reason);
       } catch (error) {
         console.error("Payment-rejected email could not be sent", error);
       }
       try { await sendPendingCustomerNotifications(getDatabase(), id); }
       catch (error) { console.error("Customer Notification delivery will be retried by the cron job", error); }
     });
-    return Response.json({ id: order.id, status: order.status, rejections, deliveryFeeInCentavos: order.deliveryFeeInCentavos });
+    return Response.json({ id: order.id, status: order.status, rejections, managerReview, deliveryFeeInCentavos: order.deliveryFeeInCentavos });
   } catch (error) {
     if (error instanceof SyntaxError || error instanceof ZodError) return Response.json({ error: "Enter a reason for rejecting the proof." }, { status: 400 });
     if (error instanceof OrderStatusUpdateError) return Response.json({ error: error.message }, { status: error.message === "Order was not found." ? 404 : 409 });

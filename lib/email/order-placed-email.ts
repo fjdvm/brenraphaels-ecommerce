@@ -1,5 +1,6 @@
 import type { Order } from "../orders/orders";
 import { FEE_TO_FOLLOW_COPY } from "@/lib/orders/fee-to-follow-copy";
+import { FREE_DELIVERY_CONFIRMATION_NOTICE } from "@/lib/orders/free-delivery";
 import { formatPeso } from "../catalog/currency";
 import { loadPickupInstructions, pickupInstructionLines } from "../pickup/instructions";
 import { createBrevoTransport, requiredEnvironment } from "./brevo-transport";
@@ -20,7 +21,7 @@ export async function sendOrderPlacedEmail(recipient: string, order: Order) {
       "Thank you for your order from Bren Raphael's.",
       "",
       order.fulfillmentMethod === "delivery"
-        ? `Your Delivery Order is placed. ${FEE_TO_FOLLOW_COPY}`
+        ? `Your Delivery Order is placed. ${order.freeDelivery ? `Delivery: Free. ${FREE_DELIVERY_CONFIRMATION_NOTICE}.` : FEE_TO_FOLLOW_COPY}`
         : "Your Pickup Order is confirmed. Please pay cash when you collect it.",
       "",
       ...(pickup.length ? [...pickup, ""] : []),
@@ -28,7 +29,7 @@ export async function sendOrderPlacedEmail(recipient: string, order: Order) {
       ...lines,
       "",
       `Subtotal: ${formatPeso(order.subtotalInCentavos)}`,
-      order.fulfillmentMethod === "delivery" ? "Delivery fee: To be confirmed" : "Delivery fee: None (Pickup)",
+      order.fulfillmentMethod === "delivery" ? (order.freeDelivery ? "Delivery fee: Free" : "Delivery fee: To be confirmed") : "Delivery fee: None (Pickup)",
       "",
       `View your order: ${requiredEnvironment("NEXT_PUBLIC_SITE_URL")}/profile/orders`,
     ].join("\n"),

@@ -341,3 +341,65 @@ test("packing audit survives a lost acknowledgement and keeps the original Staff
   ]);
   expect(audit.mock.calls.filter(([event]) => event.action === "order.packed").map(([event]) => event.idempotency_key)).toEqual([`order:${order.id}:order.packed`, `order:${order.id}:order.packed`]);
 });
+
+async function confirmed(window?: number) {
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.example.com");
+  const f = await fixture();
+  const order = await f.store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
+  const placed = await f.db.select().from(orders).where(eq(orders.id, order.id));
+  expect(placed[0].paymentDeadlineAt).toBeNull();
+  return { ...f, order };
+}
+
+test("confirming saves the confirmation time and the Admin's payment deadline together", async () => {
+  const f = await fixture();
+  const store = createOrderStore(f.db, undefined, f.stock, () => {}, async () => null, async () => 48);
+  const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
+  const total = order.subtotalInCentavos;
+  await f.db.update(orders).set({ status: "placed" }).where(eq(orders.id, order.id));
+  await store.confirm(order.id, { subtotalInCentavos: total, approvedDiscountInCentavos: 0, totalInCentavos: total, deliveryFeeInCentavos: null });
+  const [row] = await f.db.select().from(orders).where(eq(orders.id, order.id));
+  expect(row.confirmedAt).not.toBeNull();
+  expect(row.paymentDeadlineAt!.getTime() - row.confirmedAt!.getTime()).toBe(48 * 3_600_000);
+  const again = await store.confirm(order.id, { subtotalInCentavos: total, approvedDiscountInCentavos: 0, totalInCentavos: total, deliveryFeeInCentavos: null });
+  expect(again.replayed).toBe(true);
+  const [after] = await f.db.select().from(orders).where(eq(orders.id, order.id));
+  expect(after.paymentDeadlineAt).toEqual(row.paymentDeadlineAt);
+});
+
+test("an unreadable window setting defaults to 24 hours", async () => {
+  const f = await fixture();
+  const order = await f.store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
+  await f.db.update(orders).set({ status: "placed" }).where(eq(orders.id, order.id));
+  await f.store.confirm(order.id, { subtotalInCentavos: order.subtotalInCentavos, approvedDiscountInCentavos: 0, totalInCentavos: order.subtotalInCentavos, deliveryFeeInCentavos: null });
+  const [row] = await f.db.select().from(orders).where(eq(orders.id, order.id));
+  expect(row.paymentDeadlineAt!.getTime() - row.confirmedAt!.getTime()).toBe(24 * 3_600_000);
+});
+
+test("expiry follows the saved deadline, not a fixed 24 hours", async () => {
+  const { db, store, maintenance, order } = await confirmed();
+  await db.update(orders).set({ status: "confirmed", confirmedAt: new Date("2026-11-01T00:00:00Z"), paymentDeadlineAt: new Date("2026-11-03T00:00:00Z") }).where(eq(orders.id, order.id));
+  expect(await maintenance.expire(new Date("2026-11-02T12:00:00Z"))).toBe(0);
+  expect(await maintenance.expire(new Date("2026-11-03T00:00:00Z"))).toBe(1);
+  expect((await store.listForCustomer("jane"))[0].status).toBe("cancelled");
+});
+
+test("a proof waiting for Staff pauses expiry; a rejected proof does not, and expiry cancels once", async () => {
+  const { db, stock, store, maintenance, order, first } = await confirmed();
+  const past = new Date("2026-11-01T00:00:00Z"), later = new Date("2026-12-01T00:00:00Z");
+  await db.update(orders).set({ status: "awaiting payment", confirmedAt: past, paymentDeadlineAt: past, paymentProofSubmittedAt: past, paymentProofRejectedAt: null }).where(eq(orders.id, order.id));
+  expect(await maintenance.expire(later)).toBe(0);
+  expect((await store.listForCustomer("jane"))[0].status).toBe("awaiting payment");
+  await db.update(orders).set({ paymentProofRejectedAt: past }).where(eq(orders.id, order.id));
+  expect(await maintenance.expire(later)).toBe(1);
+  expect(await maintenance.expire(later)).toBe(0);
+  await maintenance.drain();
+  await maintenance.drain();
+  expect(stock.remaining(stock.productForSize(first.id))).toBe(50);
+});
+
+test("a first proof after the deadline is refused; one in time is accepted", async () => {
+  const { db, store, order } = await confirmed();
+  await db.update(orders).set({ status: "confirmed", confirmedAt: new Date("2026-01-01T00:00:00Z"), paymentDeadlineAt: new Date("2026-01-02T00:00:00Z") }).where(eq(orders.id, order.id));
+  await expect(store.submitPaymentProof("jane", order.id, { gcashReferenceNumber: "1234567890123" } as never)).rejects.toThrow("deadline");
+});

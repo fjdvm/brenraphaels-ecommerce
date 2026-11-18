@@ -14,7 +14,7 @@ import { getDatabase } from "@/lib/db";
 import { listCustomerCancellations } from "@/lib/orders/cancellation-status";
 import { createOrderFeedbackStore } from "@/lib/orders/feedback";
 import { createOrderReceiptStore } from "@/lib/orders/receipt";
-import { paymentDetails } from "@/lib/orders/payment-details";
+import { loadPaymentAccounts } from "@/lib/orders/payment-accounts";
 import { createOrderStore } from "@/lib/orders/orders";
 import { listCustomerReturns } from "@/lib/returns/customer-reads";
 import { createReturnOfferStore } from "@/lib/returns/return-offers";
@@ -57,7 +57,7 @@ async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/p
     <>
       <LiveOrders />
       <OrderAssistant pageOrderId={focusOrderId} />
-      <OrdersBrowser paymentDetails={await paymentDetails()} focusOrderId={focusOrderId} orders={withFeedback} returns={returns} />
+      <OrdersBrowser paymentAccounts={await loadPaymentAccounts()} focusOrderId={focusOrderId} orders={withFeedback} returns={returns} />
     </>
   );
 }

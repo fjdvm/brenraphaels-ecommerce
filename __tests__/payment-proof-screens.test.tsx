@@ -7,14 +7,13 @@ vi.mock("@/app/(site)/(protected)/profile/orders/actions", () => ({ cancelOrder:
 import { OrdersBrowser } from "@/components/features/orders/orders-browser";
 import { needsNewProof, needsPayment } from "@/lib/orders/order-view";
 import type { Order } from "@/lib/orders/orders";
-import type { PaymentDetail } from "@/lib/orders/payment-details";
+import type { PaymentAccountOption } from "@/lib/orders/payment-offer";
 
 afterEach(cleanup);
 
-const details: PaymentDetail[] = [
-  { method: "gcash", label: "GCash", lines: [{ label: "GCash number", value: "0917 000 0000" }] },
-  { method: "maya", label: "Maya", lines: [{ label: "Maya number", value: "0918 111 1111" }] },
-  { method: "bank-transfer", label: "Bank transfer", lines: [] },
+const details: PaymentAccountOption[] = [
+  { id: "a1", method: "gcash", label: "Main GCash", accountName: "Bren Raphael", accountNumber: "0917 000 0000", bankName: null, qrUrl: null },
+  { id: "a2", method: "maya", label: "Shop Maya", accountName: "Bren Raphael", accountNumber: "0918 111 1111", bankName: null, qrUrl: null },
 ];
 
 const order = (overrides: Partial<Order>): Order => ({
@@ -24,7 +23,7 @@ const order = (overrides: Partial<Order>): Order => ({
 });
 
 function open(o: Order) {
-  render(<OrdersBrowser orders={[{ order: o, feedback: null, returnInProgress: false }]} paymentDetails={details} />);
+  render(<OrdersBrowser orders={[{ order: o, feedback: null, returnInProgress: false }]} paymentAccounts={details} />);
 }
 
 describe("payment screens", () => {
@@ -48,9 +47,26 @@ describe("payment screens", () => {
     expect(screen.getByRole("button", { name: "Send new proof" })).toBeTruthy();
   });
 
-  test("a bank transfer Order with no details yet tells the Customer to ask", () => {
-    open(order({ paymentMethod: "bank-transfer" }));
-    expect(screen.getByText(/Message us for the Bank transfer details/)).toBeTruthy();
+  test("after the third rejection there is no resubmit, only the reason and Manager review", () => {
+    const locked = order({
+      status: "awaiting payment",
+      paymentProof: { gcashReferenceNumber: "333333", screenshotPathname: null, screenshotFileId: null, submittedAt: new Date() },
+      paymentProofRejection: { reason: "Not the right account", at: new Date() },
+      paymentProofRejections: 3,
+      paymentUnderManagerReview: true,
+    });
+    expect(needsNewProof(locked)).toBe(false);
+    open(locked);
+    expect(screen.queryByRole("button", { name: "Send new proof" })).toBeNull();
+    expect(screen.queryByLabelText(/Maya reference number/)).toBeNull();
+    expect(screen.getByTestId("manager-review-notice").textContent).toMatch(/Not the right account/);
+    expect(screen.getByText("Your payment is under Manager review")).toBeTruthy();
+  });
+
+  test("a bank transfer Order with no active account shows the notice and the shop contact, never Cash on Delivery", () => {
+    render(<OrdersBrowser orders={[{ order: order({ paymentMethod: "bank-transfer" }), feedback: null, returnInProgress: false }]} paymentAccounts={[]} />);
+    expect(screen.getByTestId("no-online-method").textContent).toMatch(/hello@brenraphaels\.com/);
+    expect(screen.queryByText(/Cash on Delivery/)).toBeNull();
   });
 
   test("Cash on Delivery needs no payment proof", () => {
@@ -62,19 +78,21 @@ import { OrderPlacedView } from "@/components/features/orders/order-placed";
 
 describe("order placed screen", () => {
   test("a GCash Order shows where to pay and the proof form once confirmed", () => {
-    render(<OrderPlacedView details={details} firstName="Jude" order={order({ paymentMethod: "gcash", status: "confirmed" })} />);
+    render(<OrderPlacedView accounts={details} firstName="Jude" order={order({ paymentMethod: "gcash", status: "confirmed" })} />);
     expect(screen.getByText("Thank you, Jude!")).toBeTruthy();
     expect(screen.getByText("0917 000 0000")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Submit payment" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Pay later in My orders" })).toBeTruthy();
   });
 
-  test("an Order not yet confirmed shows the details but no proof form, and Cash on Delivery shows no details", () => {
-    const { unmount } = render(<OrderPlacedView details={details} order={order({ paymentMethod: "maya", status: "placed" })} />);
-    expect(screen.getByText("0918 111 1111")).toBeTruthy();
+  test("an Order not yet confirmed shows Pending Confirmation, no numbers and no proof form; Cash on Delivery shows no details", () => {
+    const { unmount } = render(<OrderPlacedView accounts={details} order={order({ paymentMethod: "maya", status: "placed" })} />);
+    expect(screen.getByTestId("pending-confirmation")).toBeTruthy();
+    expect(screen.queryByText("0918 111 1111")).toBeNull();
+    expect(screen.queryByTestId("payment-details")).toBeNull();
     expect(screen.queryByRole("button", { name: "Submit payment" })).toBeNull();
     unmount();
-    render(<OrderPlacedView details={details} order={order({ paymentMethod: "cash-on-delivery" })} />);
+    render(<OrderPlacedView accounts={details} order={order({ paymentMethod: "cash-on-delivery" })} />);
     expect(screen.queryByTestId("payment-details")).toBeNull();
   });
 });
@@ -88,7 +106,7 @@ describe("payment history and deadline", () => {
       paymentProofRejection: { reason: "Used on another order", at: new Date("2026-10-16T07:00:00Z") },
       paymentProofHistory: [{ reference: "111111", submittedAt: new Date("2026-10-16T06:21:00Z"), rejection: { reason: "Used on another order", at: new Date("2026-10-16T07:00:00Z") } }],
     });
-    render(<OrdersBrowser orders={[{ order: rejected, feedback: null, returnInProgress: false }]} paymentDetails={details} />);
+    render(<OrdersBrowser orders={[{ order: rejected, feedback: null, returnInProgress: false }]} paymentAccounts={details} />);
     expect(screen.getByTestId("payment-history").textContent).toContain("Not accepted · Used on another order");
     expect(screen.getByText(/Send it by Oct 17, 2026/)).toBeTruthy();
   });

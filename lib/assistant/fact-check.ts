@@ -1,4 +1,4 @@
-const statuses = ["placed", "confirmed", "awaiting payment", "paid", "preparing", "dispatched", "delivered", "received", "cancelled"];
+const statuses = ["placed", "confirmed", "awaiting payment", "paid", "preparing", "dispatched", "delivered", "ready for pickup", "collected", "received", "cancelled"];
 
 const monthDate = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2}(?:, \d{4})?/gi;
 const numericDate = /\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g;

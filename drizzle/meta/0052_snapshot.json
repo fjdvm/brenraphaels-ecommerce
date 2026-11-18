@@ -1,5 +1,5 @@
 {
-  "id": "598a9473-c70c-42b8-98f0-6a11a82ce3ec",
+  "id": "6f72bbe6-3193-4125-9e64-1e36c6872818",
   "prevId": "dfa690d9-87bd-4273-8663-b1576cff2dd8",
   "version": "7",
   "dialect": "postgresql",
@@ -2351,6 +2351,19 @@
           "notNull": true,
           "default": false
         },
+        "free_delivery": {
+          "name": "free_delivery",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "free_delivery_threshold_in_centavos": {
+          "name": "free_delivery_threshold_in_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "approved_discount_in_centavos": {
           "name": "approved_discount_in_centavos",
           "type": "integer",
@@ -2457,30 +2470,6 @@
         "paid_at": {
           "name": "paid_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cod_collected_amount_in_centavos": {
-          "name": "cod_collected_amount_in_centavos",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cod_collected_at": {
-          "name": "cod_collected_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cod_collected_by_id": {
-          "name": "cod_collected_by_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cod_collected_by_name": {
-          "name": "cod_collected_by_name",
-          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
