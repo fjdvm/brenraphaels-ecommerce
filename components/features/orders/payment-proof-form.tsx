@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PaymentDetailsCard } from "@/components/features/orders/payment-details-card";
+import { PaymentAccountsCard } from "@/components/features/orders/payment-accounts-card";
 import { formatPeso } from "@/lib/catalog/currency";
-import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
+import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
+import type { PaymentAccountOption } from "@/lib/orders/payment-offer";
 import type { PaymentMethod } from "@/lib/orders/orders";
 import { checkReceipt, readReceiptText, readScreenshotText } from "@/lib/orders/screenshot-reading";
 
@@ -24,11 +25,12 @@ const emptyValues: Values = { reference: "", amount: "", paidAt: "" };
  * The warning panel where a Customer sends their reference number and optional receipt, with where to pay.
  * After staff turn a proof down it says why and asks again.
  */
-export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", details = [], rejection, deadline, placedAt }: {
+export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", accounts, rejection, deadline, placedAt }: {
   orderId: number;
   amountInCentavos: number;
   method?: PaymentMethod;
-  details?: PaymentDetail[];
+  /** The shop's active accounts; left out where the page already shows them. */
+  accounts?: PaymentAccountOption[];
   /** Why the last proof was not accepted; set when the Customer is uploading again. */
   rejection?: { reason: string } | null;
   /** When the Order is cancelled if still unpaid. */
@@ -103,7 +105,7 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
         </div>
       </div>
       {rejection ? <p className="text-sm font-medium text-red-700" role="status">Reason: {rejection.reason}. Please send a new screenshot and its reference number.</p> : null}
-      <PaymentDetailsCard detail={details.find((detail) => detail.method === method)} />
+      {accounts ? <PaymentAccountsCard accounts={accounts} amountInCentavos={amountInCentavos} deadline={deadline ?? ""} method={method} /> : null}
       {Object.entries(state.fieldErrors ?? {}).filter(([field]) => field !== "gcashReferenceNumber").map(([field, errors]) =>
         errors?.map(error => <p key={`${field}-${error}`} role="alert" className="text-sm text-red-700">{error}</p>))}
       <fieldset className="grid gap-4 sm:grid-cols-3">

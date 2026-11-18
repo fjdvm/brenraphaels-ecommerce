@@ -1,7 +1,7 @@
 import { Check } from "lucide-react";
 import Link from "next/link";
 
-import { PaymentDetailsCard } from "@/components/features/orders/payment-details-card";
+import { PaymentAccountsCard } from "@/components/features/orders/payment-accounts-card";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { Button } from "@/components/ui/button";
 import { formatPeso } from "@/lib/catalog/currency";
@@ -9,7 +9,8 @@ import { FREE_DELIVERY_CONFIRMATION_NOTICE } from "@/lib/orders/free-delivery";
 import { formatPlacedAt, needsPayment, orderTotalInCentavos, paymentDeadline } from "@/lib/orders/order-view";
 import type { Order } from "@/lib/orders/orders";
 import { isPrepaid } from "@/lib/orders/payment-methods";
-import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
+import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
+import type { PaymentAccountOption } from "@/lib/orders/payment-offer";
 import { pickupReminder, type PickupInstructions } from "@/lib/pickup/instructions";
 
 const STEPS = [
@@ -19,7 +20,7 @@ const STEPS = [
 ] as const;
 
 /** The screen after checkout: where to pay, the proof form once the Order can take it, and the summary. */
-export function OrderPlacedView({ order, details, firstName, pickup = null }: { order: Order; details: PaymentDetail[]; firstName?: string; pickup?: PickupInstructions | null }) {
+export function OrderPlacedView({ order, accounts, firstName, pickup = null }: { order: Order; accounts: PaymentAccountOption[]; firstName?: string; pickup?: PickupInstructions | null }) {
   const label = PAYMENT_LABELS[order.paymentMethod];
   const prepaid = isPrepaid(order.paymentMethod);
   const total = orderTotalInCentavos(order);
@@ -47,7 +48,7 @@ export function OrderPlacedView({ order, details, firstName, pickup = null }: { 
                 </p>
               ) : (
                 <>
-                  <PaymentDetailsCard detail={details.find((detail) => detail.method === order.paymentMethod)} />
+                  {needsPayment(order) ? <PaymentAccountsCard accounts={accounts} amountInCentavos={total} deadline={formatPlacedAt(paymentDeadline(order))} method={order.paymentMethod} /> : null}
                   <ol className="flex flex-col gap-4">
                     {STEPS.map((step, index) => (
                       <li className="flex items-start gap-3.5" key={step.title}>

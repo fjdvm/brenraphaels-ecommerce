@@ -14,7 +14,8 @@ import { OrderReceivedButton } from "@/components/features/orders/order-received
 import { TrackDelivery } from "@/components/features/orders/track-delivery";
 import { OrderReturn } from "@/components/features/orders/order-return";
 import { ReturnsList } from "@/components/features/orders/returns-list";
-import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
+import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
+import type { PaymentAccountOption } from "@/lib/orders/payment-offer";
 import { isPrepaid } from "@/lib/orders/payment-methods";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { formatPeso } from "@/lib/catalog/currency";
@@ -58,7 +59,7 @@ const badgeClass: Record<OrderBadge["tone"], string> = {
 };
 
 /** The My orders list: filter chips over expandable Order cards. */
-export function OrdersBrowser({ orders, returns = [], focusOrderId, paymentDetails = [] }: { orders: OrderWithFeedback[]; returns?: CustomerReturn[]; focusOrderId?: number; paymentDetails?: PaymentDetail[] }) {
+export function OrdersBrowser({ orders, returns = [], focusOrderId, paymentAccounts = [] }: { orders: OrderWithFeedback[]; returns?: CustomerReturn[]; focusOrderId?: number; paymentAccounts?: PaymentAccountOption[] }) {
   const [filter, setFilter] = useState<Tab>("all");
   const [scrollToReturn, setScrollToReturn] = useState<number>();
   const [openIds, setOpenIds] = useState<Set<number>>(() => {
@@ -128,7 +129,7 @@ export function OrdersBrowser({ orders, returns = [], focusOrderId, paymentDetai
         </p>
       ) : (
         visible.map(({ order, feedback, returnInProgress, returnOffer, cancellation }) => (
-          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} cancellation={cancellation ?? null} paymentDetails={paymentDetails} />
+          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} cancellation={cancellation ?? null} paymentAccounts={paymentAccounts} />
         ))
       )}
     </div>
@@ -158,9 +159,9 @@ function OrderCard({
   orderReturns,
   onShowReturn,
   onToggle,
-  paymentDetails,
+  paymentAccounts,
 }: {
-  paymentDetails: PaymentDetail[];
+  paymentAccounts: PaymentAccountOption[];
   order: Order;
   orderReturns: CustomerReturn[];
   onShowReturn: (id: number) => void;
@@ -223,7 +224,7 @@ function OrderCard({
           <ChevronDown aria-hidden className={cn("size-[18px] transition-transform", open && "rotate-180")} />
         </button>
       </div>
-      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} returnInProgress={returnInProgress} returnOffer={returnOffer} cancellation={cancellation} paymentDetails={paymentDetails} /> : null}
+      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} returnInProgress={returnInProgress} returnOffer={returnOffer} cancellation={cancellation} paymentAccounts={paymentAccounts} /> : null}
     </article>
   );
 }
@@ -236,9 +237,9 @@ function OrderDetails({
   returnOffer,
   cancellation,
   detailsId,
-  paymentDetails,
+  paymentAccounts,
 }: {
-  paymentDetails: PaymentDetail[];
+  paymentAccounts: PaymentAccountOption[];
   order: Order;
   feedback: OrderFeedbackSummary | null;
   cancellable: boolean;
@@ -335,7 +336,7 @@ function OrderDetails({
       {needsPayment(order) || needsNewProof(order) ? (
         <PaymentProofForm
           amountInCentavos={total}
-          details={paymentDetails}
+          accounts={paymentAccounts}
           method={order.paymentMethod}
           orderId={order.id}
           rejection={order.paymentProofRejection ? { reason: order.paymentProofRejection.reason } : null}
