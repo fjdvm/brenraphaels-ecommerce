@@ -181,7 +181,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
     expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
     expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "pickup-confirmed", expect.any(Function));
-    expect(sendOrderPickupConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderPickupConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }), undefined);
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
   });
 
@@ -189,7 +189,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", deliveryFeeInCentavos: 0, subtotalInCentavos: 21900 });
     expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
     expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "delivery-confirmed", expect.any(Function));
-    expect(sendOrderDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }), undefined);
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
   });
 
@@ -197,7 +197,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "delivery", paymentMethod: "gcash", deliveryFeeInCentavos: 8000, subtotalInCentavos: 21900 });
     expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
     expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "online-delivery-confirmed", expect.any(Function));
-    expect(sendOrderOnlineDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderOnlineDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }), undefined);
     expect(sendOrderDeliveryConfirmedEmail).not.toHaveBeenCalled();
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
   });
@@ -206,7 +206,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "pickup", paymentMethod: "gcash", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
     expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
     expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "online-pickup-confirmed", expect.any(Function));
-    expect(sendOrderOnlinePickupConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderOnlinePickupConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }), undefined);
     expect(sendOrderPickupConfirmedEmail).not.toHaveBeenCalled();
   });
 

@@ -92,7 +92,7 @@ export async function POST(
               await sendOnceAndRecord(
                 order.id,
                 online ? "online-delivery-confirmed" : "delivery-confirmed",
-                () => online ? sendOrderOnlineDeliveryConfirmedEmail(recipient, order) : sendOrderDeliveryConfirmedEmail(recipient, order),
+                (email) => online ? sendOrderOnlineDeliveryConfirmedEmail(recipient, order, email) : sendOrderDeliveryConfirmedEmail(recipient, order, email),
               );
             }
           } catch (error) {
@@ -114,7 +114,7 @@ export async function POST(
             await sendOnceAndRecord(
               order.id,
               online ? "online-pickup-confirmed" : "pickup-confirmed",
-              () => online ? sendOrderOnlinePickupConfirmedEmail(recipient, order) : sendOrderPickupConfirmedEmail(recipient, order),
+              (email) => online ? sendOrderOnlinePickupConfirmedEmail(recipient, order, email) : sendOrderPickupConfirmedEmail(recipient, order, email),
             );
           }
         } catch (error) {

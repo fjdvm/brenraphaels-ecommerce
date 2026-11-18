@@ -1,6 +1,7 @@
 import { formatPeso } from "../catalog/currency";
 import type { Order } from "../orders/orders";
 import { createBrevoTransport } from "./brevo-transport";
+import { stableMessageId } from "./stable-message-id";
 import { EMAIL_TOKENS as t, emailButton, emailHeading, emailParagraph, escapeHtml, logoAttachment, renderEmailLayout } from "./layout";
 import { totalPayableAtPickup, viewOrderUrl } from "./order-pickup-confirmed-email";
 
@@ -45,8 +46,9 @@ export function renderOnlinePickupConfirmedEmail(order: Order, orderUrl: string)
 }
 
 /** Sends the Customer the confirmation of an Online payment Pickup Order after Staff confirm it. */
-export async function sendOrderOnlinePickupConfirmedEmail(recipient: string, order: Order) {
+export async function sendOrderOnlinePickupConfirmedEmail(recipient: string, order: Order, email?: { id: string }) {
   const { transport, sender } = createBrevoTransport();
   const message = renderOnlinePickupConfirmedEmail(order, viewOrderUrl(order.id));
-  await transport.sendMail({ from: sender, to: recipient, ...message, attachments: [await logoAttachment()] });
+  const info = await transport.sendMail({ from: sender, to: recipient, ...message, ...stableMessageId(sender, email), attachments: [await logoAttachment()] });
+  return typeof info?.messageId === "string" ? { messageId: info.messageId } : {};
 }

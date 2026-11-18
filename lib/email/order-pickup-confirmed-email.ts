@@ -2,6 +2,7 @@ import { formatPeso } from "../catalog/currency";
 import type { Order } from "../orders/orders";
 import { loadPickupInstructions, pickupInstructionLines, type PickupInstructions, pickupReminder } from "../pickup/instructions";
 import { createBrevoTransport, requiredEnvironment } from "./brevo-transport";
+import { stableMessageId } from "./stable-message-id";
 import { EMAIL_TOKENS as t, emailButton, emailHeading, emailParagraph, escapeHtml, logoAttachment, renderEmailLayout } from "./layout";
 
 /** The Customer's own Order page, where the View Order button lands. */
@@ -69,8 +70,9 @@ export function renderPickupConfirmedEmail(order: Order, instructions: PickupIns
 }
 
 /** Sends the Customer the confirmation of a Cash on Delivery Pickup Order after Staff confirm it. */
-export async function sendOrderPickupConfirmedEmail(recipient: string, order: Order) {
+export async function sendOrderPickupConfirmedEmail(recipient: string, order: Order, email?: { id: string }) {
   const { transport, sender } = createBrevoTransport();
   const message = renderPickupConfirmedEmail(order, await loadPickupInstructions(), viewOrderUrl(order.id));
-  await transport.sendMail({ from: sender, to: recipient, ...message, attachments: [await logoAttachment()] });
+  const info = await transport.sendMail({ from: sender, to: recipient, ...message, ...stableMessageId(sender, email), attachments: [await logoAttachment()] });
+  return typeof info?.messageId === "string" ? { messageId: info.messageId } : {};
 }
