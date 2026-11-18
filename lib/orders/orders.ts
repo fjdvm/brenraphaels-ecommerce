@@ -115,6 +115,8 @@ export type Order = {
   /** File id of the Delivery photo; null before delivery, for legacy Orders, or after retention removes it. */
   deliveryPhotoFileId: string | null;
   deliveryPhotoRemovedAt: Date | null;
+  /** The cash a Cash on Delivery Order collected, saved by Staff when completing it; null for any other Order or before it is recorded. */
+  codCollected?: { amountInCentavos: number; at: Date } | null;
   /** The booking recorded at dispatch of a Delivery Order; null for Pickup and before dispatch. */
   /** What the Customer may see: the courier and the link, when there is one. Rider details stay with Staff and are never part of an Order. */
   courier: { name: "Lalamove" | "Grab"; trackingUrl: string | null } | null;
@@ -334,6 +336,7 @@ export function createOrderStore<
       paidAt: row.paidAt,
       deliveryPhotoFileId: row.deliveryPhotoFileId,
       deliveryPhotoRemovedAt: row.deliveryPhotoRemovedAt,
+      codCollected: row.codCollectedAmountInCentavos !== null && row.codCollectedAt ? { amountInCentavos: row.codCollectedAmountInCentavos, at: row.codCollectedAt } : null,
       courier: row.courier === null ? null : {
         name: row.courier as "Lalamove" | "Grab", trackingUrl: row.courierTrackingUrl,
       },

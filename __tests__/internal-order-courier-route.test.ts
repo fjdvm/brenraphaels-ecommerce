@@ -13,7 +13,7 @@ const { afterTasks, updateCourier, customerIdForOrder, publishCustomerOrderEvent
 
 vi.mock("next/server", () => ({ after: (task: () => Promise<void>) => { afterTasks.push(task); } }));
 vi.mock("@/lib/db", () => ({ getDatabase: vi.fn() }));
-vi.mock("@/lib/email/order-dispatched-email", () => ({ sendOrderDispatchedEmail }));
+vi.mock("@/lib/email/fulfilment-emails", () => ({ sendFulfilmentEmail: sendOrderDispatchedEmail }));
 vi.mock("@/lib/orders/staff-signal", () => ({ scheduleOrdersChanged }));
 vi.mock("@/lib/orders/live-events", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/orders/live-events")>()), publishCustomerOrderEvent }));
 vi.mock("@/lib/orders/orders", async (importOriginal) => ({

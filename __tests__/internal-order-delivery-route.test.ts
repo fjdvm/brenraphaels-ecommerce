@@ -12,7 +12,7 @@ import { createTestDatabase } from "./helpers/test-database";
 const mocks = vi.hoisted(() => ({ database: vi.fn(), email: vi.fn(), afterTasks: [] as Array<() => Promise<void>> }));
 vi.mock("next/server", () => ({ after: (task: () => Promise<void>) => { mocks.afterTasks.push(task); } }));
 vi.mock("@/lib/db", () => ({ getDatabase: mocks.database }));
-vi.mock("@/lib/email/order-delivered-email", () => ({ sendOrderDeliveredEmail: mocks.email }));
+vi.mock("@/lib/email/fulfilment-emails", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/email/fulfilment-emails")>()), sendFulfilmentEmail: mocks.email }));
 let client: PGlite;
 let db: ReturnType<typeof drizzle>;
 let orderId: number;
@@ -66,7 +66,7 @@ test("delivers a dispatched Order with a verified Temporary photo, persists it a
   expect(gateway).toHaveBeenCalledWith("https://gateway.test/files/photo-1", expect.objectContaining({
     headers: { Authorization: "Bearer storefront-key" }, cache: "no-store", redirect: "error",
   }));
-  expect(mocks.email).toHaveBeenCalledWith("maria@example.com", expect.objectContaining({ deliveryPhotoFileId: "photo-1" }));
+  expect(mocks.email).toHaveBeenCalledWith("completed", "maria@example.com", expect.objectContaining({ deliveryPhotoFileId: "photo-1" }), { id: `order-${orderId}-completed` });
 });
 
 test.each([

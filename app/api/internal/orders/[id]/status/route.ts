@@ -6,8 +6,7 @@ import { ZodError } from "zod";
 import { sendPendingCustomerNotifications } from "@/lib/notifications/outbox";
 import { getDatabase } from "@/lib/db";
 import { sendOrderConfirmedEmail } from "@/lib/email/order-confirmed-email";
-import { sendOrderDeliveredEmail } from "@/lib/email/order-delivered-email";
-import { sendOrderDispatchedEmail } from "@/lib/email/order-dispatched-email";
+import { sendFulfilmentEmail, type FulfilmentEmailKind } from "@/lib/email/fulfilment-emails";
 import { sendOrderDeliveryConfirmedEmail } from "@/lib/email/order-delivery-confirmed-email";
 import { sendOnceAndRecord } from "@/lib/email/outcomes";
 import { sendOrderPickupConfirmedEmail } from "@/lib/email/order-pickup-confirmed-email";
@@ -36,6 +35,16 @@ async function notifyCustomer(
     await send(recipient, order);
   } catch (error) {
     console.error(`Order-${label} email could not be sent`, error);
+  }
+}
+
+/** Records and sends one fulfilment Status email at most once per Order, so an edit or repeated save never sends a second. */
+async function sendFulfilment(orderStore: OrderStore, order: Order, kind: FulfilmentEmailKind) {
+  try {
+    const recipient = await orderStore.customerEmailForOrder(order.id);
+    if (recipient) await sendOnceAndRecord(order.id, kind, (email) => sendFulfilmentEmail(kind, recipient, order, email));
+  } catch (error) {
+    console.error(`Order-${kind} email outcome could not be recorded`, error);
   }
 }
 
@@ -129,12 +138,10 @@ export async function POST(
           console.error("Payment-verified email outcome could not be recorded", error);
         }
       }
-      if (update.status === "dispatched" && order.courier) {
-        await notifyCustomer(orderStore, order, "dispatched", sendOrderDispatchedEmail);
-      }
-      if (update.status === "delivered") {
-        await notifyCustomer(orderStore, order, "delivered", sendOrderDeliveredEmail);
-      }
+      if (update.status === "preparing") await sendFulfilment(orderStore, order, "preparing");
+      if (update.status === "dispatched" && order.courier) await sendFulfilment(orderStore, order, "dispatched");
+      if (update.status === "ready for pickup") await sendFulfilment(orderStore, order, "ready-for-pickup");
+      if (update.status === "delivered" || update.status === "collected") await sendFulfilment(orderStore, order, "completed");
       try {
         await sendPendingCustomerNotifications(getDatabase(), order.id);
       } catch (error) {

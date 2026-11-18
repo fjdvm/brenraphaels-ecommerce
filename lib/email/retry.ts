@@ -4,6 +4,7 @@ import { sendOrderDeliveryConfirmedEmail } from "./order-delivery-confirmed-emai
 import { sendOrderOnlineDeliveryConfirmedEmail } from "./order-online-delivery-confirmed-email";
 import { sendOrderOnlinePickupConfirmedEmail } from "./order-online-pickup-confirmed-email";
 import { sendOrderPickupConfirmedEmail } from "./order-pickup-confirmed-email";
+import { FULFILMENT_EMAIL_KINDS, sendFulfilmentEmail, type FulfilmentEmailKind } from "./fulfilment-emails";
 import { PAYMENT_EMAIL_KINDS, sendPaymentEmail, type PaymentEmailKind } from "./payment-emails";
 import { resendFailedEmail, retryDueEmails, type ResendResult } from "./outcomes";
 
@@ -13,6 +14,7 @@ const senders: Record<string, (recipient: string, order: Order, email?: { id: st
   "delivery-confirmed": sendOrderDeliveryConfirmedEmail,
   "online-delivery-confirmed": sendOrderOnlineDeliveryConfirmedEmail,
   ...Object.fromEntries(PAYMENT_EMAIL_KINDS.map((kind) => [kind, (recipient: string, order: Order, email?: { id: string }, occurrence?: string) => sendPaymentEmail(kind as PaymentEmailKind, recipient, order, email, occurrence)])),
+  ...Object.fromEntries(FULFILMENT_EMAIL_KINDS.map((kind) => [kind, (recipient: string, order: Order, email?: { id: string }) => sendFulfilmentEmail(kind as FulfilmentEmailKind, recipient, order, email)])),
 };
 
 /** Sends the stored kind of confirmation email again from the Order as it is now. Throws when it cannot be built. */
