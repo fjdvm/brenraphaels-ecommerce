@@ -365,6 +365,13 @@
       "when": 1796745600000,
       "tag": "0051_order_email_retries",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1795025573508,
+      "tag": "0052_order_cod_collection",
+      "breakpoints": true
     }
   ]
 }

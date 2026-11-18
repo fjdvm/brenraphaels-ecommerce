@@ -229,6 +229,11 @@ export const orders = pgTable("orders", {
   paidByName: text("paid_by_name"),
   // Legacy paid Orders keep all three attribution fields empty.
   paidAt: timestamp("paid_at", { withTimezone: true }),
+  // COD collection (epic-crms#601): the cash recorded when a Cash on Delivery Order is completed. Empty for every other Order.
+  codCollectedAmountInCentavos: integer("cod_collected_amount_in_centavos"),
+  codCollectedAt: timestamp("cod_collected_at", { withTimezone: true }),
+  codCollectedById: text("cod_collected_by_id"),
+  codCollectedByName: text("cod_collected_by_name"),
   // When the Order became Delivered. Orders delivered before this column existed keep it empty.
   deliveredAt: timestamp("delivered_at", { withTimezone: true }),
   /** Private File id of proof of delivery; empty before delivery, for legacy Orders, or after removal. */
