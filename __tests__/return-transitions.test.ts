@@ -18,7 +18,7 @@ beforeEach(async () => {
   await db.insert(customers).values({ id: "customer-1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
     email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
   const [order] = await db.insert(orders).values({ customerId: "customer-1", status: "delivered", fulfillmentMethod: "pickup",
-    paymentMethod: "cash-on-delivery", subtotalInCentavos: 10000 }).returning();
+    paymentMethod: "cash-on-delivery", subtotalInCentavos: 100000, codCollectedAt: new Date("2026-10-24T07:00:00Z"), codCollectedAmountInCentavos: 100000 }).returning();
   orderId = order.id;
 });
 afterEach(async () => { await client.close(); });

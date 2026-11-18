@@ -44,7 +44,7 @@ afterEach(() => { vi.useRealTimers(); });
 
 test("requests whole lines, uploads verified evidence and records the RMA and Customer history atomically", async () => {
   const result = await service().request("customer-1", orderId, request());
-  expect(result).toMatchObject({ number: `RMA-${result.id}`, status: "requested", amountInCentavos: 30000,
+  expect(result).toMatchObject({ number: `RMA-${result.id}`, status: "requested", amountInCentavos: 25000,
     note: "Broken seal.", preferredResolution: "replacement", requestedAt: at });
   expect(files.read).toHaveBeenCalledWith({ customerId: "customer-1", orderId }, "photo", "photo-1");
   expect(await db.select().from(orderReturnImages)).toMatchObject([{ fileId: "file-1", position: 1 }]);
@@ -79,6 +79,11 @@ test("accepts paid GCash, delivered Pickup, and the last millisecond of the wind
   expect(await service().request("customer-1", orderId, request())).toMatchObject({ amountInCentavos: 25000 });
 });
 
+test("the refund is what was paid after discounts, spread over the lines, with no Delivery fee", async () => {
+  await db.update(orders).set({ approvedDiscountInCentavos: 5000 }).where(eq(orders.id, orderId));
+  expect(await service().request("customer-1", orderId, request())).toMatchObject({ amountInCentavos: 20000 });
+});
+
 test("legacy GCash Orders delivered through the paid lifecycle remain eligible without paidAt attribution", async () => {
   await db.update(orders).set({ paymentMethod: "gcash", paidAt: null }).where(eq(orders.id, orderId));
   expect(await service().request("customer-1", orderId, request())).toMatchObject({ status: "requested" });
@@ -91,7 +96,7 @@ test("partial selections use purchased prices and exclude the Delivery fee", asy
 
 test("caps the refund at the recorded paid subtotal", async () => {
   await db.update(orders).set({ subtotalInCentavos: 20000 }).where(eq(orders.id, orderId));
-  expect(await service().request("customer-1", orderId, request())).toMatchObject({ amountInCentavos: 25000 });
+  expect(await service().request("customer-1", orderId, request())).toMatchObject({ amountInCentavos: 20000 });
 });
 
 test("splitting an adjusted historical subtotal across Returns cannot multiply the refund cap", async () => {

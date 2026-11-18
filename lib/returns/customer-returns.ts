@@ -86,24 +86,24 @@ export function createCustomerReturns<TQueryResult extends PgQueryResultHKT, TSc
 
     return db.transaction(async (tx) => {
       const { order, at } = await eligibleOrder(tx, customerId, orderId);
-      const { lines, selected, allSelected } = await selectedLines(tx, orderId, parsed.orderLineIds);
+      const { lines, selected } = await selectedLines(tx, orderId, parsed.orderLineIds);
       const destination = refundDestinationFor(order, parsed);
       const [customer] = await tx.select({ name: customers.fullName }).from(customers).where(eq(customers.id, customerId));
-      // Allocate any lower historical subtotal across all purchased lines once, in
-      // stable id order. Disjoint Returns therefore cannot each claim the same cap.
+      // The refund is what was paid for the approved whole line items after discounts (#611): the Order's discount is spread over all
+      // its lines once, in stable id order, so disjoint Returns cannot each claim the same cap. The Delivery fee is never part of it;
+      // a Manager may add it at refund time. No channel fee is deducted.
       const total = lines.reduce((sum, line) => sum + BigInt(line.quantity) * BigInt(line.priceInCentavos), BigInt(0));
-      const paid = BigInt(order.subtotalInCentavos) < total ? BigInt(order.subtotalInCentavos) : total;
+      const net = BigInt(Math.max(0, order.subtotalInCentavos - (order.approvedDiscountInCentavos ?? 0)));
+      const paid = net < total ? net : total;
       let cumulative = BigInt(0);
-      let itemAmount = 0;
+      let amountInCentavos = 0;
       for (const line of lines) {
         const previous = cumulative;
         cumulative += BigInt(line.quantity) * BigInt(line.priceInCentavos);
         if (total > BigInt(0) && parsed.orderLineIds.includes(line.id)) {
-          itemAmount += Number(cumulative * paid / total - previous * paid / total);
+          amountInCentavos += Number(cumulative * paid / total - previous * paid / total);
         }
       }
-      const amountInCentavos = itemAmount +
-        (allSelected && order.fulfillmentMethod === "delivery" ? order.deliveryFeeInCentavos ?? 0 : 0);
       const [created] = await tx.insert(orderReturns).values({ orderId, reason: parsed.reason, note: parsed.note,
         preferredResolution: parsed.preferredResolution, amountInCentavos, videoFileId: video?.id, requestedAt: at,
         ...(destination ? { refundMethod: destination.method, refundAccountName: destination.accountName,

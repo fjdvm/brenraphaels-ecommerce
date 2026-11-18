@@ -421,6 +421,13 @@
       "when": 1797350400000,
       "tag": "0059_refund_destination",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1797436800000,
+      "tag": "0060_refund_delivery_fee",
+      "breakpoints": true
     }
   ]
 }

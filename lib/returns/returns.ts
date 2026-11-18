@@ -1,9 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 import { customerNotifications, orders, orderReturns, orderReturnHistory, returnResolutions } from "../db/schema";
 import { returnNoticeContent } from "./return-notices";
+import { checkRefund } from "./refund-rules";
 import { multilineTextField } from "../validators/fields";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
@@ -21,7 +22,11 @@ export const returnDecisionSchema = z.discriminatedUnion("status", [z.object({
   goodsRequired: z.boolean().default(false),
 }).strict(),
   z.object({ status: z.literal("goods received") }).strict(),
-  z.object({ status: z.literal("refunded"), refundProofFileId: fileIdField }).strict(),
+  z.object({
+    status: z.literal("refunded"), refundProofFileId: fileIdField,
+    /** A Manager's reason for also refunding the Delivery fee; absent means items only. The amount is always the Order's own fee. */
+    deliveryFeeReason: z.string().trim().min(1).max(500).optional(),
+  }).strict(),
   z.object({ status: z.literal("replaced") }).strict(),
   z.object({ status: z.literal("declined"), declineReason: multilineTextField("Decline reason", {
     max: 2000, pattern: /^[^<>\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]*$/u,
@@ -48,7 +53,7 @@ export function createReturnStore<
       // Serialize competing decisions before checking status or recording history.
       const [current] = await tx.select().from(orderReturns).where(eq(orderReturns.id, id)).for("update");
       if (!current) throw new ReturnTransitionError("Return not found.");
-      const [order] = await tx.select({ customerId: orders.customerId }).from(orders).where(eq(orders.id, current.orderId));
+      const [order] = await tx.select().from(orders).where(eq(orders.id, current.orderId)).for("update");
       if (actor.type === "customer" && actor.id !== order.customerId) throw new ReturnTransitionError("Return not found.");
       const allowed = (actor.type === "customer" && decision.status === "cancelled" && current.status === "requested") || (actor.type === "staff" && (
         ((decision.status === "approved" || decision.status === "declined") && current.status === "requested") ||
@@ -60,12 +65,23 @@ export function createReturnStore<
       if (!allowed) {
         throw new ReturnTransitionError("Return already changed or this move is not allowed.");
       }
+      let deliveryFee = 0;
+      if (decision.status === "refunded") {
+        const others = await tx.select({ amount: orderReturns.amountInCentavos, fee: orderReturns.refundDeliveryFeeInCentavos })
+          .from(orderReturns).where(and(eq(orderReturns.orderId, current.orderId), ne(orderReturns.id, id), inArray(orderReturns.status, ["refunded"])));
+        const checked = checkRefund({ order, reason: current.reason, itemsInCentavos: current.amountInCentavos,
+          prior: others.map((other) => ({ itemsInCentavos: other.amount, deliveryFeeInCentavos: other.fee ?? 0 })),
+          deliveryFeeReason: decision.deliveryFeeReason });
+        if (!checked.ok) throw new ReturnTransitionError(checked.error);
+        deliveryFee = checked.deliveryFeeInCentavos;
+      }
       const at = (deps.now ?? (() => new Date()))();
       const [updated] = await tx.update(orderReturns).set({ status: decision.status,
         ...(decision.status === "approved" ? {
           finalResolution: decision.finalResolution ?? current.preferredResolution, goodsRequired: decision.goodsRequired,
         } : {}),
-        ...(decision.status === "refunded" ? { refundedAt: at, refundProofFileId: decision.refundProofFileId } : {}),
+        ...(decision.status === "refunded" ? { refundedAt: at, refundProofFileId: decision.refundProofFileId,
+          ...(deliveryFee > 0 ? { refundDeliveryFeeInCentavos: deliveryFee, refundDeliveryFeeReason: decision.deliveryFeeReason } : {}) } : {}),
         ...(decision.status === "replaced" ? { replacedAt: at } : {}),
         ...(decision.status === "declined" ? { declineReason: decision.declineReason } : {}),
       }).where(eq(orderReturns.id, id)).returning();

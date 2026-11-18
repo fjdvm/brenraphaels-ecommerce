@@ -485,6 +485,9 @@ export const orderReturns = pgTable("order_returns", {
   finalResolution: text("final_resolution", { enum: returnResolutions }),
   videoFileId: text("video_file_id"),
   refundProofFileId: text("refund_proof_file_id"),
+  /** The Delivery fee a Manager included in the refund (epic-crms#611); null when only the items were refunded. Never counts toward the Approval limit. */
+  refundDeliveryFeeInCentavos: integer("refund_delivery_fee_in_centavos"),
+  refundDeliveryFeeReason: text("refund_delivery_fee_reason"),
   /** Where the refund goes, confirmed by the Customer on the request; never a payment proof's recipient. Null for a replacement. */
   refundMethod: text("refund_method", { enum: ["gcash", "maya", "bank-transfer"] }),
   refundAccountName: text("refund_account_name"),
@@ -503,6 +506,7 @@ export const orderReturns = pgTable("order_returns", {
   check("order_returns_final_resolution", sql`${table.finalResolution} in ('refund','replacement')`),
   check("order_returns_reason", sql`${table.reason} in ('damaged','defective','wrong item','other')`),
   check("order_returns_amount", sql`${table.amountInCentavos} >= 0`),
+  check("order_returns_refund_delivery_fee", sql`${table.refundDeliveryFeeInCentavos} >= 0`),
   check("order_returns_refund_method", sql`${table.refundMethod} in ('gcash','maya','bank-transfer')`),
   index("order_returns_order_id").on(table.orderId),
 ]);

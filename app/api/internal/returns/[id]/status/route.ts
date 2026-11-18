@@ -33,7 +33,7 @@ export async function POST(request: Request, context: RouteContext<"/api/interna
     return Response.json({
       id: updated.id, status: updated.status, finalResolution: updated.finalResolution,
       goodsRequired: updated.goodsRequired, declineReason: updated.declineReason,
-      refundProofFileId: updated.refundProofFileId,
+      refundProofFileId: updated.refundProofFileId, refundDeliveryFeeInCentavos: updated.refundDeliveryFeeInCentavos,
       actedBy: { id: updated.actedBy.id, name: updated.actedBy.name, at: updated.actedBy.at.toISOString() },
     });
   } catch (error) {
