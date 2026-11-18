@@ -485,6 +485,12 @@ export const orderReturns = pgTable("order_returns", {
   finalResolution: text("final_resolution", { enum: returnResolutions }),
   videoFileId: text("video_file_id"),
   refundProofFileId: text("refund_proof_file_id"),
+  /** Where the refund goes, confirmed by the Customer on the request; never a payment proof's recipient. Null for a replacement. */
+  refundMethod: text("refund_method", { enum: ["gcash", "maya", "bank-transfer"] }),
+  refundAccountName: text("refund_account_name"),
+  refundAccountNumber: text("refund_account_number"),
+  refundBankName: text("refund_bank_name"),
+  refundDestinationConfirmedAt: timestamp("refund_destination_confirmed_at", { withTimezone: true }),
   /** Null until approval; false allows completing without returning the goods. */
   goodsRequired: boolean("goods_required"),
   declineReason: text("decline_reason"),
@@ -497,7 +503,20 @@ export const orderReturns = pgTable("order_returns", {
   check("order_returns_final_resolution", sql`${table.finalResolution} in ('refund','replacement')`),
   check("order_returns_reason", sql`${table.reason} in ('damaged','defective','wrong item','other')`),
   check("order_returns_amount", sql`${table.amountInCentavos} >= 0`),
+  check("order_returns_refund_method", sql`${table.refundMethod} in ('gcash','maya','bank-transfer')`),
   index("order_returns_order_id").on(table.orderId),
+]);
+
+/** The refund details a Customer last confirmed, offered as the pre-fill on their next Return. One row per Customer. */
+export const customerRefundDestinations = pgTable("customer_refund_destinations", {
+  customerId: text("customer_id").primaryKey().references(() => customers.id, { onDelete: "cascade" }),
+  method: text("method", { enum: ["gcash", "maya", "bank-transfer"] }).notNull(),
+  accountName: text("account_name").notNull(),
+  accountNumber: text("account_number").notNull(),
+  bankName: text("bank_name"),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull(),
+}, (table) => [
+  check("customer_refund_destinations_method", sql`${table.method} in ('gcash','maya','bank-transfer')`),
 ]);
 
 /** Immutable snapshots of the whole Order lines selected by the Customer. */

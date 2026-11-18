@@ -33,7 +33,7 @@ const order: Order = {
 };
 const line = (id: number, returnable = true) => ({ id, productName: `Item ${id}`, sizeLabel: "Small", quantity: 1, priceInCentavos: 10_000, imageUrl: null, returnable });
 const offer = (patch: Partial<ReturnOffer> = {}): ReturnOffer => ({
-  deliveredAtMs: now - 60 * 60_000, windowExtended: false, paymentMethod: "gcash", lines: [line(1), line(2), line(3, false)], requested: null, ...patch,
+  deliveredAtMs: now - 60 * 60_000, windowExtended: false, paymentMethod: "gcash", lines: [line(1), line(2), line(3, false)], requested: null, savedRefundDestination: null, refundable: true, ...patch,
 });
 const renderOrder = (returnOffer: ReturnOffer | null, returnInProgress = false) =>
   render(<OrdersBrowser orders={[{ order, feedback: null, returnInProgress, returnOffer }]} />);
@@ -149,6 +149,112 @@ describe("Return form", () => {
     await user.click(within(dialog).getByRole("button", { name: "Review request" }));
     await user.click(await screen.findByRole("button", { name: "Yes, send request" }));
     expect((await screen.findByRole("alert")).textContent).toBe("The 24-hour Return window has closed.");
+  });
+});
+
+describe("Refund destination", () => {
+  const saved = { method: "gcash" as const, accountName: "Maria Santos", accountNumber: "09171234567", bankName: null };
+
+  async function openForRefund(returnOffer = offer()) {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime, applyAccept: false });
+    renderOrder(returnOffer);
+    await user.click(await screen.findByRole("button", { name: "Return items" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("checkbox", { name: /Item 1/ }));
+    await user.selectOptions(within(dialog).getByLabelText("Reason"), "damaged");
+    await user.upload(within(dialog).getByLabelText(/Photos/), photo);
+    await user.click(within(dialog).getByRole("radio", { name: /^Refund/ }));
+    return { user, dialog };
+  }
+
+  test("asks for the method, account name and number only when a refund is chosen, never pre-filled from a payment proof", async () => {
+    const { user, dialog } = await openForRefund();
+    expect(within(dialog).getByLabelText("Refund method")).toBeTruthy();
+    expect((within(dialog).getByLabelText("Account name") as HTMLInputElement).value).toBe("");
+    expect(within(dialog).queryByLabelText("Bank name")).toBeNull();
+    await user.selectOptions(within(dialog).getByLabelText("Refund method"), "bank-transfer");
+    expect(within(dialog).getByLabelText("Bank name")).toBeTruthy();
+    await user.click(within(dialog).getByRole("radio", { name: "Replacement" }));
+    expect(within(dialog).queryByLabelText("Refund method")).toBeNull();
+  });
+
+  test("pre-fills only from the details the Customer confirmed before", async () => {
+    const { dialog } = await openForRefund(offer({ savedRefundDestination: saved }));
+    expect((within(dialog).getByLabelText("Account name") as HTMLInputElement).value).toBe("Maria Santos");
+    expect((within(dialog).getByLabelText("Account number") as HTMLInputElement).value).toBe("09171234567");
+    expect((within(dialog).getByLabelText("Refund method") as HTMLSelectElement).value).toBe("gcash");
+  });
+
+  test("names every missing detail and will not review until the Customer confirms them", async () => {
+    const { user, dialog } = await openForRefund();
+    await user.click(within(dialog).getByRole("button", { name: "Review request" }));
+    expect(within(dialog).getAllByRole("alert").map((a) => a.textContent)).toEqual(expect.arrayContaining([
+      "Choose where to send your refund.", "Enter the account name.", "Enter the account number.",
+      "Confirm your refund details before continuing.",
+    ]));
+    expect(screen.queryByText("Send this Return request?")).toBeNull();
+  });
+
+  test("is not asked for a Cash on Delivery Order whose cash was not collected", async () => {
+    const { dialog } = await openForRefund(offer({ paymentMethod: "cash-on-delivery", refundable: false }));
+    expect(within(dialog).queryByLabelText("Refund method")).toBeNull();
+    expect(within(dialog).getByText(/nothing to refund/)).toBeTruthy();
+  });
+
+  test("shows the details on the confirm step and sends them confirmed", async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (url.endsWith("/uploads")) return json({ id: "f1", uploadUrl: "https://files.test/put", uploadToken: "tok" }, 201);
+      if (url === "https://files.test/put") return Promise.resolve(new Response(null, { status: 200 }));
+      return json({ id: 15, number: "RMA-15", status: "requested" }, 201);
+    });
+    const { user, dialog } = await openForRefund(offer({ savedRefundDestination: saved }));
+    await user.click(within(dialog).getByRole("checkbox", { name: /I confirm these refund details/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Review request" }));
+    const summary = await screen.findByLabelText("Refund destination");
+    expect(summary.textContent).toContain("09171234567");
+    await user.click(screen.getByRole("button", { name: "Yes, send request" }));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/RMA-15 requested/));
+    const submit = fetchMock.mock.calls.find(([url]) => url === "/api/orders/7/returns")!;
+    expect(JSON.parse(submit[1].body).refundDestination).toEqual({ method: "gcash", accountName: "Maria Santos",
+      accountNumber: "09171234567", bankName: "", confirmed: true });
+  });
+
+  test("editing a detail after confirming asks for the confirmation again", async () => {
+    const { user, dialog } = await openForRefund(offer({ savedRefundDestination: saved }));
+    const confirm = within(dialog).getByRole("checkbox", { name: /I confirm these refund details/ }) as HTMLInputElement;
+    await user.click(confirm);
+    expect(confirm.checked).toBe(true);
+    await user.type(within(dialog).getByLabelText("Account number"), "0");
+    expect(confirm.checked).toBe(false);
+  });
+});
+
+describe("Optimistic request", () => {
+  async function submit(send: (url: string) => Promise<Response>) {
+    fetchMock.mockImplementation(send);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime, applyAccept: false });
+    renderOrder(offer());
+    await user.click(await screen.findByRole("button", { name: "Return items" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("checkbox", { name: /Item 1/ }));
+    await user.selectOptions(within(dialog).getByLabelText("Reason"), "damaged");
+    await user.upload(within(dialog).getByLabelText(/Photos/), photo);
+    await user.click(within(dialog).getByRole("radio", { name: "Replacement" }));
+    await user.click(within(dialog).getByRole("button", { name: "Review request" }));
+    await user.click(await screen.findByRole("button", { name: "Yes, send request" }));
+  }
+
+  test("shows the Return as requested the moment the Customer confirms, before the server answers", async () => {
+    await submit(() => new Promise<Response>(() => {}));
+    expect((await screen.findByRole("status")).textContent).toBe("Return requested. Sending…");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  test("rolls back and reopens the form with the reason when the server refuses", async () => {
+    await submit(() => json({ error: "The 24-hour Return window has closed." }, 409));
+    expect((await screen.findByRole("alert")).textContent).toBe("The 24-hour Return window has closed.");
+    expect(screen.queryByText("Return requested. Sending…")).toBeNull();
+    expect(screen.getByRole("button", { name: "Review request" })).toBeTruthy();
   });
 });
 

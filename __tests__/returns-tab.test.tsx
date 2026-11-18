@@ -93,6 +93,14 @@ describe("Returns tab", () => {
     expect(screen.getByRole("link", { name: "View refund proof" }).getAttribute("href")).toBe("/api/returns/4/refund-proof");
   });
 
+  test("shows the Customer their own Refund destination in full", () => {
+    render(<OrdersBrowser orders={orders} returns={[aReturn(4, 1, { refundDestination: { method: "bank-transfer", accountName: "Maria Santos",
+      accountNumber: "1234567890", bankName: "BDO" } })]} />);
+    openReturnsTab();
+
+    expect(screen.getByTestId("refund-destination-4").textContent).toBe("Refund to: Bank transfer · BDO · Maria Santos · 1234567890");
+  });
+
   test("dims a Cancelled Return", () => {
     render(<OrdersBrowser orders={orders} returns={[aReturn(5, 1, { status: "cancelled" })]} />);
     openReturnsTab();

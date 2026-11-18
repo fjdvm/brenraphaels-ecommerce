@@ -1,3 +1,4 @@
+import type { RefundDestinationValues } from "./refund-destination";
 import type { PreferredResolution, ReturnReason } from "./return-form";
 
 type Evidence = File;
@@ -7,6 +8,8 @@ export type ReturnSubmission = {
   reason: ReturnReason;
   note: string;
   preferredResolution: PreferredResolution;
+  /** Sent only for a refund, and only once the Customer confirmed it. */
+  refundDestination?: RefundDestinationValues & { confirmed: boolean };
   photos: Evidence[];
   video: Evidence | null;
 };
@@ -41,7 +44,8 @@ export async function submitReturn(submission: ReturnSubmission, send: typeof fe
     const videoUploadToken = submission.video ? await tokens(submission.video, "video") : undefined;
     const response = await postJson(send, `/api/orders/${submission.orderId}/returns`, {
       orderLineIds: submission.orderLineIds, reason: submission.reason, note: submission.note,
-      preferredResolution: submission.preferredResolution, photoUploadTokens, ...(videoUploadToken ? { videoUploadToken } : {}),
+      preferredResolution: submission.preferredResolution, photoUploadTokens,
+      ...(submission.refundDestination ? { refundDestination: submission.refundDestination } : {}), ...(videoUploadToken ? { videoUploadToken } : {}),
     });
     if (!response.ok) return { ok: false, message: await readError(response) };
     return { ok: true, number: (await response.json()).number };

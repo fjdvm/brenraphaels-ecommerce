@@ -2,6 +2,7 @@ import { z } from "zod";
 import { returnResolutions } from "../db/schema";
 import { multilineTextField, textField } from "../validators/fields";
 
+import { refundDestinationInput } from "./refund-destination";
 import { evidenceLimits, evidenceRoles, evidenceTypes } from "./evidence-rules";
 
 export { evidenceLimits, evidenceRoles, evidenceTypes };
@@ -18,6 +19,8 @@ export const returnRequestInput = z.object({
     pattern: /^[^<>\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]*$/u,
     patternMessage: "Note cannot contain angle brackets or control characters" }),
   preferredResolution: z.enum(returnResolutions),
+  /** Required for a refund the shop can send; the Customer's own confirmed details, never a payment proof's recipient. */
+  refundDestination: refundDestinationInput.optional(),
   photoUploadTokens: z.array(uploadToken).min(1, "Attach one to three photos").max(3, "Attach one to three photos")
     .refine((tokens) => new Set(tokens).size === tokens.length, "Choose each photo only once"),
   videoUploadToken: uploadToken.optional(),

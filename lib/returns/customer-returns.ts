@@ -1,10 +1,11 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { completedAtOf, isCompleted } from "../orders/completion";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import { customerNotifications, customers, orders, orderLines, orderReturns, orderReturnItems, orderReturnImages, orderReturnHistory } from "../db/schema";
+import { customerNotifications, customers, orders, orderLines, orderReturns, orderReturnItems, orderReturnImages, orderReturnHistory, customerRefundDestinations } from "../db/schema";
 import { positiveIntegerField } from "../validators/fields";
 import { fileIdField } from "../validators/file-id";
 import { type ReturnEvidenceFiles, validateReturnEvidence } from "./evidence-files";
+import type { RefundDestination } from "./refund-destination";
 import { ReturnRequestError, evidenceUploadInput, returnRequestInput } from "./return-input";
 import { returnNoticeContent } from "./return-notices";
 import { createReturnStore, formatReturnNumber } from "./returns";
@@ -33,6 +34,19 @@ export function createCustomerReturns<TQueryResult extends PgQueryResultHKT, TSc
     return { order, at };
   }
 
+  /** A refund needs the Customer's confirmed destination, and a COD Order qualifies only once its cash was collected. */
+  function refundDestinationFor(order: typeof orders.$inferSelect, parsed: ReturnType<typeof returnRequestInput.parse>): RefundDestination | null {
+    if (parsed.preferredResolution === "replacement") {
+      if (parsed.refundDestination) throw new ReturnRequestError("Refund details are only for a refund.", 400);
+      return null;
+    }
+    if (order.paymentMethod === "cash-on-delivery" && !order.codCollectedAt) {
+      throw new ReturnRequestError("No cash was collected on this Cash on Delivery Order, so there is nothing to refund. Choose a replacement.");
+    }
+    if (!parsed.refundDestination) throw new ReturnRequestError("Enter and confirm your refund details.", 400);
+    return parsed.refundDestination;
+  }
+
   async function selectedLines(tx: Transaction, orderId: number, ids: number[]) {
     const lines = await tx.select().from(orderLines).where(eq(orderLines.orderId, orderId)).orderBy(orderLines.id);
     const selected = lines.filter((line) => ids.includes(line.id));
@@ -55,7 +69,8 @@ export function createCustomerReturns<TQueryResult extends PgQueryResultHKT, TSc
     const parsed = returnRequestInput.parse(input);
     // Refuse ineligible/overlapping requests before downloading evidence, then recheck at commit.
     await db.transaction(async (tx) => {
-      await eligibleOrder(tx, customerId, orderId);
+      const { order } = await eligibleOrder(tx, customerId, orderId);
+      refundDestinationFor(order, parsed);
       await selectedLines(tx, orderId, parsed.orderLineIds);
     });
     const owner = { customerId, orderId };
@@ -72,6 +87,7 @@ export function createCustomerReturns<TQueryResult extends PgQueryResultHKT, TSc
     return db.transaction(async (tx) => {
       const { order, at } = await eligibleOrder(tx, customerId, orderId);
       const { lines, selected, allSelected } = await selectedLines(tx, orderId, parsed.orderLineIds);
+      const destination = refundDestinationFor(order, parsed);
       const [customer] = await tx.select({ name: customers.fullName }).from(customers).where(eq(customers.id, customerId));
       // Allocate any lower historical subtotal across all purchased lines once, in
       // stable id order. Disjoint Returns therefore cannot each claim the same cap.
@@ -89,7 +105,16 @@ export function createCustomerReturns<TQueryResult extends PgQueryResultHKT, TSc
       const amountInCentavos = itemAmount +
         (allSelected && order.fulfillmentMethod === "delivery" ? order.deliveryFeeInCentavos ?? 0 : 0);
       const [created] = await tx.insert(orderReturns).values({ orderId, reason: parsed.reason, note: parsed.note,
-        preferredResolution: parsed.preferredResolution, amountInCentavos, videoFileId: video?.id, requestedAt: at }).returning();
+        preferredResolution: parsed.preferredResolution, amountInCentavos, videoFileId: video?.id, requestedAt: at,
+        ...(destination ? { refundMethod: destination.method, refundAccountName: destination.accountName,
+          refundAccountNumber: destination.accountNumber, refundBankName: destination.bankName, refundDestinationConfirmedAt: at } : {}) }).returning();
+      if (destination) {
+        // Remembered only because the Customer confirmed it on this request; it becomes their next pre-fill.
+        const saved = { method: destination.method, accountName: destination.accountName,
+          accountNumber: destination.accountNumber, bankName: destination.bankName, confirmedAt: at };
+        await tx.insert(customerRefundDestinations).values({ customerId, ...saved })
+          .onConflictDoUpdate({ target: customerRefundDestinations.customerId, set: saved });
+      }
       await tx.insert(orderReturnItems).values(selected.map((line) => ({ returnId: created.id, orderLineId: line.id,
         productName: line.productName, sizeLabel: line.sizeLabel, quantity: line.quantity, priceInCentavos: line.priceInCentavos })));
       await tx.insert(orderReturnImages).values(photos.map((photo, index) => ({ returnId: created.id, position: index + 1, fileId: photo.id })));

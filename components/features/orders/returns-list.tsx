@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { formatPeso } from "@/lib/catalog/currency";
 import type { CustomerReturn } from "@/lib/returns/customer-reads";
+import { refundMethodLabels } from "@/lib/returns/refund-destination";
 import { resolutionLabel, returnStatusLabel } from "@/lib/returns/return-view";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,12 @@ function ReturnCard({ entry }: { entry: CustomerReturn }) {
       <p className="text-sm tracking-[0.35px] text-body">
         Preferred: {resolutionLabel(entry.preferredResolution)} · Final: {entry.finalResolution ? resolutionLabel(entry.finalResolution) : "Awaiting decision"}
       </p>
+      {entry.refundDestination ? (
+        <p className="text-sm tracking-[0.35px] text-body" data-testid={`refund-destination-${entry.id}`}>
+          Refund to: {refundMethodLabels[entry.refundDestination.method]}
+          {entry.refundDestination.bankName ? ` · ${entry.refundDestination.bankName}` : ""} · {entry.refundDestination.accountName} · {entry.refundDestination.accountNumber}
+        </p>
+      ) : null}
       {entry.declineReason ? (
         <p className="bg-warning-soft p-[18px] text-sm text-warning">
           <span className="font-medium">Reason for decline:</span> {entry.declineReason}

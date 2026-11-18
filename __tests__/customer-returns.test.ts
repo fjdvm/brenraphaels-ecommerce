@@ -1,9 +1,9 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { eq } from "drizzle-orm";
-import { afterAll, afterEach, beforeAll, beforeEach, expect, test, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { customerNotifications, customers, orders, orderLines, orderReturnHistory, orderReturnImages, orderReturnItems, orderReturns } from "../lib/db/schema";
+import { customerNotifications, customers, orders, orderLines, orderReturnHistory, orderReturnImages, orderReturnItems, orderReturns, customerRefundDestinations } from "../lib/db/schema";
 import { createCustomerReturns } from "../lib/returns/customer-returns";
 import { createReturnStore } from "../lib/returns/returns";
 import { createOrderReceiptStore } from "../lib/orders/receipt";
@@ -221,4 +221,65 @@ test("accepts three photos plus a video and stores only confirmed File ids", asy
   expect(await service().request("customer-1", orderId, { ...request(), photoUploadTokens: ["p1", "p2", "p3"], videoUploadToken: "v1" }))
     .toMatchObject({ videoFileId: "video-1" });
   expect(await db.select().from(orderReturnImages)).toHaveLength(3);
+});
+
+const destination = { method: "gcash", accountName: "  Maria  Santos ", accountNumber: "0917 123 4567", confirmed: true };
+const refundRequest = (patch: Record<string, unknown> = {}) => ({ ...request(), preferredResolution: "refund", refundDestination: destination, ...patch });
+const collected = () => db.update(orders).set({ codCollectedAt: at, codCollectedAmountInCentavos: 25000 }).where(eq(orders.id, orderId));
+
+describe("Refund destination", () => {
+  test("is stored cleaned on the Return and remembered as the Customer's next pre-fill", async () => {
+    await collected();
+    const result = await service().request("customer-1", orderId, refundRequest());
+    expect(result).toMatchObject({ refundMethod: "gcash", refundAccountName: "Maria Santos", refundAccountNumber: "09171234567",
+      refundBankName: null, refundDestinationConfirmedAt: at });
+    expect(await db.select().from(customerRefundDestinations)).toMatchObject([{ customerId: "customer-1", method: "gcash",
+      accountName: "Maria Santos", accountNumber: "09171234567", bankName: null }]);
+  });
+
+  test("is required for a refund, and never taken from the Order's payment proof", async () => {
+    await collected();
+    await db.update(orders).set({ paymentProofFileId: "proof-1" }).where(eq(orders.id, orderId));
+    await expect(service().request("customer-1", orderId, refundRequest({ refundDestination: undefined }))).rejects.toThrow("refund details");
+    expect(files.read).not.toHaveBeenCalled();
+    expect(await db.select().from(orderReturns)).toEqual([]);
+  });
+
+  test.each([
+    ["unconfirmed", { ...destination, confirmed: false }, "Confirm your refund details"],
+    ["no method", { ...destination, method: "cheque" }, "where to send"],
+    ["a wallet number that is not a mobile number", { ...destination, accountNumber: "12345" }, "11 digits"],
+    ["a bank without a bank name", { method: "bank-transfer", accountName: "Maria Santos", accountNumber: "123456789", confirmed: true }, "bank name"],
+  ])("refuses %s", async (_label, refundDestination, message) => {
+    await collected();
+    await expect(service().request("customer-1", orderId, refundRequest({ refundDestination }))).rejects.toThrow(message);
+    expect(await db.select().from(orderReturns)).toEqual([]);
+  });
+
+  test("keeps the bank name only for a bank transfer", async () => {
+    await collected();
+    const result = await service().request("customer-1", orderId, refundRequest({ refundDestination: {
+      method: "bank-transfer", accountName: "Maria Santos", accountNumber: "1234-5678-90", bankName: " BDO ", confirmed: true } }));
+    expect(result).toMatchObject({ refundMethod: "bank-transfer", refundBankName: "BDO", refundAccountNumber: "1234567890" });
+  });
+
+  test("a Cash on Delivery Order whose cash was not collected has nothing to refund", async () => {
+    await expect(service().request("customer-1", orderId, refundRequest())).rejects.toThrow("nothing to refund");
+    expect(await db.select().from(orderReturns)).toEqual([]);
+  });
+
+  test("a replacement carries no refund details and does not touch the saved ones", async () => {
+    await expect(service().request("customer-1", orderId, { ...request(), refundDestination: destination })).rejects.toThrow("only for a refund");
+    const result = await service().request("customer-1", orderId, request());
+    expect(result.refundMethod).toBeNull();
+    expect(await db.select().from(customerRefundDestinations)).toEqual([]);
+  });
+
+  test("a later confirmed refund replaces the remembered details", async () => {
+    await collected();
+    await service().request("customer-1", orderId, refundRequest({ orderLineIds: [lineIds[0]] }));
+    await service().request("customer-1", orderId, refundRequest({ orderLineIds: [lineIds[1]],
+      refundDestination: { ...destination, method: "maya", accountNumber: "09180000000" } }));
+    expect(await db.select().from(customerRefundDestinations)).toMatchObject([{ method: "maya", accountNumber: "09180000000" }]);
+  });
 });
