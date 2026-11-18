@@ -2,6 +2,8 @@ import { eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { customers, orders, type orderReturns } from "../db/schema";
+import { loadRefundedReturn, RETURN_REFUNDED_EMAIL_KIND, sendReturnRefundedEmail } from "../email/return-refunded-email";
+import { sendOnceAndRecord } from "../email/outcomes";
 import { required } from "../gateway";
 import { type AppEmail, type AppNotification, sendAppEmail, sendAppNotification } from "../notifications/gateway";
 import { sendPendingCustomerNotifications } from "../notifications/outbox";
@@ -42,9 +44,17 @@ export function returnNoticeContent(record: ReturnRow, siteUrl: string) {
 export type ReturnNoticeSenders = {
   email(email: AppEmail): Promise<void>;
   notification(notification: AppNotification): Promise<void>;
+  /** The Refunded email (epic-crms#616): its own content and one stable id per Return, so it is never sent twice. */
+  refundEmail?(db: PgDatabase<PgQueryResultHKT, Record<string, unknown>>, record: ReturnRow, recipient: string): Promise<unknown>;
 };
 
-const gatewaySenders: ReturnNoticeSenders = { email: (e) => sendAppEmail(e), notification: (n) => sendAppNotification(n) };
+async function sendRefundEmailOnce(db: PgDatabase<PgQueryResultHKT, Record<string, unknown>>, record: ReturnRow, recipient: string) {
+  const refund = await loadRefundedReturn(db, record.id);
+  if (!refund) throw new Error(`Return ${record.id} has no refund record to email.`);
+  return sendOnceAndRecord(record.orderId, RETURN_REFUNDED_EMAIL_KIND, (email) => sendReturnRefundedEmail(recipient, refund, email), db as never, String(record.id));
+}
+
+const gatewaySenders: ReturnNoticeSenders = { email: (e) => sendAppEmail(e), notification: (n) => sendAppNotification(n), refundEmail: sendRefundEmailOnce };
 
 /**
  * Tells the Customer about a Return that just changed: one email and one Notification. Runs after the change has
@@ -61,7 +71,9 @@ export async function notifyReturnChange<TQueryResult extends PgQueryResultHKT, 
     if (!recipient || !content) return;
     const { title, body, button } = content;
     const results = await Promise.allSettled([
-      senders.email({ to: recipient.email, title, body, button }),
+      record.status === "refunded" && senders.refundEmail
+        ? senders.refundEmail(db as never, record, recipient.email)
+        : senders.email({ to: recipient.email, title, body, button }),
       sendPendingCustomerNotifications(db, record.orderId, senders.notification),
     ]);
     for (const result of results) if (result.status === "rejected") console.error(`Return ${record.id} notice failed`, result.reason);

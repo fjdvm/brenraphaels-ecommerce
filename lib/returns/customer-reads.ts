@@ -38,6 +38,10 @@ export async function listCustomerReturns<TQueryResult extends PgQueryResultHKT,
       method: row.refundMethod, accountName: row.refundAccountName, accountNumber: row.refundAccountNumber,
       bankName: row.refundBankName } : null,
     refundProofFileId: row.status === "refunded" ? row.refundProofFileId : null,
+    // What was sent back, shown only once the Return is Refunded (epic-crms#616). The proof image itself stays behind the owner-only route.
+    refund: row.status === "refunded" && row.refundAmountInCentavos != null && row.refundPaidMethod && row.refundPaidOn && row.refundReference ? {
+      amountInCentavos: row.refundAmountInCentavos, deliveryFeeInCentavos: row.refundDeliveryFeeInCentavos ?? 0,
+      method: row.refundPaidMethod, paidOn: row.refundPaidOn, reference: row.refundReference } : null,
     items: items.filter((item) => item.returnId === row.id).map(({ productName, sizeLabel, quantity, priceInCentavos }) =>
       ({ productName, sizeLabel, quantity, priceInCentavos })),
     requestedAt: row.requestedAt,

@@ -61,11 +61,29 @@ function ReturnCard({ entry }: { entry: CustomerReturn }) {
           <span className="font-medium">Reason for decline:</span> {entry.declineReason}
         </p>
       ) : null}
+      {entry.refund ? (
+        <dl className="flex flex-col gap-1 border border-line bg-lavender-soft p-[18px] text-sm tracking-[0.35px] text-body" data-testid={`refund-record-${entry.id}`}>
+          {entry.refund.deliveryFeeInCentavos > 0 ? <RefundRow label="Delivery fee" value={formatPeso(entry.refund.deliveryFeeInCentavos)} /> : null}
+          <RefundRow label="Refund amount" value={formatPeso(entry.refund.amountInCentavos)} strong />
+          <RefundRow label="Method" value={refundMethodLabels[entry.refund.method]} />
+          <RefundRow label="Date sent" value={dateFormat.format(new Date(`${entry.refund.paidOn}T00:00:00+08:00`))} />
+          <RefundRow label="Reference" value={entry.refund.reference} />
+        </dl>
+      ) : null}
       {entry.status === "refunded" && entry.refundProofFileId ? (
         <Link className="text-sm font-medium text-primary underline underline-offset-4" href={`/api/returns/${entry.id}/refund-proof`} target="_blank">
           View refund proof
         </Link>
       ) : null}
     </article>
+  );
+}
+
+function RefundRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt>{label}</dt>
+      <dd className={strong ? "font-medium text-ink" : "text-ink"}>{value}</dd>
+    </div>
   );
 }

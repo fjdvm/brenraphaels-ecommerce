@@ -39,7 +39,7 @@ const order = (status: OrderStatus, deliveryPhotoFileId: string | null): OrderWi
 const returnWith = (status: CustomerReturn["status"]): CustomerReturn => ({
   id: 3, number: "RET-0003", orderId: 7, status, reason: "damaged", note: "", amountInCentavos: 20_900,
   preferredResolution: "refund", finalResolution: null, goodsRequired: false, declineReason: null,
-  photoFileIds: [], videoFileId: null, refundDestination: null, refundProofFileId: null, items: [],
+  photoFileIds: [], videoFileId: null, refundDestination: null, refundProofFileId: null, refund: null, items: [],
   requestedAt: new Date("2026-10-11T06:00:00Z"), refundedAt: null, replacedAt: null,
 });
 
