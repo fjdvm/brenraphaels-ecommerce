@@ -72,3 +72,32 @@ describe("Delivery photo on the Order card", () => {
     expect(screen.getByText("Photo unavailable")).toBeTruthy();
   });
 });
+
+describe("Courier and Track panel on the Order card", () => {
+  const withCourier = (status: OrderStatus, trackingUrl: string | null) => render(<OrdersBrowser orders={[{
+    order: { ...order(status, null), courier: { name: "Lalamove", trackingUrl } as never }, feedback: null, returnInProgress: false }]} />);
+
+  test("a dispatched Order names the courier and links to the booking", () => {
+    withCourier("dispatched", "https://share.lalamove.com/x");
+    expect(screen.getByText("Lalamove", { selector: "dd" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Track your delivery/ }).getAttribute("href")).toBe("https://share.lalamove.com/x");
+  });
+
+  test("no Track button without a link", () => {
+    withCourier("dispatched", null);
+    expect(screen.queryByRole("link", { name: /Track your delivery/ })).toBeNull();
+  });
+
+  test("a delivered Order says who delivered and shows no Track panel", () => {
+    withCourier("delivered", "https://share.lalamove.com/x");
+    expect(screen.getByText("Delivered · Lalamove")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Track your delivery" })).toBeNull();
+  });
+
+  test("the Delivery photo shows a placeholder at once and the picture once it loads", () => {
+    openOrder("delivered", "file-1");
+    expect(screen.getByTestId("delivery-photo-loading")).toBeTruthy();
+    fireEvent.load(screen.getByRole("img", { name: "Delivery photo for Order #7" }));
+    expect(screen.queryByTestId("delivery-photo-loading")).toBeNull();
+  });
+});

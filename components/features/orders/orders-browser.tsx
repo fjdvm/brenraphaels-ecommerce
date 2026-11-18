@@ -10,6 +10,7 @@ import { RequestCancellation } from "@/components/features/orders/request-cancel
 import type { CancellationStatus } from "@/lib/orders/cancellation-status";
 import { OrderFeedbackForm, type GivenFeedback } from "@/components/features/orders/order-feedback-form";
 import { OrderReceivedButton } from "@/components/features/orders/order-received-button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TrackDelivery } from "@/components/features/orders/track-delivery";
 import { OrderReturn } from "@/components/features/orders/order-return";
 import { ReturnsList } from "@/components/features/orders/returns-list";
@@ -289,7 +290,7 @@ function OrderDetails({
 
       <dl className="grid gap-5 md:grid-cols-3">
         <MetaCard icon={pickup ? <Store aria-hidden className="size-5 text-primary" strokeWidth={1.5} /> : <Truck aria-hidden className="size-5 text-primary" strokeWidth={1.5} />} label="Fulfilment">
-          {pickup ? "Store pickup · Antipolo" : "Delivery"}
+          {pickup ? "Store pickup · Antipolo" : fulfilmentLabel(order)}
         </MetaCard>
         <MetaCard icon={<Wallet aria-hidden className="size-5 text-primary" strokeWidth={1.5} />} label="Payment">
           {payment}{paymentNote}
@@ -325,7 +326,7 @@ function OrderDetails({
       </dl>
       {feePending ? <p className="text-right text-xs text-warning">{FEE_TO_FOLLOW_SHORT}</p> : null}
 
-      {order.courier && order.status !== "placed" && order.status !== "cancelled" ? <TrackDelivery courier={order.courier} status={order.status} /> : null}
+      {order.courier && order.status === "dispatched" ? <TrackDelivery courier={order.courier} /> : null}
 
       {order.status === "delivered" || order.status === "received" ? <DeliveryPhoto fileId={order.deliveryPhotoFileId} removedAt={order.deliveryPhotoRemovedAt} orderId={order.id} /> : null}
 
@@ -392,20 +393,32 @@ function OrderDetails({
   );
 }
 
+/** The courier is named once the Order is on its way; "Delivered · Lalamove" after. Before dispatch it is just "Delivery". */
+function fulfilmentLabel(order: Order) {
+  const courier = order.courier?.name;
+  if (!courier) return "Delivery";
+  if (order.status === "dispatched") return courier;
+  return order.status === "delivered" || order.status === "received" ? `Delivered · ${courier}` : "Delivery";
+}
+
 function DeliveryPhoto({ orderId, fileId, removedAt }: { orderId: number; fileId: string | null; removedAt: Order["deliveryPhotoRemovedAt"] }) {
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   return (
-    <div className="flex flex-col gap-2">
+    <section aria-label="Delivery photo" className="flex flex-col gap-2 bg-surface-soft p-[18px]">
       <p className="text-xs tracking-[0.35px] text-muted">Delivery photo</p>
       {fileId && failed ? (
         <p className="text-sm text-body">Photo unavailable</p>
       ) : fileId ? (
-        // eslint-disable-next-line @next/next/no-img-element -- the route redirects to a short-lived signed URL
-        <img alt={`Delivery photo for Order #${orderId}`} className="max-h-80 w-full max-w-sm object-cover" loading="lazy" onError={() => setFailed(true)} src={`/api/orders/${orderId}/delivery-photo`} />
+        <div className="relative max-w-sm">
+          {loaded ? null : <Skeleton aria-hidden className="absolute inset-0 h-full w-full" data-testid="delivery-photo-loading" />}
+          {/* eslint-disable-next-line @next/next/no-img-element -- the route redirects to a short-lived signed URL */}
+          <img alt={`Delivery photo for Order #${orderId}`} className={cn("max-h-80 min-h-40 w-full object-cover", loaded ? "opacity-100" : "opacity-0")} loading="lazy" onError={() => setFailed(true)} onLoad={() => setLoaded(true)} ref={(img) => { if (img?.complete && img.naturalWidth > 0) setLoaded(true); }} src={`/api/orders/${orderId}/delivery-photo`} />
+        </div>
       ) : (
         <p className="text-sm text-body">{removedAt ? "The Delivery photo was removed." : "No photo"}</p>
       )}
-    </div>
+    </section>
   );
 }
 

@@ -9,20 +9,14 @@ afterEach(cleanup);
 
 describe("Track your delivery", () => {
   test("links to the booking while dispatched, and shows no rider details", () => {
-    render(<TrackDelivery courier={{ ...courier, riderName: "Jomar Pascual" } as never} status="dispatched" />);
+    render(<TrackDelivery courier={{ ...courier, riderName: "Jomar Pascual" } as never} />);
     expect(screen.getByRole("link", { name: /Track your delivery/ }).getAttribute("href")).toBe(courier.trackingUrl);
     expect(screen.queryByText("Jomar Pascual")).toBeNull();
     expect(screen.queryByText("Rider")).toBeNull();
   });
 
-  test("drops the link after delivery", () => {
-    render(<TrackDelivery courier={courier} status="delivered" />);
-    expect(screen.queryByRole("link")).toBeNull();
-    expect(screen.getByText("Delivered with Lalamove")).toBeTruthy();
-  });
-
   test("shows the courier but no button when there is no link", () => {
-    render(<TrackDelivery courier={{ name: "Grab", trackingUrl: null }} status="dispatched" />);
+    render(<TrackDelivery courier={{ name: "Grab", trackingUrl: null }} />);
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.getByText("Grab")).toBeTruthy();
   });
