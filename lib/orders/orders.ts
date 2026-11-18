@@ -2,6 +2,7 @@ import { paymentRecipient } from "./payment-details";
 import { confirmedProofInput } from "./payment-proof";
 import { after } from "next/server";
 import { createStockReservations } from "./stock-reservations";
+import { loadFreeDeliveryThreshold, qualifiesForFreeDelivery } from "./free-delivery";
 import { gatewayShopStock, type ShopStock } from "./stock";
 import { gatewayProductImages, productThumbnail, type ProductImageFiles, type ProductImageReference } from "../catalog/product-images";
 import { and, asc, desc, eq, gte, inArray, isNull, isNotNull, lt, ne, or, sql } from "drizzle-orm";
@@ -90,6 +91,10 @@ export type Order = {
   approvedDiscountInCentavos?: number | null;
   totalInCentavos?: number | null;
   confirmedAt?: Date | null;
+  /** Free delivery as judged when the Order was placed (or, for an older unconfirmed Order, when Staff confirmed it); never recalculated. */
+  freeDelivery?: boolean;
+  /** The Free delivery threshold in force when judged, in centavos; null before the rule has been judged. */
+  freeDeliveryThresholdInCentavos?: number | null;
   /**
    * The Senior/PWD discount's weekly-cap figures, never the ID number: saved at confirmation, a live preview before.
    * Null when the Order has no discount.
@@ -228,6 +233,7 @@ export function createOrderStore<
   TSchema extends Record<string, unknown>,
 >(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages(), stock: ShopStock = gatewayShopStock(),
   defer: (work: () => Promise<void>) => void = work => after(work),
+  readThreshold: () => Promise<number | null> = () => loadFreeDeliveryThreshold(),
 ): OrderStore {
   const reservations = createStockReservations(db, stock);
   /** The same stock without reads, for use while rows are locked. */
@@ -297,6 +303,8 @@ export function createOrderStore<
       approvedDiscountInCentavos: row.approvedDiscountInCentavos,
       totalInCentavos: row.totalInCentavos,
       confirmedAt: row.confirmedAt,
+      freeDelivery: row.freeDelivery,
+      freeDeliveryThresholdInCentavos: row.freeDeliveryThresholdInCentavos,
       seniorPwd: await seniorPwdFigures(row),
       packedBy: row.packedById && row.packedByName && row.packedAt ? { id: row.packedById, name: row.packedByName, at: row.packedAt } : null,
       paidById: row.paidById,
@@ -456,6 +464,11 @@ export function createOrderStore<
         throw new OrderStatusUpdateError("This proof was rejected. Wait for the Customer to send another.");
       }
     }
+    // An unconfirmed Delivery Order placed before free delivery shipped has no saved rule: judge it now, once, on the final amounts.
+    // Orders confirmed earlier are never touched, and an unreadable threshold leaves the rule unjudged.
+    const judgeNow = input.confirmation !== undefined && persistedOrder.fulfillmentMethod === "delivery"
+      && persistedOrder.freeDeliveryThresholdInCentavos === null && !persistedOrder.confirmedAt;
+    const judgedThreshold = judgeNow ? await readThreshold().catch(() => null) : null;
     let releaseId: string | undefined;
     const updatedOrder = await db.transaction(async (transaction) => {
       // Serialize delivery with failed-attempt decisions and refuse disposed goods.
@@ -493,6 +506,10 @@ export function createOrderStore<
             ...(quote && persistedOrder.seniorPwdVerificationId !== null
               ? { seniorPwdAllowanceUsedInCentavos: quote.allowanceUsedInCentavos, seniorPwdReductionReason: quote.reason } : {}),
             confirmedAt: persistedOrder.confirmedAt ?? new Date(),
+            ...(judgedThreshold === null ? {} : {
+              freeDelivery: qualifiesForFreeDelivery(input.confirmation.subtotalInCentavos - input.confirmation.approvedDiscountInCentavos, judgedThreshold),
+              freeDeliveryThresholdInCentavos: judgedThreshold,
+            }),
           } : {}),
         })
         // Keep a concurrent update from overwriting a status that was just advanced.
@@ -825,6 +842,8 @@ export function createOrderStore<
       throw new Error(blocked.blockedByStock
         ? `${blocked.productName} (${blocked.sizeLabel}): ${blocked.blockedReason}` : "This Size is unavailable.");
     }
+    // Read outside the transaction: a failed read there would abort it. Null means the rule is judged at confirmation instead.
+    const threshold = input.fulfillmentMethod === "delivery" ? await readThreshold().catch(() => null) : null;
     const attemptId = await reservations.begin(customerId, checked);
     try {
     return await db.transaction(async (transaction) => {
@@ -879,6 +898,10 @@ export function createOrderStore<
         seniorPwdDiscountInCentavos = seniorPwdDiscount(line.priceInCentavos);
       }
 
+      // Free delivery is judged once, on the subtotal after discounts (an ID still being checked gives none yet), and saved with the threshold.
+      const discountNow = waitingForIdCheck ? 0 : seniorPwdDiscountInCentavos ?? 0;
+      const freeDelivery = threshold !== null && qualifiesForFreeDelivery(cart.subtotalInCentavos - discountNow, threshold);
+
       await createStockReservations(transaction, stock).reserve(attemptId, cart);
       const [order] = await transaction
         .insert(orders)
@@ -893,6 +916,8 @@ export function createOrderStore<
           seniorPwdDiscountInCentavos,
           subtotalInCentavos: cart.subtotalInCentavos,
           deliveryFeeInCentavos: null,
+          freeDelivery,
+          freeDeliveryThresholdInCentavos: threshold,
         })
         .returning();
 
@@ -923,6 +948,8 @@ export function createOrderStore<
         status: order.status as OrderStatus,
         subtotalInCentavos: order.subtotalInCentavos,
         deliveryFeeInCentavos: order.deliveryFeeInCentavos,
+        freeDelivery: order.freeDelivery,
+        freeDeliveryThresholdInCentavos: order.freeDeliveryThresholdInCentavos,
         createdAt: order.createdAt,
         deliveryAddress,
         paymentProof: null,

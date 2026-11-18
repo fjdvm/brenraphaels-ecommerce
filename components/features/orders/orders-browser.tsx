@@ -1,6 +1,7 @@
 "use client";
 
 import { FEE_TO_FOLLOW_SHORT } from "@/lib/orders/fee-to-follow-copy";
+import { FREE_DELIVERY_CONFIRMATION_NOTICE } from "@/lib/orders/free-delivery";
 import { Calendar, Check, ChevronDown, Store, Truck, Wallet } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -249,7 +250,8 @@ function OrderDetails({
   const steps = orderTrackerSteps(order);
   const pickup = order.fulfillmentMethod === "pickup";
   const address = order.deliveryAddress;
-  const feePending = !pickup && order.deliveryFeeInCentavos === null;
+  const freeDelivery = !pickup && order.freeDelivery === true;
+  const feePending = !pickup && order.deliveryFeeInCentavos === null && !freeDelivery;
   const total = orderTotalInCentavos(order);
   const payment = PAYMENT_LABELS[order.paymentMethod];
   const paymentNote = !isPrepaid(order.paymentMethod) ? "" : order.paymentProofRejection ? " · proof not accepted" : order.paymentProof ? " · reference submitted" : " · awaiting reference";
@@ -316,7 +318,7 @@ function OrderDetails({
       <dl className="flex flex-col gap-2 text-sm tracking-[0.35px] text-body">
         <Row label="Subtotal">{formatPeso(order.subtotalInCentavos)}</Row>
         <Row label={pickup ? "Pickup" : "Delivery fee"}>
-          {pickup ? "Free" : feePending ? "To be confirmed" : formatPeso(order.deliveryFeeInCentavos ?? 0)}
+          {pickup ? "Free" : freeDelivery ? "Delivery: Free" : feePending ? "To be confirmed" : formatPeso(order.deliveryFeeInCentavos ?? 0)}
         </Row>
         <div className="flex items-center justify-between">
           <dt className="font-medium text-ink">Total</dt>
@@ -324,6 +326,7 @@ function OrderDetails({
         </div>
       </dl>
       {feePending ? <p className="text-right text-xs text-warning">{FEE_TO_FOLLOW_SHORT}</p> : null}
+      {freeDelivery && order.status === "placed" ? <p className="text-right text-xs text-warning">{FREE_DELIVERY_CONFIRMATION_NOTICE}</p> : null}
 
       {order.courier && order.status !== "placed" && order.status !== "cancelled" ? <TrackDelivery courier={order.courier} status={order.status} /> : null}
 

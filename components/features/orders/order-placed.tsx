@@ -5,6 +5,7 @@ import { PaymentDetailsCard } from "@/components/features/orders/payment-details
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { Button } from "@/components/ui/button";
 import { formatPeso } from "@/lib/catalog/currency";
+import { FREE_DELIVERY_CONFIRMATION_NOTICE } from "@/lib/orders/free-delivery";
 import { formatPlacedAt, needsPayment, orderTotalInCentavos, paymentDeadline } from "@/lib/orders/order-view";
 import type { Order } from "@/lib/orders/orders";
 import { isPrepaid } from "@/lib/orders/payment-methods";
@@ -23,7 +24,8 @@ export function OrderPlacedView({ order, details, firstName, pickup = null }: { 
   const prepaid = isPrepaid(order.paymentMethod);
   const total = orderTotalInCentavos(order);
   const reminder = order.fulfillmentMethod === "pickup" ? pickupReminder(order) : null;
-  const feePending = order.fulfillmentMethod === "delivery" && order.deliveryFeeInCentavos === null;
+  const freeDelivery = order.fulfillmentMethod === "delivery" && order.freeDelivery === true;
+  const feePending = order.fulfillmentMethod === "delivery" && order.deliveryFeeInCentavos === null && !freeDelivery;
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-6 px-5 pb-20 pt-12 sm:px-10">
@@ -85,8 +87,9 @@ export function OrderPlacedView({ order, details, firstName, pickup = null }: { 
             ))}
           </ul>
           <dl className="flex flex-col gap-3 border-t border-line pt-3 text-sm tracking-[0.35px]">
-            <div className="flex justify-between"><dt className="text-muted">{order.fulfillmentMethod === "pickup" ? "Pickup" : "Delivery"}</dt><dd className="text-ink">{order.fulfillmentMethod === "pickup" ? "Free" : feePending ? "Fee to follow" : formatPeso(order.deliveryFeeInCentavos ?? 0)}</dd></div>
+            <div className="flex justify-between"><dt className="text-muted">{order.fulfillmentMethod === "pickup" ? "Pickup" : "Delivery"}</dt><dd className="text-ink">{order.fulfillmentMethod === "pickup" ? "Free" : freeDelivery ? "Delivery: Free" : feePending ? "Fee to follow" : formatPeso(order.deliveryFeeInCentavos ?? 0)}</dd></div>
             <div className="flex justify-between"><dt className="text-muted">Payment</dt><dd className="text-ink">{label}{prepaid ? (order.paymentProof ? " · reference sent" : " · waiting for reference") : ""}</dd></div>
+            {freeDelivery && order.status === "placed" ? <p className="text-xs text-warning">{FREE_DELIVERY_CONFIRMATION_NOTICE}</p> : null}
             <div className="flex justify-between border-t border-line pt-3"><dt className="text-muted">Total</dt><dd className="font-serif text-lg text-primary">{feePending ? `${formatPeso(total)} + delivery` : formatPeso(total)}</dd></div>
           </dl>
         </aside>

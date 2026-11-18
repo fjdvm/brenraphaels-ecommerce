@@ -199,6 +199,9 @@ export const orders = pgTable("orders", {
   // Pickup Orders never have a Delivery fee; delivery fees are added by CREOMS.
   deliveryFeeInCentavos: integer("delivery_fee_in_centavos"),
   deliveryFeeQuoteRequired: boolean("delivery_fee_quote_required").default(false).notNull(),
+  /** Free delivery judged once for a Delivery Order (#579), with the threshold in force; both stay as saved. Null threshold = not judged yet. */
+  freeDelivery: boolean("free_delivery").default(false).notNull(),
+  freeDeliveryThresholdInCentavos: integer("free_delivery_threshold_in_centavos"),
   /** The final amounts Staff confirmed, saved once at confirmation and never recalculated. Empty on Orders not yet confirmed by Staff. */
   approvedDiscountInCentavos: integer("approved_discount_in_centavos"),
   totalInCentavos: integer("total_in_centavos"),

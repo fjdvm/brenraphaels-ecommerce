@@ -1,6 +1,7 @@
 "use client";
 
 import { FEE_TO_FOLLOW_COPY } from "@/lib/orders/fee-to-follow-copy";
+import { FREE_DELIVERY_CONFIRMATION_NOTICE, qualifiesForFreeDelivery } from "@/lib/orders/free-delivery";
 import { ArrowRight, Check, MapPin, Package, Plus, ShieldCheck, Store, Truck, Wallet } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -52,6 +53,7 @@ export function CheckoutView({
   addresses,
   paymentDetails = [],
   seniorPwdStanding = { verified: false, expiresOn: null },
+  freeDeliveryThresholdInCentavos = null,
 }: {
   cart: Cart;
   addresses: CustomerAddress[];
@@ -59,6 +61,8 @@ export function CheckoutView({
   paymentDetails?: PaymentDetail[];
   /** Whether the Customer already has an approved Senior/PWD ID. */
   seniorPwdStanding?: SeniorPwdStanding;
+  /** The shop's current Free delivery threshold; null when it could not be read, so no promise is made. */
+  freeDeliveryThresholdInCentavos?: number | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -73,6 +77,9 @@ export function CheckoutView({
   const [senior, setSenior] = useState<SeniorPwdDraft>(emptySeniorPwdDraft);
   const discount = seniorPwdDiscountFor(cart, senior);
   const total = cart.subtotalInCentavos - discount;
+  // Judged on the subtotal after discounts; a discount still waiting for an ID check does not count yet, exactly as on the server.
+  const freeDelivery = fulfillmentMethod === "delivery"
+    && qualifiesForFreeDelivery(cart.subtotalInCentavos - (seniorPwdStanding.verified ? discount : 0), freeDeliveryThresholdInCentavos);
 
   function submitOrder() {
     setMessage(undefined);
@@ -209,12 +216,12 @@ export function CheckoutView({
           ) : null}
           <div className="flex items-center justify-between text-sm tracking-wide text-body">
             <span>{fulfillmentMethod === "delivery" ? "Delivery" : "Pickup"}</span>
-            {fulfillmentMethod === "delivery" ? <span className="text-warning">To be confirmed</span> : <span>Free</span>}
+            {fulfillmentMethod === "delivery" && !freeDelivery ? <span className="text-warning">To be confirmed</span> : <span className={freeDelivery ? "text-success" : undefined}>{freeDelivery ? "Delivery: Free" : "Free"}</span>}
           </div>
           <div className="flex items-center justify-between border-t border-line pt-[22px]">
             <span className="text-sm font-medium tracking-wide text-ink">Total</span>
             <span className="font-serif text-[22px] leading-[1.3] text-primary">
-              {formatPeso(total)}{fulfillmentMethod === "delivery" ? " + delivery" : ""}
+              {formatPeso(total)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
             </span>
           </div>
           {discount > 0 && !seniorPwdStanding.verified ? (
@@ -226,7 +233,7 @@ export function CheckoutView({
           {fulfillmentMethod === "delivery" ? (
             <p className="flex items-start gap-2.5 bg-warning-soft p-4 text-xs leading-normal tracking-wide text-ink">
               <Truck aria-hidden className="size-[18px] shrink-0 text-warning" />
-              {FEE_TO_FOLLOW_COPY}
+              {freeDelivery ? FREE_DELIVERY_CONFIRMATION_NOTICE : FEE_TO_FOLLOW_COPY}
             </p>
           ) : null}
           {message && <p role="alert" className="text-sm font-medium text-warning">{message}</p>}
@@ -282,11 +289,11 @@ export function CheckoutView({
             ) : null}
             <dt className="font-medium text-ink">Total</dt>
             <dd className="text-right font-serif text-[22px] leading-[1.3] text-primary">
-              {formatPeso(total)}{fulfillmentMethod === "delivery" ? " + delivery" : ""}
+              {formatPeso(total)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
             </dd>
           </dl>
           {fulfillmentMethod === "delivery" ? (
-            <p className="mt-4 text-xs leading-normal tracking-wide text-body">{FEE_TO_FOLLOW_COPY}</p>
+            <p className="mt-4 text-xs leading-normal tracking-wide text-body">{freeDelivery ? FREE_DELIVERY_CONFIRMATION_NOTICE : FEE_TO_FOLLOW_COPY}</p>
           ) : null}
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button type="button" variant="pill-outline" size="pill-sm" disabled={isPending} onClick={() => setConfirming(false)}>
