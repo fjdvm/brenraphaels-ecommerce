@@ -1,3 +1,4 @@
+import { isCompletedOrReceived } from "./completion";
 import { isPrepaid } from "./payment-methods";
 import { paymentDeadlineOf } from "./payment-deadline";
 import type { Order, OrderStatus } from "./orders";
@@ -16,7 +17,9 @@ const stageByStatus: Record<Exclude<OrderStatus, "cancelled">, number> = {
   paid: 1,
   preparing: 2,
   dispatched: 3,
+  "ready for pickup": 3,
   delivered: 4,
+  collected: 4,
   received: 4,
 };
 
@@ -33,7 +36,7 @@ export function orderTrackerSteps(order: OrderView): TrackerStep[] | null {
   const stage = stageByStatus[order.status];
   return labels.map((label, index) => ({
     label,
-    state: (order.status === "delivered" || order.status === "received") || index < stage ? "done" : index === stage ? "current" : "upcoming",
+    state: isCompletedOrReceived(order.status) || index < stage ? "done" : index === stage ? "current" : "upcoming",
   }));
 }
 
@@ -57,14 +60,13 @@ export function awaitingDeliveryFee(order: OrderView) {
   return order.fulfillmentMethod === "delivery"
     && order.deliveryFeeInCentavos === null
     && order.status !== "cancelled"
-    && order.status !== "delivered"
-    && order.status !== "received";
+    && !isCompletedOrReceived(order.status);
 }
 
 export function orderFilterOf(order: OrderView): OrderFilter {
   if (order.status === "cancelled") return "cancelled";
-  if (order.status === "delivered" || order.status === "received") return "completed";
-  if (order.status === "dispatched") return "on-the-way";
+  if (isCompletedOrReceived(order.status)) return "completed";
+  if (order.status === "dispatched" || order.status === "ready for pickup") return "on-the-way";
   return needsPayment(order) || needsNewProof(order) ? "to-pay" : "processing";
 }
 
@@ -74,7 +76,7 @@ function capitalise(text: string) {
 
 export function orderBadges(order: OrderView): OrderBadge[] {
   const badges: OrderBadge[] = [
-    { text: order.status === "placed" && isPrepaid(order.paymentMethod) ? "Pending Confirmation" : capitalise(order.status), tone: order.status === "placed" || order.status === "cancelled" ? "neutral" : "lavender" },
+    { text: order.status === "placed" && isPrepaid(order.paymentMethod) ? "Pending Confirmation" : (order.status === "collected" ? "Picked up" : capitalise(order.status)), tone: order.status === "placed" || order.status === "cancelled" ? "neutral" : "lavender" },
   ];
   if (order.status === "awaiting payment" && order.paymentProof && !order.paymentProofRejection) badges[0] = { text: "Pending Verification", tone: "lavender" };
   if (needsPayment(order)) badges.push({ text: "Payment needed", tone: "warning" });

@@ -36,6 +36,8 @@ export const orderStatuses = [
   "preparing",
   "dispatched",
   "delivered",
+  "ready for pickup",
+  "collected",
   "received",
   "cancelled",
 ] as const;
@@ -424,9 +426,12 @@ export function createOrderStore<
         : ["preparing", "cancelled"],
       "awaiting payment": ["paid", "cancelled"],
       paid: ["preparing", "cancelled"],
-      preparing: ["dispatched", "cancelled"],
+      // Each method refuses the other's steps; a legacy Pickup Order already dispatched stays completable.
+      preparing: persistedOrder.fulfillmentMethod === "pickup" ? ["ready for pickup", "cancelled"] : ["dispatched", "cancelled"],
       dispatched: ["delivered"],
       delivered: [],
+      "ready for pickup": persistedOrder.fulfillmentMethod === "pickup" ? ["collected"] : [],
+      collected: [],
       received: [],
       cancelled: [],
     };
@@ -438,6 +443,7 @@ export function createOrderStore<
         !["confirmed", "cancelled"].includes(input.status)) {
       throw new OrderStatusUpdateError("Quote a Delivery fee before continuing this Order.");
     }
+    if (input.status === "collected" && persistedOrder.fulfillmentMethod !== "pickup") throw new OrderTransitionError(input.status, currentStatus);
     if (!requote && !permittedNextStatuses[currentStatus].includes(input.status)) {
       throw new OrderTransitionError(input.status, currentStatus);
     }
@@ -519,6 +525,7 @@ export function createOrderStore<
             riderName: courier.riderName || null, riderPlate: courier.riderPlate || null, riderPhone: courier.riderPhone || null,
           } : {}),
           ...(input.status === "delivered" ? { deliveredAt: new Date(), deliveryPhotoFileId } : {}),
+          ...(input.status === "collected" ? { collectedAt: new Date() } : {}),
           ...(input.deliveryFeeInCentavos === undefined
             ? {}
             : { deliveryFeeInCentavos: input.deliveryFeeInCentavos }),
@@ -562,8 +569,21 @@ export function createOrderStore<
           link: `/profile/orders?order=${updatedOrder.id}`,
         });
       }
+      if (input.status === "collected") {
+        await transaction.insert(customerNotifications).values({
+          idempotencyKey: `order.collected:${updatedOrder.id}`,
+          orderId: updatedOrder.id,
+          customerId: updatedOrder.customerId,
+          type: "order.collected",
+          title: `Your Order #${updatedOrder.id} was picked up`,
+          body: "Your Order was picked up. Your Refund window is 24 hours from pickup to request a Return. Marking the Order received closes the window early.",
+          link: `/profile/orders?order=${updatedOrder.id}`,
+        });
+      }
       const content = input.status === "confirmed" && updatedOrder.fulfillmentMethod === "delivery"
         ? { type: "order.delivery-fee", title: `Delivery fee quoted for Order #${orderId}`, body: `Your Delivery fee is ₱${((updatedOrder.deliveryFeeInCentavos ?? 0) / 100).toFixed(2)}. View your confirmed Order.` }
+        : input.status === "ready for pickup"
+          ? { type: "order.ready-for-pickup", title: `Order #${orderId} is ready for pickup`, body: "Your Order is ready for pickup. View your Order for details." }
         : input.status === "dispatched"
           ? { type: "order.dispatched", title: `Order #${orderId} dispatched`, body: "Your Order has been dispatched. View your Order for details." }
           : input.status === "cancelled"

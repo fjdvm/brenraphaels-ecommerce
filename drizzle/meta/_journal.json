@@ -393,6 +393,13 @@
       "when": 1797091200000,
       "tag": "0055_manager_review",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1797177600000,
+      "tag": "0056_order_collected_at",
+      "breakpoints": true
     }
   ]
 }

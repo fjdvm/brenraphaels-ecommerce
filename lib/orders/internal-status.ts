@@ -30,6 +30,7 @@ const statusUpdate = z.discriminatedUnion("status", [
     staffId: z.unknown().optional(),
     staffName: z.unknown().optional(),
   }).strict(),
+  z.object({ status: z.literal("collected"), ...staffAttribution.shape }).strict(),
   z.object({
     status: z.literal("dispatched"),
     courier: courierBooking.optional(),
@@ -38,7 +39,7 @@ const statusUpdate = z.discriminatedUnion("status", [
     staffName: z.unknown().optional(),
   }).strict(),
   z.object({
-    status: z.enum(orderStatuses).exclude(["paid", "received", "delivered", "dispatched", "preparing", "confirmed"]),
+    status: z.enum(orderStatuses).exclude(["paid", "received", "delivered", "dispatched", "preparing", "confirmed", "collected"]),
     deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
     // Attribution is only used for paid; other moves ignore it.
     staffId: z.unknown().optional(),
@@ -52,6 +53,7 @@ export type InternalOrderStatusUpdate = ReturnType<typeof parseInternalOrderStat
 export function parseInternalOrderStatusUpdate(payload: unknown) {
   const update = statusUpdate.parse(payload);
   if (update.status === "paid" || update.status === "preparing") return update;
+  if (update.status === "collected") return { status: update.status };
   if (update.status === "confirmed") return {
     status: update.status,
     subtotalInCentavos: update.subtotalInCentavos,

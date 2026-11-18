@@ -13,6 +13,7 @@ const iconByType: Record<string, NotificationIcon> = {
   "order.payment-needed": "payment",
   "order.dispatched": "delivery",
   "order.delivered": "confirmed",
+  "order.collected": "confirmed",
   "order.cancelled": "cancelled",
   "feedback.request": "feedback",
 };

@@ -25,8 +25,8 @@ export function createOrderReceiptStore<
       const [order] = await tx.select({ status: orders.status }).from(orders)
         .where(and(eq(orders.id, orderId), eq(orders.customerId, customerId))).for("update");
       if (!order) throw new OrderReceiptNotFoundError();
-      if (order.status !== "delivered") {
-        throw new OrderReceiptConflictError("Only a delivered Order can be marked received.");
+      if (order.status !== "delivered" && order.status !== "collected") {
+        throw new OrderReceiptConflictError("Only a delivered or picked up Order can be marked received.");
       }
 
       const [activeReturn] = await tx.select({ id: orderReturns.id }).from(orderReturns)
@@ -37,7 +37,7 @@ export function createOrderReceiptStore<
       }
 
       // Receipt has no deadline; its timestamp starts photo retention, preserving delivery
-      // time, payment data, Returns and the original Feedback request timer.
+      // or pickup time (the sale is already counted, no timer restarts), payment data, Returns and the original Feedback request timer.
       const [received] = await tx.update(orders).set({ status: "received", receivedAt: new Date() })
         .where(eq(orders.id, orderId)).returning({ id: orders.id });
       return { id: received.id, status: "received" as const };

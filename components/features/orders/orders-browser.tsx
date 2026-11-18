@@ -1,5 +1,6 @@
 "use client";
 
+import { isCompleted, isCompletedOrReceived } from "@/lib/orders/completion";
 import { FEE_TO_FOLLOW_SHORT } from "@/lib/orders/fee-to-follow-copy";
 import { FREE_DELIVERY_CONFIRMATION_NOTICE } from "@/lib/orders/free-delivery";
 import { Calendar, Check, ChevronDown, Store, Truck, Wallet } from "lucide-react";
@@ -175,7 +176,7 @@ function OrderCard({
 }) {
   const badges = orderBadges(order);
   // Once Staff confirm an Order the Customer can no longer cancel it here; they message the shop instead.
-  const cancellable = !order.confirmedAt && !["dispatched", "delivered", "received", "cancelled"].includes(order.status);
+  const cancellable = !order.confirmedAt && !["dispatched", "delivered", "ready for pickup", "collected", "received", "cancelled"].includes(order.status);
   const firstLine = order.lines[0];
   const summary = order.lines.map((line) => `${line.productName} · ${line.sizeLabel} × ${line.quantity}`).join("  ·  ");
   const detailsId = `order-${order.id}-details`;
@@ -378,9 +379,9 @@ function OrderDetails({
         </p>
       ) : null}
 
-      {(order.status === "delivered" || order.status === "received") ? <OrderFeedbackForm feedback={feedback} orderId={order.id} /> : null}
+      {isCompletedOrReceived(order.status) ? <OrderFeedbackForm feedback={feedback} orderId={order.id} /> : null}
 
-      {order.status === "delivered" && (returnOffer || !returnInProgress) ? (
+      {isCompleted(order.status) && (returnOffer || !returnInProgress) ? (
         <div className="flex flex-wrap items-center justify-end gap-3">
           {returnOffer ? <OrderReturn offer={returnOffer} orderId={order.id} /> : null}
           {!returnInProgress ? <OrderReceivedButton orderId={order.id} /> : null}

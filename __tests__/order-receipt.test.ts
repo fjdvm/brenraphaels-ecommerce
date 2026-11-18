@@ -45,7 +45,7 @@ test("the owning Customer can permanently receive an old delivered Order without
   await expect(store.cancel("customer-1", created.id)).rejects.toThrow("not a legal transition");
 });
 
-test.each(orderStatuses.filter((status) => status !== "delivered"))("refuses receipt of a %s Order without changing it", async (status) => {
+test.each(orderStatuses.filter((status) => status !== "delivered" && status !== "collected"))("refuses receipt of a %s Order without changing it", async (status) => {
   const created = await order(status);
   await expect(receipt.markReceived("customer-1", created.id)).rejects.toBeInstanceOf(OrderReceiptConflictError);
   expect((await store.listForCustomer("customer-1")).find((o) => o.id === created.id)?.status).toBe(status);

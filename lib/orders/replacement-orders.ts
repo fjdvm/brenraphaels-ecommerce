@@ -1,4 +1,5 @@
 import { and, eq, like } from "drizzle-orm";
+import { completedAtOf, isCompleted } from "./completion";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import {
@@ -120,7 +121,8 @@ export function createReplacementOrders<T extends PgQueryResultHKT, S extends Re
       const [order] = await tx.select().from(orders).where(eq(orders.id, orderId)).for("update");
       if (!order) throw new ReplacementError("Order not found.");
       if (order.refundWindowExtendedAt) throw new ReplacementError("The Refund window was already extended once.");
-      if (order.status !== "delivered" || !order.deliveredAt) throw new ReplacementError("Only a delivered Order has a Refund window to extend.");
+      const completed = completedAtOf(order);
+      if (!isCompleted(order.status) || !completed) throw new ReplacementError("Only a delivered or picked up Order has a Refund window to extend.");
       await tx.update(orders).set({
         refundWindowExtendedAt: new Date(), refundWindowExtensionReason: input.reason,
         refundWindowExtendedById: input.staffId, refundWindowExtendedByName: input.staffName,
@@ -133,7 +135,7 @@ export function createReplacementOrders<T extends PgQueryResultHKT, S extends Re
         occurred_at: new Date().toISOString(), idempotency_key: `order.refund_window_extended:${orderId}`,
       };
       await tx.insert(stockOutbox).values({ key: audit.idempotency_key!, kind: "audit", payload: audit }).onConflictDoNothing();
-      return { orderId, endsAt: new Date(order.deliveredAt.getTime() + 2 * day) };
+      return { orderId, endsAt: new Date(completed.getTime() + 2 * day) };
     });
   }
   return { create, extendWindow };

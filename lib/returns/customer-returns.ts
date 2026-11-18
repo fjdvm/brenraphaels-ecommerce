@@ -1,4 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { completedAtOf, isCompleted } from "../orders/completion";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { customerNotifications, customers, orders, orderLines, orderReturns, orderReturnItems, orderReturnImages, orderReturnHistory } from "../db/schema";
 import { positiveIntegerField } from "../validators/fields";
@@ -19,14 +20,14 @@ export function createCustomerReturns<TQueryResult extends PgQueryResultHKT, TSc
     const [order] = await tx.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.customerId, customerId))).for("update");
     if (!order) throw new ReturnRequestError("Order not found.", 404);
     if (order.status === "received") throw new ReturnRequestError("An Order marked received can no longer be returned.");
-    if (order.status !== "delivered") throw new ReturnRequestError("Returns are available only for delivered Orders with confirmed payment.");
+    if (!isCompleted(order.status)) throw new ReturnRequestError("Returns are available only for delivered or picked up Orders with confirmed payment.");
     // The Order lifecycle requires GCash to pass paid before delivery. Legacy paid
     // Orders have no paidAt attribution, so that optional timestamp is not a gate.
     if (!["gcash", "cash-on-delivery"].includes(order.paymentMethod)) {
       throw new ReturnRequestError("Payment must be confirmed before requesting a Return.");
     }
     const at = now();
-    const elapsed = at.getTime() - (order.deliveredAt?.getTime() ?? NaN);
+    const elapsed = at.getTime() - (completedAtOf(order)?.getTime() ?? NaN);
     if (!Number.isFinite(elapsed) || elapsed < 0) throw new ReturnRequestError("This Order has no valid delivery time for a Return.");
     if (elapsed >= 24 * 60 * 60 * 1000 * (order.refundWindowExtendedAt ? 2 : 1)) throw new ReturnRequestError("The 24-hour Return window has closed.");
     return { order, at };
