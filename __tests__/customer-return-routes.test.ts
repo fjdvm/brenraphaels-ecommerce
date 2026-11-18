@@ -27,7 +27,8 @@ const context = (id: number | string) => ({ params: Promise.resolve({ id: String
 function json(body: unknown) {
   return new Request("https://store.test/api/returns", { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://store.test" }, body: JSON.stringify(body) });
 }
-const input = () => ({ orderLineIds: [lineId], reason: "damaged", note: "Broken seal.", preferredResolution: "refund", photoUploadTokens: ["photo-1"] });
+const input = () => ({ orderLineIds: [lineId], reason: "damaged", note: "Broken seal.", preferredResolution: "refund", photoUploadTokens: ["photo-1"],
+  refundDestination: { method: "gcash", accountName: "Maria Santos", accountNumber: "09171234567", confirmed: true } });
 
 beforeAll(async () => {
   client = await createTestDatabase();
@@ -43,7 +44,7 @@ beforeEach(async () => {
   await db.insert(customers).values({ id: "customer-1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
     email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
   const [order] = await db.insert(orders).values({ customerId: "customer-1", status: "delivered", fulfillmentMethod: "pickup",
-    paymentMethod: "cash-on-delivery", subtotalInCentavos: 10000, deliveredAt: new Date() }).returning();
+    paymentMethod: "cash-on-delivery", subtotalInCentavos: 10000, deliveredAt: new Date(), codCollectedAt: new Date() }).returning();
   orderId = order.id;
   const [line] = await db.insert(orderLines).values({ orderId, productName: "Halaya", sizeLabel: "Small", quantity: 2, priceInCentavos: 5000 }).returning();
   lineId = line.id;

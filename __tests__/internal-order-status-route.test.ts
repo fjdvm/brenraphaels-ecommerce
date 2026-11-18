@@ -12,9 +12,8 @@ const {
   getDatabase,
   publishCustomerOrderEvent,
   sendOrderConfirmedEmail,
-  sendOrderDeliveredEmail,
-  sendOrderDispatchedEmail,
-  sendOrderPaidEmail,
+  sendFulfilmentEmail,
+  sendPaymentEmail,
   sendOnceAndRecord,
   sendOrderPickupConfirmedEmail,
   sendOrderDeliveryConfirmedEmail,
@@ -31,9 +30,8 @@ const {
   getDatabase: vi.fn(),
   publishCustomerOrderEvent: vi.fn(),
   sendOrderConfirmedEmail: vi.fn(),
-  sendOrderDeliveredEmail: vi.fn(),
-  sendOrderDispatchedEmail: vi.fn(),
-  sendOrderPaidEmail: vi.fn(),
+  sendFulfilmentEmail: vi.fn(),
+  sendPaymentEmail: vi.fn(),
   sendOnceAndRecord: vi.fn(async (_id: number, _kind: string, send: () => Promise<void>) => { await send(); return "sent"; }),
   sendOrderPickupConfirmedEmail: vi.fn(),
   sendOrderDeliveryConfirmedEmail: vi.fn(),
@@ -46,14 +44,13 @@ vi.mock("next/server", () => ({ after: (task: () => Promise<void>) => { afterTas
 vi.mock("@/lib/notifications/outbox", () => ({ sendPendingCustomerNotifications: vi.fn() }));
 vi.mock("@/lib/db", () => ({ getDatabase }));
 vi.mock("@/lib/email/order-confirmed-email", () => ({ sendOrderConfirmedEmail }));
-vi.mock("@/lib/email/order-delivered-email", () => ({ sendOrderDeliveredEmail }));
-vi.mock("@/lib/email/order-dispatched-email", () => ({ sendOrderDispatchedEmail }));
+vi.mock("@/lib/email/fulfilment-emails", () => ({ sendFulfilmentEmail }));
 vi.mock("@/lib/email/order-delivery-confirmed-email", () => ({ sendOrderDeliveryConfirmedEmail }));
 vi.mock("@/lib/email/order-online-delivery-confirmed-email", () => ({ sendOrderOnlineDeliveryConfirmedEmail }));
 vi.mock("@/lib/email/order-online-pickup-confirmed-email", () => ({ sendOrderOnlinePickupConfirmedEmail }));
 vi.mock("@/lib/email/outcomes", () => ({ sendOnceAndRecord }));
 vi.mock("@/lib/email/order-pickup-confirmed-email", () => ({ sendOrderPickupConfirmedEmail }));
-vi.mock("@/lib/email/order-paid-email", () => ({ sendOrderPaidEmail }));
+vi.mock("@/lib/email/payment-emails", () => ({ sendPaymentEmail }));
 vi.mock("@/lib/orders/live-events", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/orders/live-events")>()),
   publishCustomerOrderEvent,
@@ -90,14 +87,13 @@ beforeEach(() => {
   customerIdForOrder.mockReset().mockResolvedValue("customer-7");
   publishCustomerOrderEvent.mockReset().mockResolvedValue(undefined);
   sendOrderConfirmedEmail.mockReset().mockResolvedValue(undefined);
-  sendOrderDeliveredEmail.mockReset().mockResolvedValue(undefined);
-  sendOrderPaidEmail.mockReset().mockResolvedValue(undefined);
+  sendFulfilmentEmail.mockReset().mockResolvedValue(undefined);
+  sendPaymentEmail.mockReset().mockResolvedValue(undefined);
   sendOrderPickupConfirmedEmail.mockReset().mockResolvedValue(undefined);
   sendOrderDeliveryConfirmedEmail.mockReset().mockResolvedValue(undefined);
   sendOrderOnlinePickupConfirmedEmail.mockReset().mockResolvedValue(undefined);
   sendOrderOnlineDeliveryConfirmedEmail.mockReset().mockResolvedValue(undefined);
   sendOnceAndRecord.mockClear();
-  sendOrderDispatchedEmail.mockReset().mockResolvedValue(undefined);
   createOrderStore.mockClear();
   getDatabase.mockClear();
 });
@@ -142,12 +138,12 @@ test("confirms the saved Delivery photo before waiting for Customer notification
     expect(await response!.json()).toMatchObject({ id: 12, status: "delivered", deliveryPhotoFileId: "photo-1" });
     expect(advance).toHaveBeenCalledTimes(1);
     expect(publishCustomerOrderEvent).not.toHaveBeenCalled();
-    expect(sendOrderDeliveredEmail).not.toHaveBeenCalled();
+    expect(sendFulfilmentEmail).not.toHaveBeenCalled();
     const notifications = Promise.all(afterTasks.splice(0).map(task => task()));
     await vi.waitFor(() => expect(publishCustomerOrderEvent).toHaveBeenCalledTimes(1));
     releasePublish();
     await notifications;
-    expect(sendOrderDeliveredEmail).toHaveBeenCalledTimes(1);
+    expect(sendFulfilmentEmail).toHaveBeenCalledTimes(1);
   } finally {
     releasePublish?.();
     await pending;
@@ -181,7 +177,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
     expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
     expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "pickup-confirmed", expect.any(Function));
-    expect(sendOrderPickupConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderPickupConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }), undefined);
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
   });
 
@@ -189,7 +185,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", deliveryFeeInCentavos: 0, subtotalInCentavos: 21900 });
     expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
     expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "delivery-confirmed", expect.any(Function));
-    expect(sendOrderDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }), undefined);
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
   });
 
@@ -197,7 +193,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "delivery", paymentMethod: "gcash", deliveryFeeInCentavos: 8000, subtotalInCentavos: 21900 });
     expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
     expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "online-delivery-confirmed", expect.any(Function));
-    expect(sendOrderOnlineDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderOnlineDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }), undefined);
     expect(sendOrderDeliveryConfirmedEmail).not.toHaveBeenCalled();
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
   });
@@ -206,7 +202,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "pickup", paymentMethod: "gcash", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
     expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
     expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "online-pickup-confirmed", expect.any(Function));
-    expect(sendOrderOnlinePickupConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }));
+    expect(sendOrderOnlinePickupConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }), undefined);
     expect(sendOrderPickupConfirmedEmail).not.toHaveBeenCalled();
   });
 
@@ -217,7 +213,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     expect(sendOrderPickupConfirmedEmail).not.toHaveBeenCalled();
   });
 
-  test("emails the Customer once staff mark a GCash Order paid", async () => {
+  test("sends the Payment verified email once staff mark a GCash Order paid", async () => {
     advance.mockResolvedValue({
       id: 12,
       status: "paid",
@@ -241,7 +237,9 @@ describe("POST /api/internal/orders/[id]/status", () => {
     });
     expect(advance).toHaveBeenCalledWith(12, { status: "paid", staffId: "staff-17", staffName: "Ana de la Cruz" });
     expect(customerEmailForOrder).toHaveBeenCalledWith(12);
-    expect(sendOrderPaidEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12, status: "paid" }));
+    // One stable email per Order: the claim row means a repeated Mark paid can never send it twice.
+    expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "payment-verified", expect.any(Function));
+    expect(sendPaymentEmail).toHaveBeenCalledWith("payment-verified", "jane@example.com", expect.objectContaining({ id: 12, status: "paid" }), undefined);
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
   });
 
@@ -257,7 +255,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     });
     expect((await postAndNotify(request, context)).status).toBe(400);
     expect(advance).not.toHaveBeenCalled();
-    expect(sendOrderPaidEmail).not.toHaveBeenCalled();
+    expect(sendPaymentEmail).not.toHaveBeenCalled();
   });
 
   test("requires packing Staff attribution and drains the durable audit after confirmation", async () => {
@@ -312,8 +310,20 @@ describe("POST /api/internal/orders/[id]/status", () => {
     });
     expect((await postAndNotify(request, context)).status).toBe(200);
     expect(advance).toHaveBeenCalledWith(12, { status: "dispatched", courier: expect.objectContaining({ name: "Grab", trackingUrl: courier.trackingUrl, riderPhone: "09171234567" }) });
-    expect(sendOrderDispatchedEmail).toHaveBeenCalledTimes(1);
-    expect(sendOrderDispatchedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ courier }));
+    expect(sendFulfilmentEmail).toHaveBeenCalledTimes(1);
+    expect(sendFulfilmentEmail).toHaveBeenCalledWith("dispatched", "jane@example.com", expect.objectContaining({ courier }), undefined);
+  });
+
+  test("accepts a dispatch with the courier alone and emails without a link", async () => {
+    advance.mockResolvedValueOnce({ id: 12, status: "dispatched", fulfillmentMethod: "delivery", deliveryFeeInCentavos: 8000, subtotalInCentavos: 21900, courier: { name: "Grab", trackingUrl: null } });
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "dispatched", courier: { name: "Grab" } }),
+      headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect((await postAndNotify(request, context)).status).toBe(200);
+    expect(advance).toHaveBeenCalledWith(12, { status: "dispatched", courier: { name: "Grab" } });
+    expect(sendFulfilmentEmail).toHaveBeenCalledTimes(1);
   });
 
   test("refuses an http courier link before any write", async () => {
@@ -326,7 +336,7 @@ describe("POST /api/internal/orders/[id]/status", () => {
     expect(advance).not.toHaveBeenCalled();
   });
 
-  test("invites the Customer to leave Feedback when an Order is delivered", async () => {
+  test("sends the one Delivered or Picked up email, never twice for the same Order", async () => {
     advance.mockResolvedValueOnce({ id: 12, status: "delivered", fulfillmentMethod: "pickup", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
     const deliveredRequest = new Request("https://shop.example.test/api/internal/orders/12/status", {
       body: JSON.stringify({ status: "delivered", deliveryPhotoFileId: "photo-1" }),
@@ -335,8 +345,49 @@ describe("POST /api/internal/orders/[id]/status", () => {
     });
 
     expect((await postAndNotify(deliveredRequest, context)).status).toBe(200);
-    expect(sendOrderDeliveredEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12, status: "delivered" }));
+    expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "completed", expect.any(Function));
+    expect(sendFulfilmentEmail).toHaveBeenCalledWith("completed", "jane@example.com", expect.objectContaining({ id: 12, status: "delivered" }), undefined);
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ["preparing", { staffId: "ana", staffName: "Ana" }, "preparing"],
+    ["ready for pickup", {}, "ready-for-pickup"],
+    ["collected", { staffId: "ana", staffName: "Ana" }, "completed"],
+  ])("moving an Order to %s sends its one Status email", async (status, extra, kind) => {
+    advance.mockResolvedValueOnce({ id: 12, status, fulfillmentMethod: "pickup", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status, ...extra }),
+      headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect((await postAndNotify(request, context)).status).toBe(200);
+    expect(sendOnceAndRecord).toHaveBeenCalledTimes(1);
+    expect(sendOnceAndRecord).toHaveBeenCalledWith(12, kind, expect.any(Function));
+    expect(sendFulfilmentEmail).toHaveBeenCalledWith(kind, "jane@example.com", expect.objectContaining({ id: 12 }), undefined);
+  });
+
+  test("a repeated save of an already claimed Preparing email sends nothing more", async () => {
+    sendOnceAndRecord.mockResolvedValueOnce("skipped");
+    advance.mockResolvedValueOnce({ id: 12, status: "preparing", fulfillmentMethod: "delivery", deliveryFeeInCentavos: 8000, subtotalInCentavos: 21900 });
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "preparing", staffId: "ana", staffName: "Ana" }),
+      headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect((await postAndNotify(request, context)).status).toBe(200);
+    expect(sendFulfilmentEmail).not.toHaveBeenCalled();
+  });
+
+  test("a dispatch with no courier sends no Dispatched email", async () => {
+    advance.mockResolvedValueOnce({ id: 12, status: "dispatched", fulfillmentMethod: "pickup", deliveryFeeInCentavos: null, subtotalInCentavos: 21900, courier: null });
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "dispatched" }),
+      headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect((await postAndNotify(request, context)).status).toBe(200);
+    expect(sendOnceAndRecord).not.toHaveBeenCalled();
   });
 
   test("confirm needs all four amounts, and a mismatch is refused with its reason", async () => {

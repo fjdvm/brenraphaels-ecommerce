@@ -13,6 +13,10 @@ import {
   type PreferredResolution,
   type ReturnReason,
 } from "@/lib/returns/return-form";
+import {
+  maskAccountNumber, refundMethodLabels, refundMethods, validateRefundDestination,
+  type RefundDestination, type RefundDestinationValues, type RefundMethod,
+} from "@/lib/returns/refund-destination";
 import type { ReturnOfferLine } from "@/lib/returns/return-offers";
 
 const fieldClass = "w-full border border-line bg-white px-4 py-3 text-sm tracking-[0.35px] outline-none focus:ring-2 focus:ring-ring";
@@ -27,16 +31,28 @@ export function ReturnRequestForm({
   orderId,
   lines,
   paymentMethod,
+  refundable,
+  savedRefundDestination,
   open,
   onOpenChange,
+  onSending,
   onRequested,
+  onFailed,
 }: {
   orderId: number;
   lines: ReturnOfferLine[];
   paymentMethod: string;
+  /** False when there is nothing to refund (an uncollected Cash on Delivery Order): no refund details are asked. */
+  refundable: boolean;
+  /** Details the Customer confirmed on an earlier Return; they pre-fill the fields but are confirmed again every time. */
+  savedRefundDestination: RefundDestination | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Called the moment the Customer confirms, so the page can show the Return as requested at once. */
+  onSending: () => void;
   onRequested: (number: string) => void;
+  /** The server refused or the connection failed: the page rolls the optimistic state back and reopens this form. */
+  onFailed: (message: string) => void;
 }) {
   const [step, setStep] = useState<"form" | "confirm">("form");
   const [lineIds, setLineIds] = useState<number[]>([]);
@@ -45,6 +61,11 @@ export function ReturnRequestForm({
   const [photos, setPhotos] = useState<File[]>([]);
   const [video, setVideo] = useState<File | null>(null);
   const [resolution, setResolution] = useState<PreferredResolution | "">("");
+  const [destination, setDestination] = useState<RefundDestinationValues>({
+    method: savedRefundDestination?.method ?? "", accountName: savedRefundDestination?.accountName ?? "",
+    accountNumber: savedRefundDestination?.accountNumber ?? "", bankName: savedRefundDestination?.bankName ?? "",
+  });
+  const [destinationConfirmed, setDestinationConfirmed] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<string>();
@@ -53,6 +74,9 @@ export function ReturnRequestForm({
   // A wrong or oversized file is called out as soon as it is chosen; the rest waits for a submit attempt.
   const photoFileError = photos.map((photo) => evidenceFileError(photo, "photo")).find(Boolean)
     ?? (photos.length > maxPhotos ? errors.photos : undefined);
+  const asksForRefundDestination = refundable && resolution === "refund";
+  const destinationErrors = asksForRefundDestination ? validateRefundDestination(destination) : {};
+  const confirmError = asksForRefundDestination && !destinationConfirmed ? "Confirm your refund details before continuing." : undefined;
   const shown = {
     orderLineIds: showErrors ? errors.orderLineIds : undefined,
     reason: showErrors ? errors.reason : undefined,
@@ -74,7 +98,7 @@ export function ReturnRequestForm({
 
   function review() {
     setShowErrors(true);
-    if (Object.keys(errors).length === 0) {
+    if (Object.keys(errors).length === 0 && Object.keys(destinationErrors).length === 0 && !confirmError) {
       setMessage(undefined);
       setStep("confirm");
     }
@@ -82,9 +106,12 @@ export function ReturnRequestForm({
 
   async function send() {
     setSending(true);
+    // Cancelling a Return is easy, so the page shows it as requested straight away and rolls back if refused.
+    onSending();
     const result = await submitReturn({
       orderId, orderLineIds: lineIds, reason: reason as ReturnReason, note: note.trim(),
       preferredResolution: resolution as PreferredResolution, photos, video,
+      ...(asksForRefundDestination ? { refundDestination: { ...destination, confirmed: destinationConfirmed } } : {}),
     });
     setSending(false);
     if (result.ok) {
@@ -93,6 +120,7 @@ export function ReturnRequestForm({
     }
     setMessage(result.message);
     setStep("form");
+    onFailed(result.message);
   }
 
   const selected = lines.filter((line) => lineIds.includes(line.id));
@@ -107,6 +135,14 @@ export function ReturnRequestForm({
               You are asking to return {selected.map((line) => `${line.productName} (${line.sizeLabel})`).join(", ")}
               {resolution === "refund" ? " for a refund" : " for a replacement"}. We will review it and email you.
             </DialogDescription>
+            {asksForRefundDestination ? (
+              <dl className="flex flex-col gap-1 border border-line p-4 text-left text-sm text-ink" aria-label="Refund destination">
+                <dt className="text-xs text-muted">Your refund goes to</dt>
+                <dd>{refundMethodLabels[destination.method as RefundMethod]}{destination.method === "bank-transfer" ? ` · ${destination.bankName.trim()}` : ""}</dd>
+                <dd>{destination.accountName.trim()}</dd>
+                <dd>{destination.accountNumber.replace(/[\s-]/g, "")}</dd>
+              </dl>
+            ) : null}
             {message ? <p className={errorClass} role="alert">{message}</p> : null}
             <div className="flex flex-col-reverse justify-center gap-3 sm:flex-row">
               <Button disabled={sending} onClick={() => setStep("form")} size="lg" type="button" variant="outline">Go back</Button>
@@ -231,6 +267,60 @@ export function ReturnRequestForm({
                 <p className="text-xs text-muted">This is your preference. Our team makes the final decision.</p>
                 {shown.preferredResolution ? <p className={errorClass} role="alert">{shown.preferredResolution}</p> : null}
               </fieldset>
+
+              {asksForRefundDestination ? (
+                <fieldset className="flex flex-col gap-4 border border-line p-4">
+                  <legend className={`${labelClass} px-1`}>Where should we send your refund?</legend>
+                  <p className="text-xs text-muted">
+                    Enter the account that is yours. This is never taken from your payment proof. We only use it for this refund.
+                    {savedRefundDestination ? " We filled in the details you confirmed last time; check them." : ""}
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <label className={labelClass} htmlFor={`return-${orderId}-refund-method`}>Refund method</label>
+                    <select
+                      className={fieldClass}
+                      id={`return-${orderId}-refund-method`}
+                      onChange={(event) => { setDestination((current) => ({ ...current, method: event.target.value as RefundMethod | "" })); setDestinationConfirmed(false); }}
+                      value={destination.method}
+                    >
+                      <option value="">Choose a method</option>
+                      {refundMethods.map((value) => <option key={value} value={value}>{refundMethodLabels[value]}</option>)}
+                    </select>
+                    {showErrors && destinationErrors.method ? <p className={errorClass} role="alert">{destinationErrors.method}</p> : null}
+                  </div>
+                  {destination.method === "bank-transfer" ? (
+                    <div className="flex flex-col gap-2">
+                      <label className={labelClass} htmlFor={`return-${orderId}-refund-bank`}>Bank name</label>
+                      <input className={fieldClass} id={`return-${orderId}-refund-bank`} maxLength={100}
+                        onChange={(event) => { setDestination((current) => ({ ...current, bankName: event.target.value })); setDestinationConfirmed(false); }}
+                        value={destination.bankName} />
+                      {showErrors && destinationErrors.bankName ? <p className={errorClass} role="alert">{destinationErrors.bankName}</p> : null}
+                    </div>
+                  ) : null}
+                  <div className="flex flex-col gap-2">
+                    <label className={labelClass} htmlFor={`return-${orderId}-refund-name`}>Account name</label>
+                    <input autoComplete="name" className={fieldClass} id={`return-${orderId}-refund-name`} maxLength={100}
+                      onChange={(event) => { setDestination((current) => ({ ...current, accountName: event.target.value })); setDestinationConfirmed(false); }}
+                      value={destination.accountName} />
+                    {showErrors && destinationErrors.accountName ? <p className={errorClass} role="alert">{destinationErrors.accountName}</p> : null}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className={labelClass} htmlFor={`return-${orderId}-refund-number`}>Account number</label>
+                    <input autoComplete="off" className={fieldClass} id={`return-${orderId}-refund-number`} inputMode="numeric" maxLength={30}
+                      onChange={(event) => { setDestination((current) => ({ ...current, accountNumber: event.target.value })); setDestinationConfirmed(false); }}
+                      value={destination.accountNumber} />
+                    {showErrors && destinationErrors.accountNumber ? <p className={errorClass} role="alert">{destinationErrors.accountNumber}</p> : null}
+                  </div>
+                  <label className="flex items-start gap-3 text-sm text-ink">
+                    <input checked={destinationConfirmed} className="mt-0.5 size-4 accent-primary"
+                      onChange={(event) => setDestinationConfirmed(event.target.checked)} type="checkbox" />
+                    <span>I confirm these refund details are mine and correct. We cannot send a refund to the wrong account.</span>
+                  </label>
+                  {showErrors && confirmError ? <p className={errorClass} role="alert">{confirmError}</p> : null}
+                </fieldset>
+              ) : resolution === "refund" ? (
+                <p className="text-xs text-muted">No cash was collected on this Cash on Delivery Order, so there is nothing to refund. Choose a replacement.</p>
+              ) : null}
             </div>
 
             <div className="flex flex-col-reverse justify-end gap-3 border-t border-line p-6 sm:flex-row sm:px-10">
@@ -244,8 +334,8 @@ export function ReturnRequestForm({
   );
 }
 
-const refundMethods: Record<string, string> = { gcash: "GCash", maya: "Maya", "bank-transfer": "bank account" };
-const refundMethodLabel = (method: string) => refundMethods[method];
+const paidWithLabels: Record<string, string> = { gcash: "GCash", maya: "Maya", "bank-transfer": "bank account" };
+const refundMethodLabel = (method: string) => paidWithLabels[method];
 
 /** "Refund to GCash · ₱219": the way the Customer paid and the amount for the items chosen so far. */
 function refundLabel(method: string, chosen: ReturnOfferLine[]) {

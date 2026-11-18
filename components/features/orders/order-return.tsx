@@ -26,6 +26,10 @@ export function OrderReturn({ orderId, offer }: { orderId: number; offer: Return
   // The clock is undefined on the server, so server and browser markup agree; it ticks every 30 seconds.
   const now = useSyncExternalStore(subscribeToClock, clockNow, () => undefined);
   const [formOpen, setFormOpen] = useState(false);
+  // The form stays mounted after the Customer confirms, so a refusal can reopen it with everything they typed.
+  const [formMounted, setFormMounted] = useState(false);
+  const [sending, setSending] = useState(false);
+
   const [requestedNumber, setRequestedNumber] = useState<string>();
   const [cancelling, setCancelling] = useState(false);
   const [pending, setPending] = useState(false);
@@ -82,19 +86,30 @@ export function OrderReturn({ orderId, offer }: { orderId: number; offer: Return
 
   return (
     <>
-      <span className="text-xs tracking-[0.35px] text-muted">{window.timeLeft}</span>
-      <Button onClick={() => setFormOpen(true)} size="pill-sm" type="button" variant="pill-outline">Return items</Button>
-      {formOpen ? (
+      {sending ? (
+        <p className="text-sm font-medium text-primary" role="status">Return requested. Sending…</p>
+      ) : (
+        <>
+          <span className="text-xs tracking-[0.35px] text-muted">{window.timeLeft}</span>
+          <Button onClick={() => { setFormMounted(true); setFormOpen(true); }} size="pill-sm" type="button" variant="pill-outline">Return items</Button>
+        </>
+      )}
+      {formMounted ? (
         <ReturnRequestForm
           lines={offer.lines}
           paymentMethod={offer.paymentMethod}
+          refundable={offer.refundable}
+          savedRefundDestination={offer.savedRefundDestination}
           onOpenChange={setFormOpen}
+          onSending={() => { setFormOpen(false); setSending(true); }}
           onRequested={(number) => {
-            setFormOpen(false);
+            setSending(false);
+            setFormMounted(false);
             setRequestedNumber(number);
             router.refresh();
           }}
-          open
+          onFailed={() => { setSending(false); setFormOpen(true); }}
+          open={formOpen}
           orderId={orderId}
         />
       ) : null}

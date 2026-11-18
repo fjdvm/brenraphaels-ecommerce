@@ -1,3 +1,4 @@
+import { refundDetails } from "./helpers/refund-details";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, beforeEach, expect, test } from "vitest";
@@ -18,13 +19,13 @@ beforeEach(async () => {
   await db.insert(customers).values({ id: "customer-1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
     email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
   const [order] = await db.insert(orders).values({ customerId: "customer-1", status: "delivered", fulfillmentMethod: "pickup",
-    paymentMethod: "cash-on-delivery", subtotalInCentavos: 10000 }).returning();
+    paymentMethod: "cash-on-delivery", subtotalInCentavos: 100000, codCollectedAt: new Date("2026-10-24T07:00:00Z"), codCollectedAmountInCentavos: 100000 }).returning();
   orderId = order.id;
 });
 afterEach(async () => { await client.close(); });
 
 test("approval defaults to the Customer's Resolution and atomically records the Staff member and time", async () => {
-  const [requested] = await db.insert(orderReturns).values({ orderId, reason: "damaged", amountInCentavos: 10000,
+  const [requested] = await db.insert(orderReturns).values({ orderId, reason: "damaged", amountInCentavos: 10000, requestedAt: new Date("2026-10-23T00:00:00Z"),
     preferredResolution: "replacement", videoFileId: "defect-video" }).returning();
   const store = createReturnStore(db, { now: () => at });
   const approved = await store.transition(requested.id, staff, { status: "approved" });
@@ -37,11 +38,11 @@ test("refund and replacement follow goods-back decisions, require proof and keep
   const store = createReturnStore(db, { now: () => at });
   for (const resolution of ["refund", "replacement"] as const) {
     for (const goodsRequired of [false, true]) {
-      const [requested] = await db.insert(orderReturns).values({ orderId, reason: "defective", amountInCentavos: 10000 }).returning();
+      const [requested] = await db.insert(orderReturns).values({ orderId, reason: "defective", amountInCentavos: 10000, requestedAt: new Date("2026-10-23T00:00:00Z") }).returning();
       const approved = await store.transition(requested.id, staff, { status: "approved", finalResolution: resolution, goodsRequired });
       expect(approved.finalResolution).toBe(resolution);
       const status = resolution === "refund" ? "refunded" : "replaced";
-      const completion = { status, ...(resolution === "refund" ? { refundProofFileId: "private-proof" } : {}) };
+      const completion = { status, ...(resolution === "refund" ? { refundProofFileId: "private-proof", ...refundDetails(10000, "2026-10-24") } : {}) };
       if (goodsRequired) {
         await expect(store.transition(requested.id, staff, completion)).rejects.toThrow("not allowed");
         await store.transition(requested.id, staff, { status: "goods received" });
@@ -87,7 +88,7 @@ test("every status move is checked against the Resolution and goods-back decisio
   const statuses = ["requested", "approved", "goods received", "refunded", "replaced", "declined", "cancelled"] as const;
   const decisions = [
     { status: "approved" }, { status: "declined", declineReason: "No defect." },
-    { status: "goods received" }, { status: "refunded", refundProofFileId: "proof" },
+    { status: "goods received" }, { status: "refunded", refundProofFileId: "proof", ...refundDetails(10000, "2026-10-24") },
     { status: "replaced" }, { status: "cancelled" },
   ];
   for (const from of statuses) {
@@ -98,7 +99,7 @@ test("every status move is checked against the Resolution and goods-back decisio
           : from === "approved" ? (goodsRequired ? ["goods received"] : [finalResolution === "refund" ? "refunded" : "replaced"])
           : from === "goods received" ? [finalResolution === "refund" ? "refunded" : "replaced"] : [];
         for (const decision of decisions) {
-          const [current] = await db.insert(orderReturns).values({ orderId, reason: "damaged", amountInCentavos: 10000,
+          const [current] = await db.insert(orderReturns).values({ orderId, reason: "damaged", amountInCentavos: 10000, requestedAt: new Date("2026-10-23T00:00:00Z"),
             status: from, finalResolution, goodsRequired }).returning();
           const result = store.transition(current.id, decision.status === "cancelled" ? owner : staff, decision);
           if (allowed.includes(decision.status)) {

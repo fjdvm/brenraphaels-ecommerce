@@ -2,8 +2,8 @@ import { after } from "next/server";
 import { z, ZodError } from "zod";
 
 import { getDatabase } from "@/lib/db";
-import { sendPaymentRejectedEmail } from "@/lib/email/payment-rejected-email";
-import { sendPaymentUnderReviewEmail } from "@/lib/email/payment-under-review-email";
+import { sendOnceAndRecord } from "@/lib/email/outcomes";
+import { sendPaymentEmail } from "@/lib/email/payment-emails";
 import { sendPendingCustomerNotifications } from "@/lib/notifications/outbox";
 import { verifyCreomsCredential } from "@/lib/orders/creoms-credential";
 import { publishAfterCommit, publishCustomerOrderEvent } from "@/lib/orders/live-events";
@@ -30,9 +30,14 @@ export async function POST(request: Request, context: RouteContext<"/api/interna
       await publishAfterCommit(store.customerIdForOrder(id), { type: "order.updated", orderId: String(id) }, publishCustomerOrderEvent);
       try {
         const recipient = await store.customerEmailForOrder(id);
-        if (recipient) await (managerReview ? sendPaymentUnderReviewEmail : sendPaymentRejectedEmail)(recipient, order, input.reason);
+        if (recipient) {
+          // The third rejection sends only the Manager review email. Each rejection is its own occurrence, so a retry never repeats it and two real rejections each get one.
+          const kind = managerReview ? "manager-review-started" : "payment-rejected";
+          const occurrence = managerReview ? "" : String(rejections);
+          await sendOnceAndRecord(id, kind, (email) => sendPaymentEmail(kind, recipient, order, email, occurrence), getDatabase(), occurrence);
+        }
       } catch (error) {
-        console.error("Payment-rejected email could not be sent", error);
+        console.error("Payment-rejected email outcome could not be recorded", error);
       }
       try { await sendPendingCustomerNotifications(getDatabase(), id); }
       catch (error) { console.error("Customer Notification delivery will be retried by the cron job", error); }

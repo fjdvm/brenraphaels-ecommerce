@@ -2,8 +2,9 @@ import { formatPeso } from "../catalog/currency";
 import { formatAddressLine } from "../address/format";
 import type { Order } from "../orders/orders";
 import { createBrevoTransport } from "./brevo-transport";
+import { stableMessageId } from "./stable-message-id";
 import { EMAIL_TOKENS as t, emailButton, emailHeading, emailParagraph, escapeHtml, logoAttachment, renderEmailLayout } from "./layout";
-import { viewOrderUrl } from "./order-pickup-confirmed-email";
+import { deliveryFeeText, viewOrderUrl } from "./order-pickup-confirmed-email";
 
 /** The amount to pay the rider: the confirmed total, or subtotal less discount plus the Delivery fee before one is saved. */
 export function totalPayableUponDelivery(order: Order) {
@@ -19,7 +20,7 @@ function row(label: string, value: string, strong = false) {
 export function renderDeliveryConfirmedEmail(order: Order, orderUrl: string) {
   const discount = order.approvedDiscountInCentavos ?? 0;
   const fee = order.deliveryFeeInCentavos ?? 0;
-  const feeText = fee === 0 ? "Free" : formatPeso(fee);
+  const feeText = deliveryFeeText(fee);
   const total = totalPayableUponDelivery(order);
   const address = order.deliveryAddress ? formatAddressLine(order.deliveryAddress) : null;
   const items = order.lines.map((l) => ({ name: `${l.productName} — ${l.sizeLabel} × ${l.quantity}`, amount: formatPeso(l.priceInCentavos * l.quantity) }));
@@ -64,8 +65,9 @@ export function renderDeliveryConfirmedEmail(order: Order, orderUrl: string) {
 }
 
 /** Sends the Customer the confirmation of a Cash on Delivery Delivery Order once its fee is confirmed. */
-export async function sendOrderDeliveryConfirmedEmail(recipient: string, order: Order) {
+export async function sendOrderDeliveryConfirmedEmail(recipient: string, order: Order, email?: { id: string }) {
   const { transport, sender } = createBrevoTransport();
   const message = renderDeliveryConfirmedEmail(order, viewOrderUrl(order.id));
-  await transport.sendMail({ from: sender, to: recipient, ...message, attachments: [await logoAttachment()] });
+  const info = await transport.sendMail({ from: sender, to: recipient, ...message, ...stableMessageId(sender, email), attachments: [await logoAttachment()] });
+  return typeof info?.messageId === "string" ? { messageId: info.messageId } : {};
 }

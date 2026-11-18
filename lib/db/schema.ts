@@ -234,6 +234,11 @@ export const orders = pgTable("orders", {
   paidByName: text("paid_by_name"),
   // Legacy paid Orders keep all three attribution fields empty.
   paidAt: timestamp("paid_at", { withTimezone: true }),
+  // COD collection (epic-crms#601): the cash recorded when a Cash on Delivery Order is completed. Empty for every other Order.
+  codCollectedAmountInCentavos: integer("cod_collected_amount_in_centavos"),
+  codCollectedAt: timestamp("cod_collected_at", { withTimezone: true }),
+  codCollectedById: text("cod_collected_by_id"),
+  codCollectedByName: text("cod_collected_by_name"),
   // When the Order became Delivered. Orders delivered before this column existed keep it empty.
   deliveredAt: timestamp("delivered_at", { withTimezone: true }),
   /** When a Pickup Order became Picked up (`collected`); it stands in for `deliveredAt` for every rule. */
@@ -480,6 +485,20 @@ export const orderReturns = pgTable("order_returns", {
   finalResolution: text("final_resolution", { enum: returnResolutions }),
   videoFileId: text("video_file_id"),
   refundProofFileId: text("refund_proof_file_id"),
+  /** The Delivery fee a Manager included in the refund (epic-crms#611); null when only the items were refunded. Never counts toward the Approval limit. */
+  refundDeliveryFeeInCentavos: integer("refund_delivery_fee_in_centavos"),
+  refundDeliveryFeeReason: text("refund_delivery_fee_reason"),
+  /** What Staff recorded when marking the Return Refunded (epic-crms#613): the amount sent, how, on what date and under what reference. Null before that. */
+  refundAmountInCentavos: integer("refund_amount_in_centavos"),
+  refundPaidMethod: text("refund_paid_method", { enum: ["gcash", "maya", "bank-transfer"] }),
+  refundPaidOn: date("refund_paid_on", { mode: "string" }),
+  refundReference: text("refund_reference"),
+  /** Where the refund goes, confirmed by the Customer on the request; never a payment proof's recipient. Null for a replacement. */
+  refundMethod: text("refund_method", { enum: ["gcash", "maya", "bank-transfer"] }),
+  refundAccountName: text("refund_account_name"),
+  refundAccountNumber: text("refund_account_number"),
+  refundBankName: text("refund_bank_name"),
+  refundDestinationConfirmedAt: timestamp("refund_destination_confirmed_at", { withTimezone: true }),
   /** Null until approval; false allows completing without returning the goods. */
   goodsRequired: boolean("goods_required"),
   declineReason: text("decline_reason"),
@@ -492,7 +511,23 @@ export const orderReturns = pgTable("order_returns", {
   check("order_returns_final_resolution", sql`${table.finalResolution} in ('refund','replacement')`),
   check("order_returns_reason", sql`${table.reason} in ('damaged','defective','wrong item','other')`),
   check("order_returns_amount", sql`${table.amountInCentavos} >= 0`),
+  check("order_returns_refund_delivery_fee", sql`${table.refundDeliveryFeeInCentavos} >= 0`),
+  check("order_returns_refund_amount", sql`${table.refundAmountInCentavos} >= 0`),
+  check("order_returns_refund_paid_method", sql`${table.refundPaidMethod} in ('gcash','maya','bank-transfer')`),
+  check("order_returns_refund_method", sql`${table.refundMethod} in ('gcash','maya','bank-transfer')`),
   index("order_returns_order_id").on(table.orderId),
+]);
+
+/** The refund details a Customer last confirmed, offered as the pre-fill on their next Return. One row per Customer. */
+export const customerRefundDestinations = pgTable("customer_refund_destinations", {
+  customerId: text("customer_id").primaryKey().references(() => customers.id, { onDelete: "cascade" }),
+  method: text("method", { enum: ["gcash", "maya", "bank-transfer"] }).notNull(),
+  accountName: text("account_name").notNull(),
+  accountNumber: text("account_number").notNull(),
+  bankName: text("bank_name"),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull(),
+}, (table) => [
+  check("customer_refund_destinations_method", sql`${table.method} in ('gcash','maya','bank-transfer')`),
 ]);
 
 /** Immutable snapshots of the whole Order lines selected by the Customer. */
@@ -663,13 +698,17 @@ export const assistantHandoffs = pgTable("assistant_handoffs", {
   check("assistant_handoffs_status", sql`${table.status} in ('drafted','dropped','sent')`)]);
 
 /**
- * One row per Order and kind of Customer email. The primary key is the idempotency key: the first insert claims the
+ * One row per Order, kind and occurrence of Customer email. The primary key is the idempotency key: the first insert claims the
  * send, so a repeated confirmation never emails twice. `status` records whether it went out, is waiting for a retry, or failed for good (with the reason).
  */
 export const orderEmailOutcomes = pgTable("order_email_outcomes", {
   orderId: integer("order_id").notNull().references(() => orders.id),
   kind: text("kind").notNull(),
+  /** Which occurrence of the event this email is for (for example the rejection number); "" when the event happens once. */
+  occurrence: text("occurrence").default("").notNull(),
   status: text("status", { enum: ["sending", "sent", "retrying", "failed"] }).notNull(),
+  /** The provider's id for the message once it accepted it. A Resend of an email that has one reconciles instead of sending. */
+  messageId: text("message_id"),
   reason: text("reason"),
   /** Sends tried so far, the first one included. */
   attempts: integer("attempts").default(0).notNull(),
@@ -677,4 +716,4 @@ export const orderEmailOutcomes = pgTable("order_email_outcomes", {
   nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-}, table => [primaryKey({ columns: [table.orderId, table.kind] })]);
+}, table => [primaryKey({ columns: [table.orderId, table.kind, table.occurrence] })]);

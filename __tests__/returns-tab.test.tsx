@@ -42,7 +42,7 @@ const aReturn = (id: number, orderId: number, overrides: Partial<CustomerReturn>
   declineReason: null,
   photoFileIds: [],
   videoFileId: null,
-  refundProofFileId: null,
+  refundProofFileId: null, refund: null,
   items: [{ productName: "Ube Halaya", sizeLabel: "250g", quantity: 2, priceInCentavos: 10_450 }],
   requestedAt: new Date("2026-10-11T06:00:00Z"),
   refundedAt: null,
@@ -91,6 +91,34 @@ describe("Returns tab", () => {
     openReturnsTab();
 
     expect(screen.getByRole("link", { name: "View refund proof" }).getAttribute("href")).toBe("/api/returns/4/refund-proof");
+  });
+
+  test("shows the refund's Delivery fee, amount, method, date and reference beside the proof link", () => {
+    const refund = { amountInCentavos: 25_900, deliveryFeeInCentavos: 5_000, method: "gcash" as const, paidOn: "2026-11-18", reference: "GC-2026-0001" };
+    render(<OrdersBrowser orders={orders} returns={[aReturn(4, 1, { status: "refunded", finalResolution: "refund", refundProofFileId: "file-1", refund })]} />);
+    openReturnsTab();
+
+    const record = within(screen.getByTestId("refund-record-4"));
+    expect(record.getByText("Delivery fee").nextSibling?.textContent).toBe("₱50");
+    expect(record.getByText("Refund amount").nextSibling?.textContent).toBe("₱259");
+    expect(record.getByText("GCash")).toBeTruthy();
+    expect(record.getByText("Nov 18, 2026")).toBeTruthy();
+    expect(record.getByText("GC-2026-0001")).toBeTruthy();
+  });
+
+  test("shows no refund record before the Return is Refunded", () => {
+    render(<OrdersBrowser orders={orders} returns={[aReturn(4, 1, { status: "approved", finalResolution: "refund" })]} />);
+    openReturnsTab();
+
+    expect(screen.queryByTestId("refund-record-4")).toBeNull();
+  });
+
+  test("shows the Customer their own Refund destination in full", () => {
+    render(<OrdersBrowser orders={orders} returns={[aReturn(4, 1, { refundDestination: { method: "bank-transfer", accountName: "Maria Santos",
+      accountNumber: "1234567890", bankName: "BDO" } })]} />);
+    openReturnsTab();
+
+    expect(screen.getByTestId("refund-destination-4").textContent).toBe("Refund to: Bank transfer · BDO · Maria Santos · 1234567890");
   });
 
   test("dims a Cancelled Return", () => {

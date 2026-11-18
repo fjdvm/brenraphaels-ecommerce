@@ -6,6 +6,8 @@ vi.mock("@/lib/email/brevo-transport", () => ({
   requiredEnvironment: () => "https://shop.test",
 }));
 
+vi.mock("@/lib/pickup/instructions", async (original) => ({ ...(await original<object>()), loadPickupInstructions: async () => null }));
+
 import { renderOnlinePickupConfirmedEmail, sendOrderOnlinePickupConfirmedEmail } from "@/lib/email/order-online-pickup-confirmed-email";
 
 const base = {
@@ -41,6 +43,25 @@ describe("Online payment + Pickup confirmation email", () => {
       expect(body).not.toContain("Senior/PWD discount");
       expect(body).toContain("₱500");
     }
+  });
+
+  test("carries the pickup instructions, and the original-ID reminder only when a discount applies", () => {
+    const instructions = { address: "1 Ube St, Makati", hours: "Mon-Sat 9-5", note: "Ring the bell" };
+    const withDiscount = renderOnlinePickupConfirmedEmail(order, url, instructions);
+    for (const body of [withDiscount.html, withDiscount.text]) {
+      expect(body).toContain("1 Ube St, Makati");
+      expect(body).toContain("Mon-Sat 9-5");
+      expect(body).toContain("original Senior Citizen or PWD ID");
+    }
+    const noDiscount = renderOnlinePickupConfirmedEmail({ ...base, approvedDiscountInCentavos: 0, totalInCentavos: null } as never, url, instructions);
+    expect(noDiscount.text).toContain("1 Ube St, Makati");
+    expect(noDiscount.text).not.toContain("original Senior Citizen or PWD ID");
+  });
+
+  test("shows the saved payment deadline", () => {
+    const placed = { ...base, createdAt: new Date("2026-11-18T06:14:00Z") } as never;
+    const { html, text } = renderOnlinePickupConfirmedEmail(placed, url);
+    for (const body of [html, text]) expect(body).toContain("Pay by Nov 19, 2026 · 2:14 PM");
   });
 
   test("sends HTML, text and the logo, linking the Customer's own Order", async () => {

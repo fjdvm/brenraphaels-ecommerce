@@ -2,8 +2,9 @@ import { and, eq, inArray } from "drizzle-orm";
 import { completedAtOf, isCompleted } from "../orders/completion";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { orderLines, orderReturnItems, orderReturns, orders } from "../db/schema";
+import { customerRefundDestinations, orderLines, orderReturnItems, orderReturns, orders } from "../db/schema";
 import type { Order } from "../orders/orders";
+import type { RefundDestination } from "./refund-destination";
 import { formatReturnNumber } from "./returns";
 
 export type ReturnOfferLine = {
@@ -26,6 +27,10 @@ export type ReturnOffer = {
   paymentMethod: string;
   lines: ReturnOfferLine[];
   requested: { id: number; number: string } | null;
+  /** The refund details this Customer confirmed on an earlier Return, offered as a pre-fill. Null if none. */
+  savedRefundDestination: RefundDestination | null;
+  /** False for a Cash on Delivery Order whose cash was not collected: nothing to refund, so no details are asked. */
+  refundable: boolean;
 };
 
 const lockingStatuses = ["requested", "approved", "goods received", "refunded", "replaced"] as const;
@@ -40,16 +45,20 @@ export function createReturnOfferStore<TQueryResult extends PgQueryResultHKT, TS
     if (delivered.length === 0) return offers;
     const ids = delivered.map((order) => order.id);
 
-    const [lines, deliveries, locked, requested] = await Promise.all([
+    const [lines, deliveries, locked, requested, [saved]] = await Promise.all([
       db.select().from(orderLines).where(inArray(orderLines.orderId, ids)).orderBy(orderLines.id),
-      db.select({ id: orders.id, deliveredAt: orders.deliveredAt, collectedAt: orders.collectedAt, extendedAt: orders.refundWindowExtendedAt, paymentMethod: orders.paymentMethod }).from(orders)
+      db.select({ id: orders.id, deliveredAt: orders.deliveredAt, collectedAt: orders.collectedAt, extendedAt: orders.refundWindowExtendedAt, paymentMethod: orders.paymentMethod, codCollectedAt: orders.codCollectedAt }).from(orders)
         .where(and(eq(orders.customerId, customerId), inArray(orders.id, ids))),
       db.select({ orderLineId: orderReturnItems.orderLineId }).from(orderReturnItems)
         .innerJoin(orderReturns, eq(orderReturnItems.returnId, orderReturns.id))
         .where(and(inArray(orderReturns.orderId, ids), inArray(orderReturns.status, [...lockingStatuses]))),
       db.select({ id: orderReturns.id, orderId: orderReturns.orderId }).from(orderReturns)
         .where(and(inArray(orderReturns.orderId, ids), eq(orderReturns.status, "requested"))),
+      db.select().from(customerRefundDestinations).where(eq(customerRefundDestinations.customerId, customerId)),
     ]);
+    const savedRefundDestination: RefundDestination | null = saved
+      ? { method: saved.method, accountName: saved.accountName, accountNumber: saved.accountNumber, bankName: saved.bankName } : null;
+    const refundable = new Map(deliveries.map((row) => [row.id, row.paymentMethod !== "cash-on-delivery" || row.codCollectedAt !== null]));
     const lockedIds = new Set(locked.map((row) => row.orderLineId));
     const deliveredAt = new Map(deliveries.map((row) => [row.id, completedAtOf(row)?.getTime() ?? null]));
     const paidWith = new Map(deliveries.map((row) => [row.id, row.paymentMethod]));
@@ -68,6 +77,8 @@ export function createReturnOfferStore<TQueryResult extends PgQueryResultHKT, TS
           returnable: !lockedIds.has(line.id),
         })),
         requested: pending ? { id: pending.id, number: formatReturnNumber(pending.id) } : null,
+        savedRefundDestination,
+        refundable: refundable.get(order.id) ?? false,
       });
     }
     return offers;

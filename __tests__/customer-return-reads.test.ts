@@ -2,7 +2,8 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from "vitest";
 
-import { customers, orders, orderLines, orderReturns, orderReturnImages, orderReturnItems } from "../lib/db/schema";
+import { eq } from "drizzle-orm";
+import { customerRefundDestinations, customers, orders, orderLines, orderReturns, orderReturnImages, orderReturnItems } from "../lib/db/schema";
 import { createOrderStore } from "../lib/orders/orders";
 import { listCustomerReturns } from "../lib/returns/customer-reads";
 import { createTestDatabase } from "./helpers/test-database";
@@ -42,6 +43,16 @@ beforeEach(async () => {
   await client.exec("TRUNCATE customers CASCADE");
   await customer("c1");
   await customer("c2");
+});
+
+test("a Customer sees their own Refund destination, and a replacement has none", async () => {
+  const mine = await order("c1");
+  await aReturn(mine, { refundMethod: "maya", refundAccountName: "Maria C1", refundAccountNumber: "09171234567", refundBankName: null,
+    requestedAt: new Date("2026-10-21T08:00:00Z") });
+  await aReturn(mine, { preferredResolution: "replacement", requestedAt: new Date("2026-10-20T08:00:00Z") });
+  const [refund, replacement] = await listCustomerReturns(db, "c1");
+  expect(refund.refundDestination).toEqual({ method: "maya", accountName: "Maria C1", accountNumber: "09171234567", bankName: null });
+  expect(replacement.refundDestination).toBeNull();
 });
 
 test("a Customer sees only their own Returns, newest first, in every status", async () => {
@@ -99,4 +110,22 @@ test("GET /api/returns requires a signed-in Customer and returns only their Retu
   expect(response.headers.get("cache-control")).toContain("no-store");
   const body = await response.json();
   expect(body.returns.map((x: { id: number }) => x.id)).toEqual([r.id]);
+});
+
+test("the Return offer pre-fills only what this Customer confirmed before, and flags an uncollected COD Order as not refundable", async () => {
+  const { createReturnOfferStore } = await import("../lib/returns/return-offers");
+  const { createOrderStore } = await import("../lib/orders/orders");
+  const mine = await order("c1");
+  const other = await order("c2");
+  await db.insert(customerRefundDestinations).values({ customerId: "c2", method: "gcash", accountName: "Not Mine", accountNumber: "09170000000", confirmedAt: new Date() });
+  const offers = async () => {
+    const list = await createOrderStore(db).listForCustomer("c1");
+    return createReturnOfferStore(db).forCustomer("c1", list);
+  };
+  expect((await offers()).get(mine.orderId)).toMatchObject({ savedRefundDestination: null, refundable: false });
+  await db.update(orders).set({ codCollectedAt: new Date() }).where(eq(orders.id, mine.orderId));
+  await db.insert(customerRefundDestinations).values({ customerId: "c1", method: "gcash", accountName: "Maria C1", accountNumber: "09171234567", confirmedAt: new Date() });
+  expect((await offers()).get(mine.orderId)).toMatchObject({ refundable: true,
+    savedRefundDestination: { method: "gcash", accountName: "Maria C1", accountNumber: "09171234567", bankName: null } });
+  void other;
 });

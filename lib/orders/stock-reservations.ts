@@ -4,7 +4,6 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { customers, customerNotifications, orders, stockOutbox, stockReservations } from "../db/schema";
 import { writeAuditEvent, type AuditEvent, type AuditIdentity } from "../audit/gateway";
 import { sendAppEmail, type AppEmail } from "../notifications/gateway";
-import { required } from "../gateway";
 import type { Cart } from "./cart";
 import { gatewayShopStock, StockRefusedError, StockUnavailableError, type ShopStock } from "./stock";
 
@@ -165,14 +164,7 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
         if (!order) return;
         await tx.update(orders).set({ status: "cancelled" }).where(eq(orders.id, order.id));
         await createStockReservations(tx, stock).releaseItems(order.id, undefined, { type: "system", id: "unpaid-order-expiry", display_name: "Unpaid Order expiry" });
-        const key = `order.unpaid-cancelled:${order.id}`;
-        const [customer] = await tx.select().from(customers).where(eq(customers.id, order.customerId));
-        await tx.insert(stockOutbox).values({ key, kind: "email", orderId: order.id, payload: {
-          to: customer.email, title: "Your order was cancelled",
-          body: `Order #${order.id} was cancelled because payment was not confirmed before its deadline. Its reserved items will be released. You can place a new Order.`,
-          button: { label: "View Order", link: `${required("NEXT_PUBLIC_SITE_URL").replace(/\/$/, "")}/profile/orders?order=${order.id}` },
-        } }).onConflictDoNothing();
-        await tx.insert(customerNotifications).values({ idempotencyKey: `order.cancelled:${order.id}`, orderId: order.id,
+        await tx.insert(customerNotifications).values({ idempotencyKey: `order.expired:${order.id}`, orderId: order.id,
           customerId: order.customerId, type: "order.cancelled", title: "Your order was cancelled",
           body: "Payment was not confirmed before its deadline. You can place a new Order.", link: `/profile/orders?order=${order.id}`,
         }).onConflictDoNothing();

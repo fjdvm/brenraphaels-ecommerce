@@ -36,11 +36,11 @@ describe("COD + Delivery confirmation email", () => {
     expect(html).toContain("#4A2373");
   });
 
-  test("shows a ₱0 Delivery fee as Free and omits the discount line without one", () => {
+  test("shows a ₱0 Delivery fee as Free Delivery — ₱0 and omits the discount line without one", () => {
     const free = { ...base, deliveryFeeInCentavos: 0, approvedDiscountInCentavos: 0, totalInCentavos: 50000 } as never;
     const { html, text } = renderDeliveryConfirmedEmail(free, url);
     for (const body of [html, text]) {
-      expect(body).toContain("Free");
+      expect(body).toContain("Free Delivery — ₱0");
       expect(body).not.toContain("Senior/PWD discount");
       expect(body).toContain("₱500");
     }
