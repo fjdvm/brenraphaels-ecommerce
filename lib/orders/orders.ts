@@ -6,6 +6,7 @@ import { qualifiesForFreeDelivery } from "./free-delivery";
 import { loadFreeDeliveryThreshold } from "./free-delivery-threshold";
 import { loadPaymentWindowHours } from "./payment-window";
 import { paymentDeadlinePassed } from "./payment-deadline";
+import { formatPlacedAt } from "./order-view";
 import { gatewayShopStock, type ShopStock } from "./stock";
 import { gatewayProductImages, productThumbnail, type ProductImageFiles, type ProductImageReference } from "../catalog/product-images";
 import { and, asc, desc, eq, gte, inArray, isNull, isNotNull, lt, ne, or, sql } from "drizzle-orm";
@@ -761,8 +762,8 @@ export function createOrderStore<
     }
 
     const submittedAt = new Date();
-    // A first proof only counts in time; once the deadline has passed the Order is waiting to be cancelled.
-    if (!resubmission && paymentDeadlinePassed(persistedOrder, submittedAt)) {
+    // A proof only counts in time, first or replacement; once the deadline has passed the Order is waiting to be cancelled.
+    if (paymentDeadlinePassed(persistedOrder, submittedAt)) {
       throw new Error("The payment deadline for this Order has passed, so it can no longer take a proof.");
     }
     const expectedRecipient = await paymentRecipient(persistedOrder.paymentMethod);
@@ -807,6 +808,8 @@ export function createOrderStore<
     const actor = staffAttribution.parse(input);
     const reason = input.reason.trim();
     if (!reason) throw new OrderStatusUpdateError("Enter a reason for rejecting the proof.");
+    // The fresh window is the Admin's payment window, read before the transaction so an unreadable setting cannot abort it.
+    const windowHours = await readPaymentWindowHours();
     const updatedOrder = await db.transaction(async (transaction) => {
       const [order] = await transaction.select().from(orders).where(eq(orders.id, orderId)).for("update");
       if (!order) throw new OrderStatusUpdateError("Order was not found.");
@@ -822,11 +825,13 @@ export function createOrderStore<
       }).where(eq(orderPaymentProofs.id, latest.id));
       const [updated] = await transaction.update(orders).set({
         paymentProofRejectedAt: rejectedAt, paymentProofRejections: order.paymentProofRejections + 1,
+        // Each rejection starts a fresh payment window; the old deadline no longer applies.
+        paymentDeadlineAt: new Date(rejectedAt.getTime() + windowHours * 3_600_000),
       }).where(eq(orders.id, orderId)).returning();
       await transaction.insert(customerNotifications).values({
         idempotencyKey: `order.payment-rejected:${orderId}:${updated.paymentProofRejections}`, orderId, customerId: order.customerId,
         type: "order.payment-rejected", title: `Payment proof not accepted for Order #${orderId}`,
-        body: `Your payment proof was not accepted: ${reason} Please upload it again.`,
+        body: `Your payment proof was not accepted: ${reason} Please upload it again by ${formatPlacedAt(updated.paymentDeadlineAt ?? rejectedAt)}.`,
         link: `/profile/orders?order=${orderId}`,
       }).onConflictDoNothing();
       return updated;

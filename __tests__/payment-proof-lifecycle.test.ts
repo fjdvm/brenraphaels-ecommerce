@@ -78,6 +78,42 @@ describe("payment proof rejection and resubmission", () => {
   });
 });
 
+describe("a rejection starts a fresh payment window", () => {
+  async function rejectedOrder(hours = 24) {
+    const database = drizzle(client);
+    const { rows } = await client.query<{ id: number }>("select id from sizes");
+    await createCartStore(database).addSize("c1", rows[0].id, 1);
+    const store = createOrderStore(database, undefined, new FakeShopStock(), undefined, undefined, async () => hours);
+    const order = await store.place("c1", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
+    await store.submitPaymentProof("c1", order.id, { gcashReferenceNumber: "1111111111" });
+    return { store, order };
+  }
+
+  test("the new deadline is the Admin window after the rejection, and the Customer is told it with the reason", async () => {
+    const { store, order } = await rejectedOrder(12);
+    const before = Date.now();
+    const rejected = await store.rejectPaymentProof(order.id, { reason: "Blurry", ...ana });
+    const deadline = rejected.order.paymentDeadlineAt!.getTime();
+    expect(deadline).toBeGreaterThanOrEqual(before + 12 * 3_600_000);
+    expect(deadline).toBeLessThanOrEqual(Date.now() + 12 * 3_600_000);
+    const { rows } = await client.query<{ body: string }>("select body from customer_notifications where type = 'order.payment-rejected'");
+    expect(rows[0].body).toContain("Blurry");
+    expect(rows[0].body).toContain("by ");
+  });
+
+  test("a replacement is a new proof that keeps every earlier one, and is refused once the fresh window has passed", async () => {
+    const { store, order } = await rejectedOrder();
+    await store.rejectPaymentProof(order.id, { reason: "Blurry", ...ana });
+    await store.submitPaymentProof("c1", order.id, { gcashReferenceNumber: "2222222222" });
+    const { rows } = await client.query<{ reference: string }>("select reference from order_payment_proofs order by id");
+    expect(rows.map(row => row.reference)).toEqual(["1111111111", "2222222222"]);
+
+    await store.rejectPaymentProof(order.id, { reason: "Wrong account", ...ana });
+    await client.query("update orders set payment_deadline_at = now() - interval '1 minute' where id = $1", [order.id]);
+    await expect(store.submitPaymentProof("c1", order.id, { gcashReferenceNumber: "3333333333" })).rejects.toThrow("deadline");
+  });
+});
+
 test("keeps Customer-confirmed values on each proof without accepting or rejecting it", async () => {
   const { store, order } = await confirmedOrder();
   const result = await store.submitPaymentProof("c1", order.id, {
