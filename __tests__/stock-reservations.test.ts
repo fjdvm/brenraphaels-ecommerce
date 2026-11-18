@@ -128,9 +128,9 @@ test("an IMS outage during cancellation is retried durably without reopening the
   expect(stock.remaining(stock.productForSize(first.id))).toBe(50);
 });
 
-test.each(["gcash", "maya", "bank-transfer"])("%s expires at exactly 24 hours, releases stock and emails once", async method => {
+test.each(["gcash", "maya", "bank-transfer"])("%s expires at exactly 24 hours, releases stock and leaves one expiry record", async method => {
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.example.com");
-  const { db, stock, store, maintenance, first } = await fixture();
+  const { client, db, stock, store, maintenance, first } = await fixture();
   const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
   const placed = new Date("2026-11-01T00:00:00Z");
   await db.update(orders).set({ confirmedAt: placed, paymentMethod: method }).where(eq(orders.id, order.id));
@@ -145,8 +145,10 @@ test.each(["gcash", "maya", "bank-transfer"])("%s expires at exactly 24 hours, r
   await maintenance.sendPending({ audit, email });
   expect((await store.listForCustomer("jane"))[0].status).toBe("cancelled");
   expect(stock.remaining(stock.productForSize(first.id))).toBe(50);
-  expect(email).toHaveBeenCalledTimes(1);
-  expect(email).toHaveBeenCalledWith(expect.objectContaining({ to: "jane@example.com", title: "Your order was cancelled", idempotencyKey: `order.unpaid-cancelled:${order.id}` }));
+  // The Customer's email is the storefront's own Payment expired email (sent by the expiry sweep); the gateway gets none.
+  expect(email).not.toHaveBeenCalled();
+  const { rows } = await client.query("select idempotency_key from customer_notifications where order_id = $1", [order.id]);
+  expect(rows).toContainEqual({ idempotency_key: `order.expired:${order.id}` });
 });
 
 test.each(["cash-on-delivery", "paid", "preparing", "dispatched", "delivered", "received", "cancelled"])("expiry leaves %s Orders untouched", async state => {
@@ -178,31 +180,6 @@ test("abandoned checkout recovery survives a process crash before Order commit",
   expect(stock.remaining(stock.productForSize(first.id))).toBe(48);
   await maintenance.drain(new Date(Date.now() + 11 * 60_000));
   expect(stock.remaining(stock.productForSize(first.id))).toBe(50);
-});
-
-test("expiry email waits for stock release and retries an ambiguous gateway acknowledgement with the same key", async () => {
-  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.example.com");
-  const { db, store, stock, maintenance } = await fixture();
-  const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
-  await db.update(orders).set({ confirmedAt: new Date("2026-10-01T00:00:00Z") }).where(eq(orders.id, order.id));
-  await maintenance.expire(new Date("2026-11-01T00:00:00Z"));
-  const audit = vi.fn(async () => {});
-  const received = new Set<string>();
-  let dropAcknowledgement = true;
-  const email = vi.fn(async (message: import("../lib/notifications/gateway").AppEmail) => {
-    received.add(message.idempotencyKey!);
-    if (dropAcknowledgement) { dropAcknowledgement = false; throw new Error("Acknowledgement lost"); }
-  });
-  stock.unavailable = true;
-  await maintenance.drain();
-  await maintenance.sendPending({ audit, email });
-  expect(email).not.toHaveBeenCalled();
-  stock.unavailable = false;
-  await maintenance.drain();
-  await maintenance.sendPending({ audit, email });
-  await maintenance.sendPending({ audit, email });
-  expect(received).toEqual(new Set([`order.unpaid-cancelled:${order.id}`]));
-  expect(email).toHaveBeenCalledTimes(2);
 });
 
 test.each(["confirmed", "awaiting payment"])("expiry includes unpaid %s Orders", async status => {
@@ -245,26 +222,6 @@ test("recovery retains one audit per released line when a later external release
     [expect.objectContaining({ action: "order.stock_released", idempotency_key: `order.stock_released:${id}:size-1` })],
     [expect.objectContaining({ action: "order.stock_released", idempotency_key: `order.stock_released:${id}:size-2` })],
   ]));
-});
-
-test("a refused audit backlog never starves an expiry email", async () => {
-  vi.spyOn(console, "error").mockImplementation(() => {});
-  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://shop.example.com");
-  const { db, store, maintenance } = await fixture();
-  const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
-  await db.update(orders).set({ confirmedAt: new Date("2026-11-01T00:00:00Z") }).where(eq(orders.id, order.id));
-  await maintenance.expire(new Date("2026-11-02T00:00:00Z"));
-  await maintenance.drain();
-  await db.insert(stockOutbox).values(Array.from({ length: 60 }, (_, index) => ({
-    key: `order.stock_reserved:old-${index}`, kind: "audit" as const,
-    payload: { source: "Ecommerce" as const, action: "order.stock_reserved", outcome: "success" as const,
-      actor: { type: "customer", id: "jane", display_name: "Jane Doe" },
-      target: { type: "order", id: String(index), display_name: `Order #${index}` },
-      description: "Reserved items", occurred_at: "2026-11-01T00:00:00Z" },
-  })));
-  const email = vi.fn(async () => {});
-  await maintenance.sendPending({ audit: async () => { throw new Error("Catalog unavailable"); }, email });
-  expect(email).toHaveBeenCalledTimes(1);
 });
 
 test("a cancellation confirms before deferred IMS recovery runs", async () => {

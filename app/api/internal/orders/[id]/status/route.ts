@@ -13,7 +13,7 @@ import { sendOnceAndRecord } from "@/lib/email/outcomes";
 import { sendOrderPickupConfirmedEmail } from "@/lib/email/order-pickup-confirmed-email";
 import { sendOrderOnlineDeliveryConfirmedEmail } from "@/lib/email/order-online-delivery-confirmed-email";
 import { sendOrderOnlinePickupConfirmedEmail } from "@/lib/email/order-online-pickup-confirmed-email";
-import { sendOrderPaidEmail } from "@/lib/email/order-paid-email";
+import { sendPaymentEmail } from "@/lib/email/payment-emails";
 import { DeliveryPhotoUnavailable, InvalidDeliveryPhoto, verifyDeliveryPhoto } from "@/lib/orders/verify-delivery-photo";
 import { verifyCreomsCredential } from "@/lib/orders/creoms-credential";
 import { parseInternalOrderStatusUpdate } from "@/lib/orders/internal-status";
@@ -122,7 +122,12 @@ export async function POST(
         }
       }
       if (update.status === "paid") {
-        await notifyCustomer(orderStore, order, "paid", sendOrderPaidEmail);
+        try {
+          const recipient = await orderStore.customerEmailForOrder(order.id);
+          if (recipient) await sendOnceAndRecord(order.id, "payment-verified", (email) => sendPaymentEmail("payment-verified", recipient, order, email));
+        } catch (error) {
+          console.error("Payment-verified email outcome could not be recorded", error);
+        }
       }
       if (update.status === "dispatched" && order.courier) {
         await notifyCustomer(orderStore, order, "dispatched", sendOrderDispatchedEmail);

@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { getDatabase } from "@/lib/db";
+import { sendExpiredOrderEmails } from "@/lib/email/payment-expired";
 import { createStockReservations } from "@/lib/orders/stock-reservations";
 import { sendPendingCustomerNotifications } from "@/lib/notifications/outbox";
 import { publishCustomerOrderEvent } from "@/lib/orders/live-events";
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
   after(async () => {
     await maintenance.drain();
     await maintenance.sendPending();
+    try { await sendExpiredOrderEmails(getDatabase()); } catch (error) { console.error("Order-expired emails will be retried by the next run", error); }
     await sendPendingCustomerNotifications(getDatabase());
   });
   return Response.json({ cancelled });
