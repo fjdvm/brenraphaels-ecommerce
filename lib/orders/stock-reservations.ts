@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { customers, customerNotifications, orders, stockOutbox, stockReservations } from "../db/schema";
 import { writeAuditEvent, type AuditEvent, type AuditIdentity } from "../audit/gateway";
@@ -10,9 +10,11 @@ import { gatewayShopStock, StockRefusedError, StockUnavailableError, type ShopSt
 
 type Reservation = typeof stockReservations.$inferSelect;
 // Placed Orders have no confirmation yet, so they have no payment clock.
-const unpaidStatuses = ["confirmed", "awaiting payment"];
 const prepaidMethods = ["gcash", "maya", "bank-transfer"];
-const day = 24 * 60 * 60 * 1000;
+/** Past its saved payment deadline (24 hours after confirmation for Orders confirmed before deadlines were saved). */
+const pastDeadline = (now: Date) => sql`coalesce(${orders.paymentDeadlineAt}, ${orders.confirmedAt} + interval '24 hours') <= ${now.toISOString()}::timestamptz`;
+/** Unpaid and not paused: a proof Staff have yet to check (Pending Verification) pauses expiry; a rejected or absent proof does not. */
+const expirable = sql`(${orders.status} = 'confirmed' or (${orders.status} = 'awaiting payment' and (${orders.paymentProofSubmittedAt} is null or ${orders.paymentProofRejectedAt} is not null)))`;
 
 export function createStockReservations<T extends PgQueryResultHKT, S extends Record<string, unknown>>(
   db: PgDatabase<T, S>, stock: ShopStock = gatewayShopStock(),
@@ -148,19 +150,17 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
     return released;
   }
 
-  /** An Online payment Order unpaid 24 hours after Staff confirmed it is cancelled; the clock starts at confirmation, not placement. The Order row lock serializes expiry with payment and Staff decisions. */
+  /** An Online payment Order still unpaid at its saved payment deadline is cancelled; the clock starts at confirmation, not placement, and a proof waiting for Staff pauses it. The Order row lock serializes expiry with payment and Staff decisions. */
   async function expire(now = new Date(), publish?: (customerId: string, orderId: number) => Promise<void>) {
     const due = await db.select({ id: orders.id }).from(orders).where(and(
-      inArray(orders.paymentMethod, prepaidMethods), inArray(orders.status, unpaidStatuses),
-      lte(orders.confirmedAt, new Date(now.getTime() - day)),
+      inArray(orders.paymentMethod, prepaidMethods), isNotNull(orders.confirmedAt), expirable, pastDeadline(now),
     )).orderBy(orders.confirmedAt).limit(50);
     let cancelled = 0;
     for (const candidate of due) {
       let changed: { customerId: string; orderId: number } | undefined;
       await db.transaction(async tx => {
         const [order] = await tx.select().from(orders).where(and(eq(orders.id, candidate.id),
-          inArray(orders.paymentMethod, prepaidMethods), inArray(orders.status, unpaidStatuses),
-          lte(orders.confirmedAt, new Date(now.getTime() - day)),
+          inArray(orders.paymentMethod, prepaidMethods), isNotNull(orders.confirmedAt), expirable, pastDeadline(now),
         )).for("update", { skipLocked: true });
         if (!order) return;
         await tx.update(orders).set({ status: "cancelled" }).where(eq(orders.id, order.id));
@@ -169,12 +169,12 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
         const [customer] = await tx.select().from(customers).where(eq(customers.id, order.customerId));
         await tx.insert(stockOutbox).values({ key, kind: "email", orderId: order.id, payload: {
           to: customer.email, title: "Your order was cancelled",
-          body: `Order #${order.id} was cancelled because payment was not confirmed within 24 hours. Its reserved items will be released. You can place a new Order.`,
+          body: `Order #${order.id} was cancelled because payment was not confirmed before its deadline. Its reserved items will be released. You can place a new Order.`,
           button: { label: "View Order", link: `${required("NEXT_PUBLIC_SITE_URL").replace(/\/$/, "")}/profile/orders?order=${order.id}` },
         } }).onConflictDoNothing();
         await tx.insert(customerNotifications).values({ idempotencyKey: `order.cancelled:${order.id}`, orderId: order.id,
           customerId: order.customerId, type: "order.cancelled", title: "Your order was cancelled",
-          body: "Payment was not confirmed within 24 hours. You can place a new Order.", link: `/profile/orders?order=${order.id}`,
+          body: "Payment was not confirmed before its deadline. You can place a new Order.", link: `/profile/orders?order=${order.id}`,
         }).onConflictDoNothing();
         changed = { customerId: order.customerId, orderId: order.id };
         cancelled++;

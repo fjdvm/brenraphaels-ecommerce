@@ -69,9 +69,11 @@ describe("order placed screen", () => {
     expect(screen.getByRole("link", { name: "Pay later in My orders" })).toBeTruthy();
   });
 
-  test("an Order not yet confirmed shows the details but no proof form, and Cash on Delivery shows no details", () => {
+  test("an Order not yet confirmed shows Pending Confirmation, no numbers and no proof form; Cash on Delivery shows no details", () => {
     const { unmount } = render(<OrderPlacedView details={details} order={order({ paymentMethod: "maya", status: "placed" })} />);
-    expect(screen.getByText("0918 111 1111")).toBeTruthy();
+    expect(screen.getByTestId("pending-confirmation")).toBeTruthy();
+    expect(screen.queryByText("0918 111 1111")).toBeNull();
+    expect(screen.queryByTestId("payment-details")).toBeNull();
     expect(screen.queryByRole("button", { name: "Submit payment" })).toBeNull();
     unmount();
     render(<OrderPlacedView details={details} order={order({ paymentMethod: "cash-on-delivery" })} />);

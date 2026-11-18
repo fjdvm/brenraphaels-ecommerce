@@ -33,28 +33,36 @@ export function OrderPlacedView({ order, details, firstName, pickup = null }: { 
         <span className="flex size-[72px] items-center justify-center rounded-full bg-success-soft"><Check aria-hidden className="size-8 text-success" /></span>
         <h1 className="font-serif text-[40px] leading-[1.2] text-primary sm:text-[54px]">Thank you{firstName ? `, ${firstName}` : ""}!</h1>
         <p className="text-base tracking-[0.35px] text-body">
-          Order #{order.id} is placed.{prepaid ? ` Send your ${label} payment so we can start preparing it.` : ` You'll pay with ${label}.`}
+          Order #{order.id} is placed.{prepaid ? ` We will confirm it before you pay.` : ` You'll pay with ${label}.`}
         </p>
       </div>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <section aria-labelledby="pay-heading" className="flex flex-1 flex-col gap-5 border border-line bg-white p-6 sm:px-11 sm:py-10">
-          <h2 className="font-serif text-[28px] leading-tight text-primary" id="pay-heading">{prepaid ? `Pay with ${label}` : label}</h2>
+          <h2 className="font-serif text-[28px] leading-tight text-primary" id="pay-heading">{prepaid ? (order.status === "placed" ? `${label} · Pending Confirmation` : `Pay with ${label}`) : label}</h2>
           {prepaid ? (
             <>
-              <PaymentDetailsCard detail={details.find((detail) => detail.method === order.paymentMethod)} />
-              <ol className="flex flex-col gap-4">
-                {STEPS.map((step, index) => (
-                  <li className="flex items-start gap-3.5" key={step.title}>
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-medium text-white">{index + 1}</span>
-                    <span className="flex flex-col gap-0.5 tracking-[0.35px]"><span className="text-sm font-medium text-ink">{step.title}</span><span className="text-xs text-body">{step.note}</span></span>
-                  </li>
-                ))}
-              </ol>
+              {order.status === "placed" ? (
+                <p className="border border-line bg-surface-soft p-4 text-sm tracking-[0.35px] text-body" data-testid="pending-confirmation">
+                  <span className="font-medium text-ink">Pending Confirmation. </span>We&apos;ll confirm your Order first, then show where to pay and your payment deadline. Nothing to send yet.
+                </p>
+              ) : (
+                <>
+                  <PaymentDetailsCard detail={details.find((detail) => detail.method === order.paymentMethod)} />
+                  <ol className="flex flex-col gap-4">
+                    {STEPS.map((step, index) => (
+                      <li className="flex items-start gap-3.5" key={step.title}>
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-medium text-white">{index + 1}</span>
+                        <span className="flex flex-col gap-0.5 tracking-[0.35px]"><span className="text-sm font-medium text-ink">{step.title}</span><span className="text-xs text-body">{step.note}</span></span>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
               {needsPayment(order) ? (
                 <PaymentProofForm amountInCentavos={total} deadline={formatPlacedAt(paymentDeadline(order))} method={order.paymentMethod} orderId={order.id} placedAt={order.createdAt} />
               ) : (
                 <p className="text-sm text-body">
-                  {order.status === "awaiting payment" ? "Your reference number was sent. We'll email you once it's verified." : "We'll confirm your Order first. Then you can submit your reference number here or in My orders."}
+                  {order.status === "awaiting payment" ? "Your reference number was sent. We'll email you once it's verified." : "We'll confirm your Order first."}
                 </p>
               )}
             </>

@@ -1,4 +1,5 @@
 import { isPrepaid } from "./payment-methods";
+import { paymentDeadlineOf } from "./payment-deadline";
 import type { Order, OrderStatus } from "./orders";
 
 /** The slice of an Order that decides how it is presented on the My orders page. */
@@ -68,8 +69,9 @@ function capitalise(text: string) {
 
 export function orderBadges(order: OrderView): OrderBadge[] {
   const badges: OrderBadge[] = [
-    { text: capitalise(order.status), tone: order.status === "placed" || order.status === "cancelled" ? "neutral" : "lavender" },
+    { text: order.status === "placed" && isPrepaid(order.paymentMethod) ? "Pending Confirmation" : capitalise(order.status), tone: order.status === "placed" || order.status === "cancelled" ? "neutral" : "lavender" },
   ];
+  if (order.status === "awaiting payment" && order.paymentProof && !order.paymentProofRejection) badges[0] = { text: "Pending Verification", tone: "lavender" };
   if (needsPayment(order)) badges.push({ text: "Payment needed", tone: "warning" });
   if (needsNewProof(order)) badges.push({ text: "New proof needed", tone: "warning" });
   if (awaitingDeliveryFee(order)) badges.push({ text: "Delivery fee pending", tone: "warning" });
@@ -91,9 +93,9 @@ export function formatPlacedAt(date: Date) {
   return `${parts.month} ${parts.day}, ${parts.year} · ${parts.hour}:${parts.minute} ${parts.dayPeriod}`;
 }
 
-/** Unpaid prepaid Orders are cancelled 24 hours after they are placed, so this is the Customer's deadline. */
-export function paymentDeadline(order: Pick<Order, "createdAt">) {
-  return new Date(order.createdAt.getTime() + 24 * 60 * 60 * 1000);
+/** The deadline saved when Staff confirmed the Order; for one not yet confirmed, the default window from now is a preview only. */
+export function paymentDeadline(order: Pick<Order, "createdAt" | "confirmedAt" | "paymentDeadlineAt">) {
+  return paymentDeadlineOf(order) ?? new Date(order.createdAt.getTime() + 24 * 60 * 60 * 1000);
 }
 
 /** Subtotal plus the delivery fee once staff have quoted it. */

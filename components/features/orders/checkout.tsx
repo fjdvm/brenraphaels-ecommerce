@@ -36,9 +36,8 @@ import { formatAddressLine } from "@/lib/address/format";
 import type { CustomerAddress } from "@/lib/customer/visitor";
 import type { Cart } from "@/lib/orders/cart";
 import type { PaymentMethod } from "@/lib/orders/orders";
-import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
+import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
 import { emptySeniorPwdDraft, SeniorPwdPanel, seniorPwdDiscountFor, seniorPwdReady, type SeniorPwdDraft, type SeniorPwdStanding } from "@/components/features/orders/senior-pwd-panel";
-import { PaymentDetailsCard } from "@/components/features/orders/payment-details-card";
 
 const PREPAID = [
   { method: "gcash", icon: Wallet, description: "After placing your order, submit your GCash reference number in My orders." },
@@ -51,14 +50,12 @@ const initialAddressState: CheckoutAddressState = {};
 export function CheckoutView({
   cart,
   addresses,
-  paymentDetails = [],
   seniorPwdStanding = { verified: false, expiresOn: null },
   freeDeliveryThresholdInCentavos = null,
 }: {
   cart: Cart;
   addresses: CustomerAddress[];
   /** Where each prepaid method is paid, as the shop set it. */
-  paymentDetails?: PaymentDetail[];
   /** Whether the Customer already has an approved Senior/PWD ID. */
   seniorPwdStanding?: SeniorPwdStanding;
   /** The shop's current Free delivery threshold; null when it could not be read, so no promise is made. */
@@ -180,7 +177,7 @@ export function CheckoutView({
                 value="cash-on-delivery"
               />
             </fieldset>
-            {paymentMethod !== "cash-on-delivery" ? <PaymentDetailsCard detail={paymentDetails.find((detail) => detail.method === paymentMethod)} /> : null}
+            {paymentMethod !== "cash-on-delivery" ? <p className="text-sm tracking-[0.35px] text-body" data-testid="pending-confirmation-note">Your Order will show Pending Confirmation. Once the shop confirms it, we show where to pay.</p> : null}
           </Panel>
           <Panel title={`${fulfillmentMethod === "delivery" ? "4" : "3"}. Senior Citizen / PWD discount`}>
             <SeniorPwdPanel cart={cart} draft={senior} onChange={setSenior} standing={seniorPwdStanding} />

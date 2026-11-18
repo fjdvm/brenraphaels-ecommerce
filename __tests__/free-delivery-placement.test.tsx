@@ -124,6 +124,14 @@ describe("checkout", () => {
     expect(screen.getAllByText("Your order is subject to shop confirmation").length).toBeGreaterThan(0);
   });
 
+  test("an Online payment choice shows Pending Confirmation, never payment numbers or QR codes", () => {
+    render(<CheckoutView cart={cart} addresses={addresses} />);
+    fireEvent.click(screen.getByLabelText(/GCash/, { selector: "input[value=gcash]" }));
+    expect(screen.getByTestId("pending-confirmation-note").textContent).toContain("Pending Confirmation");
+    expect(screen.queryByTestId("payment-details")).toBeNull();
+    expect(screen.queryByRole("img", { name: /QR/i })).toBeNull();
+  });
+
   test("keeps the fee to follow at exactly the threshold or when the threshold is unknown", () => {
     const equal = { ...cart, subtotalInCentavos: THRESHOLD } as Cart;
     render(<CheckoutView cart={equal} addresses={addresses} freeDeliveryThresholdInCentavos={THRESHOLD} />);

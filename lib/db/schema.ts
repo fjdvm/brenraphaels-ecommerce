@@ -206,6 +206,8 @@ export const orders = pgTable("orders", {
   approvedDiscountInCentavos: integer("approved_discount_in_centavos"),
   totalInCentavos: integer("total_in_centavos"),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  /** When an unpaid Online payment Order is cancelled; saved with `confirmedAt` in the same write and never moved by email delay, failure, retry or Resend. Null on Orders confirmed before this existed (24 hours after `confirmedAt`). */
+  paymentDeadlineAt: timestamp("payment_deadline_at", { withTimezone: true }),
   /** How much of the ID's ₱125 weekly cap other Orders had used when this one was confirmed, in centavos. */
   seniorPwdAllowanceUsedInCentavos: integer("senior_pwd_allowance_used_in_centavos"),
   /** Why the Senior/PWD discount was reduced at confirmation; null when it was not. */

@@ -4,6 +4,8 @@ import { after } from "next/server";
 import { createStockReservations } from "./stock-reservations";
 import { qualifiesForFreeDelivery } from "./free-delivery";
 import { loadFreeDeliveryThreshold } from "./free-delivery-threshold";
+import { loadPaymentWindowHours } from "./payment-window";
+import { paymentDeadlinePassed } from "./payment-deadline";
 import { gatewayShopStock, type ShopStock } from "./stock";
 import { gatewayProductImages, productThumbnail, type ProductImageFiles, type ProductImageReference } from "../catalog/product-images";
 import { and, asc, desc, eq, gte, inArray, isNull, isNotNull, lt, ne, or, sql } from "drizzle-orm";
@@ -92,6 +94,8 @@ export type Order = {
   approvedDiscountInCentavos?: number | null;
   totalInCentavos?: number | null;
   confirmedAt?: Date | null;
+  /** When an unpaid Online payment Order is cancelled, saved with `confirmedAt`; null before confirmation and on Orders confirmed before it existed. */
+  paymentDeadlineAt?: Date | null;
   /** Free delivery as judged when the Order was placed (or, for an older unconfirmed Order, when Staff confirmed it); never recalculated. */
   freeDelivery?: boolean;
   /** The Free delivery threshold in force when judged, in centavos; null before the rule has been judged. */
@@ -235,6 +239,7 @@ export function createOrderStore<
 >(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages(), stock: ShopStock = gatewayShopStock(),
   defer: (work: () => Promise<void>) => void = work => after(work),
   readThreshold: () => Promise<number | null> = () => loadFreeDeliveryThreshold(),
+  readPaymentWindowHours: () => Promise<number> = () => loadPaymentWindowHours(),
 ): OrderStore {
   const reservations = createStockReservations(db, stock);
   /** The same stock without reads, for use while rows are locked. */
@@ -304,6 +309,7 @@ export function createOrderStore<
       approvedDiscountInCentavos: row.approvedDiscountInCentavos,
       totalInCentavos: row.totalInCentavos,
       confirmedAt: row.confirmedAt,
+      paymentDeadlineAt: row.paymentDeadlineAt,
       freeDelivery: row.freeDelivery,
       freeDeliveryThresholdInCentavos: row.freeDeliveryThresholdInCentavos,
       seniorPwd: await seniorPwdFigures(row),
@@ -470,6 +476,11 @@ export function createOrderStore<
     const judgeNow = input.confirmation !== undefined && persistedOrder.fulfillmentMethod === "delivery"
       && persistedOrder.freeDeliveryThresholdInCentavos === null && !persistedOrder.confirmedAt;
     const judgedThreshold = judgeNow ? await readThreshold().catch(() => null) : null;
+    // The payment window is read once, here, and saved with the confirmation time in the same write below.
+    const confirming = input.confirmation !== undefined && !persistedOrder.confirmedAt;
+    const confirmedAt = confirming ? new Date() : persistedOrder.confirmedAt;
+    const paymentDeadlineAt = confirming && confirmedAt && isPrepaid(persistedOrder.paymentMethod)
+      ? new Date(confirmedAt.getTime() + (await readPaymentWindowHours()) * 3_600_000) : null;
     let releaseId: string | undefined;
     const updatedOrder = await db.transaction(async (transaction) => {
       // Serialize delivery with failed-attempt decisions and refuse disposed goods.
@@ -506,7 +517,8 @@ export function createOrderStore<
             totalInCentavos: input.confirmation.totalInCentavos,
             ...(quote && persistedOrder.seniorPwdVerificationId !== null
               ? { seniorPwdAllowanceUsedInCentavos: quote.allowanceUsedInCentavos, seniorPwdReductionReason: quote.reason } : {}),
-            confirmedAt: persistedOrder.confirmedAt ?? new Date(),
+            confirmedAt: confirmedAt ?? new Date(),
+            ...(paymentDeadlineAt ? { paymentDeadlineAt } : {}),
             ...(judgedThreshold === null ? {} : {
               freeDelivery: qualifiesForFreeDelivery(input.confirmation.subtotalInCentavos - input.confirmation.approvedDiscountInCentavos, judgedThreshold),
               freeDeliveryThresholdInCentavos: judgedThreshold,
@@ -734,8 +746,12 @@ export function createOrderStore<
         : "Payment proof can only be submitted for a confirmed Order.");
     }
 
-    const expectedRecipient = await paymentRecipient(persistedOrder.paymentMethod);
     const submittedAt = new Date();
+    // A first proof only counts in time; once the deadline has passed the Order is waiting to be cancelled.
+    if (!resubmission && paymentDeadlinePassed(persistedOrder, submittedAt)) {
+      throw new Error("The payment deadline for this Order has passed, so it can no longer take a proof.");
+    }
+    const expectedRecipient = await paymentRecipient(persistedOrder.paymentMethod);
     const updatedOrder = await db.transaction(async (transaction) => {
       const [updated] = await transaction
         .update(orders)
