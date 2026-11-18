@@ -119,9 +119,10 @@ export async function submitPaymentProof(
   } catch (error) {
     return { fieldErrors: { screenshot: [error instanceof Error ? error.message : "We couldn't read that screenshot."] } };
   }
+  const files = gatewayTicketFiles();
   let screenshotFileId: string;
   try {
-    screenshotFileId = await uploadPaymentProofScreenshot(screenshot, gatewayTicketFiles());
+    screenshotFileId = await uploadPaymentProofScreenshot(screenshot, files);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("That file isn't")) return { fieldErrors: { screenshot: [error.message] } };
     console.error("A payment-proof screenshot could not be stored in file-storage", error);
@@ -136,8 +137,11 @@ export async function submitPaymentProof(
       screenshotFileId,
       account,
       submissionKey,
+      discardFile: (fileId) => files.remove(fileId),
     });
   } catch (error) {
+    // Nothing was saved, so the uploaded screenshot is unused: remove it rather than leave it in file-storage.
+    await files.remove(screenshotFileId).catch((removal) => console.error("An unused payment-proof screenshot could not be removed", removal));
     return { message: error instanceof Error ? error.message : "We couldn't submit your payment proof." };
   }
 

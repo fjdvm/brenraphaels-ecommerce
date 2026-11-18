@@ -135,7 +135,9 @@ describe("saving the proof", () => {
     const { store, order } = await confirmed();
     const input = { gcashReferenceNumber: "1234567890", screenshotFileId: "f1", account: saved, submissionKey: "k1" };
     await store.submitPaymentProof("c1", order.id, input);
-    await expect(store.submitPaymentProof("c1", order.id, input)).resolves.toMatchObject({ status: "awaiting payment" });
+    const discard = vi.fn().mockResolvedValue(undefined);
+    await expect(store.submitPaymentProof("c1", order.id, { ...input, screenshotFileId: "f2", discardFile: discard })).resolves.toMatchObject({ status: "awaiting payment" });
+    expect(discard).toHaveBeenCalledWith("f2");
     const { rows } = await client.query("select id from order_payment_proofs");
     expect(rows).toHaveLength(1);
   });

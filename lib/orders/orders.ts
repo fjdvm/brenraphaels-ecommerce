@@ -149,6 +149,8 @@ export type SubmitPaymentProofInput = {
   account?: { id: string; method: string; bankName: string | null; label: string; accountName: string; accountNumber: string };
   /** One per form load; a retry with the same key returns the saved proof instead of making a second. */
   submissionKey?: string;
+  /** Removes an uploaded screenshot that ended up unused (a replayed submit); best effort. */
+  discardFile?: (fileId: string) => Promise<void>;
 };
 
 /** Where an Order's payment-proof screenshot lives: file-storage, or legacy Vercel Blob. */
@@ -743,7 +745,10 @@ export function createOrderStore<
     if (input.submissionKey) {
       const [saved] = await db.select({ id: orderPaymentProofs.id }).from(orderPaymentProofs)
         .where(and(eq(orderPaymentProofs.orderId, orderId), eq(orderPaymentProofs.submissionKey, input.submissionKey)));
-      if (saved) return toOrder(persistedOrder, await linesForOrder(persistedOrder.id));
+      if (saved) {
+        if (input.screenshotFileId && input.discardFile) await input.discardFile(input.screenshotFileId).catch(() => undefined);
+        return toOrder(persistedOrder, await linesForOrder(persistedOrder.id));
+      }
     }
     const confirmed = confirmedProofInput.parse(input);
     const problem = referenceProblem(persistedOrder.paymentMethod, input.gcashReferenceNumber);

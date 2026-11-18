@@ -1,8 +1,8 @@
 import { beforeEach, expect, test, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ submit: vi.fn(), customer: vi.fn(), account: vi.fn(), upload: vi.fn() }));
+const mocks = vi.hoisted(() => ({ submit: vi.fn(), customer: vi.fn(), account: vi.fn(), upload: vi.fn(), remove: vi.fn() }));
 vi.mock("@/lib/orders/payment-accounts", () => ({ loadPaymentAccountSnapshot: mocks.account }));
-vi.mock("@/lib/support/ticket-files", () => ({ gatewayTicketFiles: () => ({ upload: mocks.upload }) }));
+vi.mock("@/lib/support/ticket-files", () => ({ gatewayTicketFiles: () => ({ upload: mocks.upload, remove: mocks.remove }) }));
 vi.mock("@/lib/customer/current-visitor", () => ({ requireCustomer: mocks.customer }));
 vi.mock("@/lib/db", () => ({ getDatabase: vi.fn() }));
 vi.mock("@/lib/orders/orders", () => ({ createOrderStore: () => ({ submitPaymentProof: mocks.submit }) }));
@@ -14,7 +14,7 @@ import { submitPaymentProof } from "@/app/(site)/(protected)/profile/orders/acti
 beforeEach(() => {
   vi.clearAllMocks(); mocks.customer.mockResolvedValue({ userId: "c1" });
   mocks.submit.mockResolvedValue({});
-  mocks.account.mockResolvedValue(snapshot); mocks.upload.mockResolvedValue("file-1");
+  mocks.account.mockResolvedValue(snapshot); mocks.upload.mockResolvedValue("file-1"); mocks.remove.mockResolvedValue(undefined);
 });
 const snapshot = { id: "11111111-1111-1111-1111-111111111111", method: "gcash", bankName: null, label: "Main", accountName: "Bren", accountNumber: "0917 000 0000" };
 const png = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0])], "receipt.png", { type: "image/png" });
@@ -68,4 +68,19 @@ test("refuses a missing or unknown account", async () => {
 test("an account deactivated since the transfer is still accepted, for Staff review", async () => {
   // loadPaymentAccountSnapshot answers for inactive accounts too; the action never checks `active`.
   expect(await submitPaymentProof(7, {}, fields())).toMatchObject({ submitted: true });
+});
+
+test("removes the uploaded screenshot when the proof cannot be saved", async () => {
+  mocks.submit.mockRejectedValue(new Error("The payment deadline for this Order has passed."));
+  expect(await submitPaymentProof(7, {}, fields())).toMatchObject({ message: expect.stringContaining("deadline") });
+  expect(mocks.remove).toHaveBeenCalledWith("file-1");
+});
+test("a failed removal never hides the real refusal", async () => {
+  mocks.submit.mockRejectedValue(new Error("Order was not found."));
+  mocks.remove.mockRejectedValue(new Error("file-storage is down"));
+  expect(await submitPaymentProof(7, {}, fields())).toMatchObject({ message: "Order was not found." });
+});
+test("keeps the screenshot once the proof is saved", async () => {
+  await submitPaymentProof(7, {}, fields());
+  expect(mocks.remove).not.toHaveBeenCalled();
 });

@@ -8,7 +8,7 @@ vi.mock("next/server", () => ({ after: deps.after }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/db", () => ({ getDatabase: vi.fn() }));
 vi.mock("@/lib/orders/payment-accounts", () => ({ loadPaymentAccountSnapshot: async () => ({ id: "a1", method: "gcash", bankName: null, label: "Main", accountName: "Bren", accountNumber: "0917" }) }));
-vi.mock("@/lib/support/ticket-files", async (original) => ({ ...(await original<typeof import("@/lib/support/ticket-files")>()), gatewayTicketFiles: () => ({ upload: async () => "file-1" }) }));
+vi.mock("@/lib/support/ticket-files", async (original) => ({ ...(await original<typeof import("@/lib/support/ticket-files")>()), gatewayTicketFiles: () => ({ upload: async () => "file-1", remove: async () => undefined }) }));
 vi.mock("@/lib/customer/current-visitor", () => ({
   requireCustomer: async () => ({ userId: "c1", email: "customer@example.com" }),
   currentVisitor: async () => ({ state: "customer", customer: { userId: "c1" } }),
