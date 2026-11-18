@@ -1,14 +1,16 @@
 import { Check } from "lucide-react";
 import Link from "next/link";
 
-import { PaymentDetailsCard } from "@/components/features/orders/payment-details-card";
+import { PaymentAccountsCard } from "@/components/features/orders/payment-accounts-card";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { Button } from "@/components/ui/button";
 import { formatPeso } from "@/lib/catalog/currency";
+import { FREE_DELIVERY_CONFIRMATION_NOTICE } from "@/lib/orders/free-delivery";
 import { formatPlacedAt, needsPayment, orderTotalInCentavos, paymentDeadline } from "@/lib/orders/order-view";
 import type { Order } from "@/lib/orders/orders";
 import { isPrepaid } from "@/lib/orders/payment-methods";
-import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
+import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
+import type { PaymentAccountOption } from "@/lib/orders/payment-offer";
 import { pickupReminder, type PickupInstructions } from "@/lib/pickup/instructions";
 
 const STEPS = [
@@ -18,12 +20,13 @@ const STEPS = [
 ] as const;
 
 /** The screen after checkout: where to pay, the proof form once the Order can take it, and the summary. */
-export function OrderPlacedView({ order, details, firstName, pickup = null }: { order: Order; details: PaymentDetail[]; firstName?: string; pickup?: PickupInstructions | null }) {
+export function OrderPlacedView({ order, accounts, firstName, pickup = null }: { order: Order; accounts: PaymentAccountOption[]; firstName?: string; pickup?: PickupInstructions | null }) {
   const label = PAYMENT_LABELS[order.paymentMethod];
   const prepaid = isPrepaid(order.paymentMethod);
   const total = orderTotalInCentavos(order);
   const reminder = order.fulfillmentMethod === "pickup" ? pickupReminder(order) : null;
-  const feePending = order.fulfillmentMethod === "delivery" && order.deliveryFeeInCentavos === null;
+  const freeDelivery = order.fulfillmentMethod === "delivery" && order.freeDelivery === true;
+  const feePending = order.fulfillmentMethod === "delivery" && order.deliveryFeeInCentavos === null && !freeDelivery;
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-6 px-5 pb-20 pt-12 sm:px-10">
@@ -31,28 +34,36 @@ export function OrderPlacedView({ order, details, firstName, pickup = null }: { 
         <span className="flex size-[72px] items-center justify-center rounded-full bg-success-soft"><Check aria-hidden className="size-8 text-success" /></span>
         <h1 className="font-serif text-[40px] leading-[1.2] text-primary sm:text-[54px]">Thank you{firstName ? `, ${firstName}` : ""}!</h1>
         <p className="text-base tracking-[0.35px] text-body">
-          Order #{order.id} is placed.{prepaid ? ` Send your ${label} payment so we can start preparing it.` : ` You'll pay with ${label}.`}
+          Order #{order.id} is placed.{prepaid ? ` We will confirm it before you pay.` : ` You'll pay with ${label}.`}
         </p>
       </div>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <section aria-labelledby="pay-heading" className="flex flex-1 flex-col gap-5 border border-line bg-white p-6 sm:px-11 sm:py-10">
-          <h2 className="font-serif text-[28px] leading-tight text-primary" id="pay-heading">{prepaid ? `Pay with ${label}` : label}</h2>
+          <h2 className="font-serif text-[28px] leading-tight text-primary" id="pay-heading">{prepaid ? (order.status === "placed" ? `${label} · Pending Confirmation` : `Pay with ${label}`) : label}</h2>
           {prepaid ? (
             <>
-              <PaymentDetailsCard detail={details.find((detail) => detail.method === order.paymentMethod)} />
-              <ol className="flex flex-col gap-4">
-                {STEPS.map((step, index) => (
-                  <li className="flex items-start gap-3.5" key={step.title}>
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-medium text-white">{index + 1}</span>
-                    <span className="flex flex-col gap-0.5 tracking-[0.35px]"><span className="text-sm font-medium text-ink">{step.title}</span><span className="text-xs text-body">{step.note}</span></span>
-                  </li>
-                ))}
-              </ol>
+              {order.status === "placed" ? (
+                <p className="border border-line bg-surface-soft p-4 text-sm tracking-[0.35px] text-body" data-testid="pending-confirmation">
+                  <span className="font-medium text-ink">Pending Confirmation. </span>We&apos;ll confirm your Order first, then show where to pay and your payment deadline. Nothing to send yet.
+                </p>
+              ) : (
+                <>
+                  {needsPayment(order) ? <PaymentAccountsCard accounts={accounts} amountInCentavos={total} deadline={formatPlacedAt(paymentDeadline(order))} method={order.paymentMethod} /> : null}
+                  <ol className="flex flex-col gap-4">
+                    {STEPS.map((step, index) => (
+                      <li className="flex items-start gap-3.5" key={step.title}>
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-medium text-white">{index + 1}</span>
+                        <span className="flex flex-col gap-0.5 tracking-[0.35px]"><span className="text-sm font-medium text-ink">{step.title}</span><span className="text-xs text-body">{step.note}</span></span>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
               {needsPayment(order) ? (
-                <PaymentProofForm amountInCentavos={total} deadline={formatPlacedAt(paymentDeadline(order))} method={order.paymentMethod} orderId={order.id} placedAt={order.createdAt} />
+                <PaymentProofForm accounts={accounts} showAccounts={false} amountInCentavos={total} deadline={formatPlacedAt(paymentDeadline(order))} method={order.paymentMethod} orderId={order.id} placedAt={order.createdAt} />
               ) : (
                 <p className="text-sm text-body">
-                  {order.status === "awaiting payment" ? "Your reference number was sent. We'll email you once it's verified." : "We'll confirm your Order first. Then you can submit your reference number here or in My orders."}
+                  {order.status === "awaiting payment" ? "Your reference number was sent. We'll email you once it's verified." : "We'll confirm your Order first."}
                 </p>
               )}
             </>
@@ -85,8 +96,9 @@ export function OrderPlacedView({ order, details, firstName, pickup = null }: { 
             ))}
           </ul>
           <dl className="flex flex-col gap-3 border-t border-line pt-3 text-sm tracking-[0.35px]">
-            <div className="flex justify-between"><dt className="text-muted">{order.fulfillmentMethod === "pickup" ? "Pickup" : "Delivery"}</dt><dd className="text-ink">{order.fulfillmentMethod === "pickup" ? "Free" : feePending ? "Fee to follow" : formatPeso(order.deliveryFeeInCentavos ?? 0)}</dd></div>
+            <div className="flex justify-between"><dt className="text-muted">{order.fulfillmentMethod === "pickup" ? "Pickup" : "Delivery"}</dt><dd className="text-ink">{order.fulfillmentMethod === "pickup" ? "Free" : freeDelivery ? "Delivery: Free" : feePending ? "Fee to follow" : formatPeso(order.deliveryFeeInCentavos ?? 0)}</dd></div>
             <div className="flex justify-between"><dt className="text-muted">Payment</dt><dd className="text-ink">{label}{prepaid ? (order.paymentProof ? " · reference sent" : " · waiting for reference") : ""}</dd></div>
+            {freeDelivery && order.status === "placed" ? <p className="text-xs text-warning">{FREE_DELIVERY_CONFIRMATION_NOTICE}</p> : null}
             <div className="flex justify-between border-t border-line pt-3"><dt className="text-muted">Total</dt><dd className="font-serif text-lg text-primary">{feePending ? `${formatPeso(total)} + delivery` : formatPeso(total)}</dd></div>
           </dl>
         </aside>

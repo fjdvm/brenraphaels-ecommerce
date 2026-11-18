@@ -365,6 +365,41 @@
       "when": 1796745600000,
       "tag": "0051_order_email_retries",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1796832000000,
+      "tag": "0052_free_delivery_judged",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1796918400000,
+      "tag": "0053_payment_deadline",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1797004800000,
+      "tag": "0054_payment_proof_account",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1797091200000,
+      "tag": "0055_manager_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1797177600000,
+      "tag": "0056_order_collected_at",
+      "breakpoints": true
     }
   ]
 }

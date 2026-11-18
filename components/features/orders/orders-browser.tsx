@@ -1,6 +1,8 @@
 "use client";
 
+import { isCompleted, isCompletedOrReceived } from "@/lib/orders/completion";
 import { FEE_TO_FOLLOW_SHORT } from "@/lib/orders/fee-to-follow-copy";
+import { FREE_DELIVERY_CONFIRMATION_NOTICE } from "@/lib/orders/free-delivery";
 import { Calendar, Check, ChevronDown, Store, Truck, Wallet } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -13,13 +15,15 @@ import { OrderReceivedButton } from "@/components/features/orders/order-received
 import { TrackDelivery } from "@/components/features/orders/track-delivery";
 import { OrderReturn } from "@/components/features/orders/order-return";
 import { ReturnsList } from "@/components/features/orders/returns-list";
-import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
+import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
+import type { PaymentAccountOption } from "@/lib/orders/payment-offer";
 import { isPrepaid } from "@/lib/orders/payment-methods";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { formatPeso } from "@/lib/catalog/currency";
 import {
   formatPlacedAt,
   needsNewProof,
+  underManagerReview,
   needsPayment,
   paymentDeadline,
   orderBadges,
@@ -57,7 +61,7 @@ const badgeClass: Record<OrderBadge["tone"], string> = {
 };
 
 /** The My orders list: filter chips over expandable Order cards. */
-export function OrdersBrowser({ orders, returns = [], focusOrderId, paymentDetails = [] }: { orders: OrderWithFeedback[]; returns?: CustomerReturn[]; focusOrderId?: number; paymentDetails?: PaymentDetail[] }) {
+export function OrdersBrowser({ orders, returns = [], focusOrderId, paymentAccounts = [] }: { orders: OrderWithFeedback[]; returns?: CustomerReturn[]; focusOrderId?: number; paymentAccounts?: PaymentAccountOption[] }) {
   const [filter, setFilter] = useState<Tab>("all");
   const [scrollToReturn, setScrollToReturn] = useState<number>();
   const [openIds, setOpenIds] = useState<Set<number>>(() => {
@@ -127,7 +131,7 @@ export function OrdersBrowser({ orders, returns = [], focusOrderId, paymentDetai
         </p>
       ) : (
         visible.map(({ order, feedback, returnInProgress, returnOffer, cancellation }) => (
-          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} cancellation={cancellation ?? null} paymentDetails={paymentDetails} />
+          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} cancellation={cancellation ?? null} paymentAccounts={paymentAccounts} />
         ))
       )}
     </div>
@@ -157,9 +161,9 @@ function OrderCard({
   orderReturns,
   onShowReturn,
   onToggle,
-  paymentDetails,
+  paymentAccounts,
 }: {
-  paymentDetails: PaymentDetail[];
+  paymentAccounts: PaymentAccountOption[];
   order: Order;
   orderReturns: CustomerReturn[];
   onShowReturn: (id: number) => void;
@@ -172,7 +176,7 @@ function OrderCard({
 }) {
   const badges = orderBadges(order);
   // Once Staff confirm an Order the Customer can no longer cancel it here; they message the shop instead.
-  const cancellable = !order.confirmedAt && !["dispatched", "delivered", "received", "cancelled"].includes(order.status);
+  const cancellable = !order.confirmedAt && !["dispatched", "delivered", "ready for pickup", "collected", "received", "cancelled"].includes(order.status);
   const firstLine = order.lines[0];
   const summary = order.lines.map((line) => `${line.productName} · ${line.sizeLabel} × ${line.quantity}`).join("  ·  ");
   const detailsId = `order-${order.id}-details`;
@@ -222,7 +226,7 @@ function OrderCard({
           <ChevronDown aria-hidden className={cn("size-[18px] transition-transform", open && "rotate-180")} />
         </button>
       </div>
-      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} returnInProgress={returnInProgress} returnOffer={returnOffer} cancellation={cancellation} paymentDetails={paymentDetails} /> : null}
+      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} returnInProgress={returnInProgress} returnOffer={returnOffer} cancellation={cancellation} paymentAccounts={paymentAccounts} /> : null}
     </article>
   );
 }
@@ -235,9 +239,9 @@ function OrderDetails({
   returnOffer,
   cancellation,
   detailsId,
-  paymentDetails,
+  paymentAccounts,
 }: {
-  paymentDetails: PaymentDetail[];
+  paymentAccounts: PaymentAccountOption[];
   order: Order;
   feedback: OrderFeedbackSummary | null;
   cancellable: boolean;
@@ -249,7 +253,8 @@ function OrderDetails({
   const steps = orderTrackerSteps(order);
   const pickup = order.fulfillmentMethod === "pickup";
   const address = order.deliveryAddress;
-  const feePending = !pickup && order.deliveryFeeInCentavos === null;
+  const freeDelivery = !pickup && order.freeDelivery === true;
+  const feePending = !pickup && order.deliveryFeeInCentavos === null && !freeDelivery;
   const total = orderTotalInCentavos(order);
   const payment = PAYMENT_LABELS[order.paymentMethod];
   const paymentNote = !isPrepaid(order.paymentMethod) ? "" : order.paymentProofRejection ? " · proof not accepted" : order.paymentProof ? " · reference submitted" : " · awaiting reference";
@@ -316,7 +321,7 @@ function OrderDetails({
       <dl className="flex flex-col gap-2 text-sm tracking-[0.35px] text-body">
         <Row label="Subtotal">{formatPeso(order.subtotalInCentavos)}</Row>
         <Row label={pickup ? "Pickup" : "Delivery fee"}>
-          {pickup ? "Free" : feePending ? "To be confirmed" : formatPeso(order.deliveryFeeInCentavos ?? 0)}
+          {pickup ? "Free" : freeDelivery ? "Delivery: Free" : feePending ? "To be confirmed" : formatPeso(order.deliveryFeeInCentavos ?? 0)}
         </Row>
         <div className="flex items-center justify-between">
           <dt className="font-medium text-ink">Total</dt>
@@ -324,6 +329,7 @@ function OrderDetails({
         </div>
       </dl>
       {feePending ? <p className="text-right text-xs text-warning">{FEE_TO_FOLLOW_SHORT}</p> : null}
+      {freeDelivery && order.status === "placed" ? <p className="text-right text-xs text-warning">{FREE_DELIVERY_CONFIRMATION_NOTICE}</p> : null}
 
       {order.courier && order.status !== "placed" && order.status !== "cancelled" ? <TrackDelivery courier={order.courier} status={order.status} /> : null}
 
@@ -332,13 +338,19 @@ function OrderDetails({
       {needsPayment(order) || needsNewProof(order) ? (
         <PaymentProofForm
           amountInCentavos={total}
-          details={paymentDetails}
+          accounts={paymentAccounts}
           method={order.paymentMethod}
           orderId={order.id}
           rejection={order.paymentProofRejection ? { reason: order.paymentProofRejection.reason } : null}
           deadline={formatPlacedAt(paymentDeadline(order))}
           placedAt={order.createdAt}
         />
+      ) : null}
+      {underManagerReview(order) ? (
+        <div className="flex flex-col gap-1.5 bg-surface px-6 py-5 tracking-[0.35px]" data-testid="manager-review-notice" role="status">
+          <p className="text-sm font-medium text-red-700">We couldn&apos;t accept your payment proof{order.paymentProofRejection?.reason ? `: ${order.paymentProofRejection.reason}` : ""}.</p>
+          <p className="text-sm text-ink">Your payment is under Manager review</p>
+        </div>
       ) : null}
       {order.paymentProofHistory && order.paymentProofHistory.length > 0 ? (
         <div className="flex flex-col gap-2.5 bg-surface px-6 py-5 tracking-[0.35px]" data-testid="payment-history">
@@ -367,9 +379,9 @@ function OrderDetails({
         </p>
       ) : null}
 
-      {(order.status === "delivered" || order.status === "received") ? <OrderFeedbackForm feedback={feedback} orderId={order.id} /> : null}
+      {isCompletedOrReceived(order.status) ? <OrderFeedbackForm feedback={feedback} orderId={order.id} /> : null}
 
-      {order.status === "delivered" && (returnOffer || !returnInProgress) ? (
+      {isCompleted(order.status) && (returnOffer || !returnInProgress) ? (
         <div className="flex flex-wrap items-center justify-end gap-3">
           {returnOffer ? <OrderReturn offer={returnOffer} orderId={order.id} /> : null}
           {!returnInProgress ? <OrderReceivedButton orderId={order.id} /> : null}

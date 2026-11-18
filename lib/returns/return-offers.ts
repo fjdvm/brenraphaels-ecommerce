@@ -1,4 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { completedAtOf, isCompleted } from "../orders/completion";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { orderLines, orderReturnItems, orderReturns, orders } from "../db/schema";
@@ -34,14 +35,14 @@ export function createReturnOfferStore<TQueryResult extends PgQueryResultHKT, TS
   db: PgDatabase<TQueryResult, TSchema>,
 ) {
   async function forCustomer(customerId: string, customerOrders: Order[]): Promise<Map<number, ReturnOffer>> {
-    const delivered = customerOrders.filter((order) => order.status === "delivered");
+    const delivered = customerOrders.filter((order) => isCompleted(order.status));
     const offers = new Map<number, ReturnOffer>();
     if (delivered.length === 0) return offers;
     const ids = delivered.map((order) => order.id);
 
     const [lines, deliveries, locked, requested] = await Promise.all([
       db.select().from(orderLines).where(inArray(orderLines.orderId, ids)).orderBy(orderLines.id),
-      db.select({ id: orders.id, deliveredAt: orders.deliveredAt, extendedAt: orders.refundWindowExtendedAt, paymentMethod: orders.paymentMethod }).from(orders)
+      db.select({ id: orders.id, deliveredAt: orders.deliveredAt, collectedAt: orders.collectedAt, extendedAt: orders.refundWindowExtendedAt, paymentMethod: orders.paymentMethod }).from(orders)
         .where(and(eq(orders.customerId, customerId), inArray(orders.id, ids))),
       db.select({ orderLineId: orderReturnItems.orderLineId }).from(orderReturnItems)
         .innerJoin(orderReturns, eq(orderReturnItems.returnId, orderReturns.id))
@@ -50,7 +51,7 @@ export function createReturnOfferStore<TQueryResult extends PgQueryResultHKT, TS
         .where(and(inArray(orderReturns.orderId, ids), eq(orderReturns.status, "requested"))),
     ]);
     const lockedIds = new Set(locked.map((row) => row.orderLineId));
-    const deliveredAt = new Map(deliveries.map((row) => [row.id, row.deliveredAt?.getTime() ?? null]));
+    const deliveredAt = new Map(deliveries.map((row) => [row.id, completedAtOf(row)?.getTime() ?? null]));
     const paidWith = new Map(deliveries.map((row) => [row.id, row.paymentMethod]));
     const extended = new Set(deliveries.filter((row) => row.extendedAt).map((row) => row.id));
 

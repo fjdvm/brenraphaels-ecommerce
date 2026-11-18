@@ -96,5 +96,5 @@ test("will not extend an Order that is not delivered, and needs a reason", async
   const { db, order, service } = await fixture();
   await expect(service.extendWindow(order.id, { reason: "  ", ...staff })).rejects.toThrow();
   await db.update(orders).set({ status: "dispatched" }).where(eq(orders.id, order.id));
-  await expect(service.extendWindow(order.id, { reason: "Why", ...staff })).rejects.toThrow("Only a delivered Order");
+  await expect(service.extendWindow(order.id, { reason: "Why", ...staff })).rejects.toThrow("Only a delivered or picked up Order");
 });

@@ -20,12 +20,14 @@ import { orderFeedbackInput } from "@/lib/orders/feedback-input";
 import { createOrderReceiptStore, OrderReceiptConflictError, OrderReceiptNotFoundError } from "@/lib/orders/receipt";
 import { createOrderStore, OrderTransitionError, type Order } from "@/lib/orders/orders";
 import { referenceNumberField, uploadPaymentProofScreenshot, validatePaymentProofScreenshot } from "@/lib/orders/payment-proof";
+import { loadPaymentAccountSnapshot } from "@/lib/orders/payment-accounts";
 import { liveOrdersUrl } from "@/lib/orders/live";
 import { gatewayTicketFiles } from "@/lib/support/ticket-files";
 import { positiveIntegerField } from "@/lib/validators/fields";
 
 export type PaymentProofState = {
   message?: string;
+  submitted?: boolean;
   fieldErrors?: Record<string, string[] | undefined>;
 };
 
@@ -103,20 +105,28 @@ export async function submitPaymentProof(
     return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
   }
 
-  let screenshotFileId: string | undefined;
+  const accountId = String(formData.get("accountId") ?? "");
+  const account = accountId ? await loadPaymentAccountSnapshot(accountId) : undefined;
+  if (!account) return { fieldErrors: { accountId: ["Choose the account you paid."] } };
+  const submissionKey = String(formData.get("submissionKey") ?? "").slice(0, 64) || undefined;
+
   const screenshot = formData.get("screenshot");
-  if (screenshot instanceof File && screenshot.size > 0) {
-    try {
-      validatePaymentProofScreenshot(screenshot);
-    } catch (error) {
-      return { message: error instanceof Error ? error.message : "We couldn't upload that screenshot." };
-    }
-    try {
-      screenshotFileId = await uploadPaymentProofScreenshot(screenshot, gatewayTicketFiles());
-    } catch (error) {
-      console.error("A payment-proof screenshot could not be stored in file-storage", error);
-      return { message: "We couldn't upload that screenshot. Submit your reference number without one, or try again later." };
-    }
+  if (!(screenshot instanceof File) || screenshot.size === 0) {
+    return { fieldErrors: { screenshot: ["Upload a screenshot of your payment."] } };
+  }
+  try {
+    validatePaymentProofScreenshot(screenshot);
+  } catch (error) {
+    return { fieldErrors: { screenshot: [error instanceof Error ? error.message : "We couldn't read that screenshot."] } };
+  }
+  const files = gatewayTicketFiles();
+  let screenshotFileId: string;
+  try {
+    screenshotFileId = await uploadPaymentProofScreenshot(screenshot, files);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("That file isn't")) return { fieldErrors: { screenshot: [error.message] } };
+    console.error("A payment-proof screenshot could not be stored in file-storage", error);
+    return { message: "We couldn't upload that screenshot. Please try again." };
   }
 
   try {
@@ -125,15 +135,20 @@ export async function submitPaymentProof(
       confirmedAmountInCentavos: parsed.data.confirmedAmount,
       gcashReferenceNumber: parsed.data.gcashReferenceNumber,
       screenshotFileId,
+      account,
+      submissionKey,
+      discardFile: (fileId) => files.remove(fileId),
     });
   } catch (error) {
+    // Nothing was saved, so the uploaded screenshot is unused: remove it rather than leave it in file-storage.
+    await files.remove(screenshotFileId).catch((removal) => console.error("An unused payment-proof screenshot could not be removed", removal));
     return { message: error instanceof Error ? error.message : "We couldn't submit your payment proof." };
   }
 
   scheduleOrdersChanged();
   scheduleStaffSignal("Payment");
   revalidatePath("/profile/orders");
-  return { message: "Payment proof submitted. We'll email you once it's verified." };
+  return { message: "Payment proof submitted. Your order shows Pending Verification, and we'll email you once it's verified.", submitted: true };
 }
 
 /** Accepts one Customer-owned feedback response for a delivered Order. */

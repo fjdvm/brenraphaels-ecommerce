@@ -1,8 +1,10 @@
+import { isCompletedOrReceived } from "./completion";
 import { isPrepaid } from "./payment-methods";
+import { paymentDeadlineOf } from "./payment-deadline";
 import type { Order, OrderStatus } from "./orders";
 
 /** The slice of an Order that decides how it is presented on the My orders page. */
-export type OrderView = Pick<Order, "fulfillmentMethod" | "paymentMethod" | "status" | "deliveryFeeInCentavos" | "paymentProof" | "paymentProofRejection">;
+export type OrderView = Pick<Order, "fulfillmentMethod" | "paymentMethod" | "status" | "deliveryFeeInCentavos" | "paymentProof" | "paymentProofRejection" | "paymentUnderManagerReview">;
 
 export type TrackerStep = { label: string; state: "done" | "current" | "upcoming" };
 export type OrderFilter = "to-pay" | "processing" | "on-the-way" | "completed" | "cancelled";
@@ -15,7 +17,9 @@ const stageByStatus: Record<Exclude<OrderStatus, "cancelled">, number> = {
   paid: 1,
   preparing: 2,
   dispatched: 3,
+  "ready for pickup": 3,
   delivered: 4,
+  collected: 4,
   received: 4,
 };
 
@@ -32,7 +36,7 @@ export function orderTrackerSteps(order: OrderView): TrackerStep[] | null {
   const stage = stageByStatus[order.status];
   return labels.map((label, index) => ({
     label,
-    state: (order.status === "delivered" || order.status === "received") || index < stage ? "done" : index === stage ? "current" : "upcoming",
+    state: isCompletedOrReceived(order.status) || index < stage ? "done" : index === stage ? "current" : "upcoming",
   }));
 }
 
@@ -43,7 +47,12 @@ export function needsPayment(order: OrderView) {
 
 /** The Customer's proof was turned down and the Order is waiting for another. */
 export function needsNewProof(order: OrderView) {
-  return isPrepaid(order.paymentMethod) && order.status === "awaiting payment" && Boolean(order.paymentProofRejection);
+  return isPrepaid(order.paymentMethod) && order.status === "awaiting payment" && Boolean(order.paymentProofRejection) && !underManagerReview(order);
+}
+
+/** The third proof was rejected: no resubmit, a Manager decides. */
+export function underManagerReview(order: Pick<Order, "paymentUnderManagerReview" | "status">) {
+  return order.status === "awaiting payment" && order.paymentUnderManagerReview === true;
 }
 
 /** A Delivery Order whose fee staff have not quoted yet. */
@@ -51,14 +60,13 @@ export function awaitingDeliveryFee(order: OrderView) {
   return order.fulfillmentMethod === "delivery"
     && order.deliveryFeeInCentavos === null
     && order.status !== "cancelled"
-    && order.status !== "delivered"
-    && order.status !== "received";
+    && !isCompletedOrReceived(order.status);
 }
 
 export function orderFilterOf(order: OrderView): OrderFilter {
   if (order.status === "cancelled") return "cancelled";
-  if (order.status === "delivered" || order.status === "received") return "completed";
-  if (order.status === "dispatched") return "on-the-way";
+  if (isCompletedOrReceived(order.status)) return "completed";
+  if (order.status === "dispatched" || order.status === "ready for pickup") return "on-the-way";
   return needsPayment(order) || needsNewProof(order) ? "to-pay" : "processing";
 }
 
@@ -68,9 +76,11 @@ function capitalise(text: string) {
 
 export function orderBadges(order: OrderView): OrderBadge[] {
   const badges: OrderBadge[] = [
-    { text: capitalise(order.status), tone: order.status === "placed" || order.status === "cancelled" ? "neutral" : "lavender" },
+    { text: order.status === "placed" && isPrepaid(order.paymentMethod) ? "Pending Confirmation" : (order.status === "collected" ? "Picked up" : capitalise(order.status)), tone: order.status === "placed" || order.status === "cancelled" ? "neutral" : "lavender" },
   ];
+  if (order.status === "awaiting payment" && order.paymentProof && !order.paymentProofRejection) badges[0] = { text: "Pending Verification", tone: "lavender" };
   if (needsPayment(order)) badges.push({ text: "Payment needed", tone: "warning" });
+  if (underManagerReview(order)) badges.push({ text: "Under Manager review", tone: "warning" });
   if (needsNewProof(order)) badges.push({ text: "New proof needed", tone: "warning" });
   if (awaitingDeliveryFee(order)) badges.push({ text: "Delivery fee pending", tone: "warning" });
   return badges;
@@ -91,9 +101,9 @@ export function formatPlacedAt(date: Date) {
   return `${parts.month} ${parts.day}, ${parts.year} · ${parts.hour}:${parts.minute} ${parts.dayPeriod}`;
 }
 
-/** Unpaid prepaid Orders are cancelled 24 hours after they are placed, so this is the Customer's deadline. */
-export function paymentDeadline(order: Pick<Order, "createdAt">) {
-  return new Date(order.createdAt.getTime() + 24 * 60 * 60 * 1000);
+/** The deadline saved when Staff confirmed the Order; for one not yet confirmed, the default window from now is a preview only. */
+export function paymentDeadline(order: Pick<Order, "createdAt" | "confirmedAt" | "paymentDeadlineAt">) {
+  return paymentDeadlineOf(order) ?? new Date(order.createdAt.getTime() + 24 * 60 * 60 * 1000);
 }
 
 /** Subtotal plus the delivery fee once staff have quoted it. */

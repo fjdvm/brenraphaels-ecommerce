@@ -1,6 +1,7 @@
 "use client";
 
 import { FEE_TO_FOLLOW_COPY } from "@/lib/orders/fee-to-follow-copy";
+import { FREE_DELIVERY_CONFIRMATION_NOTICE, qualifiesForFreeDelivery } from "@/lib/orders/free-delivery";
 import { ArrowRight, Check, MapPin, Package, Plus, ShieldCheck, Store, Truck, Wallet } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -35,9 +36,8 @@ import { formatAddressLine } from "@/lib/address/format";
 import type { CustomerAddress } from "@/lib/customer/visitor";
 import type { Cart } from "@/lib/orders/cart";
 import type { PaymentMethod } from "@/lib/orders/orders";
-import { PAYMENT_LABELS, type PaymentDetail } from "@/lib/orders/payment-details";
+import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
 import { emptySeniorPwdDraft, SeniorPwdPanel, seniorPwdDiscountFor, seniorPwdReady, type SeniorPwdDraft, type SeniorPwdStanding } from "@/components/features/orders/senior-pwd-panel";
-import { PaymentDetailsCard } from "@/components/features/orders/payment-details-card";
 
 const PREPAID = [
   { method: "gcash", icon: Wallet, description: "After placing your order, submit your GCash reference number in My orders." },
@@ -50,15 +50,16 @@ const initialAddressState: CheckoutAddressState = {};
 export function CheckoutView({
   cart,
   addresses,
-  paymentDetails = [],
   seniorPwdStanding = { verified: false, expiresOn: null },
+  freeDeliveryThresholdInCentavos = null,
 }: {
   cart: Cart;
   addresses: CustomerAddress[];
   /** Where each prepaid method is paid, as the shop set it. */
-  paymentDetails?: PaymentDetail[];
   /** Whether the Customer already has an approved Senior/PWD ID. */
   seniorPwdStanding?: SeniorPwdStanding;
+  /** The shop's current Free delivery threshold; null when it could not be read, so no promise is made. */
+  freeDeliveryThresholdInCentavos?: number | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -73,6 +74,9 @@ export function CheckoutView({
   const [senior, setSenior] = useState<SeniorPwdDraft>(emptySeniorPwdDraft);
   const discount = seniorPwdDiscountFor(cart, senior);
   const total = cart.subtotalInCentavos - discount;
+  // Judged on the subtotal after discounts; a discount still waiting for an ID check does not count yet, exactly as on the server.
+  const freeDelivery = fulfillmentMethod === "delivery"
+    && qualifiesForFreeDelivery(cart.subtotalInCentavos - (seniorPwdStanding.verified ? discount : 0), freeDeliveryThresholdInCentavos);
 
   function submitOrder() {
     setMessage(undefined);
@@ -173,7 +177,7 @@ export function CheckoutView({
                 value="cash-on-delivery"
               />
             </fieldset>
-            {paymentMethod !== "cash-on-delivery" ? <PaymentDetailsCard detail={paymentDetails.find((detail) => detail.method === paymentMethod)} /> : null}
+            {paymentMethod !== "cash-on-delivery" ? <p className="text-sm tracking-[0.35px] text-body" data-testid="pending-confirmation-note">Your Order will show Pending Confirmation. Once the shop confirms it, we show where to pay.</p> : null}
           </Panel>
           <Panel title={`${fulfillmentMethod === "delivery" ? "4" : "3"}. Senior Citizen / PWD discount`}>
             <SeniorPwdPanel cart={cart} draft={senior} onChange={setSenior} standing={seniorPwdStanding} />
@@ -209,12 +213,12 @@ export function CheckoutView({
           ) : null}
           <div className="flex items-center justify-between text-sm tracking-wide text-body">
             <span>{fulfillmentMethod === "delivery" ? "Delivery" : "Pickup"}</span>
-            {fulfillmentMethod === "delivery" ? <span className="text-warning">To be confirmed</span> : <span>Free</span>}
+            {fulfillmentMethod === "delivery" && !freeDelivery ? <span className="text-warning">To be confirmed</span> : <span className={freeDelivery ? "text-success" : undefined}>{freeDelivery ? "Delivery: Free" : "Free"}</span>}
           </div>
           <div className="flex items-center justify-between border-t border-line pt-[22px]">
             <span className="text-sm font-medium tracking-wide text-ink">Total</span>
             <span className="font-serif text-[22px] leading-[1.3] text-primary">
-              {formatPeso(total)}{fulfillmentMethod === "delivery" ? " + delivery" : ""}
+              {formatPeso(total)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
             </span>
           </div>
           {discount > 0 && !seniorPwdStanding.verified ? (
@@ -226,7 +230,7 @@ export function CheckoutView({
           {fulfillmentMethod === "delivery" ? (
             <p className="flex items-start gap-2.5 bg-warning-soft p-4 text-xs leading-normal tracking-wide text-ink">
               <Truck aria-hidden className="size-[18px] shrink-0 text-warning" />
-              {FEE_TO_FOLLOW_COPY}
+              {freeDelivery ? FREE_DELIVERY_CONFIRMATION_NOTICE : FEE_TO_FOLLOW_COPY}
             </p>
           ) : null}
           {message && <p role="alert" className="text-sm font-medium text-warning">{message}</p>}
@@ -282,11 +286,11 @@ export function CheckoutView({
             ) : null}
             <dt className="font-medium text-ink">Total</dt>
             <dd className="text-right font-serif text-[22px] leading-[1.3] text-primary">
-              {formatPeso(total)}{fulfillmentMethod === "delivery" ? " + delivery" : ""}
+              {formatPeso(total)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
             </dd>
           </dl>
           {fulfillmentMethod === "delivery" ? (
-            <p className="mt-4 text-xs leading-normal tracking-wide text-body">{FEE_TO_FOLLOW_COPY}</p>
+            <p className="mt-4 text-xs leading-normal tracking-wide text-body">{freeDelivery ? FREE_DELIVERY_CONFIRMATION_NOTICE : FEE_TO_FOLLOW_COPY}</p>
           ) : null}
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button type="button" variant="pill-outline" size="pill-sm" disabled={isPending} onClick={() => setConfirming(false)}>

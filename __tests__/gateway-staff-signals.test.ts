@@ -7,6 +7,8 @@ const deps = vi.hoisted(() => ({
 vi.mock("next/server", () => ({ after: deps.after }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/db", () => ({ getDatabase: vi.fn() }));
+vi.mock("@/lib/orders/payment-accounts", () => ({ loadPaymentAccountSnapshot: async () => ({ id: "a1", method: "gcash", bankName: null, label: "Main", accountName: "Bren", accountNumber: "0917" }) }));
+vi.mock("@/lib/support/ticket-files", async (original) => ({ ...(await original<typeof import("@/lib/support/ticket-files")>()), gatewayTicketFiles: () => ({ upload: async () => "file-1", remove: async () => undefined }) }));
 vi.mock("@/lib/customer/current-visitor", () => ({
   requireCustomer: async () => ({ userId: "c1", email: "customer@example.com" }),
   currentVisitor: async () => ({ state: "customer", customer: { userId: "c1" } }),
@@ -45,10 +47,15 @@ const form = (values: Record<string, string>) => {
   for (const [key, value] of Object.entries(values)) data.set(key, value);
   return data;
 };
+const paymentForm = () => {
+  const data = form({ gcashReferenceNumber: "1234567890123", accountId: "11111111-1111-1111-1111-111111111111" });
+  data.set("screenshot", new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0])], "r.png", { type: "image/png" }));
+  return data;
+};
 const feedback = (rating: string) => submitOrderFeedback({}, form({ orderId: "12", rating, comment: "Please improve this." }));
 const events = [
   { expected: "verified", kind: "Customer", run: () => confirmVerificationEmail("token"), fail: deps.verify },
-  { expected: { message: "Payment proof submitted. We'll email you once it's verified." }, kind: "Payment", run: () => submitPaymentProof(12, {}, form({ gcashReferenceNumber: "1234567890123" })), fail: deps.proof },
+  { expected: { message: expect.stringContaining("Payment proof submitted"), submitted: true }, kind: "Payment", run: () => submitPaymentProof(12, {}, paymentForm()), fail: deps.proof },
   { expected: { created: true, ticketId: 12 }, kind: "Ticket", run: () => createTicket({}, form({ subject: "Missing Delivery", category: "Delivery Issue", body: "Please check my Delivery." })), fail: deps.open },
   { expected: { sent: true, messageId: 2 }, kind: "Ticket", run: () => sendMessage(12, {}, form({ body: "Any update on my Delivery?" })), fail: deps.message },
   { expected: { submitted: true }, kind: "Feedback", run: () => feedback("3"), fail: deps.submit },

@@ -7,7 +7,7 @@ import { OrderPlacedView } from "@/components/features/orders/order-placed";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { createOrderStore } from "@/lib/orders/orders";
-import { paymentDetails } from "@/lib/orders/payment-details";
+import { loadPaymentAccounts } from "@/lib/orders/payment-accounts";
 import { loadPickupInstructions } from "@/lib/pickup/instructions";
 
 export const metadata: Metadata = { title: "Order placed" };
@@ -22,7 +22,7 @@ async function OrderPlacedContent({ params }: { params: PageProps<"/checkout/pla
   if (!order) notFound();
 
   const pickup = order.fulfillmentMethod === "pickup" ? await loadPickupInstructions() : null;
-  return <OrderPlacedView order={order} details={await paymentDetails()} firstName={customer.firstName} pickup={pickup} />;
+  return <OrderPlacedView order={order} accounts={await loadPaymentAccounts()} firstName={customer.firstName} pickup={pickup} />;
 }
 
 export default function OrderPlacedPage({ params }: PageProps<"/checkout/placed/[id]">) {

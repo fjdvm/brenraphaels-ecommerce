@@ -225,11 +225,11 @@ describe("Order", () => {
     expect(order.courier).toEqual({ ...booking, riderName: null, riderPlate: null, riderPhone: null });
   });
 
-  test("Pickup dispatches without a courier and refuses one", async () => {
+  test("Pickup refuses a courier and the Delivery step dispatched", async () => {
     const store = createOrderStore(drizzle(client));
     const id = await preparingOrder("pickup");
-    await expect(store.advance(id, { status: "dispatched", courier: booking })).rejects.toThrow("no courier");
-    await expect(store.advance(id, { status: "dispatched" })).resolves.toMatchObject({ status: "dispatched", courier: null });
+    await expect(store.advance(id, { status: "dispatched", courier: booking })).rejects.toThrow();
+    await expect(store.advance(id, { status: "dispatched" })).rejects.toThrow("not a legal transition");
   });
 
   test("other status changes do not store supplied Staff attribution", async () => {
@@ -378,10 +378,10 @@ describe("Order", () => {
       paymentMethod: "cash-on-delivery",
     });
     await store.advance(dispatched.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
-    await store.advance(dispatched.id, { status: "dispatched" });
+    await store.advance(dispatched.id, { status: "ready for pickup" });
 
     await expect(store.advance(dispatched.id, { status: "cancelled" })).rejects.toThrow("not a legal transition");
-    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ id: dispatched.id, status: "dispatched" }, { id: placed.id, status: "cancelled" }]);
+    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ id: dispatched.id, status: "ready for pickup" }, { id: placed.id, status: "cancelled" }]);
   });
 
   test("records when an Order became Delivered, and only then", async () => {
@@ -393,7 +393,8 @@ describe("Order", () => {
       (await client.query<{ delivered_at: Date | null }>("select delivered_at from orders where id = $1", [order.id])).rows[0].delivered_at;
 
     await store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
-    await store.advance(order.id, { status: "dispatched" });
+    // A legacy Pickup Order that was already dispatched before the Pickup statuses existed.
+    await client.query("update orders set status = 'dispatched' where id = $1", [order.id]);
     expect(await deliveredAt()).toBeNull();
 
     const before = Date.now();
@@ -423,7 +424,7 @@ describe("Order", () => {
       paymentMethod: "cash-on-delivery",
     });
     await store.advance(dispatched.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
-    await store.advance(dispatched.id, { status: "dispatched" });
+    await store.advance(dispatched.id, { status: "ready for pickup" });
 
     await expect(store.cancel("customer-1", dispatched.id)).rejects.toThrow("not a legal transition");
   });

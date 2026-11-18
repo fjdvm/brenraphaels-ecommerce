@@ -12,7 +12,7 @@ vi.mock("@/lib/db", () => ({ getDatabase }));
 vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
 
 vi.mock("@/components/features/orders/payment-proof-form", () => ({ PaymentProofForm: () => null }));
-vi.mock("@/components/features/orders/payment-details-card", () => ({ PaymentDetailsCard: () => null }));
+vi.mock("@/components/features/orders/payment-accounts-card", () => ({ PaymentAccountsCard: () => null }));
 
 import { OrderPlacedView } from "@/components/features/orders/order-placed";
 import { sendOrderPlacedEmail } from "@/lib/email/order-placed-email";
@@ -76,12 +76,12 @@ describe("Pickup email", () => {
 describe("Order page", () => {
   const pickup = { address: "12 Main St", hours: "Mon-Sat 9am-5pm", note: "Ring the bell." };
   test("shows the instructions without the reminder", () => {
-    render(<OrderPlacedView order={base} details={[]} pickup={pickup} />);
+    render(<OrderPlacedView order={base} accounts={[]} pickup={pickup} />);
     expect(screen.getByText("12 Main St")).toBeTruthy();
     expect(screen.queryByText(ORIGINAL_ID_REMINDER)).toBeNull();
   });
   test("shows the reminder when a discount applies", () => {
-    render(<OrderPlacedView order={withDiscount} details={[]} pickup={pickup} />);
+    render(<OrderPlacedView order={withDiscount} accounts={[]} pickup={pickup} />);
     expect(screen.getByText(ORIGINAL_ID_REMINDER)).toBeTruthy();
   });
 });

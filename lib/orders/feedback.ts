@@ -60,7 +60,7 @@ export function createOrderFeedbackStore<
     const [order] = await db
       .select({ id: orders.id })
       .from(orders)
-      .where(and(eq(orders.id, input.orderId), eq(orders.customerId, customerId), inArray(orders.status, ["delivered", "received"])));
+      .where(and(eq(orders.id, input.orderId), eq(orders.customerId, customerId), inArray(orders.status, ["delivered", "collected", "received"])));
     if (!order) throw new OrderFeedbackNotAvailableError();
 
     const [feedback] = await db

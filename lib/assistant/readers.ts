@@ -26,6 +26,7 @@ const columns = {
   createdAt: orders.createdAt,
   paidAt: orders.paidAt,
   deliveredAt: orders.deliveredAt,
+  collectedAt: orders.collectedAt,
   receivedAt: orders.receivedAt,
   extendedAt: orders.refundWindowExtendedAt,
   courier: orders.courier,
@@ -38,10 +39,10 @@ const columns = {
 
 function toAssistantOrder(row: {
   id: number; status: string; fulfillmentMethod: string; paymentMethod: string; createdAt: Date; paidAt: Date | null;
-  deliveredAt: Date | null; receivedAt: Date | null; extendedAt: Date | null; courier: string | null; courierTrackingUrl: string | null;
+  deliveredAt: Date | null; collectedAt: Date | null; receivedAt: Date | null; extendedAt: Date | null; courier: string | null; courierTrackingUrl: string | null;
   proofSubmittedAt: Date | null; proofRejectedAt: Date | null; quoteRequired: boolean; fee: number | null;
 }): AssistantOrder {
-  const live = row.status !== "cancelled" && row.status !== "delivered" && row.status !== "received";
+  const live = row.status !== "cancelled" && !["delivered", "collected", "received"].includes(row.status);
   return {
     id: row.id,
     status: row.status,
@@ -49,7 +50,7 @@ function toAssistantOrder(row: {
     paymentMethod: row.paymentMethod,
     createdAt: row.createdAt,
     paidAt: row.paidAt,
-    deliveredAt: row.deliveredAt,
+    deliveredAt: row.deliveredAt ?? row.collectedAt,
     receivedAt: row.receivedAt,
     refundWindowExtended: row.extendedAt !== null,
     courierName: row.courier,
