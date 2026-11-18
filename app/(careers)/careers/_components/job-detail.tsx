@@ -12,11 +12,16 @@ const sectionHeadingClass = "font-serif text-[22px] leading-[1.3] text-primary";
 const formatDate = (date: Date, withYear: boolean) =>
   date.toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(withYear ? { year: "numeric" } : {}), timeZone: "UTC" });
 
-/** One entry per non-blank line, minus any leading bullet marker the HR author typed. */
+/** A line that is only a section label. HRMS saves the Qualifications box as "Qualifications:" plus its lines (older postings also carry "Responsibilities:"). */
+const SECTION_LABEL = /^(qualifications|responsibilities):$/i;
+
+/** One entry per non-blank line, minus any leading bullet marker the HR author typed and any line that is only a section label. */
 export function requirementItems(requirements: string): string[] {
   return requirements
     .split("\n")
-    .map((line) => line.trim().replace(/^[-*•]\s*/, ""))
+    .map((line) => line.trim())
+    .filter((line) => !SECTION_LABEL.test(line))
+    .map((line) => line.replace(/^[-*•]\s*/, ""))
     .filter(Boolean);
 }
 
