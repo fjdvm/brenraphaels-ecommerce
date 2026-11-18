@@ -1,3 +1,4 @@
+import { manilaToday, refundDetails } from "./helpers/refund-details";
 import sharp from "sharp";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -109,7 +110,7 @@ test("checks every Staff move against the status, final Resolution and goods req
           linkedReturn = record.id;
           const response = await call(record.id, { status, ...staff,
             ...(status === "declined" ? { declineReason: "  No defect found.  " } : {}),
-            ...(status === "refunded" ? { refundProofFileId: "proof-1" } : {}),
+            ...(status === "refunded" ? { refundProofFileId: "proof-1", ...refundDetails(10000, manilaToday()) } : {}),
           });
           expect(response.status, `${from} -> ${status} (${resolution}, goods=${goodsRequired})`).toBe(allowed.includes(status) ? 200 : 409);
           const result = await response.json();
@@ -154,7 +155,7 @@ test("verifies refund proof before committing and never sends the Caller key to 
   const id = await requested("replacement");
   expect((await call(id, { status: "approved", finalResolution: "refund", goodsRequired: true, ...staff })).status).toBe(200);
   expect((await call(id, { status: "goods received", ...staff })).status).toBe(200);
-  const response = await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff });
+  const response = await call(id, { status: "refunded", refundProofFileId: "proof-1", ...refundDetails(10000, manilaToday()), ...staff });
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ id, status: "refunded", refundProofFileId: "proof-1" });
   expect(await db.select().from(orderReturns)).toMatchObject([{ refundedAt: expect.any(Date), refundProofFileId: "proof-1" }]);
@@ -167,7 +168,7 @@ test("commits a refund with unexpired Temporary proof and echoes its File id for
   const id = await requested();
   await call(id, { status: "approved", ...staff });
   metadata = { ...metadata, retentionType: "temporary", expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() };
-  const response = await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff });
+  const response = await call(id, { status: "refunded", refundProofFileId: "proof-1", ...refundDetails(10000, manilaToday()), ...staff });
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ id, status: "refunded", refundProofFileId: "proof-1" });
   expect(await db.select().from(orderReturnHistory)).toMatchObject([{ status: "approved" }, { status: "refunded", actorId: "ana" }]);
@@ -182,7 +183,7 @@ test("refuses Temporary proof with missing, invalid or expired expiry without co
   vi.setSystemTime(new Date("2026-10-26T00:00:00.000Z"));
   for (const expiresAt of [undefined, null, "not a date", 1, "2026-10-25T23:59:59.999Z", "2026-10-26T00:00:00.000Z"]) {
     metadata = { ...metadata, retentionType: "temporary", expiresAt };
-    const response = await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff });
+    const response = await call(id, { status: "refunded", refundProofFileId: "proof-1", ...refundDetails(10000, manilaToday()), ...staff });
     expect(response.status).toBe(400);
     expect((await response.json()).error).toMatch(/unexpired/);
   }
@@ -198,14 +199,14 @@ test("refuses unconfirmed, public, invalid-retention, oversized, unrelated or sp
     { retentionType: "permanent" },
     { size: 5_242_881 }, { size: 0 }, { id: "other" }, { contentType: "application/pdf" }, { expiresAt: "2000-01-01" }]) {
     metadata = { ...good, ...bad };
-    expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff })).status).toBe(400);
+    expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...refundDetails(10000, manilaToday()), ...staff })).status).toBe(400);
   }
   metadata = good;
   linkedReturn = id + 1;
-  expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff })).status).toBe(400);
+  expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...refundDetails(10000, manilaToday()), ...staff })).status).toBe(400);
   linkedReturn = id;
   bytes = new Uint8Array(png.length).fill(65);
-  expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff })).status).toBe(400);
+  expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...refundDetails(10000, manilaToday()), ...staff })).status).toBe(400);
   expect(await db.select().from(orderReturns)).toMatchObject([{ status: "approved", refundProofFileId: null }]);
   expect(await db.select().from(orderReturnHistory)).toHaveLength(1);
 });
@@ -227,7 +228,7 @@ test("a gateway outage refuses the refund with a refresh reason and no status/hi
   const id = await requested();
   await call(id, { status: "approved", ...staff });
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("private gateway details")));
-  const response = await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff });
+  const response = await call(id, { status: "refunded", refundProofFileId: "proof-1", ...refundDetails(10000, manilaToday()), ...staff });
   expect(response.status).toBe(503);
   expect((await response.json()).error).toMatch(/Refresh before retrying/);
   expect(await db.select().from(orderReturnHistory)).toHaveLength(1);
@@ -243,12 +244,12 @@ test("rejects truncated JPG/PNG payloads despite valid signatures and accepts a 
   ] as const) {
     bytes = payload;
     metadata = { ...metadata, contentType, size: payload.length };
-    expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff })).status).toBe(400);
+    expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...refundDetails(10000, manilaToday()), ...staff })).status).toBe(400);
   }
   expect(await db.select().from(orderReturnHistory)).toHaveLength(1);
   bytes = await sharp(png).jpeg().toBuffer();
   metadata = { ...metadata, contentType: "image/jpeg", size: bytes.length };
-  expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...staff })).status).toBe(200);
+  expect((await call(id, { status: "refunded", refundProofFileId: "proof-1", ...refundDetails(10000, manilaToday()), ...staff })).status).toBe(200);
 });
 
 test("each committed Return decision publishes one event for the Order's Customer", async () => {

@@ -1,3 +1,4 @@
+import { refundDetails } from "./helpers/refund-details";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
@@ -56,30 +57,31 @@ describe("the refund transition applies the rules and records the fee", () => {
       [{ id: orderId }] = await db.insert(orders).values({ customerId: "c1", status: "delivered", fulfillmentMethod: "delivery", paymentMethod: "gcash",
         subtotalInCentavos: 100000, deliveryFeeInCentavos: 15000, totalInCentavos: 115000, ...patch }).returning({ id: orders.id });
     }
-    const [ret] = await db.insert(orderReturns).values({ orderId, reason, amountInCentavos: amount, status: "approved", goodsRequired: false, preferredResolution: "refund", finalResolution: "refund" }).returning();
+    const [ret] = await db.insert(orderReturns).values({ orderId, reason, amountInCentavos: amount, requestedAt: new Date("2026-11-18T00:00:00Z"), status: "approved", goodsRequired: false, preferredResolution: "refund", finalResolution: "refund" }).returning();
     return { id: ret.id, orderId };
   }
+  const paid = (centavos: number) => refundDetails(centavos, "2026-11-19");
   const store = () => createReturnStore(db, { now: () => new Date("2026-11-19T01:00:00Z") });
 
   test("stores the Order's own fee and the reason, once per Order", async () => {
     const first = await approved("defective", 40000);
-    await store().transition(first.id, staff, { status: "refunded", refundProofFileId: "p1", deliveryFeeReason: "Wrong item sent" });
+    await store().transition(first.id, staff, { status: "refunded", refundProofFileId: "p1", deliveryFeeReason: "Wrong item sent", ...paid(55000) });
     expect((await db.select().from(orderReturns))[0]).toMatchObject({ refundDeliveryFeeInCentavos: 15000, refundDeliveryFeeReason: "Wrong item sent" });
     const second = await approved("defective", 30000, {}, first.orderId);
-    await expect(store().transition(second.id, staff, { status: "refunded", refundProofFileId: "p2", deliveryFeeReason: "again" })).rejects.toThrow("already refunded");
-    await store().transition(second.id, staff, { status: "refunded", refundProofFileId: "p2" });
+    await expect(store().transition(second.id, staff, { status: "refunded", refundProofFileId: "p2", deliveryFeeReason: "again", ...paid(30000) })).rejects.toThrow("already refunded");
+    await store().transition(second.id, staff, { status: "refunded", refundProofFileId: "p2", ...paid(30000) });
   });
   test("refuses a refund that would pass what was paid, and a repeat of a Refunded Return", async () => {
     const first = await approved("other", 100000);
-    await store().transition(first.id, staff, { status: "refunded", refundProofFileId: "p1" });
-    await expect(store().transition(first.id, staff, { status: "refunded", refundProofFileId: "p1" })).rejects.toThrow("not allowed");
+    await store().transition(first.id, staff, { status: "refunded", refundProofFileId: "p1", ...paid(100000) });
+    await expect(store().transition(first.id, staff, { status: "refunded", refundProofFileId: "p1", ...paid(100000) })).rejects.toThrow("not allowed");
     const second = await approved("other", 20000, {}, first.orderId);
-    await expect(store().transition(second.id, staff, { status: "refunded", refundProofFileId: "p2" })).rejects.toThrow("more than the Customer paid");
+    await expect(store().transition(second.id, staff, { status: "refunded", refundProofFileId: "p2", ...paid(20000) })).rejects.toThrow("more than the Customer paid");
   });
   test("a Cash on Delivery refund waits for the collected cash", async () => {
     const { id, orderId } = await approved("other", 10000, { paymentMethod: "cash-on-delivery" });
-    await expect(store().transition(id, staff, { status: "refunded", refundProofFileId: "p1" })).rejects.toThrow("No cash was collected");
+    await expect(store().transition(id, staff, { status: "refunded", refundProofFileId: "p1", ...paid(10000) })).rejects.toThrow("No cash was collected");
     await db.update(orders).set({ codCollectedAt: new Date(), codCollectedAmountInCentavos: 115000 }).where((await import("drizzle-orm")).eq(orders.id, orderId));
-    await store().transition(id, staff, { status: "refunded", refundProofFileId: "p1" });
+    await store().transition(id, staff, { status: "refunded", refundProofFileId: "p1", ...paid(10000) });
   });
 });

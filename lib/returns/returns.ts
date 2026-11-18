@@ -1,10 +1,11 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
-import { customerNotifications, orders, orderReturns, orderReturnHistory, returnResolutions } from "../db/schema";
+import { customerNotifications, orders, orderReturns, orderReturnHistory, orderReturnItems, returnResolutions } from "../db/schema";
 import { returnNoticeContent } from "./return-notices";
 import { checkRefund } from "./refund-rules";
+import { checkRefundRecord, refundPaidMethods } from "./refund-record";
 import { multilineTextField } from "../validators/fields";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
@@ -26,6 +27,12 @@ export const returnDecisionSchema = z.discriminatedUnion("status", [z.object({
     status: z.literal("refunded"), refundProofFileId: fileIdField,
     /** A Manager's reason for also refunding the Delivery fee; absent means items only. The amount is always the Order's own fee. */
     deliveryFeeReason: z.string().trim().min(1).max(500).optional(),
+    /** What Staff recorded (epic-crms#613): all four are required, so a refund never exists without them. */
+    refundAmountInCentavos: z.number().int().min(0).max(2_000_000_000),
+    refundPaidMethod: z.enum(refundPaidMethods),
+    refundedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter the date the refund was sent."),
+    refundReference: z.string().trim().min(4, "Enter the transfer reference, 4 to 100 characters.").max(100, "Enter the transfer reference, 4 to 100 characters.")
+      .regex(/^[^\u0000-\u001f\u007f<>]*$/u, "Enter the transfer reference, 4 to 100 characters."),
   }).strict(),
   z.object({ status: z.literal("replaced") }).strict(),
   z.object({ status: z.literal("declined"), declineReason: multilineTextField("Decline reason", {
@@ -76,11 +83,21 @@ export function createReturnStore<
         deliveryFee = checked.deliveryFeeInCentavos;
       }
       const at = (deps.now ?? (() => new Date()))();
+      if (decision.status === "refunded") {
+        // Items only, as CREOMS reads it: a Return recorded before the items-only rule may carry the Delivery fee inside its amount.
+        const [lines] = await tx.select({ gross: sql<string>`coalesce(sum(${orderReturnItems.quantity}::bigint * ${orderReturnItems.priceInCentavos}), 0)::text` })
+          .from(orderReturnItems).where(eq(orderReturnItems.returnId, id));
+        const items = Number(lines.gross) > 0 ? Math.min(current.amountInCentavos, Number(lines.gross)) : current.amountInCentavos;
+        const recorded = checkRefundRecord({ amountInCentavos: decision.refundAmountInCentavos, method: decision.refundPaidMethod, refundedOn: decision.refundedOn,
+          expectedInCentavos: items + deliveryFee, destinationMethod: current.refundMethod, requestedAt: current.requestedAt, now: at });
+        if (!recorded.ok) throw new ReturnTransitionError(recorded.error);
+      }
       const [updated] = await tx.update(orderReturns).set({ status: decision.status,
         ...(decision.status === "approved" ? {
           finalResolution: decision.finalResolution ?? current.preferredResolution, goodsRequired: decision.goodsRequired,
         } : {}),
         ...(decision.status === "refunded" ? { refundedAt: at, refundProofFileId: decision.refundProofFileId,
+          refundAmountInCentavos: decision.refundAmountInCentavos, refundPaidMethod: decision.refundPaidMethod, refundPaidOn: decision.refundedOn, refundReference: decision.refundReference,
           ...(deliveryFee > 0 ? { refundDeliveryFeeInCentavos: deliveryFee, refundDeliveryFeeReason: decision.deliveryFeeReason } : {}) } : {}),
         ...(decision.status === "replaced" ? { replacedAt: at } : {}),
         ...(decision.status === "declined" ? { declineReason: decision.declineReason } : {}),

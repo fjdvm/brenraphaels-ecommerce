@@ -1,3 +1,4 @@
+import { manilaToday, refundDetails } from "./helpers/refund-details";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -40,7 +41,7 @@ test("sends exactly one email and one Notification per event, linking to the Ret
     [{ status: "approved", goodsRequired: true }, {}, /approved/],
     [{ status: "declined", declineReason: "No defect found." }, {}, /declined/],
     [{ status: "goods received" }, { status: "approved", finalResolution: "refund", goodsRequired: true }, /goods received/],
-    [{ status: "refunded", refundProofFileId: "proof-1" }, { status: "approved", finalResolution: "refund", goodsRequired: false }, /refunded/],
+    [{ status: "refunded", refundProofFileId: "proof-1", ...refundDetails(10000, manilaToday()) }, { status: "approved", finalResolution: "refund", goodsRequired: false }, /refunded/],
     [{ status: "replaced" }, { status: "approved", finalResolution: "replacement", goodsRequired: false }, /replaced/],
   ];
   for (const [decision, seed, title] of cases) {
