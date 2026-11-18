@@ -4,7 +4,7 @@ import { CheckoutView } from "@/components/features/orders/checkout";
 import { CheckoutSkeleton } from "@/components/features/orders/checkout-skeleton";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
-import { loadFreeDeliveryThreshold } from "@/lib/orders/free-delivery";
+import { loadFreeDeliveryThreshold } from "@/lib/orders/free-delivery-threshold";
 import { paymentDetails } from "@/lib/orders/payment-details";
 import { createCartStore } from "@/lib/orders/cart";
 import { activeVerification } from "@/lib/senior-pwd/store";

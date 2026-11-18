@@ -8,7 +8,8 @@ import { FakeShopStock } from "./helpers/fake-shop-stock";
 import { customers, orders, products, sizes } from "../lib/db/schema";
 import { eq } from "drizzle-orm";
 import { createCartStore } from "../lib/orders/cart";
-import { loadFreeDeliveryThreshold, qualifiesForFreeDelivery } from "../lib/orders/free-delivery";
+import { qualifiesForFreeDelivery } from "../lib/orders/free-delivery";
+import { loadFreeDeliveryThreshold } from "../lib/orders/free-delivery-threshold";
 import { createOrderStore } from "../lib/orders/orders";
 import { createTestDatabase } from "./helpers/test-database";
 
