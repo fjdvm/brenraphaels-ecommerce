@@ -22,6 +22,7 @@ import { formatPeso } from "@/lib/catalog/currency";
 import {
   formatPlacedAt,
   needsNewProof,
+  underManagerReview,
   needsPayment,
   paymentDeadline,
   orderBadges,
@@ -343,6 +344,12 @@ function OrderDetails({
           deadline={formatPlacedAt(paymentDeadline(order))}
           placedAt={order.createdAt}
         />
+      ) : null}
+      {underManagerReview(order) ? (
+        <div className="flex flex-col gap-1.5 bg-surface px-6 py-5 tracking-[0.35px]" data-testid="manager-review-notice" role="status">
+          <p className="text-sm font-medium text-red-700">We couldn&apos;t accept your payment proof{order.paymentProofRejection?.reason ? `: ${order.paymentProofRejection.reason}` : ""}.</p>
+          <p className="text-sm text-ink">Your payment is under Manager review</p>
+        </div>
       ) : null}
       {order.paymentProofHistory && order.paymentProofHistory.length > 0 ? (
         <div className="flex flex-col gap-2.5 bg-surface px-6 py-5 tracking-[0.35px]" data-testid="payment-history">

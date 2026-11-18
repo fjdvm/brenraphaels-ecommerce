@@ -3,7 +3,7 @@ import { paymentDeadlineOf } from "./payment-deadline";
 import type { Order, OrderStatus } from "./orders";
 
 /** The slice of an Order that decides how it is presented on the My orders page. */
-export type OrderView = Pick<Order, "fulfillmentMethod" | "paymentMethod" | "status" | "deliveryFeeInCentavos" | "paymentProof" | "paymentProofRejection">;
+export type OrderView = Pick<Order, "fulfillmentMethod" | "paymentMethod" | "status" | "deliveryFeeInCentavos" | "paymentProof" | "paymentProofRejection" | "paymentUnderManagerReview">;
 
 export type TrackerStep = { label: string; state: "done" | "current" | "upcoming" };
 export type OrderFilter = "to-pay" | "processing" | "on-the-way" | "completed" | "cancelled";
@@ -44,7 +44,12 @@ export function needsPayment(order: OrderView) {
 
 /** The Customer's proof was turned down and the Order is waiting for another. */
 export function needsNewProof(order: OrderView) {
-  return isPrepaid(order.paymentMethod) && order.status === "awaiting payment" && Boolean(order.paymentProofRejection);
+  return isPrepaid(order.paymentMethod) && order.status === "awaiting payment" && Boolean(order.paymentProofRejection) && !underManagerReview(order);
+}
+
+/** The third proof was rejected: no resubmit, a Manager decides. */
+export function underManagerReview(order: Pick<Order, "paymentUnderManagerReview" | "status">) {
+  return order.status === "awaiting payment" && order.paymentUnderManagerReview === true;
 }
 
 /** A Delivery Order whose fee staff have not quoted yet. */
@@ -73,6 +78,7 @@ export function orderBadges(order: OrderView): OrderBadge[] {
   ];
   if (order.status === "awaiting payment" && order.paymentProof && !order.paymentProofRejection) badges[0] = { text: "Pending Verification", tone: "lavender" };
   if (needsPayment(order)) badges.push({ text: "Payment needed", tone: "warning" });
+  if (underManagerReview(order)) badges.push({ text: "Under Manager review", tone: "warning" });
   if (needsNewProof(order)) badges.push({ text: "New proof needed", tone: "warning" });
   if (awaitingDeliveryFee(order)) badges.push({ text: "Delivery fee pending", tone: "warning" });
   return badges;

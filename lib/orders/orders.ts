@@ -12,7 +12,7 @@ import { gatewayProductImages, productThumbnail, type ProductImageFiles, type Pr
 import { and, asc, desc, eq, gte, inArray, isNull, isNotNull, lt, ne, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { seniorPwdVerifications, orderCancellations, failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, productImages, products, stockOutbox } from "../db/schema";
+import { seniorPwdVerifications, orderCancellations, failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, managerReviews, productImages, products, stockOutbox } from "../db/schema";
 import { courierBooking, type CourierBooking } from "../validators/courier";
 import { referenceProblem } from "./payment-proof";
 import { fileIdField } from "../validators/file-id";
@@ -22,8 +22,8 @@ import { capSeniorPwdDiscount, philippineWeek, seniorPwdDiscount, type IdType } 
 import { activeVerification, submitVerification } from "../senior-pwd/store";
 import type { AuditEvent } from "../audit/gateway";
 
-export { paymentMethods, prepaidMethods, MANAGER_AFTER_REJECTIONS, isPrepaid, type PaymentMethod } from "./payment-methods";
-import { isPrepaid, MANAGER_AFTER_REJECTIONS, type PaymentMethod } from "./payment-methods";
+export { paymentMethods, prepaidMethods, MANAGER_AFTER_REJECTIONS, isLockedForManager, isPrepaid, type PaymentMethod } from "./payment-methods";
+import { isLockedForManager, isPrepaid, MANAGER_AFTER_REJECTIONS, type PaymentMethod } from "./payment-methods";
 
 export const fulfillmentMethods = ["pickup", "delivery"] as const;
 
@@ -124,6 +124,8 @@ export type Order = {
   paymentProofRejection?: { reason: string; at: Date } | null;
   /** Proofs rejected so far. */
   paymentProofRejections?: number;
+  /** True after the third rejected proof: no more submissions, a Manager decides. */
+  paymentUnderManagerReview?: boolean;
   /** Every proof sent, oldest first, with why each rejected one was not accepted. */
   paymentProofHistory?: { reference: string | null; submittedAt: Date; rejection: { reason: string; at: Date } | null }[];
 };
@@ -204,7 +206,7 @@ export type OrderStore = {
   ): Promise<Order>;
   getPaymentProofScreenshot(customerId: string, orderId: number): Promise<StoredPaymentScreenshot | undefined>;
   /** Staff turn down the latest proof: it is kept with the reason, and the Customer is told to upload again. */
-  rejectPaymentProof(orderId: number, input: { reason: string; staffId: string; staffName: string }): Promise<{ order: Order; rejections: number }>;
+  rejectPaymentProof(orderId: number, input: { reason: string; staffId: string; staffName: string }): Promise<{ order: Order; rejections: number; managerReview: boolean }>;
 };
 
 export type OrderMailer = {
@@ -308,6 +310,7 @@ export function createOrderStore<
       paymentProofHistory,
       paymentProofRejection,
       paymentProofRejections: row.paymentProofRejections,
+      paymentUnderManagerReview: isLockedForManager(row.paymentProofRejections) && row.paymentProofRejectedAt !== null,
       fulfillmentMethod: row.fulfillmentMethod as FulfillmentMethod,
       paymentMethod: row.paymentMethod as PaymentMethod,
       status: row.status as OrderStatus,
@@ -754,6 +757,9 @@ export function createOrderStore<
     const confirmed = confirmedProofInput.parse(input);
     const problem = referenceProblem(persistedOrder.paymentMethod, input.gcashReferenceNumber);
     if (problem) throw new Error(problem);
+    if (isLockedForManager(persistedOrder.paymentProofRejections) && persistedOrder.paymentProofRejectedAt !== null) {
+      throw new Error("Your payment is under Manager review, so no new proof can be sent.");
+    }
     const resubmission = persistedOrder.status === "awaiting payment" && persistedOrder.paymentProofRejectedAt !== null;
     if (persistedOrder.status !== "confirmed" && !resubmission) {
       throw new Error(persistedOrder.status === "awaiting payment"
@@ -804,7 +810,7 @@ export function createOrderStore<
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
   }
 
-  async function rejectPaymentProof(orderId: number, input: { reason: string; staffId: string; staffName: string }): Promise<{ order: Order; rejections: number }> {
+  async function rejectPaymentProof(orderId: number, input: { reason: string; staffId: string; staffName: string }): Promise<{ order: Order; rejections: number; managerReview: boolean }> {
     const actor = staffAttribution.parse(input);
     const reason = input.reason.trim();
     if (!reason) throw new OrderStatusUpdateError("Enter a reason for rejecting the proof.");
@@ -828,7 +834,17 @@ export function createOrderStore<
         // Each rejection starts a fresh payment window; the old deadline no longer applies.
         paymentDeadlineAt: new Date(rejectedAt.getTime() + windowHours * 3_600_000),
       }).where(eq(orders.id, orderId)).returning();
-      await transaction.insert(customerNotifications).values({
+      const locked = isLockedForManager(updated.paymentProofRejections);
+      if (locked) {
+        // The third rejection locks submissions and leaves one record for CREOMS; a repeat never adds a second.
+        await transaction.insert(managerReviews).values({ orderId, reason, rejections: updated.paymentProofRejections }).onConflictDoNothing();
+      }
+      await transaction.insert(customerNotifications).values(locked ? {
+        idempotencyKey: `order.payment-under-review:${orderId}`, orderId, customerId: order.customerId,
+        type: "order.payment-under-review", title: `Your payment for Order #${orderId} is under Manager review`,
+        body: `Your payment proof was not accepted: ${reason} Your payment is under Manager review, so you cannot send another proof. We will contact you once it is decided.`,
+        link: `/profile/orders?order=${orderId}`,
+      } : {
         idempotencyKey: `order.payment-rejected:${orderId}:${updated.paymentProofRejections}`, orderId, customerId: order.customerId,
         type: "order.payment-rejected", title: `Payment proof not accepted for Order #${orderId}`,
         body: `Your payment proof was not accepted: ${reason} Please upload it again by ${formatPlacedAt(updated.paymentDeadlineAt ?? rejectedAt)}.`,
@@ -836,7 +852,11 @@ export function createOrderStore<
       }).onConflictDoNothing();
       return updated;
     });
-    return { order: await toOrder(updatedOrder, await linesForOrder(updatedOrder.id)), rejections: updatedOrder.paymentProofRejections };
+    return {
+      order: await toOrder(updatedOrder, await linesForOrder(updatedOrder.id)),
+      rejections: updatedOrder.paymentProofRejections,
+      managerReview: isLockedForManager(updatedOrder.paymentProofRejections),
+    };
   }
 
   /** The Customer's own payment-proof screenshot: its File id, else a legacy Blob pathname. */

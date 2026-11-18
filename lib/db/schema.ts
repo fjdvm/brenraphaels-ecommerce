@@ -292,6 +292,22 @@ export const orderPaymentProofs = pgTable("order_payment_proofs", {
   uniqueIndex("order_payment_proofs_submission_key").on(table.orderId, table.submissionKey),
 ]);
 
+/**
+ * An Order whose Customer was locked out after the third rejected proof. One per Order; CREOMS reads it through its
+ * SELECT-only role and a Manager decides. `resolvedAt` stays null until a Manager approves the payment or the Order ends.
+ */
+export const managerReviews = pgTable("manager_reviews", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  /** Why the third proof was turned down. */
+  reason: text("reason").notNull(),
+  rejections: integer("rejections").notNull(),
+  openedAt: timestamp("opened_at", { withTimezone: true }).defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+}, (table) => [
+  uniqueIndex("manager_reviews_order").on(table.orderId),
+]);
+
 /** Immutable line-item copies, retained even if the catalog changes later. */
 export const orderLines = pgTable("order_lines", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),

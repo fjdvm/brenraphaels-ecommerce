@@ -78,6 +78,58 @@ describe("payment proof rejection and resubmission", () => {
   });
 });
 
+describe("the third rejection locks submissions", () => {
+  async function lockedOrder() {
+    const { store, order } = await confirmedOrder();
+    let last: Awaited<ReturnType<typeof store.rejectPaymentProof>> | undefined;
+    for (const n of [1, 2, 3]) {
+      await store.submitPaymentProof("c1", order.id, { gcashReferenceNumber: `${n}${n}${n}${n}${n}${n}${n}` });
+      last = await store.rejectPaymentProof(order.id, { reason: `No ${n}`, ...ana });
+    }
+    return { store, order, last: last! };
+  }
+
+  test("after the third rejection the Customer cannot send another proof", async () => {
+    const { store, order } = await lockedOrder();
+    await expect(store.submitPaymentProof("c1", order.id, { gcashReferenceNumber: "4444444444" })).rejects.toThrow("under Manager review");
+    const { rows } = await client.query("select id from order_payment_proofs");
+    expect(rows).toHaveLength(3);
+  });
+
+  test("the first and second rejections do not lock or open a Manager review", async () => {
+    const { store, order } = await confirmedOrder();
+    await store.submitPaymentProof("c1", order.id, { gcashReferenceNumber: "1111111111" });
+    const first = await store.rejectPaymentProof(order.id, { reason: "No 1", ...ana });
+    expect(first.order.paymentUnderManagerReview).toBe(false);
+    expect(first.managerReview).toBe(false);
+    const { rows } = await client.query("select id from manager_reviews");
+    expect(rows).toHaveLength(0);
+  });
+
+  test("the third rejection records one Manager review with the reason", async () => {
+    const { order, last } = await lockedOrder();
+    expect(last.managerReview).toBe(true);
+    expect(last.order.paymentUnderManagerReview).toBe(true);
+    const { rows } = await client.query<{ order_id: number; reason: string; rejections: number; resolved_at: Date | null }>("select order_id, reason, rejections, resolved_at from manager_reviews");
+    expect(rows).toEqual([{ order_id: order.id, reason: "No 3", rejections: 3, resolved_at: null }]);
+  });
+
+  test("the Customer's Notification says the payment is under Manager review, not the normal rejection", async () => {
+    await lockedOrder();
+    const { rows } = await client.query<{ type: string; body: string }>("select type, body from customer_notifications where type like 'order.payment-%' and type <> 'order.payment-needed' order by created_at, idempotency_key");
+    expect(rows.map(row => row.type)).toEqual(["order.payment-rejected", "order.payment-rejected", "order.payment-under-review"]);
+    expect(rows[2].body).toContain("No 3");
+    expect(rows[2].body).toContain("under Manager review");
+    expect(rows[2].body).not.toContain("upload it again");
+  });
+
+  test("an Order approved anyway still works and the lock does not hide the history", async () => {
+    const { store, order } = await lockedOrder();
+    const paid = await store.advance(order.id, { status: "paid", ...ana, approvedAnyway: { reason: "Seen in bank app" } });
+    expect(paid.paymentProofHistory).toHaveLength(3);
+  });
+});
+
 describe("a rejection starts a fresh payment window", () => {
   async function rejectedOrder(hours = 24) {
     const database = drizzle(client);

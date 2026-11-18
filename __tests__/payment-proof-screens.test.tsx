@@ -47,6 +47,22 @@ describe("payment screens", () => {
     expect(screen.getByRole("button", { name: "Send new proof" })).toBeTruthy();
   });
 
+  test("after the third rejection there is no resubmit, only the reason and Manager review", () => {
+    const locked = order({
+      status: "awaiting payment",
+      paymentProof: { gcashReferenceNumber: "333333", screenshotPathname: null, screenshotFileId: null, submittedAt: new Date() },
+      paymentProofRejection: { reason: "Not the right account", at: new Date() },
+      paymentProofRejections: 3,
+      paymentUnderManagerReview: true,
+    });
+    expect(needsNewProof(locked)).toBe(false);
+    open(locked);
+    expect(screen.queryByRole("button", { name: "Send new proof" })).toBeNull();
+    expect(screen.queryByLabelText(/Maya reference number/)).toBeNull();
+    expect(screen.getByTestId("manager-review-notice").textContent).toMatch(/Not the right account/);
+    expect(screen.getByText("Your payment is under Manager review")).toBeTruthy();
+  });
+
   test("a bank transfer Order with no active account shows the notice and the shop contact, never Cash on Delivery", () => {
     render(<OrdersBrowser orders={[{ order: order({ paymentMethod: "bank-transfer" }), feedback: null, returnInProgress: false }]} paymentAccounts={[]} />);
     expect(screen.getByTestId("no-online-method").textContent).toMatch(/hello@brenraphaels\.com/);
