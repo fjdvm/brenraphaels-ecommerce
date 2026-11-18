@@ -4,14 +4,14 @@ import { z } from "zod";
 import { customers, orderCancellations, failedDeliveries, orders, stockOutbox, stockReservations } from "../db/schema";
 import { staffAttribution } from "../validators/staff";
 import { textField } from "../validators/fields";
-import { courierBooking } from "../validators/courier";
+import { courierBooking, rebookCourierBooking } from "../validators/courier";
 import { gatewayShopStock, StockUnavailableError, type ShopStock } from "./stock";
 import type { AuditEvent } from "../audit/gateway";
 
 const reasonField = (label: string) => textField(label, { min: 1, max: 1000, pattern: /^[^<>\p{Cc}]+$/u, patternMessage: "Enter plain text without markup or control characters", rejectInvisible: true });
 export const failedDeliveryInput = z.discriminatedUnion("action", [
   z.object({ action: z.literal("record"), attemptId: z.uuid(), reason: reasonField("Reason"), nextStep: z.enum(["rebook", "request-cancellation"]), customerMessage: reasonField("Customer message"), ...staffAttribution.shape }).strict(),
-  z.object({ action: z.literal("rebook"), attemptId: z.uuid(), courier: courierBooking, ...staffAttribution.shape }).strict(),
+  z.object({ action: z.literal("rebook"), attemptId: z.uuid(), courier: rebookCourierBooking, ...staffAttribution.shape }).strict(),
   z.object({ action: z.enum(["restock", "write-off"]), attemptId: z.uuid(), ...staffAttribution.shape }).strict(),
 ]);
 export class FailedDeliveryError extends Error {}

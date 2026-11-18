@@ -316,6 +316,18 @@ describe("POST /api/internal/orders/[id]/status", () => {
     expect(sendOrderDispatchedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ courier }));
   });
 
+  test("accepts a dispatch with the courier alone and emails without a link", async () => {
+    advance.mockResolvedValueOnce({ id: 12, status: "dispatched", fulfillmentMethod: "delivery", deliveryFeeInCentavos: 8000, subtotalInCentavos: 21900, courier: { name: "Grab", trackingUrl: null } });
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "dispatched", courier: { name: "Grab" } }),
+      headers: { Authorization: `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect((await postAndNotify(request, context)).status).toBe(200);
+    expect(advance).toHaveBeenCalledWith(12, { status: "dispatched", courier: { name: "Grab" } });
+    expect(sendOrderDispatchedEmail).toHaveBeenCalledTimes(1);
+  });
+
   test("refuses an http courier link before any write", async () => {
     const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
       body: JSON.stringify({ status: "dispatched", courier: { name: "Grab", trackingUrl: "http://grab.test/1" } }),

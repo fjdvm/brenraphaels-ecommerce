@@ -103,7 +103,8 @@ export type Order = {
   deliveryPhotoFileId: string | null;
   deliveryPhotoRemovedAt: Date | null;
   /** The booking recorded at dispatch of a Delivery Order; null for Pickup and before dispatch. */
-  courier: { name: "Lalamove" | "Grab"; trackingUrl: string; riderName: string | null; riderPlate: string | null; riderPhone: string | null } | null;
+  /** What the Customer may see: the courier and the link, when there is one. Rider details stay with Staff and are never part of an Order. */
+  courier: { name: "Lalamove" | "Grab"; trackingUrl: string | null } | null;
   createdAt: Date;
   lines: OrderLine[];
   deliveryAddress: DeliveryAddress | null;
@@ -172,6 +173,8 @@ export type OrderStore = {
     orderId: number,
     input: AdvanceOrderInput,
   ): Promise<Order>;
+  /** Staff add or fix the booking while the Delivery Order is dispatched. The whole booking is replaced; the Customer is not emailed again. */
+  updateCourier(orderId: number, courier: CourierBooking): Promise<Order>;
   cancel(customerId: string, orderId: number): Promise<Order>;
   /** Confirms with the final amounts; repeating the same call changes nothing and reports `replayed`. */
   confirm(orderId: number, confirmation: OrderConfirmation): Promise<{ order: Order; replayed: boolean }>;
@@ -304,9 +307,8 @@ export function createOrderStore<
       paidAt: row.paidAt,
       deliveryPhotoFileId: row.deliveryPhotoFileId,
       deliveryPhotoRemovedAt: row.deliveryPhotoRemovedAt,
-      courier: row.courier === null || row.courierTrackingUrl === null ? null : {
+      courier: row.courier === null ? null : {
         name: row.courier as "Lalamove" | "Grab", trackingUrl: row.courierTrackingUrl,
-        riderName: row.riderName, riderPlate: row.riderPlate, riderPhone: row.riderPhone,
       },
       createdAt: row.createdAt,
       lines,
@@ -541,6 +543,25 @@ export function createOrderStore<
 
     deferRelease(releaseId);
     return toOrder(updatedOrder, await linesForOrder(updatedOrder.id));
+  }
+
+  async function updateCourier(orderId: number, input: CourierBooking): Promise<Order> {
+    const booking = courierBooking.safeParse(input);
+    if (!booking.success) throw new OrderStatusUpdateError(booking.error.issues[0].message);
+    const courier = booking.data;
+    const updated = await db.transaction(async (transaction) => {
+      const [current] = await transaction.select().from(orders).where(eq(orders.id, orderId)).for("update");
+      if (!current) throw new OrderStatusUpdateError("Order was not found.");
+      if (current.fulfillmentMethod !== "delivery") throw new OrderStatusUpdateError("A Pickup Order has no courier.");
+      if (current.status !== "dispatched") throw new OrderStatusUpdateError("The booking can only be changed while the Order is dispatched. Refresh the Order.");
+      const [row] = await transaction.update(orders).set({
+        courier: courier.name, courierTrackingUrl: courier.trackingUrl ?? null,
+        riderName: courier.riderName || null, riderPlate: courier.riderPlate || null, riderPhone: courier.riderPhone || null,
+      }).where(and(eq(orders.id, orderId), eq(orders.status, "dispatched"))).returning();
+      if (!row) throw new OrderStatusUpdateError("Order status changed before the booking could be saved. Refresh the Order.");
+      return row;
+    });
+    return toOrder(updated, await linesForOrder(updated.id));
   }
 
   type SeniorPwdQuote = { discountInCentavos: number; allowanceUsedInCentavos: number; reason: string | null };
@@ -948,5 +969,5 @@ export function createOrderStore<
     }
   }
 
-  return { place, listForCustomer, advance, confirm, cancel, cancelItems, customerEmailForOrder, getById, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, rejectPaymentProof };
+  return { place, listForCustomer, advance, updateCourier, confirm, cancel, cancelItems, customerEmailForOrder, getById, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, rejectPaymentProof };
 }

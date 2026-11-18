@@ -200,6 +200,8 @@ describe("Order", () => {
 
   test.each([
     ["no courier", undefined],
+    ["a link with a password", { name: "Grab", trackingUrl: "https://user:pw@grab.test/x" }],
+    ["an overlong link", { name: "Grab", trackingUrl: `https://grab.test/${"x".repeat(2100)}` }],
     ["an http link", { name: "Grab", trackingUrl: "http://grab.test/x" }],
     ["a non-link", { name: "Grab", trackingUrl: "not a link" }],
     ["an unknown courier", { name: "Other", trackingUrl: "https://x.test/a" }],
@@ -210,19 +212,55 @@ describe("Order", () => {
     await expect(client.query("select status, courier from orders where id = $1", [id])).resolves.toMatchObject({ rows: [{ status: "preparing", courier: null }] });
   });
 
-  test("keeps the courier and optional rider details on a dispatched Delivery Order", async () => {
+  const riderRow = async (id: number) => (await client.query("select courier, courier_tracking_url, rider_name, rider_plate, rider_phone from orders where id = $1", [id])).rows[0];
+
+  test("keeps the courier and optional rider details on a dispatched Delivery Order, but hands the Customer only courier and link", async () => {
     const id = await preparingOrder("delivery");
     const store = createOrderStore(drizzle(client));
     const order = await store.advance(id, { status: "dispatched", courier: { ...booking, riderName: "Juan Dela Cruz", riderPlate: "ABC 1234", riderPhone: "0917 123 4567" } });
-    expect(order).toMatchObject({ status: "dispatched", courier: { name: "Lalamove", trackingUrl: booking.trackingUrl, riderName: "Juan Dela Cruz", riderPlate: "ABC 1234", riderPhone: "09171234567" } });
+    expect(order.courier).toEqual({ name: "Lalamove", trackingUrl: booking.trackingUrl });
+    expect(await riderRow(id)).toMatchObject({ rider_name: "Juan Dela Cruz", rider_plate: "ABC 1234", rider_phone: "09171234567" });
     await store.advance(id, { status: "delivered", deliveryPhotoFileId: "photo-1" });
-    await expect(store.listForCustomer("customer-1")).resolves.toMatchObject([{ courier: { name: "Lalamove", trackingUrl: booking.trackingUrl } }]);
+    const [listed] = await store.listForCustomer("customer-1");
+    expect(listed.courier).toEqual({ name: "Lalamove", trackingUrl: booking.trackingUrl });
+    expect(JSON.stringify(listed)).not.toMatch(/Juan|ABC 1234|09171234567/);
   });
 
-  test("rider details are optional", async () => {
+  test("dispatches with the courier alone: the link is optional", async () => {
     const id = await preparingOrder("delivery");
-    const order = await createOrderStore(drizzle(client)).advance(id, { status: "dispatched", courier: booking });
-    expect(order.courier).toEqual({ ...booking, riderName: null, riderPlate: null, riderPhone: null });
+    const order = await createOrderStore(drizzle(client)).advance(id, { status: "dispatched", courier: { name: "Grab" } });
+    expect(order.courier).toEqual({ name: "Grab", trackingUrl: null });
+    expect(await riderRow(id)).toMatchObject({ courier: "Grab", courier_tracking_url: null, rider_name: null });
+  });
+
+  describe("changing the booking while dispatched", () => {
+    test("adds the link and fixes the rider, replacing the whole booking without another dispatch", async () => {
+      const id = await preparingOrder("delivery");
+      const store = createOrderStore(drizzle(client));
+      await store.advance(id, { status: "dispatched", courier: { name: "Grab", riderName: "Juan" } });
+      const order = await store.updateCourier(id, { name: "Lalamove", trackingUrl: booking.trackingUrl, riderPhone: "0917 123 4567" });
+      expect(order).toMatchObject({ status: "dispatched", courier: { name: "Lalamove", trackingUrl: booking.trackingUrl } });
+      expect(await riderRow(id)).toEqual({ courier: "Lalamove", courier_tracking_url: booking.trackingUrl, rider_name: null, rider_plate: null, rider_phone: "09171234567" });
+      const cleared = await store.updateCourier(id, { name: "Lalamove" });
+      expect(cleared.courier).toEqual({ name: "Lalamove", trackingUrl: null });
+    });
+    test.each([["http link", { name: "Grab", trackingUrl: "http://g.test/1" }], ["unknown courier", { name: "Other" }]])("refuses a %s and keeps the booking", async (_l, bad) => {
+      const id = await preparingOrder("delivery");
+      const store = createOrderStore(drizzle(client));
+      await store.advance(id, { status: "dispatched", courier: booking });
+      await expect(store.updateCourier(id, bad as never)).rejects.toThrow();
+      expect(await riderRow(id)).toMatchObject({ courier: "Lalamove", courier_tracking_url: booking.trackingUrl });
+    });
+    test("refuses a Pickup Order, an Order that is not dispatched or any more, and a missing Order", async () => {
+      const store = createOrderStore(drizzle(client));
+      await expect(store.updateCourier(await preparingOrder("pickup"), booking)).rejects.toThrow("no courier");
+      await expect(store.updateCourier(await preparingOrder("delivery"), booking)).rejects.toThrow("only be changed while the Order is dispatched");
+      const id = await preparingOrder("delivery");
+      await store.advance(id, { status: "dispatched", courier: booking });
+      await store.advance(id, { status: "delivered", deliveryPhotoFileId: "photo-1" });
+      await expect(store.updateCourier(id, { name: "Grab" })).rejects.toThrow("only be changed while the Order is dispatched");
+      await expect(store.updateCourier(999999, booking)).rejects.toThrow("not found");
+    });
   });
 
   test("Pickup dispatches without a courier and refuses one", async () => {
