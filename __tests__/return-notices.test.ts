@@ -22,7 +22,7 @@ beforeEach(async () => {
   await db.insert(customers).values({ id: "customer-1", firstName: "Maria", lastName: "Santos", fullName: "Maria Santos",
     email: "maria@example.com", contactNumber: "09171234567", marketingOptIn: false });
   [{ id: orderId }] = await db.insert(orders).values({ customerId: "customer-1", status: "delivered", fulfillmentMethod: "pickup",
-    paymentMethod: "cash-on-delivery", subtotalInCentavos: 10000 }).returning();
+    paymentMethod: "cash-on-delivery", subtotalInCentavos: 100000, codCollectedAt: new Date("2026-10-24T07:00:00Z"), codCollectedAmountInCentavos: 100000 }).returning();
   sent = { email: [], notification: [] };
   senders = { email: async (e) => void sent.email.push(e), notification: async (n) => void sent.notification.push(n) };
 });
