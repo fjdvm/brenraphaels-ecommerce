@@ -38,11 +38,11 @@ describe("Online payment + Delivery confirmation email", () => {
     expect(html).toContain("#4A2373");
   });
 
-  test("shows a ₱0 Delivery fee as Free and omits the discount line without one", () => {
+  test("shows a ₱0 Delivery fee as Free Delivery — ₱0 and omits the discount line without one", () => {
     const free = { ...base, deliveryFeeInCentavos: 0, approvedDiscountInCentavos: 0, totalInCentavos: 50000 } as never;
     const { html, text } = renderOnlineDeliveryConfirmedEmail(free, url);
     for (const body of [html, text]) {
-      expect(body).toContain("Free");
+      expect(body).toContain("Free Delivery — ₱0");
       expect(body).not.toContain("Senior/PWD discount");
       expect(body).toContain("₱500");
     }
@@ -51,6 +51,15 @@ describe("Online payment + Delivery confirmation email", () => {
   test("escapes the address", () => {
     const { html } = renderOnlineDeliveryConfirmedEmail({ ...base, deliveryAddress: { ...base.deliveryAddress, street: "<b>x</b>" } } as never, url);
     expect(html).not.toContain("<b>x</b>");
+  });
+
+  test("shows the saved payment deadline, 24 hours after placing, in the shop's time zone", () => {
+    const placed = { ...base, createdAt: new Date("2026-11-18T06:14:00Z") } as never;
+    const { html, text } = renderOnlineDeliveryConfirmedEmail(placed, url);
+    for (const body of [html, text]) {
+      expect(body).toContain("Pay by Nov 19, 2026 · 2:14 PM");
+      expect(body).toContain("or the order will be cancelled");
+    }
   });
 
   test("sends HTML, text and the logo, linking the Customer's own Order", async () => {
