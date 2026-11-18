@@ -6,7 +6,7 @@ vi.mock("@/app/(site)/(protected)/profile/orders/actions", () => ({ cancelOrder:
 
 import { PaymentAccountsCard } from "@/components/features/orders/payment-accounts-card";
 import { OrderPlacedView } from "@/components/features/orders/order-placed";
-import { loadPaymentAccounts, signedQrUrl } from "@/lib/orders/payment-accounts";
+import { loadPaymentAccounts, loadPaymentAccountSnapshot, signedQrUrl } from "@/lib/orders/payment-accounts";
 import { paymentOffer, type PaymentAccountOption } from "@/lib/orders/payment-offer";
 import type { Order } from "@/lib/orders/orders";
 
@@ -92,5 +92,25 @@ describe("loadPaymentAccounts", () => {
     expect(await signedQrUrl("f1", ok({ id: "f1", url: "https://s.example/f1?sig=1" }))).toBe("https://s.example/f1?sig=1");
     expect(await signedQrUrl("f1", ok({ id: "f1", url: "http://s.example/f1" }))).toBeNull();
     expect(await signedQrUrl("f1", ok({ id: "other", url: "https://s.example/x" }))).toBeNull();
+  });
+});
+
+describe("loadPaymentAccountSnapshot", () => {
+  const id = "11111111-1111-1111-1111-111111111111";
+  const row = { id, method: "bank_transfer", label: "BDO", account_name: "Bren", account_number: "0012", bank_name: "BDO", qr_file_id: null };
+
+  test("finds an account whether or not it is still active, with its details copied whole", async () => {
+    const snapshot = await loadPaymentAccountSnapshot(id, { execute: async () => [row] });
+    expect(snapshot).toEqual({ id, method: "bank-transfer", label: "BDO", accountName: "Bren", accountNumber: "0012", bankName: "BDO" });
+  });
+  test("does not filter on active, so a transfer made before deactivation is accepted", async () => {
+    let text = "";
+    await loadPaymentAccountSnapshot(id, { execute: async (query) => { text = JSON.stringify(query); return [row]; } });
+    expect(text).not.toMatch(/active/);
+  });
+  test("refuses an unknown id, a malformed id and an unreadable database", async () => {
+    expect(await loadPaymentAccountSnapshot(id, { execute: async () => [] })).toBeUndefined();
+    expect(await loadPaymentAccountSnapshot("1; drop table x", { execute: async () => [row] })).toBeUndefined();
+    expect(await loadPaymentAccountSnapshot(id, { execute: async () => { throw new Error("down"); } })).toBeUndefined();
   });
 });

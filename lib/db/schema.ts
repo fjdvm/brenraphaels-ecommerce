@@ -271,6 +271,15 @@ export const orderPaymentProofs = pgTable("order_payment_proofs", {
   confirmedPaidAt: timestamp("confirmed_paid_at", { withTimezone: true }),
   confirmedRecipient: text("confirmed_recipient"),
   expectedRecipient: text("expected_recipient"),
+  /** The Payment account the Customer says they paid, copied whole so a later edit or deactivation never changes it. */
+  accountId: text("account_id"),
+  accountMethod: text("account_method"),
+  accountBankName: text("account_bank_name"),
+  accountLabel: text("account_label"),
+  accountName: text("account_name"),
+  accountNumber: text("account_number"),
+  /** One per form load, so a retried submit never saves a second proof. */
+  submissionKey: text("submission_key"),
   screenshotFileId: text("screenshot_file_id"),
   screenshotPathname: text("screenshot_pathname"),
   submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
@@ -278,7 +287,10 @@ export const orderPaymentProofs = pgTable("order_payment_proofs", {
   rejectedById: text("rejected_by_id"),
   rejectedByName: text("rejected_by_name"),
   rejectionReason: text("rejection_reason"),
-}, (table) => [index("order_payment_proofs_order").on(table.orderId)]);
+}, (table) => [
+  index("order_payment_proofs_order").on(table.orderId),
+  uniqueIndex("order_payment_proofs_submission_key").on(table.orderId, table.submissionKey),
+]);
 
 /** Immutable line-item copies, retained even if the catalog changes later. */
 export const orderLines = pgTable("order_lines", {

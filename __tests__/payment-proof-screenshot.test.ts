@@ -18,8 +18,12 @@ vi.mock("@/lib/support/ticket-files", () => ({ gatewayTicketFiles: () => ({ view
 
 import { GET } from "@/app/api/orders/[id]/payment-proof/route";
 
-const file = (type = "image/png", size = 3, name = "receipt.png") =>
-  new File([new Uint8Array(size)], name, { type });
+const header = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const file = (type = "image/png", size = 12, name = "receipt.png") => {
+  const bytes = new Uint8Array(size);
+  header.forEach((byte, index) => { if (index < size) bytes[index] = byte; });
+  return new File([bytes], name, { type });
+};
 
 describe("uploading a payment-proof screenshot", () => {
   const files = new FakeTicketFiles();
@@ -35,6 +39,17 @@ describe("uploading a payment-proof screenshot", () => {
     await expect(uploadPaymentProofScreenshot(file("application/pdf"), files)).rejects.toThrow("Upload a JPEG or PNG screenshot.");
     await expect(uploadPaymentProofScreenshot(file("image/png", 5 * 1024 * 1024 + 1), files)).rejects.toThrow("Screenshots must be 5 MB or smaller.");
     expect(files.files.size).toBe(0);
+  });
+
+  test("refuses a file whose bytes are not the image its type claims, storing nothing", async () => {
+    await expect(uploadPaymentProofScreenshot(new File(["<script>alert(1)</script>"], "receipt.png", { type: "image/png" }), files)).rejects.toThrow("real JPEG or PNG");
+    await expect(uploadPaymentProofScreenshot(file("image/jpeg"), files)).rejects.toThrow("real JPEG or PNG");
+    expect(files.files.size).toBe(0);
+  });
+
+  test("accepts real JPEG bytes", async () => {
+    const jpeg = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0])], "r.jpg", { type: "image/jpeg" });
+    await expect(uploadPaymentProofScreenshot(jpeg, files)).resolves.toEqual(expect.any(String));
   });
 });
 

@@ -48,3 +48,27 @@ export async function loadPaymentAccounts(reader?: Reader, signQr: (fileId: stri
     qrUrl: row.qr_file_id ? await signQr(row.qr_file_id).catch(() => null) : null,
   })));
 }
+
+/** The account details a proof is saved with: everything the Customer was shown, copied so a later edit never changes it. */
+export type PaymentAccountSnapshot = Pick<PaymentAccountOption, "id" | "method" | "bankName" | "label" | "accountName" | "accountNumber">;
+
+/**
+ * One Payment account by id, active or not: a transfer made before the account was deactivated is still accepted and goes
+ * to Staff review. Undefined when there is no such account (or it cannot be read), so the proof is refused.
+ */
+export async function loadPaymentAccountSnapshot(id: string, reader?: Reader): Promise<PaymentAccountSnapshot | undefined> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return undefined;
+  try {
+    const result = await (reader ?? getDatabase()).execute(sql`
+      select a.id::text as id, a.method, a.label, a.account_name, a.account_number, a.bank_name
+      from crms.payment_accounts a where a.id = ${id}::uuid`);
+    const [row] = (Array.isArray(result) ? result : (result as { rows?: Row[] }).rows ?? []) as Row[];
+    if (!row) return undefined;
+    return {
+      id: row.id, method: row.method === "bank_transfer" ? "bank-transfer" : (row.method as "gcash" | "maya"),
+      label: row.label, accountName: row.account_name, accountNumber: row.account_number, bankName: row.bank_name,
+    };
+  } catch {
+    return undefined;
+  }
+}

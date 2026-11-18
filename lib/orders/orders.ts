@@ -145,6 +145,10 @@ export type SubmitPaymentProofInput = {
   confirmedRecipient?: string;
   gcashReferenceNumber: string;
   screenshotFileId?: string;
+  /** The account the Customer paid, saved whole with the proof. */
+  account?: { id: string; method: string; bankName: string | null; label: string; accountName: string; accountNumber: string };
+  /** One per form load; a retry with the same key returns the saved proof instead of making a second. */
+  submissionKey?: string;
 };
 
 /** Where an Order's payment-proof screenshot lives: file-storage, or legacy Vercel Blob. */
@@ -736,6 +740,11 @@ export function createOrderStore<
     if (persistedOrder.deliveryFeeQuoteRequired) {
       throw new Error("Quote a Delivery fee before submitting Payment proof.");
     }
+    if (input.submissionKey) {
+      const [saved] = await db.select({ id: orderPaymentProofs.id }).from(orderPaymentProofs)
+        .where(and(eq(orderPaymentProofs.orderId, orderId), eq(orderPaymentProofs.submissionKey, input.submissionKey)));
+      if (saved) return toOrder(persistedOrder, await linesForOrder(persistedOrder.id));
+    }
     const confirmed = confirmedProofInput.parse(input);
     const problem = referenceProblem(persistedOrder.paymentMethod, input.gcashReferenceNumber);
     if (problem) throw new Error(problem);
@@ -778,6 +787,9 @@ export function createOrderStore<
         confirmedPaidAt: confirmed.confirmedPaidAt ?? null,
         confirmedRecipient: confirmed.confirmedRecipient ?? null,
         expectedRecipient: expectedRecipient ?? null,
+        accountId: input.account?.id ?? null, accountMethod: input.account?.method ?? null, accountBankName: input.account?.bankName ?? null,
+        accountLabel: input.account?.label ?? null, accountName: input.account?.accountName ?? null, accountNumber: input.account?.accountNumber ?? null,
+        submissionKey: input.submissionKey ?? null,
       });
       return updated;
     });

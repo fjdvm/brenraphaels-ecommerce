@@ -39,15 +39,20 @@ export function validatePaymentProofScreenshot(file: File) {
   }
 }
 
+/** The file's first bytes must be a real JPEG or PNG, whatever its name or declared type says. */
+export function hasImageContent(bytes: Uint8Array, contentType: string): boolean {
+  if (contentType === "image/png") return bytes.length > 8 && [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((byte, index) => bytes[index] === byte);
+  if (contentType === "image/jpeg") return bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  return false;
+}
+
 /** Stores the screenshot as a Private File in file-storage and returns its id. */
 export async function uploadPaymentProofScreenshot(file: File, files: Pick<TicketFiles, "upload">): Promise<string> {
   validatePaymentProofScreenshot(file);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (!hasImageContent(bytes, file.type)) throw new Error("That file isn't a real JPEG or PNG image.");
 
-  return files.upload({
-    filename: cleanFileName(file.name),
-    contentType: file.type,
-    bytes: new Uint8Array(await file.arrayBuffer()),
-  });
+  return files.upload({ filename: cleanFileName(file.name), contentType: file.type, bytes });
 }
 
 /** Customer-confirmed fields are optional for older clients; checks explain missing values. */
