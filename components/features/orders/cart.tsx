@@ -223,7 +223,7 @@ export function CartView({ customerHasCart, initialCart }: { customerHasCart: bo
           </Button>
           <p className="flex items-center gap-2.5 text-xs tracking-wide text-muted">
             <Wallet aria-hidden className="size-[18px] shrink-0" />
-            Pay with GCash or Cash on Delivery at the next step.
+            Pay thru Online or Cash on Delivery at the next step.
           </p>
         </aside>
       </div>
