@@ -10,6 +10,7 @@ import {
   personNameCharacterPatternMessage,
   nameTextField,
 } from "../validators/fields";
+import { seniorPwdFieldNames, seniorPwdSchema } from "../senior-pwd/application-schema";
 import { cleanText } from "../validators/sanitize";
 import { addressFieldMaximumLength, addressFields } from "./address-fields";
 import { customerContactNumberSchema } from "./contact-number";
@@ -86,6 +87,11 @@ export const signUpSteps: readonly SignUpStep[] = [
     title: "Delivery details",
     fields: Object.keys(deliveryFields),
     schema: z.object(deliveryFields),
+  },
+  {
+    title: "Senior / PWD",
+    fields: [...seniorPwdFieldNames],
+    schema: seniorPwdSchema(),
   },
   {
     title: "Preferences",

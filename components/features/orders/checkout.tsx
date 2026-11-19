@@ -2,7 +2,7 @@
 
 import { FEE_TO_FOLLOW_COPY } from "@/lib/orders/fee-to-follow-copy";
 import { FREE_DELIVERY_CONFIRMATION_NOTICE, qualifiesForFreeDelivery } from "@/lib/orders/free-delivery";
-import { ArrowRight, Check, MapPin, Package, Plus, ShieldCheck, Store, Truck, Wallet } from "lucide-react";
+import { ArrowRight, Check, MapPin, Package, Plus, Store, Truck, Wallet } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -37,7 +37,6 @@ import type { CustomerAddress } from "@/lib/customer/visitor";
 import type { Cart } from "@/lib/orders/cart";
 import type { PaymentMethod } from "@/lib/orders/orders";
 import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
-import { emptySeniorPwdDraft, SeniorPwdPanel, seniorPwdDiscountFor, seniorPwdReady, type SeniorPwdDraft, type SeniorPwdStanding } from "@/components/features/orders/senior-pwd-panel";
 
 const PREPAID = [
   { method: "gcash", icon: Wallet, description: "After placing your order, submit your GCash reference number in My orders." },
@@ -50,14 +49,17 @@ const initialAddressState: CheckoutAddressState = {};
 export function CheckoutView({
   cart,
   addresses,
-  seniorPwdStanding = { verified: false, expiresOn: null },
+  seniorPwdDiscount = null,
   freeDeliveryThresholdInCentavos = null,
 }: {
   cart: Cart;
   addresses: CustomerAddress[];
   /** Where each prepaid method is paid, as the shop set it. */
-  /** Whether the Customer already has an approved Senior/PWD ID. */
-  seniorPwdStanding?: SeniorPwdStanding;
+  /**
+   * The Senior/PWD discount a Customer with an approved ID gets automatically, as the CREOMS rule prices it on this Cart:
+   * `label` is the rule ("5% off"), `discountInCentavos` is what it takes off one unit of the priciest item.
+   */
+  seniorPwdDiscount?: { label: string; discountInCentavos: number } | null;
   /** The shop's current Free delivery threshold; null when it could not be read, so no promise is made. */
   freeDeliveryThresholdInCentavos?: number | null;
 }) {
@@ -71,12 +73,11 @@ export function CheckoutView({
     addresses.find((address) => address.isDefault)?.id ?? addresses[0]?.id,
   );
 
-  const [senior, setSenior] = useState<SeniorPwdDraft>(emptySeniorPwdDraft);
-  const discount = seniorPwdDiscountFor(cart, senior);
+  const discount = seniorPwdDiscount?.discountInCentavos ?? 0;
   const total = cart.subtotalInCentavos - discount;
-  // Judged on the subtotal after discounts; a discount still waiting for an ID check does not count yet, exactly as on the server.
+  // Judged on the subtotal after discounts, exactly as on the server.
   const freeDelivery = fulfillmentMethod === "delivery"
-    && qualifiesForFreeDelivery(cart.subtotalInCentavos - (seniorPwdStanding.verified ? discount : 0), freeDeliveryThresholdInCentavos);
+    && qualifiesForFreeDelivery(cart.subtotalInCentavos - discount, freeDeliveryThresholdInCentavos);
 
   function submitOrder() {
     setMessage(undefined);
@@ -86,11 +87,6 @@ export function CheckoutView({
           fulfillmentMethod,
           paymentMethod,
           addressId,
-          seniorPwd: senior.enabled && senior.lineId !== undefined
-            ? seniorPwdStanding.verified
-              ? { lineId: senior.lineId }
-              : { lineId: senior.lineId, idType: senior.idType, idNumber: senior.idNumber, photoFileId: senior.front?.fileId, photoBackFileId: senior.back?.fileId }
-            : undefined,
         });
         router.push(`/checkout/placed/${orderId}`);
       } catch (error) {
@@ -179,9 +175,6 @@ export function CheckoutView({
             </fieldset>
             {paymentMethod !== "cash-on-delivery" ? <p className="text-sm tracking-[0.35px] text-body" data-testid="pending-confirmation-note">Your Order will show Pending Confirmation. Once the shop confirms it, we show where to pay.</p> : null}
           </Panel>
-          <Panel title={`${fulfillmentMethod === "delivery" ? "4" : "3"}. Senior Citizen / PWD discount`}>
-            <SeniorPwdPanel cart={cart} draft={senior} onChange={setSenior} standing={seniorPwdStanding} />
-          </Panel>
         </div>
         <aside
           aria-labelledby="checkout-summary-heading"
@@ -207,8 +200,8 @@ export function CheckoutView({
           </div>
           {discount > 0 ? (
             <div className="flex items-center justify-between text-sm tracking-wide text-body">
-              <span>Senior/PWD 5% · 1 item</span>
-              <span className="text-success">−{formatPeso(discount)}{seniorPwdStanding.verified ? "" : " · after ID check"}</span>
+              <span>Senior/PWD {seniorPwdDiscount?.label} · 1 item</span>
+              <span className="text-success">−{formatPeso(discount)}</span>
             </div>
           ) : null}
           <div className="flex items-center justify-between text-sm tracking-wide text-body">
@@ -221,12 +214,6 @@ export function CheckoutView({
               {formatPeso(total)}{fulfillmentMethod === "delivery" && !freeDelivery ? " + delivery" : ""}
             </span>
           </div>
-          {discount > 0 && !seniorPwdStanding.verified ? (
-            <p className="flex items-start gap-2.5 bg-lavender-soft p-4 text-xs leading-normal tracking-wide text-ink">
-              <ShieldCheck aria-hidden className="size-[18px] shrink-0 text-primary" />
-              Your order is confirmed after we check your ID. If we can&apos;t approve it, we&apos;ll email you and the order continues at full price.
-            </p>
-          ) : null}
           {fulfillmentMethod === "delivery" ? (
             <p className="flex items-start gap-2.5 bg-warning-soft p-4 text-xs leading-normal tracking-wide text-ink">
               <Truck aria-hidden className="size-[18px] shrink-0 text-warning" />
@@ -236,7 +223,7 @@ export function CheckoutView({
           {message && <p role="alert" className="text-sm font-medium text-warning">{message}</p>}
           <Button
             className="w-full"
-            disabled={isPending || cart.lines.some((line) => !line.available) || deliveryBlocked || !seniorPwdReady(senior, seniorPwdStanding)}
+            disabled={isPending || cart.lines.some((line) => !line.available) || deliveryBlocked}
             onClick={() => setConfirming(true)}
             size="pill-lg"
             type="button"
@@ -280,8 +267,8 @@ export function CheckoutView({
             <dd className="text-right text-ink">{formatPeso(cart.subtotalInCentavos)}</dd>
             {discount > 0 ? (
               <>
-                <dt className="text-muted">Senior/PWD 5%</dt>
-                <dd className="text-right text-success">−{formatPeso(discount)}{seniorPwdStanding.verified ? "" : " · after ID check"}</dd>
+                <dt className="text-muted">Senior/PWD {seniorPwdDiscount?.label}</dt>
+                <dd className="text-right text-success">−{formatPeso(discount)}</dd>
               </>
             ) : null}
             <dt className="font-medium text-ink">Total</dt>

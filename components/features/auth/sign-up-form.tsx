@@ -14,6 +14,7 @@ import {
   AuthHeading,
   authLinkClass,
 } from "@/components/features/auth/auth-card";
+import { SeniorPwdFields } from "@/components/features/auth/senior-pwd-fields";
 import { Button } from "@/components/ui/button";
 import {
   DeliveryFields,
@@ -58,6 +59,7 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [email, setEmail] = useState<string>();
+  const [notice, setNotice] = useState<string>();
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState<string>();
   const [pending, startTransition] = useTransition();
@@ -105,6 +107,7 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
         return;
       }
       if (outcome.email) {
+        setNotice(outcome.notice);
         setEmail(outcome.email);
         return;
       }
@@ -127,6 +130,7 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
           We&apos;ve sent a confirmation link to <strong>{email}</strong>.
           Please use it to verify your email before signing in.
         </AuthHeading>
+        {notice ? <p className="text-sm text-body" role="status">{notice}</p> : null}
         <Button asChild variant="pill" size="pill-lg" className="w-full">
           <Link href="/signin">Go to sign in</Link>
         </Button>
@@ -191,6 +195,10 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
         </div>
 
         <div data-step="2" hidden={step !== 2} className="flex flex-col gap-[22px]">
+          <SeniorPwdFields errors={errors} />
+        </div>
+
+        <div data-step="3" hidden={step !== 3} className="flex flex-col gap-[22px]">
           <PreferenceFields errors={errors} />
         </div>
 

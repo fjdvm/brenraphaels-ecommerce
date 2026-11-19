@@ -317,5 +317,6 @@ export async function signUpCustomer(
     }
   }
 
-  return { email };
+  // The new Customer's id, so a step that follows sign-up (the Senior/PWD ID) can attach to them; absent when nothing was created.
+  return { email, customerId: outcome === "saved" ? login.userId : undefined };
 }

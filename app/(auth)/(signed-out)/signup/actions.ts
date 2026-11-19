@@ -18,12 +18,16 @@ import {
 import { customerSignUpSchema, signUpFormValues } from "@/lib/customer/sign-up-schema";
 import { sendWelcomeEmail } from "@/lib/email/welcome-email";
 import { writeAuditEvent } from "@/lib/audit/gateway";
+import { applicationProblem, parseSeniorPwdForm, submitSeniorPwdApplication, type SeniorPwdApplication } from "@/lib/senior-pwd/application";
+import { gatewayTicketFiles } from "@/lib/support/ticket-files";
 import { getDatabase } from "@/lib/db";
 import { removeNeonLogin } from "@/lib/neon-auth/management";
 import { neonAuth } from "@/lib/neon-auth/server";
 
 export type SignUpResult = {
   email?: string;
+  /** Said after "Check your email" when the Customer's Senior/PWD ID could not be sent; they can send it again in Account settings. */
+  notice?: string;
   /** A failure that belongs to no single field, such as Neon Auth being unavailable. */
   formError?: string;
   fieldErrors?: Record<string, string[] | undefined>;
@@ -49,6 +53,11 @@ export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
     return { fieldErrors: badLocation };
   }
 
+  const seniorPwd = parseSeniorPwdForm(formData);
+  if (!seniorPwd.ok) {
+    return { fieldErrors: seniorPwd.fieldErrors };
+  }
+
   try {
     const result = await signUpCustomer(parsed.data, {
       auth: neonAuth,
@@ -60,7 +69,7 @@ export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
         send: sendWelcomeEmail,
       },
     });
-    return { email: result.email };
+    return { email: result.email, notice: await sendSeniorPwdId(result.customerId, seniorPwd.application) };
   } catch (error) {
     if (error instanceof SignUpAuthError) {
       // The real cause (for example "Invalid origin") stays in the server log.
@@ -74,5 +83,17 @@ export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
       redirect("/complete-profile");
     }
     throw error;
+  }
+}
+
+/** Sends the ID a new Customer gave at sign-up for Staff review. It never fails the sign-up, which has already happened. */
+async function sendSeniorPwdId(customerId: string | undefined, application: SeniorPwdApplication | undefined) {
+  if (!customerId || !application) return undefined;
+  try {
+    const problem = applicationProblem(await submitSeniorPwdApplication(getDatabase(), customerId, application, gatewayTicketFiles()));
+    return problem ? `${problem} You can send it again from Account settings once you're signed in.` : undefined;
+  } catch (error) {
+    console.error("A sign-up Senior/PWD ID could not be sent", error);
+    return "We couldn't send your ID for review right now. You can send it again from Account settings once you're signed in.";
   }
 }

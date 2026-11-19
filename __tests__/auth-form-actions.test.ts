@@ -50,7 +50,7 @@ function validForm() {
     password: "Password1!", confirmPassword: "Password1!",
     contactNumber: "09171234567", street: "123 Katipunan Avenue",
     barangay: "Loyola Heights", city: "Quezon City", province: "Metro Manila",
-    postalCode: "1108", marketingOptIn: "yes", terms: "on",
+    postalCode: "1108", seniorPwd: "no", marketingOptIn: "yes", terms: "on",
   })) form.set(key, value);
   return form;
 }
