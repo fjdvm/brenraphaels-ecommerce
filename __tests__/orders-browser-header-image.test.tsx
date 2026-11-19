@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("@/app/(site)/(protected)/profile/orders/actions", () => ({ submitOrderFeedback: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/profile/orders", useSearchParams: () => new URLSearchParams() }));
 vi.mock("next/image", () => ({ default: ({ src }: { src: string }) => <img alt="" data-testid="thumb" src={src} /> }));
 
 import { OrdersBrowser } from "@/components/features/orders/orders-browser";

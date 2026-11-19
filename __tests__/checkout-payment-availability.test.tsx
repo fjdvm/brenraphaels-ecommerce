@@ -15,7 +15,7 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 
 const cart = { lines: [{ id: 1, productName: "Ube Halaya", sizeLabel: "250g jar", quantity: 1, priceInCentavos: 10_000, available: true, imageUrl: null }], subtotalInCentavos: 10_000 } as unknown as Cart;
-const view = (availability = ALL_PAYMENT_METHODS_AVAILABLE) => <CheckoutView availability={availability} cart={cart} addresses={[]} provinces={[]} />;
+const view = (availability = ALL_PAYMENT_METHODS_AVAILABLE) => <CheckoutView availability={availability} cart={cart} addresses={[]} />;
 
 describe("Checkout payment method availability", () => {
   test("disables the methods the shop has off and keeps the rest choosable", () => {
