@@ -21,10 +21,10 @@ import { cn } from "@/lib/utils";
 const items = [
   { href: "/profile/orders", label: "My orders", icon: Package },
   { href: "/support", label: "Support", icon: MessageCircle },
-  { href: "/profile/feedback", label: "Feedback", icon: MessageSquarePlus },
   { href: "/profile/addresses", label: "Addresses", icon: MapPin },
   { href: "/profile/notifications", label: "Notifications", icon: Bell },
   { href: "/profile/settings", label: "Account settings", icon: SlidersHorizontal },
+  { href: "/profile/feedback", label: "Feedback", icon: MessageSquarePlus },
 ];
 
 const navItemClass =
