@@ -435,6 +435,13 @@
       "when": 1797523200000,
       "tag": "0061_refund_record",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1797609600000,
+      "tag": "0062_repair_address_region",
+      "breakpoints": true
     }
   ]
 }
