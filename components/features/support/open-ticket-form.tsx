@@ -3,10 +3,11 @@
 import { ArrowRight, MessageCircle, Package, Store, Truck, Upload, User, Wallet, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { createTicket, type CreateTicketState } from "@/app/(site)/(protected)/support/actions";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,13 +42,34 @@ export function OpenTicketForm({
   const router = useRouter();
   const [state, action, pending] = useActionState(createTicket, initialState);
   const [fileName, setFileName] = useState<string>();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [summary, setSummary] = useState<{ subject: string; category: string; order: string }>();
+
+  // The Customer reviews the Ticket before it is sent: the browser checks required fields first, then the dialog asks.
+  function review() {
+    const form = formRef.current;
+    if (!form || !form.reportValidity()) return;
+    const data = new FormData(form);
+    const category = String(data.get("category") ?? "") as TicketCategory;
+    const orderId = String(data.get("orderId") ?? "");
+    setSummary({
+      subject: String(data.get("subject") ?? "").trim(),
+      category: categoryChips[category]?.label ?? category,
+      order: orderId ? `Order #${orderId}` : "None",
+    });
+  }
+
+  function send() {
+    setSummary(undefined);
+    formRef.current?.requestSubmit();
+  }
 
   useEffect(() => {
     if (state.created && state.ticketId) router.push(`/support/${state.ticketId}`);
   }, [state.created, state.ticketId, router]);
 
   return (
-    <form action={action} className="flex h-full flex-col gap-6 overflow-y-auto p-6 sm:p-[60px]">
+    <form action={action} className="flex h-full flex-col gap-6 overflow-y-auto p-6 sm:p-[60px]" ref={formRef}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-2">
           <h2 className="font-serif text-4xl leading-[1.2] text-primary sm:text-[44px]">Open a ticket</h2>
@@ -154,11 +176,32 @@ export function OpenTicketForm({
         <Button asChild size="link-sm" variant="link">
           <Link className="px-3 text-lg font-normal" href="/support">Cancel</Link>
         </Button>
-        <Button disabled={pending || state.created} size="pill-lg" type="submit" variant="pill">
+        <Button disabled={pending || state.created} onClick={review} size="pill-lg" type="button" variant="pill">
           {pending || state.created ? "Opening…" : "Open ticket"}
           <ArrowRight aria-hidden className="size-5" />
         </Button>
       </div>
+
+      <Dialog onOpenChange={(open) => !open && setSummary(undefined)} open={Boolean(summary)}>
+        <DialogContent className="max-w-md p-6 sm:p-8">
+          <DialogTitle className="font-serif text-2xl leading-tight text-primary">Send this ticket?</DialogTitle>
+          <DialogDescription className="mt-2 text-sm text-muted">We&apos;ll reply within the day (Mon–Sat).</DialogDescription>
+          <dl className="mt-6 flex flex-col gap-3 text-sm text-ink">
+            {summary
+              ? [["Subject", summary.subject], ["Category", summary.category], ["Related order", summary.order]].map(([term, value]) => (
+                  <div className="flex justify-between gap-4" key={term}>
+                    <dt>{term}</dt>
+                    <dd className="text-right">{value}</dd>
+                  </div>
+                ))
+              : null}
+          </dl>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button onClick={() => setSummary(undefined)} size="pill-sm" type="button" variant="pill-outline">Go back</Button>
+            <Button onClick={send} size="pill-sm" type="button" variant="pill">Send ticket</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }
