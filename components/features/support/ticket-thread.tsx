@@ -1,6 +1,6 @@
 "use client";
 
-import { Image as ImageIcon, Loader2, SendHorizontal, X } from "lucide-react";
+import { Loader2, Paperclip, SendHorizontal, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -269,7 +269,7 @@ export function TicketThread({
                   className={cn(
                     "flex gap-3",
                     mine ? "justify-end" : "items-end",
-                    threadMessage.pending && "opacity-60",
+                    threadMessage.pending && "opacity-70",
                   )}
                 >
                   {mine ? null : (
@@ -289,20 +289,22 @@ export function TicketThread({
                     {mine ? null : (
                       <p className="flex items-center gap-2 text-[13px] font-medium leading-[1.4] tracking-[0.35px] text-ink">
                         Customer Care
-                        <span className="rounded-full bg-primary px-3 py-1 text-xs text-white">
+                        <span className="rounded-full bg-lavender px-2.5 py-0.5 text-xs text-primary">
                           Staff
                         </span>
                       </p>
                     )}
                     <div
                       className={cn(
-                        "whitespace-pre-wrap break-words px-[18px] py-3 text-base leading-[1.6] tracking-[0.35px]",
+                        "flex flex-col gap-1.5 px-[18px] py-3 text-base leading-[1.6] tracking-[0.35px]",
                         mine
                           ? "bg-primary text-white"
-                          : "border border-line bg-white text-ink",
+                          : "bg-surface-soft text-ink",
                       )}
                     >
-                      {threadMessage.body}
+                      <p className="whitespace-pre-wrap break-words">
+                        {threadMessage.body}
+                      </p>
                       {threadMessage.previewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element -- local preview of the file being sent
                         <img
@@ -319,13 +321,23 @@ export function TicketThread({
                           src={`/api/support/attachments/${threadMessage.id}`}
                         />
                       ) : null}
+                      <p
+                        className={cn(
+                          "text-xs tracking-[0.35px]",
+                          mine ? "text-white/70" : "text-muted",
+                        )}
+                      >
+                        {threadMessage.pending ? (
+                          "sending…"
+                        ) : (
+                          <time
+                            dateTime={threadMessage.createdAt.toISOString()}
+                          >
+                            {formatClock(threadMessage.createdAt)}
+                          </time>
+                        )}
+                      </p>
                     </div>
-                    <time
-                      className="text-xs tracking-[0.35px] text-muted"
-                      dateTime={threadMessage.createdAt.toISOString()}
-                    >
-                      {formatClock(threadMessage.createdAt)}
-                    </time>
                   </div>
                 </li>
               </Fragment>
@@ -351,7 +363,7 @@ export function TicketThread({
           <div className="flex flex-wrap gap-2">
             {quickReplies.map((reply) => (
               <button
-                className="rounded-full border border-line px-3.5 py-1.5 text-xs tracking-[0.35px] text-primary transition-colors hover:bg-lavender-soft"
+                className="rounded-full border border-line bg-white px-3.5 py-2 text-sm tracking-[0.35px] text-ink transition-colors hover:bg-lavender-soft"
                 key={reply}
                 onClick={() => setDraft(reply)}
                 type="button"
@@ -361,7 +373,7 @@ export function TicketThread({
             ))}
           </div>
           <form action={submit} className="flex flex-col gap-2.5" ref={formRef}>
-            <div className="flex flex-col gap-2 bg-surface-soft p-2">
+            <div className="flex flex-col gap-2">
               {image && imagePreview && !sending ? (
                 <div className="flex px-1 pt-1">
                   <div className="relative size-16">
@@ -385,16 +397,16 @@ export function TicketThread({
                   </div>
                 </div>
               ) : null}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 rounded-full border border-line bg-white py-1.5 pl-3 pr-1.5 focus-within:ring-2 focus-within:ring-ring">
                 <label
                   className={cn(
-                    "flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-primary transition-colors hover:bg-lavender-soft focus-within:ring-2 focus-within:ring-ring",
+                    "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:text-primary focus-within:ring-2 focus-within:ring-ring",
                     sending && "pointer-events-none opacity-50",
                   )}
                   htmlFor="ticket-reply-attachment"
                   title="Attach an image (JPEG or PNG up to 5 MB)"
                 >
-                  <ImageIcon
+                  <Paperclip
                     aria-hidden
                     className="size-[18px]"
                     strokeWidth={1.5}
@@ -444,7 +456,7 @@ export function TicketThread({
                 <button
                   aria-label={sending ? "Sending message" : "Send message"}
                   aria-busy={sending}
-                  className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-white transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={sending}
                   type="submit"
                 >
