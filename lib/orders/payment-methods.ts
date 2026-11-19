@@ -8,3 +8,7 @@ export const MANAGER_AFTER_REJECTIONS = 3;
 export const isLockedForManager = (rejections: number | undefined) => (rejections ?? 0) >= MANAGER_AFTER_REJECTIONS;
 export type PaymentMethod = (typeof paymentMethods)[number];
 export const isPrepaid = (method: string): method is (typeof prepaidMethods)[number] => (prepaidMethods as readonly string[]).includes(method);
+
+/** Whether each method may be chosen at checkout right now. Cash on Delivery has no account, so it is always on. */
+export type PaymentAvailability = Record<PaymentMethod, boolean>;
+export const ALL_PAYMENT_METHODS_AVAILABLE: PaymentAvailability = { "cash-on-delivery": true, gcash: true, maya: true, "bank-transfer": true };

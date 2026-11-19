@@ -185,7 +185,7 @@ function OrderCard({
   return (
     <article className="flex flex-col gap-6 border border-line bg-white p-6 sm:p-10">
       <div className="flex items-start gap-3.5">
-        {!open && firstLine ? <CartThumbnail size={64} url={firstLine.imageUrl} /> : null}
+        {firstLine ? <CartThumbnail size={64} url={firstLine.imageUrl} /> : null}
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <h2 className={cn("font-serif text-primary", open ? "text-[28px] leading-[1.25]" : "text-[22px] leading-[1.3]")}>
             Order #{order.id}

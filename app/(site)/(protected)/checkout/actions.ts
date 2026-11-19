@@ -11,6 +11,9 @@ import { getDatabase } from "@/lib/db";
 import { sendOrderPlacedEmail } from "@/lib/email/order-placed-email";
 import { scheduleOrdersChanged } from "@/lib/orders/staff-signal";
 import { sendOrderPlacedSignal } from "@/lib/notifications/gateway";
+import { fetchPaymentAvailability } from "@/lib/orders/payment-availability";
+import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
+import { isPrepaid } from "@/lib/orders/payment-methods";
 import {
   fulfillmentMethods,
   paymentMethods,
@@ -71,6 +74,10 @@ export async function placeOrder(input: unknown) {
   const parsed = checkoutInput.parse(input);
   if (parsed.fulfillmentMethod === "delivery" && !parsed.addressId) {
     throw new Error("Choose an Address for Delivery.");
+  }
+  // The page can be stale: the shop may have switched this method off since checkout opened.
+  if (isPrepaid(parsed.paymentMethod) && !(await fetchPaymentAvailability())[parsed.paymentMethod]) {
+    throw new Error(`${PAYMENT_LABELS[parsed.paymentMethod]} can't be used right now. Choose another payment method, or try again shortly.`);
   }
   const order = await placeOrderAndNotify(customer.userId, customer.email, parsed, {
     orderStore: createOrderStore(getDatabase()),
