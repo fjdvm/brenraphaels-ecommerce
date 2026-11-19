@@ -37,6 +37,7 @@ import type { CustomerAddress } from "@/lib/customer/visitor";
 import type { Cart } from "@/lib/orders/cart";
 import type { PaymentMethod } from "@/lib/orders/orders";
 import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
+import { ALL_PAYMENT_METHODS_AVAILABLE, type PaymentAvailability } from "@/lib/orders/payment-methods";
 
 const PREPAID = [
   { method: "gcash", icon: Wallet, description: "After placing your order, submit your GCash reference number in My orders." },
@@ -51,6 +52,7 @@ export function CheckoutView({
   addresses,
   seniorPwdDiscount = null,
   freeDeliveryThresholdInCentavos = null,
+  availability = ALL_PAYMENT_METHODS_AVAILABLE,
 }: {
   cart: Cart;
   addresses: CustomerAddress[];
@@ -62,13 +64,17 @@ export function CheckoutView({
   seniorPwdDiscount?: { label: string; discountInCentavos: number } | null;
   /** The shop's current Free delivery threshold; null when it could not be read, so no promise is made. */
   freeDeliveryThresholdInCentavos?: number | null;
+  /** Which payment methods the shop has on right now; an off method cannot be chosen. */
+  availability?: PaymentAvailability;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string>();
   const [confirming, setConfirming] = useState(false);
   const [fulfillmentMethod, setFulfillmentMethod] = useState<"pickup" | "delivery">("pickup");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash-on-delivery");
+  const [chosenPayment, setPaymentMethod] = useState<PaymentMethod>("cash-on-delivery");
+  // A method the shop switched off since the page opened falls back to Cash on Delivery.
+  const paymentMethod: PaymentMethod = availability[chosenPayment] ? chosenPayment : "cash-on-delivery";
   const [addressId, setAddressId] = useState<number | undefined>(
     addresses.find((address) => address.isDefault)?.id ?? addresses[0]?.id,
   );
@@ -155,6 +161,7 @@ export function CheckoutView({
                 <Choice
                   checked={paymentMethod === method}
                   description={description}
+                  disabled={!availability[method]}
                   icon={icon}
                   key={method}
                   label={PAYMENT_LABELS[method]}
@@ -342,15 +349,15 @@ function RadioDot({ checked }: { checked: boolean }) {
   );
 }
 
-function Choice({ checked, description, icon: Icon, label, name, onChange, value }: { checked: boolean; description: string; icon: typeof Store; label: string; name: string; onChange: () => void; value: string }) {
+function Choice({ checked, description, disabled = false, icon: Icon, label, name, onChange, value }: { checked: boolean; description: string; disabled?: boolean; icon: typeof Store; label: string; name: string; onChange: () => void; value: string }) {
   return (
-    <label className={optionClass(checked)}>
-      <input checked={checked} className="sr-only" name={name} onChange={onChange} type="radio" value={value} />
+    <label className={disabled ? "flex cursor-not-allowed items-start gap-4 border border-line bg-surface-soft px-6 py-5 opacity-60" : optionClass(checked)}>
+      <input checked={checked} className="sr-only" disabled={disabled} name={name} onChange={onChange} type="radio" value={value} />
       <RadioDot checked={checked} />
       <Icon aria-hidden className="size-[22px] shrink-0 text-ink" />
       <span className="flex min-w-0 flex-1 flex-col gap-1 leading-normal tracking-wide">
         <span className="text-sm font-medium text-ink">{label}</span>
-        <span className="text-xs text-body">{description}</span>
+        <span className="text-xs text-body">{disabled ? "Unavailable right now. Choose another payment method." : description}</span>
       </span>
     </label>
   );

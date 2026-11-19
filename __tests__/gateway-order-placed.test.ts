@@ -19,6 +19,8 @@ vi.mock("@/lib/customer/current-visitor", () => ({ requireCustomer }));
 vi.mock("@/lib/email/order-placed-email", () => ({ sendOrderPlacedEmail }));
 vi.mock("next/server", () => ({ after }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+// Which methods the shop has on is not under test here.
+vi.mock("@/lib/orders/payment-availability", () => ({ fetchPaymentAvailability: async () => ({ "cash-on-delivery": true, gcash: true, maya: true, "bank-transfer": true }) }));
 
 import { placeOrder } from "../app/(site)/(protected)/checkout/actions";
 
