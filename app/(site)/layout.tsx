@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 
+import { FreeShippingAmount } from "@/components/shared/free-shipping-amount";
+import { LiveStorefront } from "@/components/features/storefront/live-storefront";
 import { Footer } from "@/components/shared/footer";
 import { LiveNotifications } from "@/components/features/customer/live-notifications";
 import { CartSessionSync } from "@/components/features/orders/cart-session-sync";
@@ -11,8 +13,11 @@ import { PageTransition } from "@/components/shared/page-transition";
 import { SessionNav } from "@/components/shared/session-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currentVisitor } from "@/lib/customer/current-visitor";
+import { freeShippingThreshold } from "@/lib/site/store-info";
 import { unreadInboxCount } from "@/lib/notifications/inbox";
 
+/** While the saved amount loads, the banner shows the shop's standing amount, so it never jumps or goes blank. */
+const freeShippingFallback = `₱${freeShippingThreshold.toLocaleString("en-PH")}`;
 const desktopSessionClass = "flex items-center gap-5";
 const mobileSessionClass =
   "flex flex-col gap-3 border-t border-outline-variant/60 pt-3 text-sm font-semibold text-on-surface";
@@ -79,7 +84,13 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
       <Suspense fallback={null}>
         <LiveNotificationsGate />
       </Suspense>
+      <LiveStorefront />
       <Header
+        freeShippingAmount={
+          <Suspense fallback={freeShippingFallback}>
+            <FreeShippingAmount />
+          </Suspense>
+        }
         desktopSession={
           <Suspense fallback={<SessionNavFallback className={desktopSessionClass} />}>
             <SessionNavAsync className={desktopSessionClass} />
