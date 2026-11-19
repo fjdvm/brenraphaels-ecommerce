@@ -1,0 +1,1 @@
+ALTER TABLE "senior_pwd_verifications" ADD COLUMN "same_id_as_verification_id" integer;

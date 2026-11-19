@@ -54,7 +54,8 @@ describe("sending the ID for review", () => {
   function database(options: { latest?: object; insertError?: Error }) {
     const rows = options.latest ? [options.latest] : [];
     const chain = { from: () => chain, where: () => chain, orderBy: () => chain, limit: async () => rows, returning: async () => [{ id: 1 }], values: async () => { if (options.insertError) throw options.insertError; return chain; } };
-    return { select: () => chain, insert: () => ({ values: () => { if (options.insertError) throw options.insertError; return chain; } }) } as never;
+    const handle = { select: () => chain, execute: async () => undefined, insert: () => ({ values: () => { if (options.insertError) throw options.insertError; return chain; } }) };
+    return { ...handle, transaction: async (work: (tx: typeof handle) => unknown) => work(handle) } as never;
   }
 
   test("stores both photos as temporary private files and records the ID", async () => {

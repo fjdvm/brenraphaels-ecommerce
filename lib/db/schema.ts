@@ -178,6 +178,12 @@ export const seniorPwdVerifications = pgTable("senior_pwd_verifications", {
   declineReason: text("decline_reason"),
   /** The ID's expiry date; the discount stops on it. */
   expiresOn: date("expires_on"),
+  /**
+   * The other account's verification that carries the same ID number, when there is one. A number in use (pending or
+   * approved) is refused outright, so this is set only for a number last seen declined, revoked or expired, or if a
+   * clash ever got past the check. CREOMS cannot read `idHash`, so this is how Staff learn the number was used before.
+   */
+  sameIdAsVerificationId: integer("same_id_as_verification_id"),
 }, (table) => [
   index("senior_pwd_verifications_customer").on(table.customerId),
   index("senior_pwd_verifications_hash").on(table.idHash),

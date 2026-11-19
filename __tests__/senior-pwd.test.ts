@@ -129,6 +129,24 @@ describe("placing an Order with the Senior/PWD discount", () => {
     expect(row.seniorPwdDiscountInCentavos).toBeNull();
   });
 
+  test("a number last seen declined on another account is accepted but flagged for Staff", async () => {
+    const first = await submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, photoFileId: "f1" });
+    await db.update(seniorPwdVerifications).set({ status: "declined" });
+    const second = await submitVerification(db, "c2", { idType: "senior", idNumber: "ant sc 0458721", photoFileId: "f2" });
+    const rows = await db.select().from(seniorPwdVerifications);
+    expect(rows.find((row) => row.id === first)?.sameIdAsVerificationId).toBeNull();
+    expect(rows.find((row) => row.id === second)?.sameIdAsVerificationId).toBe(first);
+  });
+
+  test("two accounts sending the same number together cannot both get in", async () => {
+    const results = await Promise.allSettled([
+      submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, photoFileId: "f1" }),
+      submitVerification(db, "c2", { idType: "senior", idNumber: NUMBER, photoFileId: "f2" }),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(await db.select().from(seniorPwdVerifications)).toHaveLength(1);
+  });
+
   test("the same ID cannot be sent from a second account while it is in use", async () => {
     await submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, photoFileId: "f1" });
     await expect(submitVerification(db, "c2", { idType: "senior", idNumber: "ant sc 0458721", photoFileId: "f2" })).rejects.toThrow("already used on another account");

@@ -449,6 +449,13 @@
       "when": 1797696000000,
       "tag": "0063_senior_pwd_order_rule",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1797782400000,
+      "tag": "0064_senior_pwd_same_id_flag",
+      "breakpoints": true
     }
   ]
 }
