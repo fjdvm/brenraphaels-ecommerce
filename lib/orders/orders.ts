@@ -18,8 +18,9 @@ import { referenceProblem } from "./payment-proof";
 import { fileIdField } from "../validators/file-id";
 import { staffAttribution } from "../validators/staff";
 import { createCartStore } from "./cart";
-import { capSeniorPwdDiscount, philippineWeek, seniorPwdDiscount, type IdType } from "../senior-pwd/id-number";
-import { activeVerification, submitVerification } from "../senior-pwd/store";
+import { discountedLine, loadDiscountRule, ruleDiscount, type DiscountRule, type LimitPeriod } from "../senior-pwd/discount-rule";
+import { capSeniorPwdDiscount, philippinePeriod } from "../senior-pwd/id-number";
+import { activeVerification } from "../senior-pwd/store";
 import type { AuditEvent } from "../audit/gateway";
 
 export { paymentMethods, prepaidMethods, MANAGER_AFTER_REJECTIONS, isLockedForManager, isPrepaid, type PaymentMethod } from "./payment-methods";
@@ -140,11 +141,6 @@ export type PlaceOrderInput = {
   paymentMethod: PaymentMethod;
   /** Required for Delivery and ignored for Pickup. */
   addressId?: number;
-  /**
-   * The Senior Citizen / PWD discount: which Cart line gets 5% off one unit. A Customer with an approved ID
-   * sends only the line; otherwise the ID type, number and the uploaded photo(s) are needed too.
-   */
-  seniorPwd?: { lineId: number; idType?: IdType; idNumber?: string; photoFileId?: string; photoBackFileId?: string };
 };
 
 export type SubmitPaymentProofInput = {
@@ -256,6 +252,7 @@ export function createOrderStore<
   defer: (work: () => Promise<void>) => void = work => after(work),
   readThreshold: () => Promise<number | null> = () => loadFreeDeliveryThreshold(),
   readPaymentWindowHours: () => Promise<number> = () => loadPaymentWindowHours(),
+  readDiscountRule: () => Promise<DiscountRule> = () => loadDiscountRule(),
 ): OrderStore {
   const reservations = createStockReservations(db, stock);
   /** The same stock without reads, for use while rows are locked. */
@@ -644,8 +641,8 @@ export function createOrderStore<
   }
 
   /**
-   * The discount Staff may approve now: 5% of one item, counted only while the ID is approved, and held to what the ID has
-   * left of its ₱125 for the Monday-to-Sunday week (Philippine Time) of `at`. Cancelled Orders count for nothing, so they
+   * The discount Staff may approve now: the Order's one-item discount, counted only while the ID is approved, and held to what the ID has
+   * left of its limit for the Philippine-Time day, week or month of `at` under the rule the Order was placed with. Cancelled Orders count for nothing, so they
    * give their allowance back. The Order itself never counts against itself.
    */
   async function seniorPwdQuote(handle: Handle, row: typeof orders.$inferSelect, at: Date): Promise<SeniorPwdQuote> {
@@ -653,12 +650,14 @@ export function createOrderStore<
     const [verification] = await handle.select({ status: seniorPwdVerifications.status, idHash: seniorPwdVerifications.idHash })
       .from(seniorPwdVerifications).where(eq(seniorPwdVerifications.id, row.seniorPwdVerificationId));
     if (verification?.status !== "approved") return { discountInCentavos: 0, allowanceUsedInCentavos: 0, reason: null };
-    const { start, end } = philippineWeek(at);
+    // The limit and period this Order was placed under; Orders from before the rule was configurable used ₱125 per week.
+    const limit = { limitInCentavos: row.seniorPwdLimitInCentavos ?? 12_500, per: (row.seniorPwdLimitPer ?? "week") as LimitPeriod };
+    const { start, end } = philippinePeriod(at, limit.per);
     const [used] = await handle.select({ total: sql<number>`coalesce(sum(${orders.approvedDiscountInCentavos}), 0)::int` })
       .from(orders).innerJoin(seniorPwdVerifications, eq(orders.seniorPwdVerificationId, seniorPwdVerifications.id))
       .where(and(eq(seniorPwdVerifications.idHash, verification.idHash), ne(orders.id, row.id), ne(orders.status, "cancelled"),
         isNotNull(orders.confirmedAt), gte(orders.confirmedAt, start), lt(orders.confirmedAt, end)));
-    return capSeniorPwdDiscount(row.seniorPwdDiscountInCentavos ?? 0, used?.total ?? 0);
+    return capSeniorPwdDiscount(row.seniorPwdDiscountInCentavos ?? 0, used?.total ?? 0, limit);
   }
 
   /** What CREOMS reads: the saved figures once confirmed, the live preview before. Never the ID number. */
@@ -947,6 +946,8 @@ export function createOrderStore<
     }
     // Read outside the transaction: a failed read there would abort it. Null means the rule is judged at confirmation instead.
     const threshold = input.fulfillmentMethod === "delivery" ? await readThreshold().catch(() => null) : null;
+    // The Senior/PWD rule is read once, here, and each Order keeps the one it was placed under.
+    const discountRule = await readDiscountRule();
     const attemptId = await reservations.begin(customerId, checked);
     try {
     return await db.transaction(async (transaction) => {
@@ -982,28 +983,19 @@ export function createOrderStore<
         deliveryAddress = chosenAddress;
       }
 
-      // The 5% discount: an approved ID applies now; otherwise the ID goes to Staff and the Order waits for them.
+      // A Customer with an approved ID gets the CREOMS discount automatically on one unit of their priciest item. An ID
+      // still being checked gives none yet: the Order places at full price like any other.
       let seniorPwdVerificationId: number | null = null;
       let seniorPwdDiscountInCentavos: number | null = null;
-      let waitingForIdCheck = false;
-      if (input.seniorPwd) {
-        const line = cart.lines.find((candidate) => candidate.id === input.seniorPwd!.lineId);
-        if (!line) throw new Error("Choose one item from your Cart for the discount.");
-        const approved = await activeVerification(transaction, customerId);
-        if (approved) {
-          seniorPwdVerificationId = approved.id;
-        } else {
-          const { idType, idNumber, photoFileId, photoBackFileId } = input.seniorPwd;
-          if (!idType || !idNumber || !photoFileId) throw new Error("Add the type, number and a photo of your ID to get the discount.");
-          seniorPwdVerificationId = await submitVerification(transaction, customerId, { idType, idNumber, photoFileId, photoBackFileId });
-          waitingForIdCheck = true;
-        }
-        seniorPwdDiscountInCentavos = seniorPwdDiscount(line.priceInCentavos);
+      const approved = await activeVerification(transaction, customerId);
+      const discounted = approved ? discountedLine(cart.lines) : undefined;
+      if (approved && discounted) {
+        seniorPwdVerificationId = approved.id;
+        seniorPwdDiscountInCentavos = ruleDiscount(discountRule, discounted.priceInCentavos);
       }
 
-      // Free delivery is judged once, on the subtotal after discounts (an ID still being checked gives none yet), and saved with the threshold.
-      const discountNow = waitingForIdCheck ? 0 : seniorPwdDiscountInCentavos ?? 0;
-      const freeDelivery = threshold !== null && qualifiesForFreeDelivery(cart.subtotalInCentavos - discountNow, threshold);
+      // Free delivery is judged once, on the subtotal after discounts, and saved with the threshold.
+      const freeDelivery = threshold !== null && qualifiesForFreeDelivery(cart.subtotalInCentavos - (seniorPwdDiscountInCentavos ?? 0), threshold);
 
       await createStockReservations(transaction, stock).reserve(attemptId, cart);
       const [order] = await transaction
@@ -1013,10 +1005,10 @@ export function createOrderStore<
           fulfillmentMethod: input.fulfillmentMethod,
           paymentMethod: input.paymentMethod,
           // A Delivery Order waits for a Delivery fee, whatever its subtotal.
-          // An Order whose ID is still being checked is never confirmed automatically.
-          status: input.fulfillmentMethod === "delivery" || waitingForIdCheck ? "placed" : "confirmed",
+          status: input.fulfillmentMethod === "delivery" ? "placed" : "confirmed",
           seniorPwdVerificationId,
           seniorPwdDiscountInCentavos,
+          ...(seniorPwdVerificationId !== null ? { seniorPwdLimitInCentavos: discountRule.limitInCentavos, seniorPwdLimitPer: discountRule.per } : {}),
           subtotalInCentavos: cart.subtotalInCentavos,
           deliveryFeeInCentavos: null,
           freeDelivery,

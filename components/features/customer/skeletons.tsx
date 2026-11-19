@@ -46,6 +46,7 @@ export function SettingsSkeleton() {
       <Skeleton className="h-[246px]" />
       <Skeleton className="h-[246px]" />
       <Skeleton className="h-[246px]" />
+      <Skeleton className="h-[246px]" />
     </div>
   );
 }

@@ -54,7 +54,7 @@ describe("welcome email", () => {
   test("a failed send does not fail sign-up and leaves the email unclaimed", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const send = vi.fn().mockRejectedValueOnce(new Error("smtp down")).mockResolvedValue(undefined);
-    await expect(run(send)).resolves.toEqual({ email: "jane@example.com" });
+    await expect(run(send)).resolves.toMatchObject({ email: "jane@example.com" });
     expect(await createWelcomeEmailStore(drizzle(client)).claim("u1")).toBe(true);
   });
 
@@ -90,6 +90,6 @@ describe("welcome email", () => {
   test("a failing audit write never fails sign-up", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const audit = vi.fn().mockRejectedValue(new Error("gateway down"));
-    await expect(run(vi.fn().mockResolvedValue(undefined), audit)).resolves.toEqual({ email: "jane@example.com" });
+    await expect(run(vi.fn().mockResolvedValue(undefined), audit)).resolves.toMatchObject({ email: "jane@example.com" });
   });
 });

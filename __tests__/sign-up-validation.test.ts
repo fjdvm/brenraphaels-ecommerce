@@ -170,13 +170,14 @@ describe("Sign-up validation", () => {
 });
 
 describe("Sign-up steps", () => {
-  const [account, delivery, preferences] = signUpSteps;
+  const [account, delivery, seniorPwd, preferences] = signUpSteps;
 
-  test("there are three steps that together cover every field", () => {
+  test("there are four steps that together cover every field, the Senior/PWD question included", () => {
     const fields = signUpSteps.flatMap((step) => step.fields).sort();
 
-    expect(signUpSteps).toHaveLength(3);
-    expect(fields).toEqual(Object.keys(validSignUp).sort());
+    expect(signUpSteps).toHaveLength(4);
+    expect(seniorPwd.title).toBe("Senior / PWD");
+    expect(fields).toEqual([...Object.keys(validSignUp), "seniorPwd", "idType", "idNumber", "idFront", "idBack"].sort());
   });
 
   test("the account step checks the passwords match", () => {

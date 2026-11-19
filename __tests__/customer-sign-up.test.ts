@@ -212,7 +212,7 @@ describe("Customer sign-up", () => {
         auth: repeatAttempt,
         customerStore: customerStore(),
       }),
-    ).resolves.toEqual({ email: "jane@example.com" });
+    ).resolves.toMatchObject({ email: "jane@example.com" });
 
     // Neon Auth's resend endpoint deliberately sends nothing for a Verified
     // login while preserving this same neutral response.
@@ -317,7 +317,7 @@ describe("Customer sign-up", () => {
 
       await expect(
         signUpCustomer(validSignUp, { auth: authStub(), customerStore: customerStore(), audit }),
-      ).resolves.toEqual({ email: "jane@example.com" });
+      ).resolves.toMatchObject({ email: "jane@example.com" });
     });
   });
 });

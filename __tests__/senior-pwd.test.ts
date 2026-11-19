@@ -6,7 +6,9 @@ import { customers, orders, products, seniorPwdVerifications, sizes } from "../l
 import { createCartStore } from "../lib/orders/cart";
 import { createOrderStore } from "../lib/orders/orders";
 import { creomsSeniorPwdCredential, mintCreomsCredential } from "../lib/orders/creoms-credential";
-import { hashIdNumber, normalizeIdNumber, seniorPwdDiscount } from "../lib/senior-pwd/id-number";
+import { hashIdNumber, normalizeIdNumber } from "../lib/senior-pwd/id-number";
+import { DEFAULT_DISCOUNT_RULE, discountedLine, ruleDiscount, type DiscountRule } from "../lib/senior-pwd/discount-rule";
+import { submitVerification } from "../lib/senior-pwd/store";
 import { POST } from "../app/api/internal/senior-pwd/[id]/[action]/route";
 import { FakeShopStock } from "./helpers/fake-shop-stock";
 import { createTestDatabase } from "./helpers/test-database";
@@ -37,8 +39,11 @@ async function cartLine(customerId: string) {
   const cart = await createCartStore(db).addSize(customerId, size.id, 2);
   return cart.lines[0].id;
 }
-const place = (customerId: string, seniorPwd: NonNullable<Parameters<ReturnType<typeof createOrderStore>["place"]>[1]["seniorPwd"]>, fulfillmentMethod: "pickup" | "delivery" = "pickup") =>
-  createOrderStore(db, undefined, new FakeShopStock()).place(customerId, { fulfillmentMethod, paymentMethod: "cash-on-delivery", seniorPwd, ...(fulfillmentMethod === "delivery" ? {} : {}) });
+const place = (customerId: string, rule: DiscountRule = DEFAULT_DISCOUNT_RULE) =>
+  createOrderStore(db, undefined, new FakeShopStock(), undefined, async () => null, undefined, async () => rule)
+    .place(customerId, { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+const approve = (customerId: string, idHash = `h-${customerId}`) =>
+  db.insert(seniorPwdVerifications).values({ customerId, idType: "pwd", idHash, status: "approved", expiresOn: "2099-01-01" });
 
 beforeEach(async () => {
   afterTasks.length = 0; removed.length = 0; sendMail.mockClear();
@@ -65,63 +70,93 @@ describe("the ID number", () => {
   test("needs a server secret of 32 characters", () => {
     expect(() => hashIdNumber(NUMBER, "short")).toThrow("SENIOR_PWD_ID_SECRET");
   });
-  test("the discount is 5% of one unit", () => { expect(seniorPwdDiscount(21900)).toBe(1095); });
+});
+
+describe("the CREOMS discount rule", () => {
+  test("the default is today's rule: 5% of one unit", () => { expect(ruleDiscount(DEFAULT_DISCOUNT_RULE, 21900)).toBe(1095); });
+  test("a pesos rule takes a fixed amount, never more than the unit costs", () => {
+    const pesos: DiscountRule = { kind: "pesos", hundredths: 5_000, limitInCentavos: 50_000, per: "month" };
+    expect(ruleDiscount(pesos, 21900)).toBe(5_000);
+    expect(ruleDiscount(pesos, 3_000)).toBe(3_000);
+  });
+  test("goes to one unit of the priciest item", () => {
+    expect(discountedLine([{ id: 1, priceInCentavos: 10_000 }, { id: 2, priceInCentavos: 30_000 }, { id: 3, priceInCentavos: 20_000 }])?.id).toBe(2);
+    expect(discountedLine([])).toBeUndefined();
+  });
 });
 
 describe("placing an Order with the Senior/PWD discount", () => {
-  test("holds the Order for the ID check and never stores the number", async () => {
-    const lineId = await cartLine("c1");
-    const order = await place("c1", { lineId, idType: "senior", idNumber: NUMBER, photoFileId: "front-1", photoBackFileId: "back-1" });
-    expect(order.status).toBe("placed");
-    const [row] = await db.select().from(orders);
-    expect(row).toMatchObject({ status: "placed", seniorPwdDiscountInCentavos: 1095 });
-    const [verification] = await db.select().from(seniorPwdVerifications);
-    expect(verification).toMatchObject({ id: row.seniorPwdVerificationId, customerId: "c1", idType: "senior", status: "pending", photoFileId: "front-1", photoBackFileId: "back-1" });
-    expect(JSON.stringify([row, verification])).not.toContain("0458721");
-  });
-
-  test("needs the type, number and a photo unless the Customer is already verified", async () => {
-    const lineId = await cartLine("c1");
-    await expect(place("c1", { lineId })).rejects.toThrow("type, number and a photo");
-    expect(await db.select().from(orders)).toHaveLength(0);
-  });
-
-  test("refuses a line that is not in the Cart", async () => {
+  test("an Order from a Customer with no ID is at full price, with no discount saved", async () => {
     await cartLine("c1");
-    await expect(place("c1", { lineId: 9999, idType: "pwd", idNumber: NUMBER, photoFileId: "f" })).rejects.toThrow("Choose one item");
+    const order = await place("c1");
+    expect(order.status).toBe("confirmed");
+    const [row] = await db.select().from(orders);
+    expect(row).toMatchObject({ seniorPwdVerificationId: null, seniorPwdDiscountInCentavos: null, seniorPwdLimitInCentavos: null });
   });
 
-  test("refuses an ID already used on another account", async () => {
-    const first = await cartLine("c1");
-    await place("c1", { lineId: first, idType: "senior", idNumber: NUMBER, photoFileId: "f1" });
-    const second = await cartLine("c2");
-    await expect(place("c2", { lineId: second, idType: "senior", idNumber: "ant sc 0458721", photoFileId: "f2" })).rejects.toThrow("already used on another account");
-    expect(await db.select().from(orders)).toHaveLength(1);
+  test("an ID still being checked gives no discount and never holds the Order", async () => {
+    await submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, photoFileId: "front-1" });
+    await cartLine("c1");
+    const order = await place("c1");
+    expect(order.status).toBe("confirmed");
+    const [row] = await db.select().from(orders);
+    expect(row).toMatchObject({ seniorPwdVerificationId: null, seniorPwdDiscountInCentavos: null });
   });
 
-  test("an approved ID applies at once and the Order confirms as usual", async () => {
-    await db.insert(seniorPwdVerifications).values({ customerId: "c1", idType: "pwd", idHash: "h", status: "approved", expiresOn: "2099-01-01" });
-    const lineId = await cartLine("c1");
-    const order = await place("c1", { lineId });
+  test("an approved ID applies the CREOMS rule automatically and the Order confirms as usual", async () => {
+    await approve("c1");
+    await cartLine("c1");
+    const order = await place("c1");
     expect(order.status).toBe("confirmed");
     const [row] = await db.select().from(orders);
     expect(row.seniorPwdDiscountInCentavos).toBe(1095);
     expect(row.seniorPwdVerificationId).not.toBeNull();
   });
 
+  test("the Order keeps the rule it was placed under", async () => {
+    await approve("c1");
+    await cartLine("c1");
+    await place("c1", { kind: "percent", hundredths: 1_000, limitInCentavos: 30_000, per: "month" });
+    const [row] = await db.select().from(orders);
+    expect(row).toMatchObject({ seniorPwdDiscountInCentavos: 2190, seniorPwdLimitInCentavos: 30_000, seniorPwdLimitPer: "month" });
+  });
+
   test("an expired approval no longer applies", async () => {
     await db.insert(seniorPwdVerifications).values({ customerId: "c1", idType: "pwd", idHash: "h", status: "approved", expiresOn: "2020-01-01" });
-    const lineId = await cartLine("c1");
-    await expect(place("c1", { lineId })).rejects.toThrow("type, number and a photo");
+    await cartLine("c1");
+    await place("c1");
+    const [row] = await db.select().from(orders);
+    expect(row.seniorPwdDiscountInCentavos).toBeNull();
+  });
+
+  test("a number last seen declined on another account is accepted but flagged for Staff", async () => {
+    const first = await submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, photoFileId: "f1" });
+    await db.update(seniorPwdVerifications).set({ status: "declined" });
+    const second = await submitVerification(db, "c2", { idType: "senior", idNumber: "ant sc 0458721", photoFileId: "f2" });
+    const rows = await db.select().from(seniorPwdVerifications);
+    expect(rows.find((row) => row.id === first)?.sameIdAsVerificationId).toBeNull();
+    expect(rows.find((row) => row.id === second)?.sameIdAsVerificationId).toBe(first);
+  });
+
+  test("two accounts sending the same number together cannot both get in", async () => {
+    const results = await Promise.allSettled([
+      submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, photoFileId: "f1" }),
+      submitVerification(db, "c2", { idType: "senior", idNumber: NUMBER, photoFileId: "f2" }),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(await db.select().from(seniorPwdVerifications)).toHaveLength(1);
+  });
+
+  test("the same ID cannot be sent from a second account while it is in use", async () => {
+    await submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, photoFileId: "f1" });
+    await expect(submitVerification(db, "c2", { idType: "senior", idNumber: "ant sc 0458721", photoFileId: "f2" })).rejects.toThrow("already used on another account");
+    expect(JSON.stringify(await db.select().from(seniorPwdVerifications))).not.toContain("0458721");
   });
 });
 
 describe("CREOMS decisions", () => {
   async function pending() {
-    const lineId = await cartLine("c1");
-    await place("c1", { lineId, idType: "senior", idNumber: NUMBER, photoFileId: "front-1", photoBackFileId: "back-1" });
-    const [v] = await db.select().from(seniorPwdVerifications);
-    return v.id;
+    return submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, photoFileId: "front-1", photoBackFileId: "back-1" });
   }
   const call = (id: number | string, action: string, body: object, token = mintCreomsCredential(creomsSeniorPwdCredential)) =>
     POST(new Request(`https://shop.test/api/internal/senior-pwd/${id}/${action}`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) }),

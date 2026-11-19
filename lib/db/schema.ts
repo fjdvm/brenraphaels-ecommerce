@@ -178,6 +178,12 @@ export const seniorPwdVerifications = pgTable("senior_pwd_verifications", {
   declineReason: text("decline_reason"),
   /** The ID's expiry date; the discount stops on it. */
   expiresOn: date("expires_on"),
+  /**
+   * The other account's verification that carries the same ID number, when there is one. A number in use (pending or
+   * approved) is refused outright, so this is set only for a number last seen declined, revoked or expired, or if a
+   * clash ever got past the check. CREOMS cannot read `idHash`, so this is how Staff learn the number was used before.
+   */
+  sameIdAsVerificationId: integer("same_id_as_verification_id"),
 }, (table) => [
   index("senior_pwd_verifications_customer").on(table.customerId),
   index("senior_pwd_verifications_hash").on(table.idHash),
@@ -188,10 +194,13 @@ export const orders = pgTable("orders", {
   customerId: text("customer_id")
     .notNull()
     .references(() => customers.id, { onDelete: "restrict" }),
-  /** The ID check this Order waits on; the Order confirms only once it is approved. */
+  /** The approved ID check this Order's discount comes from. */
   seniorPwdVerificationId: integer("senior_pwd_verification_id").references(() => seniorPwdVerifications.id, { onDelete: "restrict" }),
-  /** 5% of one unit of the chosen item, in centavos; counts only while the verification is approved. */
+  /** The CREOMS rule's discount on one unit of the Order's priciest item, in centavos; counts only while the verification is approved. */
   seniorPwdDiscountInCentavos: integer("senior_pwd_discount_in_centavos"),
+  /** The most one ID could get per period under the rule this Order was placed with; null on Orders placed before the rule was configurable (₱125 per week). */
+  seniorPwdLimitInCentavos: integer("senior_pwd_limit_in_centavos"),
+  seniorPwdLimitPer: text("senior_pwd_limit_per"),
   fulfillmentMethod: text("fulfillment_method").notNull(),
   paymentMethod: text("payment_method").notNull(),
   status: text("status").notNull(),
@@ -208,7 +217,7 @@ export const orders = pgTable("orders", {
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
   /** When an unpaid Online payment Order is cancelled; saved with `confirmedAt` in the same write and never moved by email delay, failure, retry or Resend. Null on Orders confirmed before this existed (24 hours after `confirmedAt`). */
   paymentDeadlineAt: timestamp("payment_deadline_at", { withTimezone: true }),
-  /** How much of the ID's ₱125 weekly cap other Orders had used when this one was confirmed, in centavos. */
+  /** How much of the ID's limit for the period other Orders had used when this one was confirmed, in centavos. */
   seniorPwdAllowanceUsedInCentavos: integer("senior_pwd_allowance_used_in_centavos"),
   /** Why the Senior/PWD discount was reduced at confirmation; null when it was not. */
   seniorPwdReductionReason: text("senior_pwd_reduction_reason"),

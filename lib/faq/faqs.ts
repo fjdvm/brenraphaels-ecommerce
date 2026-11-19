@@ -70,7 +70,8 @@ export const faqGroups: FaqGroup[] = [
           bullets: [
             "5% discount per item",
             "1 item per valid ID",
-            "For personal consumption only"
+            "For personal consumption only",
+            "Add your Senior Citizen or PWD ID when you sign up, or later in Account settings. Once our team verifies it, the discount is applied automatically at checkout"
           ],
           after: [
             "This policy is aligned with the Expanded Senior Citizens Act of 2010 (Republic Act No. 9994), which ensures that discounts are intended for the exclusive use and benefit of the customer and not for bulk purchase or resale."

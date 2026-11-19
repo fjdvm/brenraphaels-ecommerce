@@ -52,8 +52,8 @@ export async function activeVerification(db: Db, customerId: string, now = new D
 }
 
 /**
- * Records the Customer's ID for review. The number is hashed here and never kept. Call inside the Order's
- * transaction so the Order and its verification are saved together.
+ * Records the Customer's ID for review. The number is hashed here and never kept. A number pending or approved on another
+ * account is refused; one last seen declined, revoked or expired is accepted but flagged (`sameIdAsVerificationId`).
  */
 export async function submitVerification(
   db: Db,
@@ -62,15 +62,23 @@ export async function submitVerification(
   now = new Date(),
 ): Promise<number> {
   const idHash = hashIdNumber(input.idNumber);
-  const [taken] = await db.select({ id: seniorPwdVerifications.id }).from(seniorPwdVerifications)
-    .where(and(eq(seniorPwdVerifications.idHash, idHash), ne(seniorPwdVerifications.customerId, customerId),
-      inArray(seniorPwdVerifications.status, ["pending", "approved"]))).limit(1);
-  if (taken) throw new SeniorPwdConflict("This ID is already used on another account.");
-  const [row] = await db.insert(seniorPwdVerifications).values({
-    customerId, idType: input.idType, idHash, photoFileId: input.photoFileId,
-    photoBackFileId: input.photoBackFileId ?? null, submittedAt: now,
-  }).returning({ id: seniorPwdVerifications.id });
-  return row.id;
+  // One submission of this number at a time, so two accounts sending it together cannot both pass the check below.
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${idHash}))`);
+    const [taken] = await tx.select({ id: seniorPwdVerifications.id }).from(seniorPwdVerifications)
+      .where(and(eq(seniorPwdVerifications.idHash, idHash), ne(seniorPwdVerifications.customerId, customerId),
+        inArray(seniorPwdVerifications.status, ["pending", "approved"]))).limit(1);
+    if (taken) throw new SeniorPwdConflict("This ID is already used on another account.");
+    // A number last seen on another account (declined, revoked, expired) is accepted but flagged, so Staff can tell.
+    const [before] = await tx.select({ id: seniorPwdVerifications.id }).from(seniorPwdVerifications)
+      .where(and(eq(seniorPwdVerifications.idHash, idHash), ne(seniorPwdVerifications.customerId, customerId)))
+      .orderBy(desc(seniorPwdVerifications.id)).limit(1);
+    const [row] = await tx.insert(seniorPwdVerifications).values({
+      customerId, idType: input.idType, idHash, photoFileId: input.photoFileId,
+      photoBackFileId: input.photoBackFileId ?? null, submittedAt: now, sameIdAsVerificationId: before?.id ?? null,
+    }).returning({ id: seniorPwdVerifications.id });
+    return row.id;
+  });
 }
 
 export type Decision = {

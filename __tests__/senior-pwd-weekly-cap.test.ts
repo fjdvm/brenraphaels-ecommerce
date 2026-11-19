@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { customers, seniorPwdVerifications } from "../lib/db/schema";
 import { createOrderStore } from "../lib/orders/orders";
-import { capSeniorPwdDiscount, philippineWeek } from "../lib/senior-pwd/id-number";
+import { capSeniorPwdDiscount, philippinePeriod, philippineWeek } from "../lib/senior-pwd/id-number";
 import { createTestDatabase } from "./helpers/test-database";
 
 vi.mock("../lib/email/brevo-transport", () => ({
@@ -20,6 +20,22 @@ describe("the weekly window and the cap", () => {
     expect(sundayNight.start.toISOString()).toBe("2026-11-15T16:00:00.000Z");
     expect(sundayNight.end.toISOString()).toBe("2026-11-22T16:00:00.000Z");
     expect(mondayMorning.start).toEqual(sundayNight.end);
+  });
+
+  test("a day and a month run on Philippine Time too", () => {
+    // 23:30 PHT on 30 Nov is still November's last day; 00:30 PHT on 1 Dec is the next day and month.
+    const lastNight = new Date("2026-11-30T15:30:00Z");
+    const nextMorning = new Date("2026-11-30T16:30:00Z");
+    expect(philippinePeriod(lastNight, "day")).toEqual({ start: new Date("2026-11-29T16:00:00Z"), end: new Date("2026-11-30T16:00:00Z") });
+    expect(philippinePeriod(nextMorning, "day").start).toEqual(new Date("2026-11-30T16:00:00Z"));
+    expect(philippinePeriod(lastNight, "month")).toEqual({ start: new Date("2026-10-31T16:00:00Z"), end: new Date("2026-11-30T16:00:00Z") });
+    expect(philippinePeriod(nextMorning, "month").end).toEqual(new Date("2026-12-31T16:00:00Z"));
+  });
+
+  test("the cap follows the limit and period given, and names the period in its reason", () => {
+    const capped = capSeniorPwdDiscount(5000, 28000, { limitInCentavos: 30000, per: "month" });
+    expect(capped.discountInCentavos).toBe(2000);
+    expect(capped.reason).toMatch(/₱280\.00 of its ₱300\.00 monthly limit/);
   });
 
   test("caps the discount at what is left of ₱125 and explains why", () => {
@@ -66,6 +82,18 @@ describe("the weekly cap at confirmation", () => {
     expect(done.order.approvedDiscountInCentavos).toBe(4500);
     expect(done.order.seniorPwd).toMatchObject({ discountInCentavos: 4500, allowanceUsedInCentavos: 8000, reductionReason: expect.stringContaining("reduced from ₱80.00 to ₱45.00") });
     expect(JSON.stringify(done.order)).not.toMatch(/same-id/);
+  });
+
+  test("an Order is capped by the limit and period it was placed under, not today's default", async () => {
+    const store = createOrderStore(drizzle(client));
+    const v = await approvedId("c1");
+    const monthly = "senior_pwd_limit_in_centavos=30000";
+    const first = await order("c1", v, 20000, monthly);
+    const second = await order("c1", v, 20000, monthly);
+    await client.query("update orders set senior_pwd_limit_per = 'month' where id in ($1, $2)", [first, second]);
+    await confirmWith(store, first, 20000);
+    // Under the old ₱125 weekly default nothing would be left; under ₱300 a month there is ₱100.
+    expect((await store.listForCustomer("c1")).find((o) => o.id === second)?.seniorPwd).toMatchObject({ discountInCentavos: 10000, allowanceUsedInCentavos: 20000 });
   });
 
   test("the same ID on another account shares the allowance", async () => {

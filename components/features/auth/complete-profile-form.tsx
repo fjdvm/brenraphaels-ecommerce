@@ -10,8 +10,10 @@ import {
   PreferenceFields,
   type FieldErrors,
 } from "@/components/features/auth/customer-details-fields";
+import { SeniorPwdFields } from "@/components/features/auth/senior-pwd-fields";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { seniorPwdFormValues, seniorPwdSchema } from "@/lib/senior-pwd/application-schema";
 import {
   completeProfileFormValues,
   completeProfileSchema,
@@ -34,7 +36,11 @@ export function CompleteProfileForm({ email, defaults, provinces }: CompleteProf
     setMessage(undefined);
 
     const result = completeProfileSchema.safeParse(completeProfileFormValues(formData));
-    const clientErrors = result.success ? {} : z.flattenError(result.error).fieldErrors;
+    const seniorPwd = seniorPwdSchema().safeParse(seniorPwdFormValues(formData));
+    const clientErrors = {
+      ...(result.success ? {} : z.flattenError(result.error).fieldErrors),
+      ...(seniorPwd.success ? {} : z.flattenError(seniorPwd.error).fieldErrors),
+    };
     setErrors(clientErrors);
     if (Object.keys(clientErrors).length > 0) {
       focusFirstInvalid(event.currentTarget);
@@ -60,6 +66,7 @@ export function CompleteProfileForm({ email, defaults, provinces }: CompleteProf
       <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
         <NameFields errors={errors} defaults={defaults} />
         <DeliveryFields errors={errors} provinces={provinces} />
+        <SeniorPwdFields errors={errors} />
         <PreferenceFields errors={errors} />
 
         {message ? (
