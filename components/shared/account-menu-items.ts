@@ -1,4 +1,4 @@
-import { FileText, MapPin, MessageCircle, Package, SlidersHorizontal, UserRound } from "lucide-react";
+import { FileText, MapPin, MessageCircle, MessageSquarePlus, Package, SlidersHorizontal, UserRound } from "lucide-react";
 
 /** Kept out of the `"use client"` account-menu module: a server component importing an array from there gets a client reference, not the array. */
 export const accountMenuItems = [
@@ -6,6 +6,7 @@ export const accountMenuItems = [
   { href: "/support", label: "Support", icon: MessageCircle },
   { href: "/profile/addresses", label: "Addresses", icon: MapPin },
   { href: "/profile/settings", label: "Account settings", icon: SlidersHorizontal },
+  { href: "/profile/feedback", label: "Feedback", icon: MessageSquarePlus },
 ];
 
 /** The signed-in Applicant's menu on Careers; the portal tabs that are not header nav links. */
