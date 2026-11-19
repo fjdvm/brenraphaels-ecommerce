@@ -12,3 +12,14 @@ export const ticketMessageInput = z.object({
     patternMessage: "Enter a message without invisible characters",
   }),
 });
+
+/**
+ * Validates the body of a reply. With an image attached the words are optional, so a blank body is accepted and saved
+ * as empty text; without an image it must pass the same rules as any Message.
+ */
+export function parseReplyBody(body: unknown, hasAttachment: boolean) {
+  if (hasAttachment && (typeof body !== "string" || body.trim() === "")) {
+    return { success: true as const, data: { body: "" } };
+  }
+  return ticketMessageInput.safeParse({ body });
+}

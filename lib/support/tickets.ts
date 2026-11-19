@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { customers, orders, ticketMessages, tickets } from "../db/schema";
 import { optionalPositiveIntegerField, textField } from "../validators/fields";
-import { ticketMessageInput } from "./ticket-message";
+import { parseReplyBody, ticketMessageInput } from "./ticket-message";
 import type { TicketRating } from "./ticket-rating";
 export { readTicketRating, type TicketRating } from "./ticket-rating";
 
@@ -267,7 +267,10 @@ export function createTicketStore<
     input: { body: unknown },
     fileId?: string,
   ): Promise<Ticket & { messageId: number }> {
-    const parsed = ticketMessageInput.parse(input).body;
+    // A reply may be a picture alone; anything else needs its words.
+    const reply = parseReplyBody(input.body, Boolean(fileId));
+    if (!reply.success) throw reply.error;
+    const parsed = reply.data.body;
     const ticket = await get(ticketId, customerId);
     if (!ticket) throw new Error("Ticket was not found.");
     if (ticket.status === "completed") throw new Error(completedTicketError);

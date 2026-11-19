@@ -106,6 +106,25 @@ describe("Ticket actions", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/support/12");
   });
 
+  test("accepts a reply that is only an image, saved with empty words", async () => {
+    addMessage.mockResolvedValue({ id: 12, messageId: 56 });
+    const formData = new FormData();
+    formData.set("body", "   ");
+    formData.set("attachment", new File([new Uint8Array(4)], "photo.png", { type: "image/png" }));
+
+    await expect(sendMessage(12, {}, formData)).resolves.toEqual({ sent: true, messageId: 56 });
+    expect(addMessage).toHaveBeenCalledWith(12, "customer-1", { body: "" }, "file-1");
+  });
+
+  test("still needs words when there is no image", async () => {
+    const formData = new FormData();
+    formData.set("body", "   ");
+
+    const result = await sendMessage(12, {}, formData);
+    expect(result.fieldErrors?.body).toBeDefined();
+    expect(addMessage).not.toHaveBeenCalled();
+  });
+
   test("rejects a malformed Ticket id before authenticating or adding a Message", async () => {
     const formData = new FormData();
     formData.set("body", "Could you please share an update?");
