@@ -8,7 +8,6 @@ import { ChevronDown, Menu, Search, ShoppingCart, X } from "lucide-react";
 
 import { SearchOverlay, prefetchSearchResults } from "@/components/features/catalog/search-overlay";
 
-import { freeShippingThreshold } from "@/lib/site/store-info";
 
 /** Pages that open on a full-bleed photo; their header floats over it until the visitor scrolls. */
 const transparentHeaderPaths = new Set(["/"]);
@@ -156,10 +155,13 @@ function MobileAboutMenu({
 }
 
 export function Header({
+  freeShippingAmount,
   desktopSession,
   mobileBell,
   mobileSession,
 }: {
+  /** The amount in the banner, as text, read from the shop's saved threshold. */
+  freeShippingAmount: ReactNode;
   desktopSession: ReactNode;
   mobileBell?: ReactNode;
   mobileSession: ReactNode;
@@ -186,7 +188,7 @@ export function Header({
     >
       <PhilippineFlag />
       <p>
-        Free Shipping on orders over ₱{freeShippingThreshold}
+        Free Shipping on orders over {freeShippingAmount}
         <Link
           href="/products"
           className="ml-2 font-bold uppercase underline underline-offset-2"
