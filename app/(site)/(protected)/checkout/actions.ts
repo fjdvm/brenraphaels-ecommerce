@@ -77,7 +77,7 @@ export async function placeOrder(input: unknown) {
   }
   // The page can be stale: the shop may have switched this method off since checkout opened.
   if (isPrepaid(parsed.paymentMethod) && !(await fetchPaymentAvailability())[parsed.paymentMethod]) {
-    throw new Error(`${PAYMENT_LABELS[parsed.paymentMethod]} isn't available right now. Choose another payment method.`);
+    throw new Error(`${PAYMENT_LABELS[parsed.paymentMethod]} can't be used right now. Choose another payment method, or try again shortly.`);
   }
   const order = await placeOrderAndNotify(customer.userId, customer.email, parsed, {
     orderStore: createOrderStore(getDatabase()),

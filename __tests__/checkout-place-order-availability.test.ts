@@ -23,7 +23,7 @@ beforeEach(() => { vi.clearAllMocks(); mocks.place.mockResolvedValue({ id: 5 });
 describe("placeOrder and payment method availability", () => {
   test("refuses a prepaid method the shop has switched off, without placing the Order", async () => {
     mocks.availability.mockResolvedValue({ "cash-on-delivery": true, gcash: false, maya: true, "bank-transfer": true });
-    await expect(placeOrder({ fulfillmentMethod: "pickup", paymentMethod: "gcash" })).rejects.toThrow("GCash isn't available right now. Choose another payment method.");
+    await expect(placeOrder({ fulfillmentMethod: "pickup", paymentMethod: "gcash" })).rejects.toThrow("GCash can't be used right now. Choose another payment method, or try again shortly.");
     expect(mocks.place).not.toHaveBeenCalled();
   });
 

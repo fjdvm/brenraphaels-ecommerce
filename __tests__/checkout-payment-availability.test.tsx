@@ -37,12 +37,12 @@ describe("Checkout payment method availability", () => {
   });
 
   test("shows the server's refusal when the shop switched the method off after the page opened", async () => {
-    placeOrder.mockRejectedValue(new Error("GCash isn't available right now. Choose another payment method."));
+    placeOrder.mockRejectedValue(new Error("GCash can't be used right now. Choose another payment method, or try again shortly."));
     render(view());
     fireEvent.click(screen.getByLabelText(/^GCash/));
     fireEvent.click(screen.getByRole("button", { name: /place order/i }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirm order" }));
-    expect(await screen.findByText(/GCash isn't available right now/)).toBeTruthy();
+    expect(await screen.findByText(/GCash can't be used right now/)).toBeTruthy();
     expect(push).not.toHaveBeenCalled();
   });
 });
