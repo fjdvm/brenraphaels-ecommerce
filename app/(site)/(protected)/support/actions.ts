@@ -11,7 +11,7 @@ import { sendTicketCreatedEmail } from "@/lib/email/ticket-created-email";
 import { liveConversationUrl } from "@/lib/support/live";
 import { completedTicketError, completeTicketAndNotify, createTicketStore, followUpNotFoundError, openTicketAndNotify, readTicketRating, ticketInput } from "@/lib/support/tickets";
 import { gatewayTicketFiles } from "@/lib/support/ticket-files";
-import { ticketMessageInput } from "@/lib/support/ticket-message";
+import { parseReplyBody } from "@/lib/support/ticket-message";
 import { uploadTicketAttachment, validateTicketAttachment } from "@/lib/support/ticket-attachment";
 import { positiveIntegerField } from "@/lib/validators/fields";
 
@@ -153,8 +153,9 @@ export async function sendMessage(
   if (!positiveIntegerField("Ticket ID").safeParse(String(ticketId)).success) {
     return { message: "We couldn't send your Message. Please try again." };
   }
-  const parsed = ticketMessageInput.safeParse({ body: formData.get("body") });
   const attachment = readAttachment(formData);
+  // The words are optional when a picture is sent with them.
+  const parsed = parseReplyBody(formData.get("body"), attachment.file !== undefined);
   if (!parsed.success || attachment.error) {
     return {
       fieldErrors: {

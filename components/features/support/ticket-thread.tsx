@@ -12,6 +12,10 @@ import {
   useState,
 } from "react";
 
+import {
+  PhotoViewer,
+  type PhotoViewerItem,
+} from "@/components/ui/photo-viewer";
 import { AssistantSummaryCard } from "./assistant-summary-card";
 import { connectLive } from "./live-socket";
 import { sendMessage } from "@/app/(site)/(protected)/support/actions";
@@ -23,7 +27,7 @@ import type { TicketAssistantSummary } from "@/lib/assistant-handoff/ticket-summ
 import type { TicketMessage } from "@/lib/support/tickets";
 import type { ConnectLive, LiveConnection } from "@/lib/support/live";
 import { validateTicketAttachment } from "@/lib/support/ticket-attachment";
-import { ticketMessageInput } from "@/lib/support/ticket-message";
+import { parseReplyBody } from "@/lib/support/ticket-message";
 import { cn } from "@/lib/utils";
 
 type OptimisticMessage = TicketMessage & {
@@ -135,6 +139,7 @@ export function TicketThread({
   const image = picked?.file;
   const imagePreview = picked?.url;
   const [sending, setSending] = useState(false);
+  const [viewing, setViewing] = useState<number | null>(null);
   const sendingRef = useRef(false);
   const picker = useRef<HTMLInputElement>(null);
   // The preview address is made when the file is picked, not in an effect, so it survives Strict Mode remounts.
@@ -160,14 +165,15 @@ export function TicketThread({
   async function submit(formData: FormData) {
     // One Message at a time: a second click or Enter while one is on its way does nothing.
     if (sendingRef.current) return;
-    const parsed = ticketMessageInput.safeParse({ body: formData.get("body") });
+    // The picked file is the source of truth; the file input is reset by the form after every submit.
+    if (image) formData.set("attachment", image);
+    // With a picture the words are optional.
+    const parsed = parseReplyBody(formData.get("body"), image !== undefined);
     if (!parsed.success) {
       setMessage(parsed.error.issues[0]?.message);
       return;
     }
 
-    // The picked file is the source of truth; the file input is reset by the form after every submit.
-    if (image) formData.set("attachment", image);
     const attachment = formData.get("attachment");
     const hasAttachment =
       attachment instanceof File &&
@@ -229,6 +235,42 @@ export function TicketThread({
       setImage(undefined);
     }
   }
+
+  // Every image in the thread, in order, so a click opens the viewer on it and the arrows move between them.
+  const imageOf = (entry: OptimisticMessage) =>
+    entry.previewUrl ??
+    (entry.attachmentPathname || entry.fileId
+      ? `/api/support/attachments/${entry.id}`
+      : undefined);
+  const viewerItems: PhotoViewerItem[] = optimisticMessages.flatMap((entry) => {
+    const src = imageOf(entry);
+    if (!src) return [];
+    const who = entry.sender === "customer" ? "You" : "Customer Care";
+    return [
+      {
+        key: `message-${entry.id}`,
+        caption: `${who} · ${formatClock(entry.createdAt)}`,
+        stage: (
+          // eslint-disable-next-line @next/next/no-img-element -- streamed from an authenticated route, not optimizable
+          <img
+            alt={`Image from ${who}`}
+            className="max-h-full max-w-full object-contain"
+            src={src}
+          />
+        ),
+        thumbnail: (
+          // eslint-disable-next-line @next/next/no-img-element -- streamed from an authenticated route, not optimizable
+          <img alt="" className="size-full object-cover" src={src} />
+        ),
+      },
+    ];
+  });
+  const openImage = (messageId: number) => {
+    const at = viewerItems.findIndex(
+      (item) => item.key === `message-${messageId}`,
+    );
+    if (at >= 0) setViewing(at);
+  };
 
   const firstStaffId = optimisticMessages.find(
     (entry) => entry.sender === "staff",
@@ -302,24 +344,29 @@ export function TicketThread({
                           : "bg-surface-soft text-ink",
                       )}
                     >
-                      <p className="whitespace-pre-wrap break-words">
-                        {threadMessage.body}
-                      </p>
-                      {threadMessage.previewUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- local preview of the file being sent
-                        <img
-                          alt="Being sent with this Message"
-                          className="mt-2 max-h-80"
-                          src={threadMessage.previewUrl}
-                        />
-                      ) : threadMessage.attachmentPathname ||
-                        threadMessage.fileId ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- streamed from an authenticated route, not optimizable
-                        <img
-                          alt="Attached to this Message"
-                          className="mt-2 max-h-80"
-                          src={`/api/support/attachments/${threadMessage.id}`}
-                        />
+                      {threadMessage.body ? (
+                        <p className="whitespace-pre-wrap break-words">
+                          {threadMessage.body}
+                        </p>
+                      ) : null}
+                      {imageOf(threadMessage) ? (
+                        <button
+                          aria-label="View image full size"
+                          className="block cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                          onClick={() => openImage(threadMessage.id)}
+                          type="button"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element -- streamed from an authenticated route or a local preview, not optimizable */}
+                          <img
+                            alt={
+                              threadMessage.previewUrl
+                                ? "Being sent with this Message"
+                                : "Attached to this Message"
+                            }
+                            className="max-h-80"
+                            src={imageOf(threadMessage)}
+                          />
+                        </button>
                       ) : null}
                       <p
                         className={cn(
@@ -448,7 +495,7 @@ export function TicketThread({
                       }
                     }}
                     placeholder="Write a message…"
-                    required
+                    required={!image}
                     rows={1}
                     value={draft}
                   />
@@ -488,6 +535,13 @@ export function TicketThread({
           </p>
         </div>
       )}
+      <PhotoViewer
+        index={viewing}
+        items={viewerItems}
+        label="Images in this conversation"
+        noun="image"
+        onIndexChange={setViewing}
+      />
     </>
   );
 }
