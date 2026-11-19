@@ -3,7 +3,7 @@
 import { liveInboxUrl } from "@/lib/notifications/inbox";
 
 /** The shared recipient CREOMS nudges when a shop setting changes. It holds no personal data: any visitor may listen. */
-export const STOREFRONT_CHANNEL = "storefront-public";
+const STOREFRONT_CHANNEL = "storefront-public";
 
 /** The address for the shop-wide live line, or null when it cannot be issued; the page then just stays as loaded. */
 export async function storefrontLiveUrl(): Promise<string | null> {
