@@ -41,6 +41,8 @@ const statusUpdate = z.discriminatedUnion("status", [
   z.object({
     status: z.enum(orderStatuses).exclude(["paid", "received", "delivered", "dispatched", "preparing", "confirmed", "collected"]),
     deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
+    /** Why Staff rejected (cancelled) the Order; saved and shown to the Customer. */
+    reason: z.string().trim().min(1).max(500).optional(),
     // Attribution is only used for paid; other moves ignore it.
     staffId: z.unknown().optional(),
     staffName: z.unknown().optional(),
@@ -69,6 +71,7 @@ export function parseInternalOrderStatusUpdate(payload: unknown) {
   return {
     status: update.status,
     ...(update.status === "cancelled" && (update.staffId !== undefined || update.staffName !== undefined) ? staffAttribution.parse(update) : {}),
+    ...(update.status === "cancelled" && "reason" in update && update.reason ? { cancelReason: update.reason } : {}),
     ...("courier" in update && update.courier ? { courier: update.courier } : {}),
     ...(update.deliveryFeeInCentavos === undefined ? {} : { deliveryFeeInCentavos: update.deliveryFeeInCentavos }),
   };

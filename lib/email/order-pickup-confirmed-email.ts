@@ -7,6 +7,16 @@ import { stableMessageId } from "./stable-message-id";
 import { EMAIL_TOKENS as t, emailButton, emailHeading, emailParagraph, escapeHtml, logoAttachment, renderEmailLayout } from "./layout";
 
 /** The Customer's own Order page, where the View Order button lands. */
+/** The Orders page with the cancel dialog open; the Customer signs in first if they are signed out. */
+export function cancelOrderUrl(orderId: number) {
+  return `${requiredEnvironment("NEXT_PUBLIC_SITE_URL")}/profile/orders?order=${orderId}&action=cancel`;
+}
+
+/** The Orders page with this Order open on its payment form. */
+export function payOrderUrl(orderId: number) {
+  return `${requiredEnvironment("NEXT_PUBLIC_SITE_URL")}/profile/orders?order=${orderId}&action=pay`;
+}
+
 export function viewOrderUrl(orderId: number) {
   return `${requiredEnvironment("NEXT_PUBLIC_SITE_URL")}/profile/orders?order=${orderId}`;
 }

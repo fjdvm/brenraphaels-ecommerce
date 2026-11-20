@@ -52,7 +52,7 @@ test("quotes the fee and asks for GCash payment once, then Preparing sends nothi
 
 test("an outage leaves cancellation committed and retries an ambiguous acceptance with the same key", async () => {
   const row = await order();
-  await createOrderStore(db).cancel("c1", row.id);
+  await createOrderStore(db).cancel("c1", row.id, "Changed my mind");
   const visible = new Set<string>();
   const send = vi.fn(async (n) => {
     visible.add(n.idempotencyKey);

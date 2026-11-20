@@ -3,8 +3,8 @@ import { formatAddressLine } from "../address/format";
 import type { Order } from "../orders/orders";
 import { createBrevoTransport } from "./brevo-transport";
 import { stableMessageId } from "./stable-message-id";
-import { EMAIL_TOKENS as t, emailButton, emailHeading, emailParagraph, escapeHtml, logoAttachment, renderEmailLayout } from "./layout";
-import { deliveryFeeText, viewOrderUrl } from "./order-pickup-confirmed-email";
+import { EMAIL_TOKENS as t, emailButton, emailHeading, emailParagraph, emailSecondaryButton, escapeHtml, logoAttachment, renderEmailLayout } from "./layout";
+import { cancelOrderUrl, deliveryFeeText, viewOrderUrl } from "./order-pickup-confirmed-email";
 
 /** The amount to pay the rider: the confirmed total, or subtotal less discount plus the Delivery fee before one is saved. */
 export function totalPayableUponDelivery(order: Order) {
@@ -17,7 +17,7 @@ function row(label: string, value: string, strong = false) {
 }
 
 /** Builds the subject, HTML and plain text of the COD + Delivery confirmation, so tests can render it without sending. */
-export function renderDeliveryConfirmedEmail(order: Order, orderUrl: string) {
+export function renderDeliveryConfirmedEmail(order: Order, orderUrl: string, cancelUrl?: string) {
   const discount = order.approvedDiscountInCentavos ?? 0;
   const fee = order.deliveryFeeInCentavos ?? 0;
   const feeText = deliveryFeeText(fee);
@@ -41,7 +41,7 @@ export function renderDeliveryConfirmedEmail(order: Order, orderUrl: string) {
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${border}">${items.map((i) => row(i.name, i.amount)).join("")}</table>`,
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${border}">${row("Subtotal", formatPeso(order.subtotalInCentavos))}${discount > 0 ? row("Senior/PWD discount", `-${formatPeso(discount)}`) : ""}${row("Delivery fee", feeText)}${row("Total payable upon delivery", formatPeso(total), true)}</table>`,
       addressBlock,
-      `<div style="margin:24px 0 0;">${emailButton("View Order", orderUrl)}</div>`,
+      `<div style="margin:24px 0 0;">${cancelUrl ? `${emailSecondaryButton("Cancel order", cancelUrl)}&nbsp;&nbsp;` : ""}${emailButton("View Order", orderUrl)}</div>`,
     ].join("\n"),
   });
 
@@ -59,6 +59,7 @@ export function renderDeliveryConfirmedEmail(order: Order, orderUrl: string) {
     ...(address ? ["", `Delivery address: ${address}`] : []),
     "",
     `View Order: ${orderUrl}`,
+    ...(cancelUrl ? [`Cancel order: ${cancelUrl}`] : []),
   ].join("\n");
 
   return { subject: `Order #${order.id} confirmed`, html, text };
@@ -67,7 +68,7 @@ export function renderDeliveryConfirmedEmail(order: Order, orderUrl: string) {
 /** Sends the Customer the confirmation of a Cash on Delivery Delivery Order once its fee is confirmed. */
 export async function sendOrderDeliveryConfirmedEmail(recipient: string, order: Order, email?: { id: string }) {
   const { transport, sender } = createBrevoTransport();
-  const message = renderDeliveryConfirmedEmail(order, viewOrderUrl(order.id));
+  const message = renderDeliveryConfirmedEmail(order, viewOrderUrl(order.id), cancelOrderUrl(order.id));
   const info = await transport.sendMail({ from: sender, to: recipient, ...message, ...stableMessageId(sender, email), attachments: [await logoAttachment()] });
   return typeof info?.messageId === "string" ? { messageId: info.messageId } : {};
 }
