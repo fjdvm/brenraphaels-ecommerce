@@ -35,15 +35,24 @@ test("refuses a missing, wrong-scope or malformed request", async () => {
   expect((await call("")).status).toBe(400);
 });
 
-test("CREOMS can read stock by IMS product id, with no Size mapping; one the IMS cannot answer is null", async () => {
-  stubIms((url) => url.searchParams.get("productId") === "55"
-    ? Response.json({ quantity: 67, reserved: 0, available: 67 }) : new Response("down", { status: 503 }));
+test("CREOMS reads stock by IMS product id in one call, as the IMS Finished Goods tab counts it; an unknown product is null", async () => {
+  const asked: string[] = [];
+  stubIms((url) => {
+    asked.push(`${url.pathname}?${url.searchParams.get("productIds")}`);
+    return Response.json({ products: [{ productId: 55, quantity: 67, reserved: 7, available: 60 }] });
+  });
   const response = await call("?productIds=55,56");
   expect(response.status).toBe(200);
+  expect(asked).toEqual(["/api/shop/inventory?55,56"]);
   expect(await response.json()).toEqual({ products: [
-    { productId: 55, quantity: 67, reserved: 0, available: 67 },
+    { productId: 55, quantity: 67, reserved: 7, available: 60 },
     { productId: 56, quantity: null, reserved: null, available: null },
   ] });
+});
+
+test("every product is null when the IMS inventory read fails", async () => {
+  stubIms(() => new Response("down", { status: 503 }));
+  expect(await (await call("?productIds=55")).json()).toEqual({ products: [{ productId: 55, quantity: null, reserved: null, available: null }] });
 });
 
 test("asks for either Sizes or products, never both, and bounds product ids", async () => {

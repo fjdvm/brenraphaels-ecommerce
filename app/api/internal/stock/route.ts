@@ -1,5 +1,5 @@
 import { creomsStockCredential, verifyCreomsCredential } from "@/lib/orders/creoms-credential";
-import { gatewayShopStock, readProductStock } from "@/lib/orders/stock";
+import { gatewayShopStock, readProductInventory, type SizeStock } from "@/lib/orders/stock";
 
 export const runtime = "nodejs";
 
@@ -19,14 +19,15 @@ export async function GET(request: Request) {
   const noStock = { quantity: null, reserved: null, available: null };
   const noCache = { "Cache-Control": "no-store" };
 
-  // By IMS product id: the Stock page lists the IMS's own items, so no Size mapping is involved.
+  // By IMS product id: the Stock page lists the IMS's own items, with the numbers the IMS Finished Goods tab shows.
   if (params.has("productIds")) {
     if (params.has("sizeIds")) return bad("Ask for Sizes or products, not both.");
     const ids = parse("productIds");
     if (!valid(ids)) return bad("Ask for between 1 and 200 product ids.");
-    const products = await Promise.all([...new Set(ids)].map(async (productId) => {
-      try { return { productId, ...(await readProductStock(productId)) }; } catch { return { productId, ...noStock }; }
-    }));
+    const wanted = [...new Set(ids)];
+    // One read of the IMS Finished Goods figures; if it fails, every product is unknown rather than guessed.
+    const found = await readProductInventory(wanted).catch(() => new Map<number, SizeStock>());
+    const products = wanted.map((productId) => ({ productId, ...(found.get(productId) ?? noStock) }));
     return Response.json({ products }, { headers: noCache });
   }
 
