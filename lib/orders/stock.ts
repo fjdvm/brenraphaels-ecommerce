@@ -77,3 +77,23 @@ export async function readProductStock(productId: number, fetcher: typeof fetch 
     return { quantity, reserved, available };
   } catch { throw new StockUnavailableError(); }
 }
+
+/**
+ * The IMS Finished Goods tab's stock per Size, for CREOMS's Stock page, in one read. A product the IMS does not
+ * answer for is left out of the map. Checkout never uses this; it keeps the shop Warehouse rule in readProductStock.
+ */
+export async function readProductInventory(productIds: number[], fetcher: typeof fetch = fetch): Promise<Map<number, SizeStock>> {
+  try {
+    const response = await fetcher(`${required("IMS_URL").replace(/\/$/, "")}/api/shop/inventory?productIds=${productIds.join(",")}`, {
+      cache: "no-store", headers: { Authorization: `Bearer ${required("IMS_SHOP_API_KEY")}` }, signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) throw new StockUnavailableError();
+    const { products } = await response.json();
+    if (!Array.isArray(products)) throw new StockUnavailableError();
+    const found = new Map<number, SizeStock>();
+    for (const { productId, quantity, reserved, available } of products) {
+      if (Number.isInteger(productId) && [quantity, reserved, available].every((value) => Number.isInteger(value) && value >= 0)) found.set(productId, { quantity, reserved, available });
+    }
+    return found;
+  } catch { throw new StockUnavailableError(); }
+}
