@@ -236,6 +236,8 @@ export const orders = pgTable("orders", {
   approvedDiscountInCentavos: integer("approved_discount_in_centavos"),
   totalInCentavos: integer("total_in_centavos"),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  /** Why the Order was cancelled before preparing: the Customer's reason, or the reason Staff gave when they rejected it. Null otherwise. */
+  cancelReason: text("cancel_reason"),
   /** When an unpaid Online payment Order is cancelled; saved with `confirmedAt` in the same write and never moved by email delay, failure, retry or Resend. Null on Orders confirmed before this existed (24 hours after `confirmedAt`). */
   paymentDeadlineAt: timestamp("payment_deadline_at", { withTimezone: true }),
   /** How much of the ID's limit for the period other Orders had used when this one was confirmed, in centavos. */

@@ -39,6 +39,11 @@ export function emailButton(label: string, href: string) {
   return `<a href="${escapeHtml(href)}" style="display:inline-block;background:${t.primary};color:${t.white};font-family:${t.sans};font-size:18px;line-height:27px;text-decoration:none;padding:16px 32px;border-radius:50px;">${escapeHtml(label)}</a>`;
 }
 
+/** Secondary button: the same pill with an ube outline and ube text, for the lesser choice beside the primary one. */
+export function emailSecondaryButton(label: string, href: string) {
+  return `<a href="${escapeHtml(href)}" style="display:inline-block;background:${t.white};color:${t.primary};border:1px solid ${t.primary};font-family:${t.sans};font-size:18px;line-height:27px;text-decoration:none;padding:15px 31px;border-radius:50px;">${escapeHtml(label)}</a>`;
+}
+
 /** A heading with the Figma Eyebrow above it (DM Sans Medium 12px, uppercase). */
 export function emailHeading(eyebrow: string, title: string) {
   return `<p style="margin:0 0 8px;font-family:${t.sans};font-size:12px;line-height:18px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:${t.muted};">${escapeHtml(eyebrow)}</p>

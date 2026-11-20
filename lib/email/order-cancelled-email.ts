@@ -9,6 +9,7 @@ export async function sendOrderCancelledEmail(recipient: string, order: Order) {
     subject: `Order #${order.id} cancelled`,
     text: [
       `Your Order #${order.id} from Bren Raphael's has been cancelled.`,
+      ...(order.cancelReason ? ["", `Reason: ${order.cancelReason}`] : []),
       "",
       "You can view your Order history at:",
       `${requiredEnvironment("NEXT_PUBLIC_SITE_URL")}/profile/orders`,

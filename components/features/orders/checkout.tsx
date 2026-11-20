@@ -71,7 +71,8 @@ export function CheckoutView({
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string>();
   const [confirming, setConfirming] = useState(false);
-  const [fulfillmentMethod, setFulfillmentMethod] = useState<"delivery">("delivery");
+  // Delivery is automatic: the Customer is not asked how to get the Order.
+  const fulfillmentMethod = "delivery" as const;
   const [chosenPayment, setPaymentMethod] = useState<PaymentMethod>("cash-on-delivery");
   // A method the shop switched off since the page opened falls back to Cash on Delivery.
   const paymentMethod: PaymentMethod = availability[chosenPayment] ? chosenPayment : "cash-on-delivery";
@@ -128,24 +129,10 @@ export function CheckoutView({
       <PageHeading eyebrow="Almost there" title="Checkout" aside={<CheckoutSteps />} />
       <div className="flex flex-col gap-10 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-6">
-          <Panel title="1. How would you like to get your order?">
-            <fieldset className="grid gap-4 sm:grid-cols-2">
-              <legend className="sr-only">Fulfillment method</legend>
-              <Choice
-                checked={fulfillmentMethod === "delivery"}
-                description="Free for orders over ₱2,500"
-                icon={Truck}
-                label="Delivery"
-                name="fulfillment"
-                onChange={() => setFulfillmentMethod("delivery")}
-                value="delivery"
-              />
-            </fieldset>
-          </Panel>
           {fulfillmentMethod === "delivery" ? (
             <DeliveryAddressChoice addresses={addresses} addressId={addressId} onAddressIdChange={setAddressId} />
           ) : null}
-          <Panel title={`${fulfillmentMethod === "delivery" ? "3" : "2"}. Payment method`}>
+          <Panel title={"2. Payment method"}>
             <fieldset className="grid gap-4 sm:grid-cols-2">
               <legend className="sr-only">Payment method</legend>
               {PREPAID.map(({ method, icon, description }) => (
@@ -355,7 +342,7 @@ function Choice({ checked, description, disabled = false, icon: Icon, label, nam
 }
 
 function DeliveryAddressChoice({ addresses, addressId, onAddressIdChange }: { addresses: CustomerAddress[]; addressId?: number; onAddressIdChange: (id: number) => void; }) {
-  return <Panel title="2. Delivery details" action={<AddAddressDialog onAddressAdded={onAddressIdChange} />}>
+  return <Panel title="1. Delivery details" action={<AddAddressDialog onAddressAdded={onAddressIdChange} />}>
     {addresses.length === 0 ? <p className="text-sm text-warning">Add an Address before placing a Delivery Order.</p> : <fieldset className="flex flex-col gap-4">
       <legend className="sr-only">Delivery Address</legend>
       {addresses.map((address) => <label className={optionClass(address.id === addressId)} key={address.id}>

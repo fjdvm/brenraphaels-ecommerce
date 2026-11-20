@@ -1,4 +1,5 @@
 import { paymentRecipient } from "./payment-details";
+import { CUSTOMER_CANCELLABLE } from "./customer-cancellable";
 import { confirmedProofInput } from "./payment-proof";
 import { after } from "next/server";
 import { createStockReservations } from "./stock-reservations";
@@ -98,6 +99,8 @@ export type Order = {
   approvedDiscountInCentavos?: number | null;
   totalInCentavos?: number | null;
   confirmedAt?: Date | null;
+  /** Why the Order was cancelled, when it was cancelled before preparing; null otherwise. */
+  cancelReason?: string | null;
   /** When an unpaid Online payment Order is cancelled, saved with `confirmedAt`; null before confirmation and on Orders confirmed before it existed. */
   paymentDeadlineAt?: Date | null;
   /** Free delivery as judged when the Order was placed (or, for an older unconfirmed Order, when Staff confirmed it); never recalculated. */
@@ -180,6 +183,8 @@ export type AdvanceOrderInput = {
   staffName?: string;
   /** Needed to mark paid once 3 proofs have been rejected; a Manager's reason. */
   approvedAnyway?: { reason: string };
+  /** Saved with a move to cancelled: the Customer's reason, or the reason Staff gave for rejecting the Order. */
+  cancelReason?: string;
 };
 
 export type OrderStore = {
@@ -194,7 +199,7 @@ export type OrderStore = {
   ): Promise<Order>;
   /** Staff add or fix the booking while the Delivery Order is dispatched. The whole booking is replaced; the Customer is not emailed again. */
   updateCourier(orderId: number, courier: CourierBooking): Promise<Order>;
-  cancel(customerId: string, orderId: number): Promise<Order>;
+  cancel(customerId: string, orderId: number, reason: string): Promise<Order>;
   /** Confirms with the final amounts; repeating the same call changes nothing and reports `replayed`. */
   confirm(orderId: number, confirmation: OrderConfirmation): Promise<{ order: Order; replayed: boolean }>;
   cancelItems(orderId: number, lineIds: number[], staff: { staffId: string; staffName: string }, expectedStatus: string): Promise<Order>;
@@ -323,6 +328,7 @@ export function createOrderStore<
       approvedDiscountInCentavos: row.approvedDiscountInCentavos,
       totalInCentavos: row.totalInCentavos,
       confirmedAt: row.confirmedAt,
+      cancelReason: row.cancelReason,
       paymentDeadlineAt: row.paymentDeadlineAt,
       freeDelivery: row.freeDelivery,
       freeDeliveryThresholdInCentavos: row.freeDeliveryThresholdInCentavos,
@@ -528,6 +534,7 @@ export function createOrderStore<
           } : {}),
           ...(input.status === "delivered" ? { deliveredAt: new Date(), deliveryPhotoFileId } : {}),
           ...(input.status === "collected" ? { collectedAt: new Date() } : {}),
+          ...(input.status === "cancelled" && input.cancelReason ? { cancelReason: input.cancelReason } : {}),
           ...(input.deliveryFeeInCentavos === undefined
             ? {}
             : { deliveryFeeInCentavos: input.deliveryFeeInCentavos }),
@@ -756,16 +763,18 @@ export function createOrderStore<
   }
 
   /** Cancels an Order only when it belongs to the Customer and the state machine permits it. */
-  async function cancel(customerId: string, orderId: number): Promise<Order> {
+  async function cancel(customerId: string, orderId: number, reason: string): Promise<Order> {
     const [persistedOrder] = await db
       .select({ id: orders.id, status: orders.status, confirmedAt: orders.confirmedAt })
       .from(orders)
       .where(and(eq(orders.id, orderId), eq(orders.customerId, customerId)));
     if (!persistedOrder) throw new Error("Order was not found.");
-    // Once Staff confirm, the Customer can no longer cancel; Staff cancel up to preparing and a Manager after dispatch.
-    if (persistedOrder.confirmedAt) throw new OrderTransitionError("cancelled", persistedOrder.status as OrderStatus);
+    // The Customer may cancel, with a reason, until the Order is paid or being prepared. A paid Order has money in it,
+    // so it goes to Staff as a refund; after dispatch it is a Manager's decision.
+    if (!CUSTOMER_CANCELLABLE.includes(persistedOrder.status)) throw new OrderTransitionError("cancelled", persistedOrder.status as OrderStatus);
+    if (!reason.trim()) throw new Error("Tell us why you are cancelling.");
 
-    return advance(persistedOrder.id, { status: "cancelled" });
+    return advance(persistedOrder.id, { status: "cancelled", cancelReason: reason.trim() });
   }
 
   /**

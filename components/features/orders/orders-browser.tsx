@@ -34,6 +34,7 @@ import {
   type OrderBadge,
   type OrderFilter,
 } from "@/lib/orders/order-view";
+import { CUSTOMER_CANCELLABLE } from "@/lib/orders/customer-cancellable";
 import type { Order } from "@/lib/orders/orders";
 import type { CustomerReturn } from "@/lib/returns/customer-reads";
 import type { ReturnOffer } from "@/lib/returns/return-offers";
@@ -62,7 +63,7 @@ const badgeClass: Record<OrderBadge["tone"], string> = {
 };
 
 /** The My orders list: filter chips over expandable Order cards. */
-export function OrdersBrowser({ orders, returns = [], focusOrderId, paymentAccounts = [] }: { orders: OrderWithFeedback[]; returns?: CustomerReturn[]; focusOrderId?: number; paymentAccounts?: PaymentAccountOption[] }) {
+export function OrdersBrowser({ orders, returns = [], focusOrderId, cancelFocus = false, paymentAccounts = [] }: { orders: OrderWithFeedback[]; returns?: CustomerReturn[]; focusOrderId?: number; cancelFocus?: boolean; paymentAccounts?: PaymentAccountOption[] }) {
   const [filter, setFilter] = useState<Tab>("all");
   const [scrollToReturn, setScrollToReturn] = useState<number>();
   const [openIds, setOpenIds] = useState<Set<number>>(() => {
@@ -132,7 +133,7 @@ export function OrdersBrowser({ orders, returns = [], focusOrderId, paymentAccou
         </p>
       ) : (
         visible.map(({ order, feedback, returnInProgress, returnOffer, cancellation }) => (
-          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} cancellation={cancellation ?? null} paymentAccounts={paymentAccounts} />
+          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} cancellation={cancellation ?? null} paymentAccounts={paymentAccounts} openCancel={cancelFocus && order.id === focusOrderId} />
         ))
       )}
     </div>
@@ -163,7 +164,9 @@ function OrderCard({
   onShowReturn,
   onToggle,
   paymentAccounts,
+  openCancel = false,
 }: {
+  openCancel?: boolean;
   paymentAccounts: PaymentAccountOption[];
   order: Order;
   orderReturns: CustomerReturn[];
@@ -176,8 +179,8 @@ function OrderCard({
   onToggle: () => void;
 }) {
   const badges = orderBadges(order);
-  // Once Staff confirm an Order the Customer can no longer cancel it here; they message the shop instead.
-  const cancellable = !order.confirmedAt && !["dispatched", "delivered", "ready for pickup", "collected", "received", "cancelled"].includes(order.status);
+  // The Customer may cancel until the Order is paid or the shop starts preparing it.
+  const cancellable = CUSTOMER_CANCELLABLE.includes(order.status);
   const firstLine = order.lines[0];
   const summary = order.lines.map((line) => `${line.productName} · ${line.sizeLabel} × ${line.quantity}`).join("  ·  ");
   const detailsId = `order-${order.id}-details`;
@@ -227,7 +230,7 @@ function OrderCard({
           <ChevronDown aria-hidden className={cn("size-[18px] transition-transform", open && "rotate-180")} />
         </button>
       </div>
-      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} returnInProgress={returnInProgress} returnOffer={returnOffer} cancellation={cancellation} paymentAccounts={paymentAccounts} /> : null}
+      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} openCancel={openCancel} returnInProgress={returnInProgress} returnOffer={returnOffer} cancellation={cancellation} paymentAccounts={paymentAccounts} /> : null}
     </article>
   );
 }
@@ -236,6 +239,7 @@ function OrderDetails({
   order,
   feedback,
   cancellable,
+  openCancel,
   returnInProgress,
   returnOffer,
   cancellation,
@@ -246,6 +250,7 @@ function OrderDetails({
   order: Order;
   feedback: OrderFeedbackSummary | null;
   cancellable: boolean;
+  openCancel: boolean;
   returnInProgress: boolean;
   returnOffer: ReturnOffer | null;
   cancellation: CancellationStatus | null;
@@ -390,7 +395,7 @@ function OrderDetails({
       ) : null}
 
       {cancellable ? (
-        <CancelOrderForm orderId={order.id} />
+        <CancelOrderForm defaultOpen={openCancel} orderId={order.id} />
       ) : order.status === "dispatched" || (order.status === "cancelled" && cancellation) ? (
         <div className="flex flex-col gap-3">
           <RequestCancellation orderId={order.id} request={cancellation} />

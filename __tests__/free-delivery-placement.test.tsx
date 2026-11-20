@@ -80,7 +80,7 @@ describe("placing a Delivery Order", () => {
   test("a free-delivery Order is not auto-confirmed and the Customer can cancel it until Staff confirm", async () => {
     const { store, order } = await placeAt(300_000, THRESHOLD);
     expect(order.status).toBe("placed");
-    await expect(store.cancel("customer-1", order.id)).resolves.toMatchObject({ status: "cancelled" });
+    await expect(store.cancel("customer-1", order.id, "Changed my mind")).resolves.toMatchObject({ status: "cancelled" });
   });
 
   test("an unreadable threshold saves no rule", async () => {
@@ -119,7 +119,6 @@ describe("checkout", () => {
 
   test("shows Delivery: Free and the confirmation notice for a Delivery Order over the threshold", () => {
     render(<CheckoutView cart={cart} addresses={addresses} freeDeliveryThresholdInCentavos={THRESHOLD} />);
-    fireEvent.click(screen.getByLabelText(/Delivery/, { selector: "input[value=delivery]" }));
     expect(screen.getByText("Delivery: Free")).toBeTruthy();
     expect(screen.getAllByText("Your order is subject to shop confirmation").length).toBeGreaterThan(0);
   });
@@ -135,11 +134,9 @@ describe("checkout", () => {
   test("keeps the fee to follow at exactly the threshold or when the threshold is unknown", () => {
     const equal = { ...cart, subtotalInCentavos: THRESHOLD } as Cart;
     render(<CheckoutView cart={equal} addresses={addresses} freeDeliveryThresholdInCentavos={THRESHOLD} />);
-    fireEvent.click(screen.getByLabelText(/Delivery/, { selector: "input[value=delivery]" }));
     expect(screen.queryByText("Delivery: Free")).toBeNull();
     cleanup();
     render(<CheckoutView cart={cart} addresses={addresses} freeDeliveryThresholdInCentavos={null} />);
-    fireEvent.click(screen.getByLabelText(/Delivery/, { selector: "input[value=delivery]" }));
     expect(screen.queryByText("Delivery: Free")).toBeNull();
   });
 });

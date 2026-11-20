@@ -38,6 +38,7 @@ function feedbackFormData() {
 function cancellationFormData(orderId = "12") {
   const formData = new FormData();
   formData.set("orderId", orderId);
+  formData.set("reason", "I ordered by mistake");
   return formData;
 }
 
@@ -109,7 +110,7 @@ describe("Order actions", () => {
   test("cancels the Customer's Order, sends confirmation, and refreshes the order history", async () => {
     await expect(cancelOrder({}, cancellationFormData())).resolves.toEqual({ cancelled: true });
 
-    expect(cancel).toHaveBeenCalledWith("customer-1", 12);
+    expect(cancel).toHaveBeenCalledWith("customer-1", 12, "I ordered by mistake");
     expect(sendOrderCancelledEmail).toHaveBeenCalledWith(
       "jane@example.com",
       expect.objectContaining({ id: 12, status: "cancelled" }),
@@ -147,6 +148,13 @@ describe("Order actions", () => {
       emailWarning: "Your Order was cancelled, but we couldn't send its confirmation email.",
     });
     expect(revalidatePath).toHaveBeenCalledWith("/profile/orders");
+  });
+
+  test("needs a reason to cancel and does not attempt it without one", async () => {
+    const formData = cancellationFormData();
+    formData.set("reason", "  ");
+    await expect(cancelOrder({}, formData)).resolves.toEqual({ message: "Tell us why you are cancelling." });
+    expect(cancel).not.toHaveBeenCalled();
   });
 
   test("rejects a malformed Order id without attempting cancellation", async () => {

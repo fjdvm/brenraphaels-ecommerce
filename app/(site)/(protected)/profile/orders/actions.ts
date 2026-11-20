@@ -49,7 +49,7 @@ export type OrderReceivedState = {
 };
 
 const paymentProofInput = z.object({ gcashReferenceNumber: referenceNumberField, ...confirmedProofFields, confirmedAmount: confirmedAmountField.optional(), confirmedPaidAt: confirmedPaidAtField.optional() });
-const cancellationInput = z.object({ orderId: positiveIntegerField("Order ID") });
+const cancellationInput = z.object({ orderId: positiveIntegerField("Order ID"), reason: z.string().trim().min(1, "Tell us why you are cancelling.").max(1000) });
 
 /** Cancels a Customer-owned Order when its status is still before dispatch. */
 export async function cancelOrder(
@@ -57,13 +57,13 @@ export async function cancelOrder(
   formData: FormData,
 ): Promise<OrderCancellationState> {
   void _previousState;
-  const parsed = cancellationInput.safeParse({ orderId: formData.get("orderId") });
-  if (!parsed.success) return { message: "We couldn't cancel this Order. Please try again." };
+  const parsed = cancellationInput.safeParse({ orderId: formData.get("orderId"), reason: formData.get("reason") });
+  if (!parsed.success) return { message: parsed.error.issues.find((i) => i.path[0] === "reason")?.message ?? "We couldn't cancel this Order. Please try again." };
 
   const customer = await requireCustomer();
   let order: Order;
   try {
-    order = await createOrderStore(getDatabase()).cancel(customer.userId, parsed.data.orderId);
+    order = await createOrderStore(getDatabase()).cancel(customer.userId, parsed.data.orderId, parsed.data.reason);
   } catch (error) {
     if (error instanceof OrderTransitionError) {
       return { message: "This Order can no longer be cancelled." };

@@ -24,7 +24,7 @@ export const metadata: Metadata = { title: "My orders" };
 export const dynamic = "force-dynamic";
 
 async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/profile/orders">["searchParams"] }) {
-  const { order: orderParam } = await searchParams;
+  const { order: orderParam, action: actionParam } = await searchParams;
   const focusOrderId = typeof orderParam === "string" && /^\d+$/.test(orderParam) ? Number(orderParam) : undefined;
   const customer = await requireCustomer();
   const orders = await createOrderStore(getDatabase()).listForCustomer(customer.userId);
@@ -57,7 +57,7 @@ async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/p
     <>
       <LiveOrders />
       <OrderAssistant pageOrderId={focusOrderId} />
-      <OrdersBrowser paymentAccounts={await loadPaymentAccounts()} focusOrderId={focusOrderId} orders={withFeedback} returns={returns} />
+      <OrdersBrowser paymentAccounts={await loadPaymentAccounts()} focusOrderId={focusOrderId} cancelFocus={actionParam === "cancel"} orders={withFeedback} returns={returns} />
     </>
   );
 }

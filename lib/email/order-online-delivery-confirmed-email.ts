@@ -3,9 +3,9 @@ import { formatAddressLine } from "../address/format";
 import type { Order } from "../orders/orders";
 import { createBrevoTransport } from "./brevo-transport";
 import { stableMessageId } from "./stable-message-id";
-import { EMAIL_TOKENS as t, emailButton, emailHeading, emailParagraph, escapeHtml, logoAttachment, renderEmailLayout } from "./layout";
+import { EMAIL_TOKENS as t, emailButton, emailHeading, emailParagraph, emailSecondaryButton, escapeHtml, logoAttachment, renderEmailLayout } from "./layout";
 import { totalPayableUponDelivery } from "./order-delivery-confirmed-email";
-import { deadlineNotice, deliveryFeeText, viewOrderUrl } from "./order-pickup-confirmed-email";
+import { cancelOrderUrl, deadlineNotice, deliveryFeeText, payOrderUrl } from "./order-pickup-confirmed-email";
 
 function row(label: string, value: string, strong = false) {
   const style = `padding:6px 0;font-family:${t.sans};font-size:${strong ? 16 : 14}px;line-height:21px;${strong ? `font-weight:500;color:${t.ink}` : `color:${t.body}`};`;
@@ -13,7 +13,7 @@ function row(label: string, value: string, strong = false) {
 }
 
 /** Builds the subject, HTML and plain text of the Online payment + Delivery confirmation, so tests can render it without sending. */
-export function renderOnlineDeliveryConfirmedEmail(order: Order, orderUrl: string) {
+export function renderOnlineDeliveryConfirmedEmail(order: Order, payUrl: string, cancelUrl: string) {
   const discount = order.approvedDiscountInCentavos ?? 0;
   const fee = order.deliveryFeeInCentavos ?? 0;
   const feeText = deliveryFeeText(fee);
@@ -33,13 +33,13 @@ export function renderOnlineDeliveryConfirmedEmail(order: Order, orderUrl: strin
   const html = renderEmailLayout({
     preheader: `Order #${order.id} is confirmed. Pay ${formatPeso(total)} online and we will deliver it.`,
     content: [
-      emailHeading(`Order #${order.id}`, "Your Delivery Order is confirmed"),
-      emailParagraph("Thank you for ordering from Bren Raphael's. Pay for your order online and we will deliver it to your address."),
+      emailHeading(`Order #${order.id}`, "Pay your Order"),
+      emailParagraph("Your order is confirmed. Pay for it online and we will deliver it to your address."),
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${border}">${items.map((i) => row(i.name, i.amount)).join("")}</table>`,
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${border}">${row("Subtotal", formatPeso(order.subtotalInCentavos))}${discount > 0 ? row("Senior/PWD discount", `-${formatPeso(discount)}`) : ""}${row("Delivery fee", feeText)}${row("Total amount to pay", formatPeso(total), true)}</table>`,
       addressBlock,
       deadline?.html ?? "",
-      `<div style="margin:24px 0 0;">${emailButton("Pay for Your Order", orderUrl)}</div>`,
+      `<div style="margin:24px 0 0;">${emailSecondaryButton("Cancel order", cancelUrl)}&nbsp;&nbsp;${emailButton("Pay order", payUrl)}</div>`,
     ].join("\n"),
   });
 
@@ -57,7 +57,8 @@ export function renderOnlineDeliveryConfirmedEmail(order: Order, orderUrl: strin
     ...(address ? ["", `Delivery address: ${address}`] : []),
     ...(deadline ? ["", deadline.text] : []),
     "",
-    `Pay for Your Order: ${orderUrl}`,
+    `Pay order: ${payUrl}`,
+    `Cancel order: ${cancelUrl}`,
   ].join("\n");
 
   return { subject: `Order #${order.id} confirmed`, html, text };
@@ -66,7 +67,7 @@ export function renderOnlineDeliveryConfirmedEmail(order: Order, orderUrl: strin
 /** Sends the Customer the confirmation of an Online payment Delivery Order once its fee is confirmed. */
 export async function sendOrderOnlineDeliveryConfirmedEmail(recipient: string, order: Order, email?: { id: string }) {
   const { transport, sender } = createBrevoTransport();
-  const message = renderOnlineDeliveryConfirmedEmail(order, viewOrderUrl(order.id));
+  const message = renderOnlineDeliveryConfirmedEmail(order, payOrderUrl(order.id), cancelOrderUrl(order.id));
   const info = await transport.sendMail({ from: sender, to: recipient, ...message, ...stableMessageId(sender, email), attachments: [await logoAttachment()] });
   return typeof info?.messageId === "string" ? { messageId: info.messageId } : {};
 }
