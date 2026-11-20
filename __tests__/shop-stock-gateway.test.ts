@@ -15,7 +15,7 @@ test("a lost IMS response retries exactly the same authenticated no-cache reserv
   const fetcher = vi.fn<typeof fetch>().mockRejectedValueOnce(new Error("Lost response"))
     .mockResolvedValueOnce(Response.json({ orderId: "checkout-1", ...line, state: "reserved" }));
   const stock = gatewayShopStock(fetcher);
-  expect(stock.productForSize(7)).toBe(123);
+  expect(await stock.productForSize(7)).toBe(123);
   expect(await stock.move("reserve", "checkout-1", line)).toBe("reserved");
   expect(fetcher).toHaveBeenCalledTimes(2);
   for (const [url, init] of fetcher.mock.calls) {
@@ -34,7 +34,7 @@ test.each([404, 409])("a definitive stock refusal (%s) does not retry placement"
 
 test("missing Size mapping and unavailable IMS fail with the retry message", async () => {
   configure();
-  expect(() => gatewayShopStock().productForSize(8)).toThrow("Try again in a few minutes");
+  await expect(gatewayShopStock().productForSize(8)).rejects.toThrow("Try again in a few minutes");
   const fetcher = vi.fn<typeof fetch>().mockRejectedValue(new Error("offline"));
   await expect(gatewayShopStock(fetcher).move("reserve", "checkout-1", { lineId: "size-7", productId: 123, quantity: 2 })).rejects.toThrow("Try again in a few minutes");
 });

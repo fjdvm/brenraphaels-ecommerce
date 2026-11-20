@@ -126,9 +126,30 @@ export const sizes = pgTable(
     // Philippine pesos in centavos, so prices never pass through floating point.
     priceInCentavos: integer("price_in_centavos").notNull(),
     available: boolean("available").notNull(),
+    /** The IMS FinishedProducts.ProductId this Size mirrors; null for a Size the IMS has not yet been matched to. */
+    imsProductId: integer("ims_product_id"),
+    /** Removed or deactivated in the IMS: leaves the shop and cannot be ordered, while open Orders keep their Reservations. */
+    discontinued: boolean("discontinued").notNull().default(false),
   },
-  (table) => [uniqueIndex("sizes_product_label").on(table.productSlug, table.label)],
+  (table) => [
+    uniqueIndex("sizes_product_label").on(table.productSlug, table.label),
+    uniqueIndex("sizes_ims_product_id").on(table.imsProductId),
+  ],
 );
+
+/** A price the IMS wants to apply to a Size that was already on sale; the owner checks it before it goes live. */
+export const imsPriceChanges = pgTable("ims_price_changes", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  sizeId: integer("size_id").notNull().references(() => sizes.id, { onDelete: "cascade" }),
+  oldPriceInCentavos: integer("old_price_in_centavos").notNull(),
+  newPriceInCentavos: integer("new_price_in_centavos").notNull(),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+}, (table) => [
+  uniqueIndex("ims_price_changes_one_pending").on(table.sizeId).where(sql`${table.status} = 'pending'`),
+  check("ims_price_changes_status", sql`${table.status} in ('pending', 'approved')`),
+]);
 /** A Customer has at most one line for each Size in their persisted Cart. */
 export const cartLines = pgTable(
   "cart_lines",

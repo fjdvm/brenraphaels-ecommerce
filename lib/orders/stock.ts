@@ -3,7 +3,7 @@ import { required } from "../gateway";
 export type StockLine = { lineId: string; productId: number; quantity: number };
 export type StockState = "reserved" | "released" | "deducted" | "added_back";
 export interface ShopStock {
-  productForSize(sizeId: number): number;
+  productForSize(sizeId: number): number | Promise<number>;
   move(operation: "reserve" | "release" | "deduct" | "add_back", orderId: string, line: StockLine): Promise<StockState>;
   /** How many of a Size can still be sold, read from the IMS on demand. Never cached or polled. */
   left(sizeId: number): Promise<number>;
@@ -21,17 +21,24 @@ export class StockRefusedError extends Error {
 /** IMS product ids identify Sizes, never names or storefront-generated ids. */
 export function gatewayShopStock(fetcher: typeof fetch = fetch): ShopStock {
   return {
-    productForSize(sizeId) {
+    async productForSize(sizeId) {
       try {
-        const mapping = JSON.parse(required("IMS_SIZE_PRODUCT_IDS"));
-        const id = mapping[String(sizeId)];
-        if (!Number.isInteger(id) || id < 1 || id > 2147483647) throw new Error("Missing Size mapping");
-        return id;
+        // A Size the IMS feed created carries its IMS product id; older Sizes fall back to the explicit mapping.
+        let id: unknown;
+        try {
+          const { getDatabase } = await import("../db");
+          const { sizes } = await import("../db/schema");
+          const { eq } = await import("drizzle-orm");
+          id = (await getDatabase().select({ id: sizes.imsProductId }).from(sizes).where(eq(sizes.id, sizeId)))[0]?.id;
+        } catch { id = undefined; }
+        if (id === null || id === undefined) id = JSON.parse(required("IMS_SIZE_PRODUCT_IDS"))[String(sizeId)];
+        if (!Number.isInteger(id) || (id as number) < 1 || (id as number) > 2147483647) throw new Error("Missing Size mapping");
+        return id as number;
       } catch { throw new StockUnavailableError(); }
     },
     async left(sizeId) { return (await this.read(sizeId)).available; },
     async read(sizeId) {
-      const productId = this.productForSize(sizeId);
+      const productId = await this.productForSize(sizeId);
       try {
         const response = await fetcher(`${required("IMS_URL").replace(/\/$/, "")}/api/shop/stock?productId=${productId}`, {
           cache: "no-store", headers: { Authorization: `Bearer ${required("IMS_SHOP_API_KEY")}` }, signal: AbortSignal.timeout(3000),
