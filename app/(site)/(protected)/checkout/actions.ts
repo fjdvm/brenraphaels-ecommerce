@@ -15,14 +15,13 @@ import { fetchPaymentAvailability } from "@/lib/orders/payment-availability";
 import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
 import { isPrepaid } from "@/lib/orders/payment-methods";
 import {
-  fulfillmentMethods,
   paymentMethods,
   createOrderStore,
   placeOrderAndNotify,
 } from "@/lib/orders/orders";
 
 const checkoutInput = z.object({
-  fulfillmentMethod: z.enum(fulfillmentMethods),
+  fulfillmentMethod: z.literal("delivery"),
   paymentMethod: z.enum(paymentMethods),
   addressId: z.number().int().positive().optional(),
 });
@@ -71,8 +70,12 @@ export async function addCheckoutAddress(
 
 export async function placeOrder(input: unknown) {
   const customer = await requireCustomer();
+  // The shop delivers only: a stale page or a hand-made request asking for Pickup is refused with a plain reason.
+  if (typeof input === "object" && input !== null && (input as { fulfillmentMethod?: unknown }).fulfillmentMethod === "pickup") {
+    throw new Error("Pickup is no longer offered. Choose Delivery.");
+  }
   const parsed = checkoutInput.parse(input);
-  if (parsed.fulfillmentMethod === "delivery" && !parsed.addressId) {
+  if (!parsed.addressId) {
     throw new Error("Choose an Address for Delivery.");
   }
   // The page can be stale: the shop may have switched this method off since checkout opened.

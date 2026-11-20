@@ -23,17 +23,27 @@ beforeEach(() => { vi.clearAllMocks(); mocks.place.mockResolvedValue({ id: 5 });
 describe("placeOrder and payment method availability", () => {
   test("refuses a prepaid method the shop has switched off, without placing the Order", async () => {
     mocks.availability.mockResolvedValue({ "cash-on-delivery": true, gcash: false, maya: true, "bank-transfer": true });
-    await expect(placeOrder({ fulfillmentMethod: "pickup", paymentMethod: "gcash" })).rejects.toThrow("GCash can't be used right now. Choose another payment method, or try again shortly.");
+    await expect(placeOrder({ fulfillmentMethod: "delivery", addressId: 1, paymentMethod: "gcash" })).rejects.toThrow("GCash can't be used right now. Choose another payment method, or try again shortly.");
     expect(mocks.place).not.toHaveBeenCalled();
+  });
+
+  test("refuses Pickup without placing the Order, even for Cash on Delivery", async () => {
+    await expect(placeOrder({ fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery", addressId: 1 })).rejects.toThrow("Pickup is no longer offered. Choose Delivery.");
+    expect(mocks.place).not.toHaveBeenCalled();
+  });
+
+  test("Cash on Delivery is still a Delivery Order", async () => {
+    await placeOrder({ fulfillmentMethod: "delivery", addressId: 1, paymentMethod: "cash-on-delivery" });
+    expect(mocks.place).toHaveBeenCalledWith("u1", "c@example.com", { fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", addressId: 1 }, expect.anything());
   });
 
   test("places an Order with a method that is on", async () => {
     mocks.availability.mockResolvedValue({ "cash-on-delivery": true, gcash: true, maya: true, "bank-transfer": true });
-    await expect(placeOrder({ fulfillmentMethod: "pickup", paymentMethod: "maya" })).resolves.toMatchObject({ orderId: 5 });
+    await expect(placeOrder({ fulfillmentMethod: "delivery", addressId: 1, paymentMethod: "maya" })).resolves.toMatchObject({ orderId: 5 });
   });
 
   test("Cash on Delivery never asks CREOMS", async () => {
-    await placeOrder({ fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+    await placeOrder({ fulfillmentMethod: "delivery", addressId: 1, paymentMethod: "cash-on-delivery" });
     expect(mocks.availability).not.toHaveBeenCalled();
     expect(mocks.place).toHaveBeenCalled();
   });

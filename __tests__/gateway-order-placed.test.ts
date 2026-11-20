@@ -64,7 +64,6 @@ afterEach(async () => {
 });
 
 test.each([
-  ["pickup", "cash-on-delivery"], ["pickup", "gcash"],
   ["delivery", "cash-on-delivery"], ["delivery", "gcash"],
 ] as const)("%s / %s sends one kind-only signal after checkout responds", async (fulfillmentMethod, paymentMethod) => {
   const response = await placeOrder({ fulfillmentMethod, paymentMethod, addressId });
@@ -86,13 +85,13 @@ test.each(["gateway", "CREOMS", "network", "configuration"])("%s outage leaves c
   if (outage === "configuration") vi.stubEnv("API_GATEWAY_CALLER_KEY", "");
   else if (outage === "network") fetcher.mockRejectedValue(new TypeError("fetch failed"));
   else fetcher.mockResolvedValue(new Response(null, { status: outage === "gateway" ? 502 : 503 }));
-  const response = await placeOrder({ fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+  const response = await placeOrder({ fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", addressId });
   expect(response).toEqual({ orderId: expect.any(Number) });
   expect(after).toHaveBeenCalledTimes(2);
   for (const [callback] of after.mock.calls) await expect(callback()).resolves.toBeUndefined();
   const database = drizzle(client);
   await expect(createOrderStore(database).listForCustomer("customer-1")).resolves.toMatchObject([
-    { id: response.orderId, status: "confirmed", subtotalInCentavos: 21900 },
+    { id: response.orderId, status: "placed", subtotalInCentavos: 21900 },
   ]);
   await expect(createCartStore(database).get("customer-1")).resolves.toMatchObject({ lines: [] });
   expect(sendOrderPlacedEmail).toHaveBeenCalledTimes(1);
@@ -100,21 +99,21 @@ test.each(["gateway", "CREOMS", "network", "configuration"])("%s outage leaves c
 
 test("a failed Order sends no signal", async () => {
   await createCartStore(drizzle(client)).clear("customer-1");
-  await expect(placeOrder({ fulfillmentMethod: "pickup", paymentMethod: "gcash" })).rejects.toThrow("empty");
+  await expect(placeOrder({ fulfillmentMethod: "delivery", paymentMethod: "gcash", addressId })).rejects.toThrow("empty");
   expect(after).not.toHaveBeenCalled();
   expect(fetcher).not.toHaveBeenCalled();
 });
 
 test("a failed confirmation email still schedules the Staff signal", async () => {
   sendOrderPlacedEmail.mockRejectedValue(new Error("email unavailable"));
-  await expect(placeOrder({ fulfillmentMethod: "pickup", paymentMethod: "gcash" })).resolves.toEqual({ orderId: expect.any(Number) });
+  await expect(placeOrder({ fulfillmentMethod: "delivery", paymentMethod: "gcash", addressId })).resolves.toEqual({ orderId: expect.any(Number) });
   expect(after).toHaveBeenCalledTimes(2);
   for (const [callback] of after.mock.calls) await callback();
   expect(fetcher).toHaveBeenCalledTimes(2);
 });
 
 test("a committed checkout publishes a payload-free Staff Orders invalidation", async () => {
-  await placeOrder({ fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
+  await placeOrder({ fulfillmentMethod: "delivery", paymentMethod: "cash-on-delivery", addressId });
   for (const [callback] of after.mock.calls) await callback();
   expect(fetcher).toHaveBeenCalledWith("https://gateway.example/notifications/orders/changed", expect.objectContaining({
     method: "POST", body: "{}",

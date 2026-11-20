@@ -208,8 +208,8 @@ export function CartView({ customerHasCart, initialCart }: { customerHasCart: bo
             <span>{formatPeso(cart.subtotalInCentavos)}</span>
           </div>
           <div className="flex items-center justify-between text-sm tracking-wide text-body">
-            <span>Pickup</span>
-            <span>Free</span>
+            <span>Delivery</span>
+            <span>Calculated at checkout</span>
           </div>
           <div className="flex items-center justify-between border-t border-line pt-6">
             <span className="text-sm font-medium tracking-wide text-ink">Total</span>

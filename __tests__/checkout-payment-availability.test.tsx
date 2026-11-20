@@ -15,7 +15,8 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 
 const cart = { lines: [{ id: 1, productName: "Ube Halaya", sizeLabel: "250g jar", quantity: 1, priceInCentavos: 10_000, available: true, imageUrl: null }], subtotalInCentavos: 10_000 } as unknown as Cart;
-const view = (availability = ALL_PAYMENT_METHODS_AVAILABLE) => <CheckoutView availability={availability} cart={cart} addresses={[]} />;
+const home = { id: 1, label: "Home", street: "1 Rizal St", barangay: "San Roque", city: "Antipolo", province: "Rizal", postalCode: "1870", country: "Philippines", isDefault: true };
+const view = (availability = ALL_PAYMENT_METHODS_AVAILABLE) => <CheckoutView availability={availability} cart={cart} addresses={[home]} />;
 
 describe("Checkout payment method availability", () => {
   test("disables the methods the shop has off and keeps the rest choosable", () => {
@@ -44,5 +45,14 @@ describe("Checkout payment method availability", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Confirm order" }));
     expect(await screen.findByText(/GCash can't be used right now/)).toBeTruthy();
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+describe("Checkout offers Delivery only", () => {
+  test("has no Pickup choice, and Delivery is the one selected method", () => {
+    render(view());
+    expect(screen.queryByLabelText(/pickup/i)).toBeNull();
+    expect((screen.getByLabelText(/^Delivery/) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByLabelText(/^Cash on Delivery/).closest("label")?.textContent).toContain("when your Order is delivered");
   });
 });
