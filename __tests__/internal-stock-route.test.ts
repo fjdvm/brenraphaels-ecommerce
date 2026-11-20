@@ -34,3 +34,20 @@ test("refuses a missing, wrong-scope or malformed request", async () => {
   expect((await call("?sizeIds=abc")).status).toBe(400);
   expect((await call("")).status).toBe(400);
 });
+
+test("CREOMS can read stock by IMS product id, with no Size mapping; one the IMS cannot answer is null", async () => {
+  stubIms((url) => url.searchParams.get("productId") === "55"
+    ? Response.json({ quantity: 67, reserved: 0, available: 67 }) : new Response("down", { status: 503 }));
+  const response = await call("?productIds=55,56");
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ products: [
+    { productId: 55, quantity: 67, reserved: 0, available: 67 },
+    { productId: 56, quantity: null, reserved: null, available: null },
+  ] });
+});
+
+test("asks for either Sizes or products, never both, and bounds product ids", async () => {
+  stubIms(() => Response.json({ quantity: 1, reserved: 0, available: 1 }));
+  expect((await call("?sizeIds=1&productIds=2")).status).toBe(400);
+  expect((await call("?productIds=0")).status).toBe(400);
+});

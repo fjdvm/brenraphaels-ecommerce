@@ -37,18 +37,7 @@ export function gatewayShopStock(fetcher: typeof fetch = fetch): ShopStock {
       } catch { throw new StockUnavailableError(); }
     },
     async left(sizeId) { return (await this.read(sizeId)).available; },
-    async read(sizeId) {
-      const productId = await this.productForSize(sizeId);
-      try {
-        const response = await fetcher(`${required("IMS_URL").replace(/\/$/, "")}/api/shop/stock?productId=${productId}`, {
-          cache: "no-store", headers: { Authorization: `Bearer ${required("IMS_SHOP_API_KEY")}` }, signal: AbortSignal.timeout(3000),
-        });
-        if (!response.ok) throw new StockUnavailableError();
-        const { quantity, reserved, available } = await response.json();
-        for (const value of [quantity, reserved, available]) if (!Number.isInteger(value) || value < 0) throw new StockUnavailableError();
-        return { quantity, reserved, available };
-      } catch { throw new StockUnavailableError(); }
-    },
+    async read(sizeId) { return readProductStock(await this.productForSize(sizeId), fetcher); },
     async move(operation, orderId, line) {
       // Both attempts use exactly the same immutable references after a timeout.
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -74,4 +63,17 @@ export function gatewayShopStock(fetcher: typeof fetch = fetch): ShopStock {
       throw new StockUnavailableError();
     },
   };
+}
+
+/** The IMS's quantity, reserved and available for one IMS product id. Read on demand; never cached or polled. */
+export async function readProductStock(productId: number, fetcher: typeof fetch = fetch): Promise<SizeStock> {
+  try {
+    const response = await fetcher(`${required("IMS_URL").replace(/\/$/, "")}/api/shop/stock?productId=${productId}`, {
+      cache: "no-store", headers: { Authorization: `Bearer ${required("IMS_SHOP_API_KEY")}` }, signal: AbortSignal.timeout(3000),
+    });
+    if (!response.ok) throw new StockUnavailableError();
+    const { quantity, reserved, available } = await response.json();
+    for (const value of [quantity, reserved, available]) if (!Number.isInteger(value) || value < 0) throw new StockUnavailableError();
+    return { quantity, reserved, available };
+  } catch { throw new StockUnavailableError(); }
 }
