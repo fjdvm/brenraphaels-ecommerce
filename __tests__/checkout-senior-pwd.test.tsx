@@ -16,8 +16,9 @@ const cart = {
   subtotalInCentavos: 43_800,
 } as unknown as Cart;
 
+const home = { id: 1, label: "Home", street: "1 Rizal St", barangay: "San Roque", city: "Antipolo", province: "Rizal", postalCode: "1870", country: "Philippines", isDefault: true };
 const view = (seniorPwdDiscount?: { label: string; discountInCentavos: number } | null) =>
-  render(<CheckoutView cart={cart} addresses={[]} seniorPwdDiscount={seniorPwdDiscount} />);
+  render(<CheckoutView cart={cart} addresses={[home]} seniorPwdDiscount={seniorPwdDiscount} />);
 const placeButton = () => screen.getByRole("button", { name: /Place order/ }) as HTMLButtonElement;
 
 describe("checkout and the Senior Citizen / PWD discount", () => {
@@ -34,7 +35,7 @@ describe("checkout and the Senior Citizen / PWD discount", () => {
     view({ label: "5% off", discountInCentavos: 1_095 });
     expect(screen.getAllByText(/Senior\/PWD 5% off · 1 item/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/−₱10\.95/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("₱427.05").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/₱427\.05/).length).toBeGreaterThan(0);
   });
 
   test("places the Order with only how it is fulfilled and paid; the server applies the discount", async () => {

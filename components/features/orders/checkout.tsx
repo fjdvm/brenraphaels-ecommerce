@@ -2,7 +2,7 @@
 
 import { FEE_TO_FOLLOW_COPY } from "@/lib/orders/fee-to-follow-copy";
 import { FREE_DELIVERY_CONFIRMATION_NOTICE, qualifiesForFreeDelivery } from "@/lib/orders/free-delivery";
-import { ArrowRight, Check, MapPin, Package, Plus, Store, Truck, Wallet } from "lucide-react";
+import { ArrowRight, Check, MapPin, Package, Plus, Truck, Wallet } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -71,7 +71,7 @@ export function CheckoutView({
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string>();
   const [confirming, setConfirming] = useState(false);
-  const [fulfillmentMethod, setFulfillmentMethod] = useState<"pickup" | "delivery">("pickup");
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<"delivery">("delivery");
   const [chosenPayment, setPaymentMethod] = useState<PaymentMethod>("cash-on-delivery");
   // A method the shop switched off since the page opened falls back to Cash on Delivery.
   const paymentMethod: PaymentMethod = availability[chosenPayment] ? chosenPayment : "cash-on-delivery";
@@ -132,15 +132,6 @@ export function CheckoutView({
             <fieldset className="grid gap-4 sm:grid-cols-2">
               <legend className="sr-only">Fulfillment method</legend>
               <Choice
-                checked={fulfillmentMethod === "pickup"}
-                description="Collect your Order. There is no Delivery fee."
-                icon={Store}
-                label="Store pickup"
-                name="fulfillment"
-                onChange={() => setFulfillmentMethod("pickup")}
-                value="pickup"
-              />
-              <Choice
                 checked={fulfillmentMethod === "delivery"}
                 description="Free for orders over ₱2,500"
                 icon={Truck}
@@ -172,7 +163,7 @@ export function CheckoutView({
               ))}
               <Choice
                 checked={paymentMethod === "cash-on-delivery"}
-                description={fulfillmentMethod === "pickup" ? "Pay cash when you collect your Order." : "Pay cash when your Order is delivered."}
+                description="Pay cash when your Order is delivered."
                 icon={Package}
                 label="Cash on Delivery"
                 name="payment"
@@ -349,7 +340,7 @@ function RadioDot({ checked }: { checked: boolean }) {
   );
 }
 
-function Choice({ checked, description, disabled = false, icon: Icon, label, name, onChange, value }: { checked: boolean; description: string; disabled?: boolean; icon: typeof Store; label: string; name: string; onChange: () => void; value: string }) {
+function Choice({ checked, description, disabled = false, icon: Icon, label, name, onChange, value }: { checked: boolean; description: string; disabled?: boolean; icon: typeof Truck; label: string; name: string; onChange: () => void; value: string }) {
   return (
     <label className={disabled ? "flex cursor-not-allowed items-start gap-4 border border-line bg-surface-soft px-6 py-5 opacity-60" : optionClass(checked)}>
       <input checked={checked} className="sr-only" disabled={disabled} name={name} onChange={onChange} type="radio" value={value} />
