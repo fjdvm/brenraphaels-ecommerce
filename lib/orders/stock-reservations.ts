@@ -20,10 +20,10 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
 ) {
   async function begin(customerId: string, cart: Cart) {
     if (!cart.lines.length) throw new Error("Your Cart is empty.");
-    const lines = cart.lines.map(line => ({
-      lineId: `size-${line.sizeId}`, productId: stock.productForSize(line.sizeId), quantity: line.quantity,
+    const lines = await Promise.all(cart.lines.map(async line => ({
+      lineId: `size-${line.sizeId}`, productId: await stock.productForSize(line.sizeId), quantity: line.quantity,
       sizeId: line.sizeId, cartLineId: line.id, priceInCentavos: line.priceInCentavos,
-    }));
+    })));
     const [customer] = await db.select().from(customers).where(eq(customers.id, customerId));
     const [reservation] = await db.insert(stockReservations).values({ id: randomUUID(), customerId, customerName: customer.fullName, state: "pending", lines }).returning();
     return reservation.id;

@@ -13,6 +13,7 @@ export const defaultCredentialLifetimeSeconds = 5 * 60;
 export const creomsReturnCredential = { audience: "brenraphaels-returns", scope: "returns:status" } as const;
 export const creomsSeniorPwdCredential = { audience: "brenraphaels-senior-pwd", scope: "senior-pwd:status" } as const;
 export const creomsStockCredential = { audience: "brenraphaels-stock", scope: "stock:read" } as const;
+export const creomsPriceSyncCredential = { audience: "brenraphaels-price-sync", scope: "price-sync:approve" } as const;
 const orderCredential = { audience: creomsAudience, scope: creomsOrderStatusScope };
 const minKeyLength = 32;
 

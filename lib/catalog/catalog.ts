@@ -1,9 +1,10 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { productImages, products, sizes } from "../db/schema";
 import { readStockLeft } from "./stock-labels";
 import { gatewayShopStock, type ShopStock } from "../orders/stock";
+import { createImsCatalog, gatewayImsCatalog, syncOnce } from "./ims-catalog";
 import { gatewayProductImages, resolveProductImage, type ProductImageFiles } from "./product-images";
 
 export type CatalogProductSize = { id: number; label: string; priceInCentavos: number; available: boolean; /** Left to sell, from the IMS; null when it could not be read. */ left: number | null };
@@ -30,11 +31,16 @@ export type CatalogStore = {
   findProduct(slug: string): Promise<CatalogProductDetail | undefined>;
 };
 
+/** The shop takes name, Size, image and price from the IMS; without the IMS settings (tests, local) it keeps what it has. */
+function imsCatalogSync(db: PgDatabase<any, any>) {
+  return process.env.IMS_URL && process.env.IMS_SHOP_API_KEY ? createImsCatalog(db, gatewayImsCatalog()) : undefined;
+}
+
 /** Catalog reads are available to every Visitor; purchase access belongs to Cart and Order. */
 export function createCatalogStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
->(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages(), stock: ShopStock = gatewayShopStock()): CatalogStore {
+>(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages(), stock: ShopStock = gatewayShopStock(), sync: { sync(): Promise<boolean> } | undefined = imsCatalogSync(db)): CatalogStore {
   /** An image with no File id has nothing to show; next/image rejects an empty src. */
   async function resolvedImages(images: { productSlug: string; fileId: string | null; url: string | null; alt: string }[]) {
     const resolved = await Promise.all(images.map(async (image) => ({ url: await resolveProductImage(image, files), alt: image.alt })));
@@ -47,6 +53,7 @@ export function createCatalogStore<
   }
   return {
     async listProducts() {
+      if (sync) await syncOnce(sync);
       const [allProducts, allImages, allSizes] = await Promise.all([
         db.select().from(products).orderBy(asc(products.name)),
         db.select().from(productImages).orderBy(asc(productImages.position)),
@@ -59,6 +66,7 @@ export function createCatalogStore<
             available: sizes.available,
           })
           .from(sizes)
+          .where(eq(sizes.discontinued, false))
           .orderBy(asc(sizes.priceInCentavos)),
       ]);
 
@@ -83,6 +91,7 @@ export function createCatalogStore<
     },
 
     async findProduct(slug) {
+      if (sync) await syncOnce(sync);
       const [product] = await db.select().from(products).where(eq(products.slug, slug));
       if (!product) return undefined;
 
@@ -100,9 +109,11 @@ export function createCatalogStore<
             available: sizes.available,
           })
           .from(sizes)
-          .where(eq(sizes.productSlug, slug))
+          .where(and(eq(sizes.productSlug, slug), eq(sizes.discontinued, false)))
           .orderBy(asc(sizes.priceInCentavos)),
       ]);
+      // A discontinued product has left the shop.
+      if (productSizes.length === 0 && (await db.select({ id: sizes.id }).from(sizes).where(eq(sizes.productSlug, slug))).length > 0) return undefined;
 
       const left = await readStockLeft(productSizes.map(({ id }) => id), stock);
       return { ...product, images: await resolvedImages(images), sizes: productSizes.map((size) => withStock(size, left)) };

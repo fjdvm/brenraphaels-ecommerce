@@ -68,7 +68,7 @@ export function createCartStore<
         image: sql<ProductImageReference | null>`(select json_build_object('productSlug', ${productImages.productSlug}, 'fileId', ${productImages.fileId}, 'url', ${productImages.url}) from ${productImages} where ${productImages.productSlug} = ${products.slug} order by ${productImages.position} asc limit 1)`,
         priceInCentavos: sizes.priceInCentavos,
         quantity: cartLines.quantity,
-        available: sizes.available,
+        available: sql<boolean>`${sizes.available} and not ${sizes.discontinued}`,
       })
       .from(cartLines)
       .innerJoin(sizes, eq(cartLines.sizeId, sizes.id))
@@ -95,7 +95,7 @@ export function createCartStore<
   async function addSize(customerId: string, sizeId: number, quantity: number): Promise<Cart> {
     const amount = cappedQuantity(quantity);
     const [size] = await db.select().from(sizes).where(eq(sizes.id, sizeId));
-    if (!size || !size.available) {
+    if (!size || !size.available || size.discontinued) {
       throw new Error("This Size is unavailable.");
     }
 
