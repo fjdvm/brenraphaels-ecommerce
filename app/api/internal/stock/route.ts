@@ -1,5 +1,5 @@
 import { creomsStockCredential, verifyCreomsCredential } from "@/lib/orders/creoms-credential";
-import { gatewayShopStock } from "@/lib/orders/stock";
+import { gatewayShopStock, readProductStock } from "@/lib/orders/stock";
 
 export const runtime = "nodejs";
 
@@ -12,14 +12,29 @@ export async function GET(request: Request) {
   if (!verifyCreomsCredential(request.headers, new Date(), creomsStockCredential)) {
     return Response.json({ error: "Unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store" } });
   }
-  const raw = new URL(request.url).searchParams.get("sizeIds") ?? "";
-  const ids = raw.split(",").filter(Boolean).map(Number);
-  if (ids.length === 0 || ids.length > 200 || ids.some((id) => !Number.isSafeInteger(id) || id < 1)) {
-    return Response.json({ error: "Ask for between 1 and 200 Size ids." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+  const params = new URL(request.url).searchParams;
+  const bad = (error: string) => Response.json({ error }, { status: 400, headers: { "Cache-Control": "no-store" } });
+  const parse = (name: string) => (params.get(name) ?? "").split(",").filter(Boolean).map(Number);
+  const valid = (ids: number[]) => ids.length > 0 && ids.length <= 200 && ids.every((id) => Number.isSafeInteger(id) && id >= 1);
+  const noStock = { quantity: null, reserved: null, available: null };
+  const noCache = { "Cache-Control": "no-store" };
+
+  // By IMS product id: the Stock page lists the IMS's own items, so no Size mapping is involved.
+  if (params.has("productIds")) {
+    if (params.has("sizeIds")) return bad("Ask for Sizes or products, not both.");
+    const ids = parse("productIds");
+    if (!valid(ids)) return bad("Ask for between 1 and 200 product ids.");
+    const products = await Promise.all([...new Set(ids)].map(async (productId) => {
+      try { return { productId, ...(await readProductStock(productId)) }; } catch { return { productId, ...noStock }; }
+    }));
+    return Response.json({ products }, { headers: noCache });
   }
+
+  const ids = parse("sizeIds");
+  if (!valid(ids)) return bad("Ask for between 1 and 200 Size ids.");
   const stock = gatewayShopStock();
   const sizes = await Promise.all([...new Set(ids)].map(async (sizeId) => {
-    try { return { sizeId, ...(await stock.read(sizeId)) }; } catch { return { sizeId, quantity: null, reserved: null, available: null }; }
+    try { return { sizeId, ...(await stock.read(sizeId)) }; } catch { return { sizeId, ...noStock }; }
   }));
-  return Response.json({ sizes }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ sizes }, { headers: noCache });
 }
