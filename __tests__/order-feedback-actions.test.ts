@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-const { cancel, createOrderFeedbackStore, createOrderStore, getDatabase, revalidatePath, requireCustomer, sendOrderCancelledEmail, submit } = vi.hoisted(() => ({
-  cancel: vi.fn(),
+const { requestCancel, createOrderFeedbackStore, createOrderStore, getDatabase, revalidatePath, requireCustomer, sendOrderCancelledEmail, submit } = vi.hoisted(() => ({
+  requestCancel: vi.fn(),
   createOrderFeedbackStore: vi.fn(),
-  createOrderStore: vi.fn(() => ({ cancel })),
+  createOrderStore: vi.fn(() => ({ requestCancel })),
   getDatabase: vi.fn(),
   revalidatePath: vi.fn(),
   requireCustomer: vi.fn(),
@@ -45,8 +45,8 @@ function cancellationFormData(orderId = "12") {
 describe("Order actions", () => {
   beforeEach(() => {
     createOrderFeedbackStore.mockReset().mockReturnValue({ submit });
-    createOrderStore.mockReset().mockReturnValue({ cancel });
-    cancel.mockReset().mockResolvedValue({ id: 12, status: "cancelled" });
+    createOrderStore.mockReset().mockReturnValue({ requestCancel });
+    requestCancel.mockReset().mockResolvedValue({ requestId: "r1", replayed: false });
     getDatabase.mockReset();
     revalidatePath.mockReset();
     requireCustomer.mockReset().mockResolvedValue({ userId: "customer-1", email: "jane@example.com" });
@@ -107,61 +107,46 @@ describe("Order actions", () => {
     expect(submit).not.toHaveBeenCalled();
   });
 
-  test("cancels the Customer's Order, sends confirmation, and refreshes the order history", async () => {
-    await expect(cancelOrder({}, cancellationFormData())).resolves.toEqual({ cancelled: true });
+  test("asks to cancel the Customer's Order, changes nothing on it, and refreshes the order history", async () => {
+    requestCancel.mockResolvedValueOnce({ requestId: "r1", replayed: false });
+    await expect(cancelOrder({}, cancellationFormData())).resolves.toEqual({ requested: true });
 
-    expect(cancel).toHaveBeenCalledWith("customer-1", 12, "I ordered by mistake");
-    expect(sendOrderCancelledEmail).toHaveBeenCalledWith(
-      "jane@example.com",
-      expect.objectContaining({ id: 12, status: "cancelled" }),
-    );
+    expect(requestCancel).toHaveBeenCalledWith("customer-1", 12, "I ordered by mistake");
+    expect(sendOrderCancelledEmail).not.toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalledWith("/profile/orders");
   });
 
-  test("returns a message when the Order cannot be cancelled", async () => {
-    cancel.mockRejectedValueOnce(new OrderTransitionError("cancelled", "dispatched"));
+  test("returns a message when the Order can no longer be cancelled", async () => {
+    requestCancel.mockRejectedValueOnce(new OrderTransitionError("cancelled", "dispatched"));
 
     await expect(cancelOrder({}, cancellationFormData())).resolves.toEqual({
-      message: "This Order can no longer be cancelled.",
+      message: "This Order can no longer be cancelled here.",
     });
-    expect(sendOrderCancelledEmail).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  test("returns a message instead of failing when cancellation cannot be saved", async () => {
-    cancel.mockRejectedValueOnce(new Error("database unavailable"));
+  test("returns a message instead of failing when the request cannot be saved", async () => {
+    requestCancel.mockRejectedValueOnce(new Error("database unavailable"));
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     await expect(cancelOrder({}, cancellationFormData())).resolves.toEqual({
-      message: "We couldn't cancel this Order. Please try again.",
+      message: "We couldn't send your request. Please try again.",
     });
-    expect(sendOrderCancelledEmail).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
-  });
-
-  test("keeps a cancelled Order cancelled if its confirmation email cannot be sent", async () => {
-    sendOrderCancelledEmail.mockRejectedValueOnce(new Error("Brevo down"));
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-    await expect(cancelOrder({}, cancellationFormData())).resolves.toEqual({
-      cancelled: true,
-      emailWarning: "Your Order was cancelled, but we couldn't send its confirmation email.",
-    });
-    expect(revalidatePath).toHaveBeenCalledWith("/profile/orders");
   });
 
   test("needs a reason to cancel and does not attempt it without one", async () => {
     const formData = cancellationFormData();
     formData.set("reason", "  ");
     await expect(cancelOrder({}, formData)).resolves.toEqual({ message: "Tell us why you are cancelling." });
-    expect(cancel).not.toHaveBeenCalled();
+    expect(requestCancel).not.toHaveBeenCalled();
   });
 
   test("rejects a malformed Order id without attempting cancellation", async () => {
     await expect(cancelOrder({}, cancellationFormData("12.5"))).resolves.toEqual({
-      message: "We couldn't cancel this Order. Please try again.",
+      message: "We couldn't send your request. Please try again.",
     });
     expect(requireCustomer).not.toHaveBeenCalled();
-    expect(cancel).not.toHaveBeenCalled();
+    expect(requestCancel).not.toHaveBeenCalled();
   });
 });

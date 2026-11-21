@@ -1,3 +1,4 @@
+import { cancelThroughRequest } from "@/__tests__/helpers/cancel-through-request";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, expect, test } from "vitest";
 import { createTestDatabase } from "./helpers/test-database";
@@ -72,7 +73,7 @@ test("zero available stock blocks checkout and says which item is sold out", asy
 test("Customer and Staff cancellations release stock, with replay-safe audit events", async () => {
   const { cart, stock, store, maintenance, first, second, scheduled } = await fixture();
   const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
-  await store.cancel("jane", order.id, "Changed my mind");
+  await cancelThroughRequest(store, "jane", order.id, "Changed my mind");
   await Promise.all(scheduled);
   expect(stock.remaining(stock.productForSize(first.id))).toBe(50);
   expect(stock.remaining(stock.productForSize(second.id))).toBe(50);
@@ -83,8 +84,9 @@ test("Customer and Staff cancellations release stock, with replay-safe audit eve
   await maintenance.sendPending({ audit: async event => { events.push(event); }, email });
   expect(events.filter(event => event.action === "order.stock_reserved")).toHaveLength(2);
   expect(events.filter(event => event.action === "order.stock_released")).toHaveLength(2);
-  expect(new Set(events.map(event => event.idempotency_key)).size).toBe(4);
-  expect(events.every(event => event.actor.display_name === "Jane Doe")).toBe(true);
+  expect(events.filter(event => event.action === "order.cancel_request_made")).toHaveLength(1);
+  expect(new Set(events.map(event => event.idempotency_key)).size).toBe(5);
+  expect(events.every(event => ["Jane Doe", "Staff One"].includes(event.actor.display_name!))).toBe(true);
   await cart.addSize("jane", first.id, 1);
   const next = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "cash-on-delivery" });
   await store.advance(next.id, { status: "cancelled", staffId: "ana", staffName: "Ana" });
@@ -120,7 +122,7 @@ test("an IMS outage during cancellation is retried durably without reopening the
   const { stock, store, maintenance, first, scheduled } = await fixture();
   const order = await store.place("jane", { fulfillmentMethod: "pickup", paymentMethod: "gcash" });
   stock.unavailable = true;
-  await store.cancel("jane", order.id, "Changed my mind");
+  await cancelThroughRequest(store, "jane", order.id, "Changed my mind");
   await Promise.all(scheduled);
   expect((await store.listForCustomer("jane"))[0].status).toBe("cancelled");
   stock.unavailable = false;
@@ -253,7 +255,7 @@ test("partial packing failure fences cancellation and resumes without double ded
   stock.failDeductProduct = stock.productForSize(second.id);
   await expect(store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" })).rejects.toThrow();
   expect((await store.listForCustomer("jane"))[0]).toMatchObject({ status: "confirmed", packedBy: null });
-  await expect(store.cancel("jane", order.id, "Changed my mind")).rejects.toThrow();
+  await expect(cancelThroughRequest(store, "jane", order.id, "Changed my mind")).rejects.toThrow();
   await expect(store.cancelItems(order.id, [1], { staffId: "ben", staffName: "Ben" }, "confirmed")).rejects.toThrow("Packing has started");
   stock.failDeductProduct = undefined;
   expect(await store.advance(order.id, { status: "preparing", staffId: "ana", staffName: "Ana" })).toMatchObject({ status: "preparing", packedBy: { id: "ana" } });

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import { customers, customerNotifications, orders, stockOutbox, stockReservations } from "../db/schema";
+import { customers, customerNotifications, orderCancelRequests, orders, stockOutbox, stockReservations } from "../db/schema";
 import { writeAuditEvent, type AuditEvent, type AuditIdentity } from "../audit/gateway";
 import { sendAppEmail, type AppEmail } from "../notifications/gateway";
 import type { Cart } from "./cart";
@@ -163,6 +163,9 @@ export function createStockReservations<T extends PgQueryResultHKT, S extends Re
         )).for("update", { skipLocked: true });
         if (!order) return;
         await tx.update(orders).set({ status: "cancelled" }).where(eq(orders.id, order.id));
+        // A waiting cancellation request is closed by the expiry, so the Customer is not left with an open request on a cancelled Order.
+        await tx.update(orderCancelRequests).set({ status: "approved", decidedById: "unpaid-order-expiry", decidedByName: "Unpaid Order expiry", decidedAt: now })
+          .where(and(eq(orderCancelRequests.orderId, order.id), eq(orderCancelRequests.status, "waiting")));
         await createStockReservations(tx, stock).releaseItems(order.id, undefined, { type: "system", id: "unpaid-order-expiry", display_name: "Unpaid Order expiry" });
         await tx.insert(customerNotifications).values({ idempotencyKey: `order.expired:${order.id}`, orderId: order.id,
           customerId: order.customerId, type: "order.cancelled", title: "Your order was cancelled",

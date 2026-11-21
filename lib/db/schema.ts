@@ -671,6 +671,22 @@ export const orderCancellations = pgTable("order_cancellations", {
   check("order_cancellations_status", sql`${table.status} in ('waiting-manager', 'settling', 'cancelled')`),
   check("order_cancellations_stock", sql`${table.stockOutcome} in ('restock','write-off')`)]);
 
+/** A Customer's request to cancel an Order before payment or preparation. A person decides; the Order is frozen while it waits. */
+export const orderCancelRequests = pgTable("order_cancel_requests", {
+  id: text("id").primaryKey(),
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("waiting"),
+  requestedById: text("requested_by_id").notNull(), requestedByName: text("requested_by_name").notNull(),
+  decidedById: text("decided_by_id"), decidedByName: text("decided_by_name"), declineReason: text("decline_reason"),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, table => [
+  uniqueIndex("order_cancel_requests_open").on(table.orderId).where(sql`${table.status} = 'waiting'`),
+  index("order_cancel_requests_order").on(table.orderId),
+  check("order_cancel_requests_status", sql`${table.status} in ('waiting', 'approved', 'declined', 'withdrawn')`),
+]);
+
 /** One Order assistant conversation of a Customer. A chat attached to a Ticket follows the Ticket; others are deleted after the retention. */
 export const assistantChats = pgTable("assistant_chats", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),

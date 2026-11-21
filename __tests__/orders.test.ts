@@ -1,3 +1,4 @@
+import { cancelThroughRequest } from "@/__tests__/helpers/cancel-through-request";
 import { FakeShopStock } from "./helpers/fake-shop-stock";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -450,11 +451,11 @@ describe("Order", () => {
       paymentMethod: "cash-on-delivery",
     });
 
-    await expect(store.cancel("customer-1", order.id, "Changed my mind")).resolves.toMatchObject({
+    await expect(cancelThroughRequest(store, "customer-1", order.id, "Changed my mind")).resolves.toMatchObject({
       id: order.id,
       status: "cancelled",
     });
-    await expect(store.cancel("another-customer", order.id, "Changed my mind")).rejects.toThrow("Order was not found.");
+    await expect(cancelThroughRequest(store, "another-customer", order.id, "Changed my mind")).rejects.toThrow("Order was not found.");
 
     await cart.addSize("customer-1", await firstSizeId(), 1);
     const dispatched = await store.place("customer-1", {
@@ -464,7 +465,7 @@ describe("Order", () => {
     await store.advance(dispatched.id, { status: "preparing", staffId: "ana", staffName: "Ana" });
     await store.advance(dispatched.id, { status: "ready for pickup" });
 
-    await expect(store.cancel("customer-1", dispatched.id, "Changed my mind")).rejects.toThrow("not a legal transition");
+    await expect(cancelThroughRequest(store, "customer-1", dispatched.id, "Changed my mind")).rejects.toThrow("not a legal transition");
   });
 
   test("places a Pickup Cash on Delivery Order, snapshots its Cart, and empties the Cart", async () => {

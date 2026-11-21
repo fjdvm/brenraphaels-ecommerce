@@ -1,5 +1,6 @@
 import { paymentRecipient } from "./payment-details";
 import { CUSTOMER_CANCELLABLE } from "./customer-cancellable";
+import { CANCEL_REQUEST_FROZEN, CancelRequestError } from "./cancel-requests";
 import { confirmedProofInput } from "./payment-proof";
 import { after } from "next/server";
 import { createStockReservations } from "./stock-reservations";
@@ -13,7 +14,7 @@ import { gatewayProductImages, productThumbnail, type ProductImageFiles, type Pr
 import { and, asc, desc, eq, gte, inArray, isNull, isNotNull, lt, ne, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { seniorPwdVerifications, orderCancellations, failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, managerReviews, productImages, products, stockOutbox } from "../db/schema";
+import { seniorPwdVerifications, orderCancellations, orderCancelRequests, failedDeliveries, addresses, cartLines, customerNotifications, customers, orderCancelledItems, orderDeliveryAddresses, orderLines, orderPaymentProofs, orders, managerReviews, productImages, products, stockOutbox } from "../db/schema";
 import { courierBooking, type CourierBooking } from "../validators/courier";
 import { referenceProblem } from "./payment-proof";
 import { fileIdField } from "../validators/file-id";
@@ -185,6 +186,8 @@ export type AdvanceOrderInput = {
   approvedAnyway?: { reason: string };
   /** Saved with a move to cancelled: the Customer's reason, or the reason Staff gave for rejecting the Order. */
   cancelReason?: string;
+  /** Set only when Staff approve a Customer's cancellation request: the request is closed in the same step. */
+  cancelRequestId?: string;
 };
 
 export type OrderStore = {
@@ -199,7 +202,12 @@ export type OrderStore = {
   ): Promise<Order>;
   /** Staff add or fix the booking while the Delivery Order is dispatched. The whole booking is replaced; the Customer is not emailed again. */
   updateCourier(orderId: number, courier: CourierBooking): Promise<Order>;
-  cancel(customerId: string, orderId: number, reason: string): Promise<Order>;
+  /** A Customer asks to cancel; nothing changes on the Order until Staff approve. */
+  requestCancel(customerId: string, orderId: number, reason: string): Promise<{ requestId: string; replayed: boolean }>;
+  /** The Customer takes back a waiting request. */
+  withdrawCancel(customerId: string, orderId: number): Promise<void>;
+  /** Staff decline a waiting request with a reason; the Order is untouched. */
+  declineCancel(orderId: number, requestId: string, reason: string, staff: { staffId: string; staffName: string }): Promise<{ replayed: boolean }>;
   /** Confirms with the final amounts; repeating the same call changes nothing and reports `replayed`. */
   confirm(orderId: number, confirmation: OrderConfirmation): Promise<{ order: Order; replayed: boolean }>;
   cancelItems(orderId: number, lineIds: number[], staff: { staffId: string; staffName: string }, expectedStatus: string): Promise<Order>;
@@ -405,10 +413,18 @@ export function createOrderStore<
     return toOrder(packed, await linesForOrder(orderId));
   }
 
+  /** The Order is frozen while a Customer's cancellation request waits for a person. */
+  async function assertNotFrozen(handle: Pick<typeof db, "select">, orderId: number) {
+    const [open] = await handle.select({ id: orderCancelRequests.id }).from(orderCancelRequests)
+      .where(and(eq(orderCancelRequests.orderId, orderId), eq(orderCancelRequests.status, "waiting")));
+    if (open) throw new OrderStatusUpdateError(CANCEL_REQUEST_FROZEN);
+  }
+
   async function advance(
     orderId: number,
     input: AdvanceOrderInput,
   ): Promise<Order> {
+    if (!input.cancelRequestId) await assertNotFrozen(db, orderId);
     if (input.status === "preparing") return pack(orderId, input);
     const [persistedOrder] = await db
       .select()
@@ -517,6 +533,12 @@ export function createOrderStore<
         const wrong = confirmationProblem(persistedOrder, input.confirmation, quote.discountInCentavos);
         if (wrong) throw new OrderStatusUpdateError(wrong);
       }
+      if (input.cancelRequestId) {
+        if (input.status !== "cancelled") throw new OrderStatusUpdateError("A cancellation request can only close with a cancellation.");
+        const [waiting] = await transaction.select({ id: orderCancelRequests.id }).from(orderCancelRequests)
+          .where(and(eq(orderCancelRequests.id, input.cancelRequestId), eq(orderCancelRequests.orderId, orderId), eq(orderCancelRequests.status, "waiting"))).for("update");
+        if (!waiting) throw new CancelRequestError("This cancellation request was already decided or withdrawn. Refresh the Order.");
+      } else await assertNotFrozen(transaction, orderId);
       const [cancellation] = await transaction.select().from(orderCancellations).where(eq(orderCancellations.orderId, orderId));
       if (cancellation?.status === "settling") throw new OrderStatusUpdateError("Cancellation settlement has started. Refresh the Order.");
       if (input.status === "delivered") {
@@ -562,6 +584,11 @@ export function createOrderStore<
         .returning();
       if (!updatedOrder) throw new OrderStatusUpdateError("Order status or Delivery photo changed before it could be advanced. Refresh before retrying.");
 
+      if (input.cancelRequestId) {
+        const decider = staffAttribution.parse(input);
+        await transaction.update(orderCancelRequests).set({ status: "approved", decidedById: decider.staffId, decidedByName: decider.staffName, decidedAt: new Date() })
+          .where(eq(orderCancelRequests.id, input.cancelRequestId));
+      }
       if (input.status === "cancelled") {
         const attribution = input.staffId !== undefined || input.staffName !== undefined ? staffAttribution.parse(input) : null;
         releaseId = await createStockReservations(transaction, stock).releaseItems(orderId, undefined,
@@ -722,6 +749,7 @@ export function createOrderStore<
       throw new OrderStatusUpdateError("Choose this Order's whole line items to cancel.");
     }
     const actor = staffAttribution.parse(staff);
+    await assertNotFrozen(db, orderId);
     let releaseId: string | undefined;
     const changed = await db.transaction(async transaction => {
       const [order] = await transaction.select().from(orders).where(eq(orders.id, orderId)).for("update");
@@ -762,19 +790,61 @@ export function createOrderStore<
     return toOrder(changed, await linesForOrder(orderId));
   }
 
-  /** Cancels an Order only when it belongs to the Customer and the state machine permits it. */
-  async function cancel(customerId: string, orderId: number, reason: string): Promise<Order> {
-    const [persistedOrder] = await db
-      .select({ id: orders.id, status: orders.status, confirmedAt: orders.confirmedAt })
-      .from(orders)
-      .where(and(eq(orders.id, orderId), eq(orders.customerId, customerId)));
-    if (!persistedOrder) throw new Error("Order was not found.");
-    // The Customer may cancel, with a reason, until the Order is paid or being prepared. A paid Order has money in it,
-    // so it goes to Staff as a refund; after dispatch it is a Manager's decision.
-    if (!CUSTOMER_CANCELLABLE.includes(persistedOrder.status)) throw new OrderTransitionError("cancelled", persistedOrder.status as OrderStatus);
-    if (!reason.trim()) throw new Error("Tell us why you are cancelling.");
+  /** A Customer asks to cancel, with a reason, until the Order is paid or being prepared. A person decides; the Order is not changed. */
+  async function requestCancel(customerId: string, orderId: number, reason: string): Promise<{ requestId: string; replayed: boolean }> {
+    const text = reason.trim();
+    if (!text) throw new Error("Tell us why you are cancelling.");
+    return db.transaction(async tx => {
+      const [order] = await tx.select({ id: orders.id, status: orders.status, packingStartedAt: orders.packingStartedAt, packedAt: orders.packedAt, customerName: customers.fullName }).from(orders)
+        .innerJoin(customers, eq(customers.id, orders.customerId))
+        .where(and(eq(orders.id, orderId), eq(orders.customerId, customerId))).for("update", { of: orders });
+      if (!order) throw new Error("Order was not found.");
+      // A paid Order has money in it, so it goes to Staff as a refund; after dispatch it is a Manager's decision.
+      if (!CUSTOMER_CANCELLABLE.includes(order.status) || (order.packingStartedAt !== null && order.packedAt === null)) throw new OrderTransitionError("cancelled", order.status as OrderStatus);
+      const [open] = await tx.select({ id: orderCancelRequests.id }).from(orderCancelRequests)
+        .where(and(eq(orderCancelRequests.orderId, orderId), eq(orderCancelRequests.status, "waiting")));
+      if (open) return { requestId: open.id, replayed: true };
+      const requestId = crypto.randomUUID();
+      await tx.insert(orderCancelRequests).values({ id: requestId, orderId, reason: text, requestedById: customerId, requestedByName: order.customerName });
+      const event: AuditEvent = { source: "Ecommerce", action: "order.cancel_request_made", outcome: "success",
+        actor: { type: "customer", id: customerId, display_name: order.customerName }, target: { type: "order", id: String(orderId), display_name: `Order #${orderId}` },
+        description: `${order.customerName} asked to cancel Order #${orderId}.`, occurred_at: new Date().toISOString(), idempotency_key: `cancel-request:${requestId}:requested` };
+      await tx.insert(stockOutbox).values({ key: event.idempotency_key!, kind: "audit", payload: event }).onConflictDoNothing();
+      await tx.insert(customerNotifications).values({ idempotencyKey: `order.cancel-requested:${requestId}`, orderId, customerId, type: "order.cancel-requested",
+        title: `Cancellation requested for Order #${orderId}`, body: "We received your request. A team member will review it and email you the decision. Your Order stays as it is until then.",
+        link: `/profile/orders?order=${orderId}` }).onConflictDoNothing();
+      return { requestId, replayed: false };
+    });
+  }
 
-    return advance(persistedOrder.id, { status: "cancelled", cancelReason: reason.trim() });
+  async function withdrawCancel(customerId: string, orderId: number): Promise<void> {
+    await db.transaction(async tx => {
+      const [order] = await tx.select({ id: orders.id }).from(orders).where(and(eq(orders.id, orderId), eq(orders.customerId, customerId))).for("update");
+      if (!order) throw new Error("Order was not found.");
+      const [open] = await tx.select({ id: orderCancelRequests.id }).from(orderCancelRequests)
+        .where(and(eq(orderCancelRequests.orderId, orderId), eq(orderCancelRequests.status, "waiting"))).for("update");
+      if (!open) throw new CancelRequestError("There is no waiting cancellation request on this Order.");
+      await tx.update(orderCancelRequests).set({ status: "withdrawn", decidedAt: new Date() }).where(eq(orderCancelRequests.id, open.id));
+    });
+  }
+
+  async function declineCancel(orderId: number, requestId: string, reason: string, staff: { staffId: string; staffName: string }): Promise<{ replayed: boolean }> {
+    const actor = staffAttribution.parse(staff);
+    const text = reason.trim();
+    if (!text) throw new CancelRequestError("Enter a reason for declining the cancellation request.");
+    return db.transaction(async tx => {
+      const [order] = await tx.select({ id: orders.id, customerId: orders.customerId }).from(orders).where(eq(orders.id, orderId)).for("update");
+      const [request] = await tx.select().from(orderCancelRequests).where(and(eq(orderCancelRequests.id, requestId), eq(orderCancelRequests.orderId, orderId))).for("update");
+      if (!order || !request) throw new CancelRequestError("Cancellation request was not found.");
+      if (request.status === "declined") return { replayed: true };
+      if (request.status !== "waiting") throw new CancelRequestError("This cancellation request was already decided or withdrawn. Refresh the Order.");
+      await tx.update(orderCancelRequests).set({ status: "declined", declineReason: text, decidedById: actor.staffId, decidedByName: actor.staffName, decidedAt: new Date() })
+        .where(eq(orderCancelRequests.id, requestId));
+      await tx.insert(customerNotifications).values({ idempotencyKey: `order.cancel-declined:${requestId}`, orderId, customerId: order.customerId, type: "order.cancel-declined",
+        title: `Order #${orderId} was not cancelled`, body: `${actor.staffName} declined your cancellation request: ${text}. Your Order carries on.`,
+        link: `/profile/orders?order=${orderId}` }).onConflictDoNothing();
+      return { replayed: false };
+    });
   }
 
   /**
@@ -792,6 +862,7 @@ export function createOrderStore<
       .from(orders)
       .where(and(eq(orders.id, orderId), eq(orders.customerId, customerId)));
     if (!persistedOrder) throw new Error("Order was not found.");
+    await assertNotFrozen(db, orderId).catch(() => { throw new Error("Your cancellation request is waiting for a decision, so no payment proof can be sent. Withdraw it first if you still want to pay."); });
     if (!isPrepaid(persistedOrder.paymentMethod)) {
       throw new Error("Payment proof can only be submitted for a GCash, Maya or bank transfer Order.");
     }
@@ -874,6 +945,7 @@ export function createOrderStore<
     const updatedOrder = await db.transaction(async (transaction) => {
       const [order] = await transaction.select().from(orders).where(eq(orders.id, orderId)).for("update");
       if (!order) throw new OrderStatusUpdateError("Order was not found.");
+      await assertNotFrozen(transaction, orderId);
       if (order.status !== "awaiting payment" || !isPrepaid(order.paymentMethod) || !order.paymentProofSubmittedAt || order.paymentProofRejectedAt) {
         throw new OrderStatusUpdateError("Order already changed; refresh it before trying again.");
       }
@@ -1082,5 +1154,5 @@ export function createOrderStore<
     }
   }
 
-  return { place, listForCustomer, advance, updateCourier, confirm, cancel, cancelItems, customerEmailForOrder, getById, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, rejectPaymentProof };
+  return { place, listForCustomer, advance, updateCourier, confirm, requestCancel, withdrawCancel, declineCancel, cancelItems, customerEmailForOrder, getById, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, rejectPaymentProof };
 }

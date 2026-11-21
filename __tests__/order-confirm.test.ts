@@ -1,3 +1,4 @@
+import { cancelThroughRequest } from "@/__tests__/helpers/cancel-through-request";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -84,17 +85,17 @@ describe("confirming an Order", () => {
   test("a Customer can cancel with a reason until paid; the reason is required and saved", async () => {
     const { store, id } = await placeDelivery();
     await store.confirm(id, amounts);
-    await expect(store.cancel("customer-1", id, "  ")).rejects.toThrow(/why you are cancelling/);
-    await expect(store.cancel("customer-1", id, "Wrong address")).resolves.toMatchObject({ status: "cancelled", cancelReason: "Wrong address" });
+    await expect(cancelThroughRequest(store, "customer-1", id, "  ")).rejects.toThrow(/why you are cancelling/);
+    await expect(cancelThroughRequest(store, "customer-1", id, "Wrong address")).resolves.toMatchObject({ status: "cancelled", cancelReason: "Wrong address" });
     const { id: second } = await placeDelivery();
-    await expect(store.cancel("customer-1", second, "Changed my mind")).resolves.toMatchObject({ status: "cancelled" });
+    await expect(cancelThroughRequest(store, "customer-1", second, "Changed my mind")).resolves.toMatchObject({ status: "cancelled" });
   });
 
   test("a Customer cannot cancel once the shop is preparing it; Staff reject with a reason", async () => {
     const { store, id } = await placeDelivery();
     await store.confirm(id, amounts);
     await store.advance(id, { status: "preparing", staffId: "ana", staffName: "Ana" });
-    await expect(store.cancel("customer-1", id, "Changed my mind")).rejects.toThrow(/not a legal transition/);
+    await expect(cancelThroughRequest(store, "customer-1", id, "Changed my mind")).rejects.toThrow(/not a legal transition/);
     const { id: placed } = await placeDelivery();
     await expect(store.advance(placed, { status: "cancelled", cancelReason: "Out of stock" })).resolves.toMatchObject({ status: "cancelled", cancelReason: "Out of stock" });
   });
