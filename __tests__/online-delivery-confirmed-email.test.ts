@@ -103,4 +103,22 @@ describe("Online payment + Delivery confirmation email", () => {
     await sendOrderOnlineDeliveryConfirmedEmail("a@b.com", order);
     expect(sendMail.mock.calls[0][0].text).toContain("Online payment isn't available right now");
   });
+
+  test("shows only the Payment account Staff chose when confirming", async () => {
+    sendMail.mockReset();
+    const account = (id: string, number: string) => ({ id, method: "gcash", label: id, accountName: "Bren", accountNumber: number, bankName: null, qrUrl: null });
+    loadPaymentAccounts.mockResolvedValueOnce([account("a1", "09171111111"), account("a2", "09172222222")]);
+    await sendOrderOnlineDeliveryConfirmedEmail("a@b.com", order, undefined, "a2");
+    const text = sendMail.mock.calls[0][0].text;
+    expect(text).toContain("09172222222");
+    expect(text).not.toContain("09171111111");
+  });
+
+  test("falls back to every account when the chosen one is gone or does not fit the Order's method", async () => {
+    sendMail.mockReset();
+    const account = (id: string, method: string, number: string) => ({ id, method, label: id, accountName: "Bren", accountNumber: number, bankName: null, qrUrl: null });
+    loadPaymentAccounts.mockResolvedValueOnce([account("a1", "gcash", "09171111111"), account("m1", "maya", "09173333333")]);
+    await sendOrderOnlineDeliveryConfirmedEmail("a@b.com", order, undefined, "m1");
+    expect(sendMail.mock.calls[0][0].text).toContain("09171111111");
+  });
 });

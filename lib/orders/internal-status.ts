@@ -20,6 +20,8 @@ const statusUpdate = z.discriminatedUnion("status", [
     /** Null for Pickup; ₱0 is a valid entered fee for Delivery. */
     deliveryFeeInCentavos: z.number().int().nonnegative().nullable(),
     totalInCentavos: z.number().int().nonnegative(),
+    /** The Payment account Staff chose for an online-payment Order; the Pay your Order email shows only this one. */
+    paymentAccountId: z.string().uuid().optional(),
     staffId: z.unknown().optional(),
     staffName: z.unknown().optional(),
   }).strict(),
@@ -62,6 +64,7 @@ export function parseInternalOrderStatusUpdate(payload: unknown) {
     approvedDiscountInCentavos: update.approvedDiscountInCentavos,
     deliveryFeeInCentavos: update.deliveryFeeInCentavos,
     totalInCentavos: update.totalInCentavos,
+    ...(update.paymentAccountId === undefined ? {} : { paymentAccountId: update.paymentAccountId }),
   };
   if (update.status === "delivered") return {
     status: update.status,

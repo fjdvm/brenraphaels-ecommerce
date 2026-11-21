@@ -197,9 +197,31 @@ describe("POST /api/internal/orders/[id]/status", () => {
     advance.mockResolvedValue({ id: 12, status: "confirmed", fulfillmentMethod: "delivery", paymentMethod: "gcash", deliveryFeeInCentavos: 8000, subtotalInCentavos: 21900 });
     expect((await postAndNotify(statusRequest(), context)).status).toBe(200);
     expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "online-delivery-confirmed", expect.any(Function));
-    expect(sendOrderOnlineDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }), undefined);
+    expect(sendOrderOnlineDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }), undefined, undefined);
     expect(sendOrderDeliveryConfirmedEmail).not.toHaveBeenCalled();
     expect(sendOrderConfirmedEmail).not.toHaveBeenCalled();
+  });
+
+  test("the Payment account Staff chose goes to the Pay your Order email, not into the saved confirmation", async () => {
+    const accountId = "6f1c1e0e-5b1a-4d6e-9a53-2d2f0c1b7a11";
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "confirmed", ...confirmAmounts, paymentAccountId: accountId }),
+      headers: { "Authorization": `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+    confirm.mockResolvedValueOnce({ order: { id: 12, status: "confirmed", fulfillmentMethod: "delivery", paymentMethod: "gcash", deliveryFeeInCentavos: 8000, subtotalInCentavos: 21900 }, replayed: false });
+    expect((await postAndNotify(request, context)).status).toBe(200);
+    expect(confirm).toHaveBeenLastCalledWith(12, confirmAmounts);
+    expect(sendOrderOnlineDeliveryConfirmedEmail).toHaveBeenCalledWith("jane@example.com", expect.objectContaining({ id: 12 }), undefined, accountId);
+  });
+
+  test("refuses a confirmation whose chosen Payment account is not an id", async () => {
+    const request = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "confirmed", ...confirmAmounts, paymentAccountId: "not-an-id" }),
+      headers: { "Authorization": `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect((await post(request, context)).status).toBe(400);
   });
 
   test("a confirmed Online payment Pickup Order gets its Pay for Your Order email once, through the outcome record", async () => {

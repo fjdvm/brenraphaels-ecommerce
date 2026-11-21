@@ -76,9 +76,12 @@ export function renderOnlineDeliveryConfirmedEmail(order: Order, payUrl: string,
  * Sends the Customer the confirmation of an Online payment Delivery Order once its fee is confirmed, with the shop's
  * active Payment accounts read from Commerce Settings at send time and each QR attached inline (signed links expire).
  */
-export async function sendOrderOnlineDeliveryConfirmedEmail(recipient: string, order: Order, email?: { id: string }) {
+export async function sendOrderOnlineDeliveryConfirmedEmail(recipient: string, order: Order, email?: { id: string }, paymentAccountId?: string) {
   const { transport, sender } = createBrevoTransport();
-  const { offer, attachments } = await emailPaymentOffer(order.paymentMethod, await loadPaymentAccounts());
+  const accounts = await loadPaymentAccounts();
+  // Staff chose one account when they confirmed: show only that one, if it is still active and fits the Order's method.
+  const chosen = paymentAccountId ? accounts.filter((a) => a.id === paymentAccountId && a.method === order.paymentMethod) : [];
+  const { offer, attachments } = await emailPaymentOffer(order.paymentMethod, chosen.length > 0 ? chosen : accounts);
   const message = renderOnlineDeliveryConfirmedEmail(order, payOrderUrl(order.id), cancelOrderUrl(order.id), offer);
   const info = await transport.sendMail({ from: sender, to: recipient, ...message, ...stableMessageId(sender, email), attachments: [await logoAttachment(), ...attachments] });
   return typeof info?.messageId === "string" ? { messageId: info.messageId } : {};
