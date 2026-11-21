@@ -48,7 +48,7 @@ export type OrderReceivedState = {
   message?: string;
 };
 
-const paymentProofInput = z.object({ gcashReferenceNumber: referenceNumberField, ...confirmedProofFields, confirmedAmount: confirmedAmountField.optional(), confirmedPaidAt: confirmedPaidAtField.optional() });
+const paymentProofInput = z.object({ gcashReferenceNumber: referenceNumberField, ...confirmedProofFields, confirmedAmount: confirmedAmountField, confirmedPaidAt: confirmedPaidAtField });
 const cancellationInput = z.object({ orderId: positiveIntegerField("Order ID"), reason: z.string().trim().min(1, "Tell us why you are cancelling.").max(1000) });
 
 /** Cancels a Customer-owned Order when its status is still before dispatch. */
@@ -97,8 +97,8 @@ export async function submitPaymentProof(
   const customer = await requireCustomer();
   const parsed = paymentProofInput.safeParse({
     gcashReferenceNumber: formData.get("gcashReferenceNumber"),
-    confirmedAmount: formData.get("confirmedAmount") || undefined,
-    confirmedPaidAt: formData.get("confirmedPaidAt") || undefined,
+    confirmedAmount: formData.get("confirmedAmount"),
+    confirmedPaidAt: formData.get("confirmedPaidAt"),
     confirmedRecipient: formData.get("confirmedRecipient") || undefined,
   });
   if (!parsed.success) {

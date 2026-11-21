@@ -39,7 +39,9 @@ describe("the proof form", () => {
     expect(screen.getAllByRole("radio").every((radio) => (radio as HTMLInputElement).required)).toBe(true);
     expect((screen.getByLabelText(/Add screenshot/) as HTMLInputElement).required).toBe(true);
     expect((screen.getByLabelText(/reference number/) as HTMLInputElement).required).toBe(true);
-    expect(screen.queryByText(/optional/i)).toBeNull();
+    expect(screen.queryByText(/Add screenshot.*optional|reference number.*optional/i)).toBeNull();
+    expect(screen.getByText(/Recipient account number \(optional\)/)).toBeTruthy();
+    expect(screen.queryByText(/Amount paid.*optional|Payment date.*optional/i)).toBeNull();
   });
 
   test("a missing QR never blocks choosing an account", () => {
@@ -48,11 +50,25 @@ describe("the proof form", () => {
     expect((screen.getAllByRole("radio")[0] as HTMLInputElement).checked).toBe(true);
   });
 
+  test("Submit payment stays disabled until the amount paid equals the order total", async () => {
+    browserAcceptsRequiredFile();
+    renderForm();
+    const submitButton = () => screen.getByRole("button", { name: "Submit payment" }) as HTMLButtonElement;
+    expect((screen.getByLabelText(/^Amount/) as HTMLInputElement).required).toBe(true);
+    expect((screen.getByLabelText(/^Payment date/) as HTMLInputElement).required).toBe(true);
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: "800" } });
+    expect(submitButton().disabled).toBe(true);
+    expect(screen.getByRole("alert").textContent).toMatch(/must equal your order total/);
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: "1250.00" } });
+    expect(submitButton().disabled).toBe(false);
+  });
+
   test("Submit payment opens the confirm dialog first and sends nothing until the Customer confirms", async () => {
     browserAcceptsRequiredFile();
     renderForm();
     fireEvent.click(screen.getAllByRole("radio")[1]);
     fireEvent.change(screen.getByLabelText(/reference number/), { target: { value: "1012345678" } });
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: "1250" } });
     await userEvent.upload(screen.getByLabelText(/Add screenshot/), shot());
     fireEvent.click(screen.getByRole("button", { name: "Submit payment" }));
 
@@ -61,6 +77,8 @@ describe("the proof form", () => {
     expect(summary).toContain("Backup · 0918 111 1111");
     expect(summary).toContain("1012345678");
     expect(summary).toContain("gcash-receipt.png");
+    expect(screen.getByTestId("submit-amount-sent").textContent).toBe("₱1,250");
+    expect(screen.getByTestId("submit-amount-compare").textContent).toMatch(/Matches/);
     expect(submit).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Submit payment" }).at(-1)!);
@@ -76,6 +94,7 @@ describe("the proof form", () => {
     renderForm();
     fireEvent.click(screen.getAllByRole("radio")[0]);
     fireEvent.change(screen.getByLabelText(/reference number/), { target: { value: "1012345678" } });
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: "1250" } });
     await userEvent.upload(screen.getByLabelText(/Add screenshot/), shot());
     fireEvent.click(screen.getByRole("button", { name: "Submit payment" }));
     fireEvent.click(await screen.findByRole("button", { name: "Go back" }));
@@ -94,6 +113,7 @@ describe("the proof form", () => {
     renderForm();
     fireEvent.click(screen.getAllByRole("radio")[0]);
     fireEvent.change(screen.getByLabelText(/reference number/), { target: { value: "1012345678" } });
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: "1250" } });
     await userEvent.upload(screen.getByLabelText(/Add screenshot/), shot());
     fireEvent.click(screen.getByRole("button", { name: "Submit payment" }));
     fireEvent.click((await screen.findAllByRole("button", { name: "Submit payment" })).at(-1)!);

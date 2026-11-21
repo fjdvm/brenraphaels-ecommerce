@@ -104,6 +104,9 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
     }
   }
 
+  const sentInCentavos = values.amount.trim() !== "" && Number.isFinite(Number(values.amount)) ? Math.round(Number(values.amount) * 100) : undefined;
+  const amountMatches = sentInCentavos === undefined ? undefined : sentInCentavos === amountInCentavos;
+
   const checks = placedAt
     ? checkReceipt(
         { amountInCentavos: read.has("amount") && values.amount ? Math.round(Number(values.amount) * 100) : undefined, paidAt: read.has("paidAt") ? values.paidAt : undefined },
@@ -151,21 +154,22 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
       <fieldset className="grid gap-4 sm:grid-cols-3">
         <legend className="mb-2 text-sm font-medium text-ink">Confirm the values on your receipt</legend>
         <div className="flex flex-col gap-2">
-          <Label className={fieldLabelClass} htmlFor={`proof-amount-${orderId}`}>Amount paid (₱)</Label>
-          <Input className={fieldClass} id={`proof-amount-${orderId}`} name="confirmedAmount" onChange={type("amount")} type="number" min="0" max="21474836.47" step="0.01" value={values.amount} />
+          <Label className={fieldLabelClass} htmlFor={`proof-amount-${orderId}`} required>Amount paid (₱)</Label>
+          <Input className={fieldClass} id={`proof-amount-${orderId}`} name="confirmedAmount" required onChange={type("amount")} type="number" min="0" max="21474836.47" step="0.01" value={values.amount} />
           {note("amount", checks.amount)}
+          {amountMatches === false ? <p className="text-xs text-red-700" role="alert">The amount paid must equal your order total of {formatPeso(amountInCentavos)} before you can submit.</p> : null}
         </div>
         <div className="flex flex-col gap-2">
-          <Label className={fieldLabelClass} htmlFor={`proof-date-${orderId}`}>Payment date and time (Philippine time)</Label>
-          <Input className={fieldClass} id={`proof-date-${orderId}`} name="confirmedPaidAt" onChange={type("paidAt")} type="datetime-local" value={values.paidAt} />
+          <Label className={fieldLabelClass} htmlFor={`proof-date-${orderId}`} required>Payment date and time (Philippine time)</Label>
+          <Input className={fieldClass} id={`proof-date-${orderId}`} name="confirmedPaidAt" required onChange={type("paidAt")} type="datetime-local" value={values.paidAt} />
           {note("paidAt", checks.date)}
         </div>
         <div className="flex flex-col gap-2">
-          <Label className={fieldLabelClass} htmlFor={`proof-recipient-${orderId}`}>Recipient account number</Label>
+          <Label className={fieldLabelClass} htmlFor={`proof-recipient-${orderId}`}>Recipient account number (optional)</Label>
           <Input className={fieldClass} id={`proof-recipient-${orderId}`} name="confirmedRecipient" maxLength={160} />
         </div>
       </fieldset>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="flex flex-1 flex-col gap-2">
           <Label className={fieldLabelClass} htmlFor={`gcash-reference-${orderId}`} required>{label} reference number</Label>
           <Input
@@ -186,6 +190,8 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
             <p className="text-sm text-red-700" id={`gcash-reference-${orderId}-error`} role="alert">{referenceError}</p>
           ) : null}
         </div>
+        {/* Centred on the input row (label height + gap = mt-7, input height = h-12), so the notes under the input never push them off line. */}
+        <div className="flex flex-col gap-4 lg:mt-7 lg:h-12 lg:flex-row lg:items-center">
         <label
           className="flex cursor-pointer items-center gap-2.5 border border-dashed border-primary bg-white px-5 py-3.5 text-sm font-medium tracking-[0.35px] text-primary focus-within:ring-2 focus-within:ring-ring"
           htmlFor={`gcash-screenshot-${orderId}`}
@@ -202,9 +208,10 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
             type="file"
           />
         </label>
-        <Button disabled={pending || choices.length === 0} onClick={review} size="pill-lg" type="button" variant="pill">
+        <Button disabled={pending || choices.length === 0 || amountMatches === false} onClick={review} size="pill-lg" type="button" variant="pill">
           {pending ? "Submitting…" : rejection ? "Send new proof" : "Submit payment"}
         </Button>
+        </div>
       </div>
       <p className="text-xs text-body">A JPG or PNG screenshot up to 5 MB is required.</p>
       {screenshotError ? <p className="text-sm text-red-700" role="alert">{screenshotError}</p> : null}
@@ -220,13 +227,21 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
           <dl className="mt-6 flex flex-col gap-3 text-sm" data-testid="submit-summary">
             <div className="flex justify-between gap-4"><dt className="text-body">Account paid</dt><dd className="text-right text-ink">{chosen ? `${chosen.label} · ${chosen.accountNumber}` : "—"}</dd></div>
             <div className="flex justify-between gap-4"><dt className="text-body">Reference number</dt><dd className="text-right text-ink">{values.reference || "—"}</dd></div>
-            <div className="flex justify-between gap-4"><dt className="text-body">Amount to send</dt><dd className="text-right text-ink">{formatPeso(amountInCentavos)}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-body">Amount you sent</dt><dd className="text-right text-ink" data-testid="submit-amount-sent">{sentInCentavos === undefined ? "—" : formatPeso(sentInCentavos)}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-body">Amount to send</dt><dd className="text-right text-ink" data-testid="submit-amount-due">{formatPeso(amountInCentavos)}</dd></div>
+            <p className={amountMatches === false ? "text-xs text-red-700" : amountMatches ? "text-xs text-green-700" : "text-xs text-body"} data-testid="submit-amount-compare" role={amountMatches === false ? "alert" : undefined}>
+              {amountMatches === undefined
+                ? "Add the amount from your receipt so we can compare it with what you owe."
+                : amountMatches
+                  ? "Matches the amount to send."
+                  : `${formatPeso(Math.abs(sentInCentavos! - amountInCentavos))} ${sentInCentavos! < amountInCentavos ? "short of" : "over"} the amount to send.`}
+            </p>
             <div className="flex justify-between gap-4"><dt className="text-body">Screenshot</dt><dd className="max-w-48 truncate text-right text-ink">{fileName ?? "—"}</dd></div>
           </dl>
           <p className="mt-4 text-xs text-body">Make sure the reference matches your receipt. We&apos;ll email you once it&apos;s verified.</p>
           <div className="mt-6 flex flex-col-reverse justify-end gap-3 sm:flex-row">
             <Button disabled={pending} onClick={() => setConfirming(false)} size="pill-lg" type="button" variant="pill-outline">Go back</Button>
-            <Button disabled={pending} onClick={() => formRef.current?.requestSubmit()} size="pill-lg" type="button" variant="pill">{pending ? "Submitting…" : "Submit payment"}</Button>
+            <Button disabled={pending || amountMatches !== true} onClick={() => formRef.current?.requestSubmit()} size="pill-lg" type="button" variant="pill">{pending ? "Submitting…" : "Submit payment"}</Button>
           </div>
         </DialogContent>
       </Dialog>
