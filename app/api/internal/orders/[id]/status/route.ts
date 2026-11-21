@@ -68,10 +68,12 @@ export async function POST(
     if (update.status === "delivered") await verifyDeliveryPhoto(update.deliveryPhotoFileId);
     const orderStore = createOrderStore(getDatabase());
     let replayed = false;
+    let paymentAccountId: string | undefined;
     let order: Order;
     if (update.status === "confirmed") {
-      const { status: _status, ...amounts } = update;
+      const { status: _status, paymentAccountId: chosen, ...amounts } = update;
       void _status;
+      paymentAccountId = chosen;
       ({ order, replayed } = await orderStore.confirm(orderId, amounts));
     } else {
       order = await orderStore.advance(orderId, update);
@@ -102,7 +104,7 @@ export async function POST(
               await sendOnceAndRecord(
                 order.id,
                 online ? "online-delivery-confirmed" : "delivery-confirmed",
-                (email) => online ? sendOrderOnlineDeliveryConfirmedEmail(recipient, order, email) : sendOrderDeliveryConfirmedEmail(recipient, order, email),
+                (email) => online ? sendOrderOnlineDeliveryConfirmedEmail(recipient, order, email, paymentAccountId) : sendOrderDeliveryConfirmedEmail(recipient, order, email),
               );
             }
           } catch (error) {
