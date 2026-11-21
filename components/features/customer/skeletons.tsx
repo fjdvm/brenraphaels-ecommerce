@@ -15,6 +15,28 @@ export function OrdersSkeleton() {
   );
 }
 
+export function DeliveriesSkeleton() {
+  return (
+    <div aria-hidden="true" className="flex flex-col gap-5">
+      <Skeleton className="h-[150px]" />
+      <Skeleton className="h-[150px]" />
+      <Skeleton className="h-[150px]" />
+    </div>
+  );
+}
+
+export function DeliveryMapSkeleton() {
+  return (
+    <div aria-hidden="true" className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-[38px] w-[200px] rounded-full" />
+        <Skeleton className="h-[38px] w-[90px]" />
+      </div>
+      <Skeleton className="h-[calc(100dvh-280px)] min-h-[420px]" />
+    </div>
+  );
+}
+
 export function AddressesSkeleton() {
   return (
     <div aria-hidden="true" className="flex flex-col gap-[30px]">

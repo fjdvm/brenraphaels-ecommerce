@@ -1,11 +1,16 @@
-import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { ExternalLink, MapPin } from "lucide-react";
 
+import { trackHref } from "@/lib/orders/deliveries";
 import type { Order } from "@/lib/orders/orders";
 
 type Courier = NonNullable<Order["courier"]>;
 
-/** Shown only while an Order is dispatched: the courier, and the Track button only while there is a link. Rider details are for Staff, never shown here. */
-export function TrackDelivery({ courier }: { courier: Courier }) {
+/**
+ * Shown only while an Order is dispatched: the courier, and while there is a share link, Track Order (the live map
+ * in the Delivery tab) plus the courier's own page. Rider details are for Staff, never shown here.
+ */
+export function TrackDelivery({ orderId, courier }: { orderId: number; courier: Courier }) {
   const link = courier.trackingUrl;
 
   return (
@@ -16,19 +21,21 @@ export function TrackDelivery({ courier }: { courier: Courier }) {
           <p className="font-serif text-lg text-primary">Your rider is on the way</p>
         </div>
         {link ? (
-          <a
-            className="flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-base text-white"
-            href={link}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            Track your delivery <ArrowRight aria-hidden className="size-4" />
-          </a>
+          <Link className="flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-base text-white" href={trackHref(orderId)}>
+            <MapPin aria-hidden className="size-4" /> Track Order
+          </Link>
         ) : null}
       </div>
-      <p className="text-xs text-muted">
-        {courier.trackingUrl ? `The tracking link comes from ${courier.name} and may stop working after delivery.` : "A tracking link is not available yet."}
-      </p>
+      {link ? (
+        <p className="text-xs text-muted">
+          The live map comes from {courier.name} and may stop working after delivery.{" "}
+          <a className="inline-flex items-center gap-1 text-primary underline underline-offset-4" href={link} rel="noopener noreferrer" target="_blank">
+            Open in {courier.name} <ExternalLink aria-hidden className="size-3" />
+          </a>
+        </p>
+      ) : (
+        <p className="text-xs text-muted">A tracking link is not available yet.</p>
+      )}
     </section>
   );
 }

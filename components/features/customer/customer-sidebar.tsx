@@ -11,6 +11,7 @@ import {
   MessageSquarePlus,
   Package,
   SlidersHorizontal,
+  Truck,
 } from "lucide-react";
 
 import { signOut } from "@/app/actions";
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/profile/orders", label: "My orders", icon: Package },
+  { href: "/profile/delivery", label: "Delivery", icon: Truck },
   { href: "/support", label: "Support", icon: MessageCircle },
   { href: "/profile/addresses", label: "Addresses", icon: MapPin },
   { href: "/profile/notifications", label: "Notifications", icon: Bell },
@@ -27,12 +29,15 @@ const items = [
   { href: "/profile/feedback", label: "Feedback", icon: MessageSquarePlus },
 ];
 
+/** The item for this page; a nested page (one Delivery's map) keeps its section highlighted. */
+const isCurrent = (href: string, pathname: string) => pathname === href || pathname.startsWith(`${href}/`);
+
 const navItemClass =
   "flex w-full items-center gap-3 rounded-full px-[18px] py-[13px] text-[15px] leading-[1.4] tracking-[0.35px] text-body transition-colors hover:bg-lavender-soft hover:text-primary";
 
 export function CustomerSidebar({ fullName, email }: { fullName: string; email: string }) {
   const pathname = usePathname();
-  const activeItem = items.find((item) => item.href === pathname);
+  const activeItem = items.find((item) => isCurrent(item.href, pathname));
   const ActiveIcon = activeItem?.icon;
 
   return (
@@ -78,7 +83,7 @@ export function CustomerSidebarNavList({
   return (
     <ul className={cn("flex flex-col gap-1.5", className)}>
       {items.map((item) => {
-        const active = item.href === pathname;
+        const active = isCurrent(item.href, pathname);
         const Icon = item.icon;
         return (
           <li key={item.href}>

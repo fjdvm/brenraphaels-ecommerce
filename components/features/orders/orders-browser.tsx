@@ -343,7 +343,7 @@ function OrderDetails({
       {feePending ? <p className="text-right text-xs text-warning">{FEE_TO_FOLLOW_SHORT}</p> : null}
       {freeDelivery && order.status === "placed" ? <p className="text-right text-xs text-warning">{FREE_DELIVERY_CONFIRMATION_NOTICE}</p> : null}
 
-      {order.courier && order.status === "dispatched" ? <TrackDelivery courier={order.courier} /> : null}
+      {order.courier && order.status === "dispatched" ? <TrackDelivery orderId={order.id} courier={order.courier} /> : null}
 
       {order.status === "delivered" || order.status === "received" ? <DeliveryPhoto fileId={order.deliveryPhotoFileId} removedAt={order.deliveryPhotoRemovedAt} orderId={order.id} /> : null}
 
