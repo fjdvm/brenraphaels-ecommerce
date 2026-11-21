@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
-import { sendOrderCancelledEmail } from "@/lib/email/order-cancelled-email";
+import { CancelRequestError } from "@/lib/orders/cancel-requests";
 import {
   OrderFeedbackAlreadySubmittedError,
   OrderFeedbackNotAvailableError,
@@ -18,7 +18,7 @@ import { scheduleStaffSignal } from "@/lib/notifications/staff-signal";
 import { queueFeedbackThankYou } from "@/lib/notifications/gateway";
 import { orderFeedbackInput } from "@/lib/orders/feedback-input";
 import { createOrderReceiptStore, OrderReceiptConflictError, OrderReceiptNotFoundError } from "@/lib/orders/receipt";
-import { createOrderStore, OrderTransitionError, type Order } from "@/lib/orders/orders";
+import { createOrderStore, OrderTransitionError } from "@/lib/orders/orders";
 import { referenceNumberField, uploadPaymentProofScreenshot, validatePaymentProofScreenshot } from "@/lib/orders/payment-proof";
 import { loadPaymentAccountSnapshot } from "@/lib/orders/payment-accounts";
 import { liveOrdersUrl } from "@/lib/orders/live";
@@ -39,8 +39,7 @@ export type OrderFeedbackState = {
 };
 
 export type OrderCancellationState = {
-  cancelled?: boolean;
-  emailWarning?: string;
+  requested?: boolean;
   message?: string;
 };
 
@@ -51,41 +50,46 @@ export type OrderReceivedState = {
 
 const cancellationInput = z.object({ orderId: positiveIntegerField("Order ID"), reason: z.string().trim().min(1, "Tell us why you are cancelling.").max(1000) });
 
-/** Cancels a Customer-owned Order when its status is still before dispatch. */
+/** Asks to cancel a Customer-owned Order that is still before payment and preparing. Staff decide; the Order is unchanged until they approve. */
 export async function cancelOrder(
   _previousState: OrderCancellationState,
   formData: FormData,
 ): Promise<OrderCancellationState> {
   void _previousState;
   const parsed = cancellationInput.safeParse({ orderId: formData.get("orderId"), reason: formData.get("reason") });
-  if (!parsed.success) return { message: parsed.error.issues.find((i) => i.path[0] === "reason")?.message ?? "We couldn't cancel this Order. Please try again." };
+  if (!parsed.success) return { message: parsed.error.issues.find((i) => i.path[0] === "reason")?.message ?? "We couldn't send your request. Please try again." };
 
   const customer = await requireCustomer();
-  let order: Order;
   try {
-    order = await createOrderStore(getDatabase()).cancel(customer.userId, parsed.data.orderId, parsed.data.reason);
+    await createOrderStore(getDatabase()).requestCancel(customer.userId, parsed.data.orderId, parsed.data.reason);
   } catch (error) {
     if (error instanceof OrderTransitionError) {
-      return { message: "This Order can no longer be cancelled." };
+      return { message: "This Order can no longer be cancelled here." };
     }
-    console.error("Cancelling Order failed", error);
-    return { message: "We couldn't cancel this Order. Please try again." };
+    console.error("Requesting Order cancellation failed", error);
+    return { message: "We couldn't send your request. Please try again." };
   }
 
   scheduleOrdersChanged();
-  try {
-    await sendOrderCancelledEmail(customer.email, order);
-  } catch (error) {
-    console.error("Order-cancelled email could not be sent", error);
-    revalidatePath("/profile/orders");
-    return {
-      cancelled: true,
-      emailWarning: "Your Order was cancelled, but we couldn't send its confirmation email.",
-    };
-  }
-
   revalidatePath("/profile/orders");
-  return { cancelled: true };
+  return { requested: true };
+}
+
+/** Takes back a waiting cancellation request so the Order carries on. */
+export async function withdrawCancelRequest(orderId: number): Promise<{ ok: true } | { ok: false; message: string }> {
+  const id = positiveIntegerField("Order ID").safeParse(orderId);
+  if (!id.success) return { ok: false, message: "We couldn't find that Order." };
+  const customer = await requireCustomer();
+  try {
+    await createOrderStore(getDatabase()).withdrawCancel(customer.userId, id.data);
+  } catch (error) {
+    if (error instanceof CancelRequestError) return { ok: false, message: error.message };
+    console.error("Withdrawing cancellation request failed", error);
+    return { ok: false, message: "We couldn't withdraw your request. Please try again." };
+  }
+  scheduleOrdersChanged();
+  revalidatePath("/profile/orders");
+  return { ok: true };
 }
 
 /** Bound to an Order id (`submitPaymentProof.bind(null, order.id)`) before use as a Form Action. */

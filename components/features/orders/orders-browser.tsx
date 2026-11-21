@@ -10,6 +10,7 @@ import { CartThumbnail } from "@/components/features/orders/cart-thumbnail";
 import { CancelOrderForm } from "@/components/features/orders/cancel-order-form";
 import { RequestCancellation } from "@/components/features/orders/request-cancellation";
 import type { CancellationStatus } from "@/lib/orders/cancellation-status";
+import type { CancelRequestView } from "@/lib/orders/cancel-requests";
 import { OrderFeedbackForm, type GivenFeedback } from "@/components/features/orders/order-feedback-form";
 import { OrderReceivedButton } from "@/components/features/orders/order-received-button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,7 +44,7 @@ import { countedReturns, returnStatusLabel } from "@/lib/returns/return-view";
 import { cn } from "@/lib/utils";
 
 export type OrderFeedbackSummary = GivenFeedback;
-export type OrderWithFeedback = { order: Order; feedback: OrderFeedbackSummary | null; returnInProgress: boolean; returnOffer?: ReturnOffer | null; cancellation?: CancellationStatus | null };
+export type OrderWithFeedback = { order: Order; feedback: OrderFeedbackSummary | null; returnInProgress: boolean; returnOffer?: ReturnOffer | null; cancellation?: CancellationStatus | null; cancelRequest?: CancelRequestView | null };
 
 type Tab = "all" | OrderFilter | "returns";
 
@@ -133,8 +134,8 @@ export function OrdersBrowser({ orders, returns = [], focusOrderId, cancelFocus 
           No orders in this view.
         </p>
       ) : (
-        visible.map(({ order, feedback, returnInProgress, returnOffer, cancellation }) => (
-          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} cancellation={cancellation ?? null} paymentAccounts={paymentAccounts} openCancel={cancelFocus && order.id === focusOrderId} />
+        visible.map(({ order, feedback, returnInProgress, returnOffer, cancellation, cancelRequest }) => (
+          <OrderCard feedback={feedback} key={order.id} onShowReturn={showReturn} orderReturns={returnsByOrder.get(order.id) ?? []} onToggle={() => toggle(order.id)} open={openIds.has(order.id)} order={order} returnInProgress={returnInProgress} returnOffer={returnOffer ?? null} cancellation={cancellation ?? null} cancelRequest={cancelRequest ?? null} paymentAccounts={paymentAccounts} openCancel={cancelFocus && order.id === focusOrderId} />
         ))
       )}
     </div>
@@ -161,6 +162,7 @@ function OrderCard({
   returnInProgress,
   returnOffer,
   cancellation,
+  cancelRequest,
   orderReturns,
   onShowReturn,
   onToggle,
@@ -176,6 +178,7 @@ function OrderCard({
   returnInProgress: boolean;
   returnOffer: ReturnOffer | null;
   cancellation: CancellationStatus | null;
+  cancelRequest: CancelRequestView | null;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -231,7 +234,7 @@ function OrderCard({
           <ChevronDown aria-hidden className={cn("size-[18px] transition-transform", open && "rotate-180")} />
         </button>
       </div>
-      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} openCancel={openCancel} returnInProgress={returnInProgress} returnOffer={returnOffer} cancellation={cancellation} paymentAccounts={paymentAccounts} /> : null}
+      {open ? <OrderDetails detailsId={detailsId} feedback={feedback} order={order} cancellable={cancellable} openCancel={openCancel} returnInProgress={returnInProgress} returnOffer={returnOffer} cancellation={cancellation} cancelRequest={cancelRequest} paymentAccounts={paymentAccounts} /> : null}
     </article>
   );
 }
@@ -244,6 +247,7 @@ function OrderDetails({
   returnInProgress,
   returnOffer,
   cancellation,
+  cancelRequest,
   detailsId,
   paymentAccounts,
 }: {
@@ -255,6 +259,7 @@ function OrderDetails({
   returnInProgress: boolean;
   returnOffer: ReturnOffer | null;
   cancellation: CancellationStatus | null;
+  cancelRequest: CancelRequestView | null;
   detailsId: string;
 }) {
   const steps = orderTrackerSteps(order);
@@ -392,7 +397,7 @@ function OrderDetails({
       ) : null}
 
       {cancellable ? (
-        <CancelOrderForm defaultOpen={openCancel} orderId={order.id} />
+        <CancelOrderForm defaultOpen={openCancel} orderId={order.id} request={cancelRequest} />
       ) : order.status === "dispatched" || (order.status === "cancelled" && cancellation) ? (
         <div className="flex flex-col gap-3">
           <RequestCancellation orderId={order.id} request={cancellation} />

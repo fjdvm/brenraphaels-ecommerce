@@ -470,6 +470,13 @@
       "when": 1797955200000,
       "tag": "0066_order_cancel_reason",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1798041600000,
+      "tag": "0067_order_cancel_requests",
+      "breakpoints": true
     }
   ]
 }

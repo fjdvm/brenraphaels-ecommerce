@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { cancelThroughRequest } from "@/__tests__/helpers/cancel-through-request";
 import { PGlite } from "@electric-sql/pglite";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { drizzle } from "drizzle-orm/pglite";
@@ -80,7 +81,7 @@ describe("placing a Delivery Order", () => {
   test("a free-delivery Order is not auto-confirmed and the Customer can cancel it until Staff confirm", async () => {
     const { store, order } = await placeAt(300_000, THRESHOLD);
     expect(order.status).toBe("placed");
-    await expect(store.cancel("customer-1", order.id, "Changed my mind")).resolves.toMatchObject({ status: "cancelled" });
+    await expect(cancelThroughRequest(store, "customer-1", order.id, "Changed my mind")).resolves.toMatchObject({ status: "cancelled" });
   });
 
   test("an unreadable threshold saves no rule", async () => {

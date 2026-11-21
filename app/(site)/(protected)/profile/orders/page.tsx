@@ -12,6 +12,7 @@ import { PageHeading } from "@/components/ui/page-heading";
 import { requireCustomer } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { listCustomerCancellations } from "@/lib/orders/cancellation-status";
+import { listCustomerCancelRequests } from "@/lib/orders/cancel-requests";
 import { createOrderFeedbackStore } from "@/lib/orders/feedback";
 import { createOrderReceiptStore } from "@/lib/orders/receipt";
 import { loadPaymentAccounts } from "@/lib/orders/payment-accounts";
@@ -33,10 +34,11 @@ async function OrdersPageContent({ searchParams }: { searchParams: PageProps<"/p
   const returnOffers = await createReturnOfferStore(getDatabase()).forCustomer(customer.userId, orders);
   const returns = await listCustomerReturns(getDatabase(), customer.userId);
   const cancellations = await listCustomerCancellations(getDatabase(), customer.userId);
+  const cancelRequests = await listCustomerCancelRequests(getDatabase(), customer.userId);
   const withFeedback = await Promise.all(
     orders.map(async (order) => {
       const feedback = (order.status === "delivered" || order.status === "received") ? await feedbackStore.forOrder(customer.userId, order.id) : undefined;
-      return { order, feedback: feedback ? { rating: feedback.rating, comment: feedback.comment, createdAt: feedback.createdAt } : null, returnInProgress: withReturnInProgress.has(order.id), returnOffer: returnOffers.get(order.id) ?? null, cancellation: cancellations.get(order.id) ?? null };
+      return { order, feedback: feedback ? { rating: feedback.rating, comment: feedback.comment, createdAt: feedback.createdAt } : null, returnInProgress: withReturnInProgress.has(order.id), returnOffer: returnOffers.get(order.id) ?? null, cancellation: cancellations.get(order.id) ?? null, cancelRequest: cancelRequests.get(order.id) ?? null };
     }),
   );
 

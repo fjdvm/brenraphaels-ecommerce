@@ -17,7 +17,7 @@ vi.mock("@/lib/orders/feedback", async (original) => ({
   ...await original<typeof import("@/lib/orders/feedback")>(), createOrderFeedbackStore: () => ({ submit: deps.submit }),
 }));
 vi.mock("@/lib/orders/orders", async (original) => ({
-  ...await original<typeof import("@/lib/orders/orders")>(), createOrderStore: () => ({ submitPaymentProof: deps.proof, cancel: deps.cancel }),
+  ...await original<typeof import("@/lib/orders/orders")>(), createOrderStore: () => ({ submitPaymentProof: deps.proof, requestCancel: deps.cancel }),
 }));
 vi.mock("@/lib/support/tickets", async (original) => ({
   ...await original<typeof import("@/lib/support/tickets")>(),
@@ -126,7 +126,7 @@ test.each(events)("$kind action survives a scheduling failure", async ({ run }) 
 });
 
 const orderChanges = [
-  { name: "Customer cancellation", run: () => cancelOrder({}, form({ orderId: "12", reason: "Ordered the wrong size" })), write: deps.cancel },
+  { name: "Customer cancellation request", run: () => cancelOrder({}, form({ orderId: "12", reason: "Ordered the wrong size" })), write: deps.cancel },
   { name: "Customer receipt action", run: () => markOrderReceived(12), write: deps.received },
   { name: "Customer receipt endpoint", run: () => receiveOrder(new Request("https://store.test/api/orders/12/received", { method: "POST" }), { params: Promise.resolve({ id: "12" }) }), write: deps.received },
   { name: "Customer Return cancellation", run: () => cancelReturn(new Request("https://store.test/api/returns/1/cancel", { method: "POST" }), { params: Promise.resolve({ id: "1" }) }), write: deps.cancelReturn },

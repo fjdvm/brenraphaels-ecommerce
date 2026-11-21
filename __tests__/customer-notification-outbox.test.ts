@@ -1,5 +1,7 @@
+import { cancelThroughRequest } from "@/__tests__/helpers/cancel-through-request";
 import { FakeShopStock } from "./helpers/fake-shop-stock";
 import { PGlite } from "@electric-sql/pglite";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test, vi } from "vitest";
 
@@ -52,7 +54,9 @@ test("quotes the fee and asks for GCash payment once, then Preparing sends nothi
 
 test("an outage leaves cancellation committed and retries an ambiguous acceptance with the same key", async () => {
   const row = await order();
-  await createOrderStore(db).cancel("c1", row.id, "Changed my mind");
+  await cancelThroughRequest(createOrderStore(db), "c1", row.id, "Changed my mind");
+  // This test is about the cancellation notice; the "request received" notice is not part of it.
+  await db.delete(customerNotifications).where(eq(customerNotifications.type, "order.cancel-requested"));
   const visible = new Set<string>();
   const send = vi.fn(async (n) => {
     visible.add(n.idempotencyKey);

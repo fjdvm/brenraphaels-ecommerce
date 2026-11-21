@@ -1,3 +1,4 @@
+import { cancelThroughRequest } from "@/__tests__/helpers/cancel-through-request";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -42,7 +43,7 @@ test("the owning Customer can permanently receive an old delivered Order without
   for (const status of orderStatuses) {
     await expect(store.advance(created.id, { status, ...(status === "preparing" ? { staffId: "ana", staffName: "Ana" } : {}) })).rejects.toThrow(status === "preparing" ? "Only a paid or confirmed Cash on Delivery Order can be packed." : "not a legal transition");
   }
-  await expect(store.cancel("customer-1", created.id, "Changed my mind")).rejects.toThrow("not a legal transition");
+  await expect(cancelThroughRequest(store, "customer-1", created.id, "Changed my mind")).rejects.toThrow("not a legal transition");
 });
 
 test.each(orderStatuses.filter((status) => status !== "delivered" && status !== "collected"))("refuses receipt of a %s Order without changing it", async (status) => {
