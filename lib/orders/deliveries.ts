@@ -64,12 +64,19 @@ export function createDeliveryReader<TQueryResult extends PgQueryResultHKT, TSch
 
 const EMBEDDABLE_HOSTS = ["lalamove.com", "grab.com"];
 
-/** Only the couriers' own https pages are shown inside the shop; any other link opens in a new tab instead. */
+/**
+ * Google's "Embed a map" link (Share → Embed a map, the iframe's src). It is the only Google Maps address that allows
+ * framing; ordinary place and maps.app.goo.gl links refuse it, so they open in a new tab like any other link.
+ */
+const isGoogleMapsEmbed = (url: URL) => url.hostname.toLowerCase() === "www.google.com" && url.pathname === "/maps/embed";
+
+/** Only the couriers' own https pages (and a Google Maps embed) are shown inside the shop; any other link opens in a new tab instead. */
 export function embeddableTrackingUrl(link: string): string | null {
   try {
     const url = new URL(link);
     if (url.protocol !== "https:" || url.username || url.password) return null;
     const host = url.hostname.toLowerCase();
+    if (isGoogleMapsEmbed(url)) return url.toString();
     return EMBEDDABLE_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`)) ? url.toString() : null;
   } catch {
     return null;
