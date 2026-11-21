@@ -20,5 +20,12 @@ describe("The Customer sidebar navigation", () => {
     expect(markup.match(/aria-current="page"/g)).toHaveLength(1);
     expect(markup).toContain("Sign out");
     expect(markup).not.toContain('href="/cart"');
+    expect(markup).toContain('href="/profile/delivery"');
+  });
+
+  test("keeps Delivery highlighted on one Order's map", () => {
+    const markup = renderToStaticMarkup(<CustomerSidebarNavList pathname="/profile/delivery/38" />);
+    expect(markup).toMatch(/<a(?=[^>]*href="\/profile\/delivery")(?=[^>]*aria-current="page")/);
+    expect(markup.match(/aria-current="page"/g)).toHaveLength(1);
   });
 });

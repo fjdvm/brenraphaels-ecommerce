@@ -150,6 +150,7 @@ export async function markOrderReceived(orderId: number): Promise<OrderReceivedS
   }
 
   revalidatePath("/profile/orders");
+  revalidatePath("/profile/delivery", "layout");
   scheduleOrdersChanged();
   return { received: true };
 }

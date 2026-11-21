@@ -80,12 +80,13 @@ describe("Courier and Track panel on the Order card", () => {
   test("a dispatched Order names the courier and links to the booking", () => {
     withCourier("dispatched", "https://share.lalamove.com/x");
     expect(screen.getByText("Lalamove", { selector: "dd" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Track your delivery/ }).getAttribute("href")).toBe("https://share.lalamove.com/x");
+    expect(screen.getByRole("link", { name: "Track Order" }).getAttribute("href")).toBe("/profile/delivery/7");
+    expect(screen.getByRole("link", { name: "Open in Lalamove" }).getAttribute("href")).toBe("https://share.lalamove.com/x");
   });
 
   test("no Track button without a link", () => {
     withCourier("dispatched", null);
-    expect(screen.queryByRole("link", { name: /Track your delivery/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Track Order" })).toBeNull();
   });
 
   test("a delivered Order says who delivered and shows no Track panel", () => {
