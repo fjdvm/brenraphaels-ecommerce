@@ -809,6 +809,9 @@ export function createOrderStore<
     const confirmed = confirmedProofInput.parse(input);
     const problem = referenceProblem(persistedOrder.paymentMethod, input.gcashReferenceNumber);
     if (problem) throw new Error(problem);
+    if (confirmed.confirmedAmountInCentavos !== undefined && persistedOrder.totalInCentavos != null && confirmed.confirmedAmountInCentavos !== persistedOrder.totalInCentavos) {
+      throw new Error("The amount paid must equal your order total.");
+    }
     if (isLockedForManager(persistedOrder.paymentProofRejections) && persistedOrder.paymentProofRejectedAt !== null) {
       throw new Error("Your payment is under Manager review, so no new proof can be sent.");
     }

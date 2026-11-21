@@ -48,7 +48,7 @@ const form = (values: Record<string, string>) => {
   return data;
 };
 const paymentForm = () => {
-  const data = form({ gcashReferenceNumber: "1234567890123", accountId: "11111111-1111-1111-1111-111111111111" });
+  const data = form({ gcashReferenceNumber: "1234567890123", confirmedAmount: "900.00", confirmedPaidAt: "2026-11-22T20:15", accountId: "11111111-1111-1111-1111-111111111111" });
   data.set("screenshot", new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0])], "r.png", { type: "image/png" }));
   return data;
 };

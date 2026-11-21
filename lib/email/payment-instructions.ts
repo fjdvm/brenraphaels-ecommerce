@@ -64,7 +64,11 @@ export async function emailPaymentOffer(
 const eyebrow = `margin:0 0 10px;font-family:${t.sans};font-size:12px;line-height:18px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:${t.primary};`;
 const small = `margin:0;font-family:${t.sans};font-size:14px;line-height:21px;color:${t.body};`;
 
-function detail(label: string, value: string) {
+/** `copyable` makes one click select the whole value (web and desktop mail), so it can be copied in a single step. */
+function detail(label: string, value: string, copyable = false) {
+  if (copyable) {
+    return `<tr><td style="padding:2px 16px 2px 0;font-family:${t.sans};font-size:14px;line-height:21px;color:${t.muted};">${escapeHtml(label)}</td><td style="padding:2px 0;font-family:${t.sans};font-size:16px;line-height:24px;color:${t.ink};font-weight:600;letter-spacing:0.5px;"><span style="-webkit-user-select:all;user-select:all;">${escapeHtml(value)}</span> <span style="font-size:12px;font-weight:400;color:${t.muted};letter-spacing:0;">(tap and hold to copy)</span></td></tr>`;
+  }
   return `<tr><td style="padding:2px 16px 2px 0;font-family:${t.sans};font-size:14px;line-height:21px;color:${t.muted};">${escapeHtml(label)}</td><td style="padding:2px 0;font-family:${t.sans};font-size:14px;line-height:21px;color:${t.ink};font-weight:500;">${escapeHtml(value)}</td></tr>`;
 }
 
@@ -92,7 +96,7 @@ export function renderPaymentInstructions(orderId: number, method: PaymentMethod
     const rows = [
       ...(account.bankName ? [detail("Bank", account.bankName)] : []),
       detail("Account name", account.accountName),
-      detail("Account number", account.accountNumber),
+      detail("Account number", account.accountNumber, true),
     ].join("");
     const qr = account.qrCid
       ? `<td width="132" valign="top" align="right" style="padding-left:16px;"><img src="cid:${escapeHtml(account.qrCid)}" width="120" height="120" alt="${escapeHtml(`QR for ${account.label}`)}" style="display:block;width:120px;height:120px;border:1px solid ${t.line};background:${t.white};"></td>`

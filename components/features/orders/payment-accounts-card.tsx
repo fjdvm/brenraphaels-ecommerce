@@ -1,3 +1,5 @@
+import { CopyNumber } from "@/components/features/orders/copy-number";
+import { ZoomableQr } from "@/components/features/orders/zoomable-qr";
 import { formatPeso } from "@/lib/catalog/currency";
 import { paymentOffer, type PaymentAccountOption } from "@/lib/orders/payment-offer";
 import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
@@ -26,19 +28,16 @@ export function PaymentAccountsCard({ method, accounts, amountInCentavos, deadli
       ) : null}
       <ul className="flex flex-col gap-3">
         {offer.accounts.map((account) => (
-          <li className="flex items-start justify-between gap-4 border-t border-line pt-3 first:border-t-0 first:pt-0" data-testid="payment-account" key={account.id}>
+          <li className="flex flex-col gap-4 border-t border-line pt-3 first:border-t-0 first:pt-0" data-testid="payment-account" key={account.id}>
             <div className="flex flex-col gap-1">
               <p className="font-medium text-ink">{account.label} · {PAYMENT_LABELS[account.method]}</p>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
                 {account.bankName ? <div className="contents"><dt className="text-muted">Bank</dt><dd className="text-ink">{account.bankName}</dd></div> : null}
                 <div className="contents"><dt className="text-muted">Account name</dt><dd className="text-ink">{account.accountName}</dd></div>
-                <div className="contents"><dt className="text-muted">Account number</dt><dd className="text-ink">{account.accountNumber}</dd></div>
+                <div className="contents"><dt className="text-muted">Account number</dt><dd><CopyNumber value={account.accountNumber} /></dd></div>
               </dl>
             </div>
-            {account.qrUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- a short-lived signed address, never optimised or cached
-              <img alt={`QR for ${account.label}`} className="size-24 shrink-0 border border-line object-contain" src={account.qrUrl} />
-            ) : null}
+            {account.qrUrl ? <ZoomableQr label={account.label} src={account.qrUrl} /> : null}
           </li>
         ))}
       </ul>
