@@ -3,6 +3,7 @@ import { get } from "@vercel/blob";
 import { currentVisitor } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { createOrderStore } from "@/lib/orders/orders";
+import { processPaymentProof } from "@/lib/orders/process-payment-proof";
 import { gatewayTicketFiles } from "@/lib/support/ticket-files";
 import { positiveIntegerField } from "@/lib/validators/fields";
 
@@ -57,4 +58,28 @@ export async function GET(_request: Request, context: RouteContext<"/api/orders/
 
     return notFound();
   }
+}
+
+/**
+ * Saves a payment proof sent by the browser with upload progress. Does what the Form Action does and
+ * answers with the same state, so the form shows the same messages either way.
+ */
+export async function POST(request: Request, context: RouteContext<"/api/orders/[id]/payment-proof">) {
+  const { id } = await context.params;
+  const orderId = positiveIntegerField("Order ID").safeParse(id);
+  if (!orderId.success) return notFound();
+
+  const visitor = await currentVisitor();
+  if (visitor.state !== "customer") return Response.json({ message: "Sign in to submit your payment proof." }, { status: 401 });
+
+  const origin = request.headers.get("origin");
+  if (origin && origin !== new URL(request.url).origin) return Response.json({ message: "We couldn't submit your payment proof." }, { status: 403 });
+
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return Response.json({ message: "We couldn't read that upload. Please try again." }, { status: 400 });
+  }
+  return Response.json(await processPaymentProof(orderId.data, formData), { headers: { "Cache-Control": "private, no-store" } });
 }

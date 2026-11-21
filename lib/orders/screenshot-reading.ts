@@ -85,9 +85,13 @@ export function checkReceipt(
 }
 
 /** Runs the open-source OCR (Tesseract, WebAssembly) entirely in the browser; the image is never uploaded to read it. */
-export async function readScreenshotText(file: File): Promise<string> {
+export async function readScreenshotText(file: File, onProgress?: (percent: number) => void): Promise<string> {
   const { createWorker } = await import("tesseract.js");
-  const worker = await createWorker("eng");
+  const worker = await createWorker("eng", 1, {
+    logger: (message: { status: string; progress: number }) => {
+      if (message.status === "recognizing text") onProgress?.(Math.min(99, Math.round(message.progress * 100)));
+    },
+  });
   try {
     const { data } = await worker.recognize(file);
     return data.text;

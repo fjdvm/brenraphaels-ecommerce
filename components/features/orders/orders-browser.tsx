@@ -7,7 +7,7 @@ import { Calendar, Check, ChevronDown, Store, Truck, Wallet } from "lucide-react
 import { useEffect, useState, type ReactNode } from "react";
 
 import { CartThumbnail } from "@/components/features/orders/cart-thumbnail";
-import { CancelOrderForm, MessageUsLink } from "@/components/features/orders/cancel-order-form";
+import { CancelOrderForm } from "@/components/features/orders/cancel-order-form";
 import { RequestCancellation } from "@/components/features/orders/request-cancellation";
 import type { CancellationStatus } from "@/lib/orders/cancellation-status";
 import { OrderFeedbackForm, type GivenFeedback } from "@/components/features/orders/order-feedback-form";
@@ -19,6 +19,7 @@ import { ReturnsList } from "@/components/features/orders/returns-list";
 import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
 import type { PaymentAccountOption } from "@/lib/orders/payment-offer";
 import { isPrepaid } from "@/lib/orders/payment-methods";
+import { ZoomableProof } from "@/components/features/orders/zoomable-proof";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { formatPeso } from "@/lib/catalog/currency";
 import {
@@ -378,11 +379,7 @@ function OrderDetails({
         </p>
       ) : null}
       {order.paymentProof && (order.paymentProof.screenshotFileId || order.paymentProof.screenshotPathname) ? (
-        <p className="text-sm">
-          <a className="text-primary underline underline-offset-4" href={`/api/orders/${order.id}/payment-proof`} rel="noopener" target="_blank">
-            View your payment screenshot
-          </a>
-        </p>
+        <ZoomableProof orderId={order.id} />
       ) : null}
 
       {isCompletedOrReceived(order.status) ? <OrderFeedbackForm feedback={feedback} orderId={order.id} /> : null}
@@ -399,13 +396,8 @@ function OrderDetails({
       ) : order.status === "dispatched" || (order.status === "cancelled" && cancellation) ? (
         <div className="flex flex-col gap-3">
           <RequestCancellation orderId={order.id} request={cancellation} />
-          {order.status === "dispatched" ? <div className="flex justify-end"><MessageUsLink orderId={order.id} /></div> : null}
         </div>
-      ) : (
-        <div className="flex justify-end">
-          <MessageUsLink orderId={order.id} />
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }

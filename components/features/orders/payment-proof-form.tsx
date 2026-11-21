@@ -1,9 +1,10 @@
 "use client";
 
 import { Upload, Wallet } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useActionState, useRef, useState } from "react";
 
-import { submitPaymentProof, type PaymentProofState } from "@/app/(site)/(protected)/profile/orders/actions";
+import type { PaymentProofState } from "@/lib/orders/process-payment-proof";
 import { Button } from "@/components/ui/button";
 import { fieldClass, fieldLabelClass } from "@/components/ui/field-styles";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -26,6 +27,29 @@ const emptyValues: Values = { reference: "", amount: "", paidAt: "" };
  * The warning panel where a Customer sends their reference number and optional receipt, with where to pay.
  * After staff turn a proof down it says why and asks again.
  */
+/** Sends the form to the server and reports how much of the upload has gone, which a Form Action cannot do. */
+function sendPaymentProof(orderId: number, formData: FormData, onProgress: (percent: number) => void) {
+  return new Promise<PaymentProofState>((resolve) => {
+    const failed = { message: "We couldn't upload that screenshot. Please check your connection and try again." };
+    const request = new XMLHttpRequest();
+    request.open("POST", `/api/orders/${orderId}/payment-proof`);
+    request.responseType = "json";
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+    };
+    request.onload = () => resolve(request.response && typeof request.response === "object" ? request.response : failed);
+    request.onerror = () => resolve(failed);
+    request.onabort = () => resolve(failed);
+    request.send(formData);
+  });
+}
+
+/** Keeps only digits and one decimal point, with at most two decimal places. */
+function digitsOnly(value: string) {
+  const [whole = "", ...rest] = value.replace(/[^0-9.]/g, "").split(".");
+  return rest.length ? `${whole}.${rest.join("").slice(0, 2)}` : whole;
+}
+
 export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", accounts, showAccounts = true, rejection, deadline, placedAt }: {
   orderId: number;
   amountInCentavos: number;
@@ -42,12 +66,24 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
   placedAt?: Date;
 }) {
   const label = PAYMENT_LABELS[method];
-  const [state, action, pending] = useActionState(submitPaymentProof.bind(null, orderId), initialState);
+  const router = useRouter();
+  const [uploadPercent, setUploadPercent] = useState<number>();
+  const [state, action, pending] = useActionState(async (_previous: PaymentProofState, formData: FormData) => {
+    setUploadPercent(0);
+    try {
+      const result = await sendPaymentProof(orderId, formData, setUploadPercent);
+      if (result.submitted) router.refresh();
+      return result;
+    } finally {
+      setUploadPercent(undefined);
+    }
+  }, initialState);
   const [fileName, setFileName] = useState<string>();
   const [values, setValues] = useState<Values>(emptyValues);
   // Fields still holding exactly what the screenshot reading filled in; typing over one clears its label.
   const [read, setRead] = useState<ReadonlySet<Field>>(new Set());
   const [reading, setReading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [readNote, setReadNote] = useState<string>();
   const latestRead = useRef(0);
   const referenceError = state.fieldErrors?.gcashReferenceNumber?.[0];
@@ -65,6 +101,8 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
     if (state.submitted) setSubmissionKey(crypto.randomUUID());
     if (state.submitted || state.message || state.fieldErrors) setConfirming(false);
   }
+  // Submit waits for every required field: the account (when there is a choice), amount, date, reference and screenshot.
+  const requiredFilled = Boolean(fileName) && values.amount.trim() !== "" && values.paidAt !== "" && values.reference.trim() !== "" && (choices.length === 0 || accountId !== "");
   const accountError = state.fieldErrors?.accountId?.[0];
   const screenshotError = state.fieldErrors?.screenshot?.[0];
 
@@ -84,9 +122,10 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
     setReadNote(undefined);
     const attempt = ++latestRead.current;
     if (!file) { setRead(new Set()); return; }
+    setProgress(0);
     setReading(true);
     try {
-      const receipt = readReceiptText(await readScreenshotText(file));
+      const receipt = readReceiptText(await readScreenshotText(file, (percent) => { if (attempt === latestRead.current) setProgress((current) => Math.max(current, percent)); }));
       if (attempt !== latestRead.current) return;
       const next: Partial<Values> = {};
       if (receipt.reference) next.reference = receipt.reference;
@@ -100,7 +139,7 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
       setRead(new Set());
       setReadNote("We couldn't read this screenshot. Type the details from your receipt instead.");
     } finally {
-      if (attempt === latestRead.current) setReading(false);
+      if (attempt === latestRead.current) { setProgress(100); setReading(false); }
     }
   }
 
@@ -155,7 +194,7 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
         <legend className="mb-2 text-sm font-medium text-ink">Confirm the values on your receipt</legend>
         <div className="flex flex-col gap-2">
           <Label className={fieldLabelClass} htmlFor={`proof-amount-${orderId}`} required>Amount paid (₱)</Label>
-          <Input className={fieldClass} id={`proof-amount-${orderId}`} name="confirmedAmount" required onChange={type("amount")} type="number" min="0" max="21474836.47" step="0.01" value={values.amount} />
+          <Input className={fieldClass} id={`proof-amount-${orderId}`} name="confirmedAmount" required onChange={event => type("amount")({ target: { value: digitsOnly(event.target.value) } })} type="text" inputMode="decimal" pattern="[0-9]+(\.[0-9]{1,2})?" title="Numbers only, for example 1250.00" autoComplete="off" value={values.amount} />
           {note("amount", checks.amount)}
           {amountMatches === false ? <p className="text-xs text-red-700" role="alert">The amount paid must equal your order total of {formatPeso(amountInCentavos)} before you can submit.</p> : null}
         </div>
@@ -208,14 +247,29 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
             type="file"
           />
         </label>
-        <Button disabled={pending || choices.length === 0 || amountMatches === false} onClick={review} size="pill-lg" type="button" variant="pill">
-          {pending ? "Submitting…" : rejection ? "Send new proof" : "Submit payment"}
+        <Button disabled={pending || choices.length === 0 || amountMatches === false || !requiredFilled} onClick={review} size="pill-lg" type="button" variant="pill">
+          {pending ? (uploadPercent === undefined ? "Submitting…" : uploadPercent >= 99 ? "Saving…" : `Uploading ${uploadPercent}%`) : rejection ? "Send new proof" : "Submit payment"}
         </Button>
         </div>
       </div>
       <p className="text-xs text-body">A JPG or PNG screenshot up to 5 MB is required.</p>
       {screenshotError ? <p className="text-sm text-red-700" role="alert">{screenshotError}</p> : null}
-      {reading ? <p className="text-sm text-body" role="status">Reading your screenshot in this browser…</p> : null}
+      {pending && uploadPercent !== undefined ? (
+        <div className="flex flex-col gap-1.5" role="status">
+          <p className="text-sm text-body">Uploading your screenshot… <span data-testid="upload-percent">{uploadPercent}%</span></p>
+          <div aria-hidden className="h-1.5 w-full max-w-xs overflow-hidden bg-primary/15">
+            <div className="h-full bg-primary transition-[width] duration-200" style={{ width: `${uploadPercent}%` }} />
+          </div>
+        </div>
+      ) : null}
+      {reading ? (
+        <div className="flex flex-col gap-1.5" role="status">
+          <p className="text-sm text-body">Reading your screenshot in this browser… <span data-testid="reading-percent">{progress}%</span></p>
+          <div aria-label="Screenshot reading progress" aria-valuemax={100} aria-valuemin={0} aria-valuenow={progress} className="h-1.5 w-full max-w-xs overflow-hidden bg-primary/15" role="progressbar">
+            <div className="h-full bg-primary transition-[width] duration-200" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      ) : null}
       {readNote ? <p className="text-sm text-body" role="status">{readNote}</p> : null}
       {read.size > 0 ? <p className="text-xs text-body">Wrong number? Just type over it. Our team still checks the payment before marking your order paid. Your screenshot was read in this browser and not sent anywhere to be read.</p> : null}
       {deadline ? <p className="text-xs tracking-[0.35px] text-ink">Send it by {deadline}, or the order will be cancelled.</p> : null}
@@ -239,9 +293,14 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
             <div className="flex justify-between gap-4"><dt className="text-body">Screenshot</dt><dd className="max-w-48 truncate text-right text-ink">{fileName ?? "—"}</dd></div>
           </dl>
           <p className="mt-4 text-xs text-body">Make sure the reference matches your receipt. We&apos;ll email you once it&apos;s verified.</p>
+          {pending && uploadPercent !== undefined ? (
+            <div aria-label="Screenshot upload progress" aria-valuemax={100} aria-valuemin={0} aria-valuenow={uploadPercent} className="mt-4 h-1.5 w-full overflow-hidden bg-primary/15" role="progressbar">
+              <div className="h-full bg-primary transition-[width] duration-200" style={{ width: `${uploadPercent}%` }} />
+            </div>
+          ) : null}
           <div className="mt-6 flex flex-col-reverse justify-end gap-3 sm:flex-row">
             <Button disabled={pending} onClick={() => setConfirming(false)} size="pill-lg" type="button" variant="pill-outline">Go back</Button>
-            <Button disabled={pending || amountMatches !== true} onClick={() => formRef.current?.requestSubmit()} size="pill-lg" type="button" variant="pill">{pending ? "Submitting…" : "Submit payment"}</Button>
+            <Button disabled={pending || amountMatches !== true} onClick={() => formRef.current?.requestSubmit()} size="pill-lg" type="button" variant="pill">{pending ? (uploadPercent === undefined ? "Submitting…" : uploadPercent >= 99 ? "Saving…" : `Uploading ${uploadPercent}%`) : "Submit payment"}</Button>
           </div>
         </DialogContent>
       </Dialog>

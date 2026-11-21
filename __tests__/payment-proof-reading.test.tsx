@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 
-vi.mock("@/app/(site)/(protected)/profile/orders/actions", () => ({ submitPaymentProof: vi.fn() }));
+
 const reader = vi.hoisted(() => ({ read: vi.fn() }));
 vi.mock("@/lib/orders/screenshot-reading", async (original) => ({ ...(await original<typeof import("@/lib/orders/screenshot-reading")>()), readScreenshotText: reader.read }));
 
@@ -42,7 +42,7 @@ test("a failed reading leaves the form working by hand", async () => {
   expect(await screen.findByText(/couldn't read this screenshot/)).toBeTruthy();
   fireEvent.change(field(/reference number/), { target: { value: "123456" } });
   expect(field(/reference number/).value).toBe("123456");
-  expect((screen.getByRole("button", { name: "Submit payment" }) as HTMLButtonElement).disabled).toBe(false);
+  expect((screen.getByRole("button", { name: "Submit payment" }) as HTMLButtonElement).disabled).toBe(true); // the amount and date are still empty
 });
 
 test("the confirmed values are what the form submits", async () => {

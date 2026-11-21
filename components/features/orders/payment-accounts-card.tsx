@@ -28,8 +28,8 @@ export function PaymentAccountsCard({ method, accounts, amountInCentavos, deadli
       ) : null}
       <ul className="flex flex-col gap-3">
         {offer.accounts.map((account) => (
-          <li className="flex flex-col gap-4 border-t border-line pt-3 first:border-t-0 first:pt-0" data-testid="payment-account" key={account.id}>
-            <div className="flex flex-col gap-1">
+          <li className="flex flex-col gap-4 border-t border-line pt-3 first:border-t-0 first:pt-0 sm:flex-row sm:items-center sm:justify-between" data-testid="payment-account" key={account.id}>
+            <div className="flex min-w-0 flex-col gap-1">
               <p className="font-medium text-ink">{account.label} · {PAYMENT_LABELS[account.method]}</p>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
                 {account.bankName ? <div className="contents"><dt className="text-muted">Bank</dt><dd className="text-ink">{account.bankName}</dd></div> : null}
