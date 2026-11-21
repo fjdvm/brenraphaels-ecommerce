@@ -379,7 +379,7 @@ function OrderDetails({
         </p>
       ) : null}
       {order.paymentProof && (order.paymentProof.screenshotFileId || order.paymentProof.screenshotPathname) ? (
-        <ZoomableProof orderId={order.id} />
+        <ZoomableProof orderId={order.id} version={order.paymentProof.submittedAt.getTime()} />
       ) : null}
 
       {isCompletedOrReceived(order.status) ? <OrderFeedbackForm feedback={feedback} orderId={order.id} /> : null}
