@@ -16,10 +16,10 @@ test("clicking the QR code opens it full-screen and Close brings the page back",
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
-test("the QR is shown large with a Download QR button", () => {
+test("the QR is shown small with no Download button", () => {
   render(<ZoomableQr label="Main" src="https://files.test/qr.png?sig=1" />);
-  expect(screen.getByRole("button", { name: "Download QR" })).toBeTruthy();
-  expect(screen.getByRole("img", { name: "QR for Main" }).className).toMatch(/size-64/);
+  expect(screen.queryByRole("button", { name: "Download QR" })).toBeNull();
+  expect(screen.getByRole("img", { name: "QR for Main" }).className).toMatch(/size-32/);
 });
 
 test("the account number has a Copy button that puts it on the clipboard", async () => {

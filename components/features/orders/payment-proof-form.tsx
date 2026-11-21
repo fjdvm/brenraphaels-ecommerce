@@ -200,7 +200,7 @@ export function PaymentProofForm({ orderId, amountInCentavos, method = "gcash", 
         </div>
         <div className="flex flex-col gap-2">
           <Label className={fieldLabelClass} htmlFor={`proof-date-${orderId}`} required>Payment date and time (Philippine time)</Label>
-          <Input className={fieldClass} id={`proof-date-${orderId}`} name="confirmedPaidAt" required onChange={type("paidAt")} type="datetime-local" value={values.paidAt} />
+          <Input className={fieldClass} id={`proof-date-${orderId}`} name="confirmedPaidAt" required min={placedAt ? new Date(placedAt.getTime() + 8 * 3_600_000).toISOString().slice(0, 16) : undefined} onChange={type("paidAt")} type="datetime-local" value={values.paidAt} />
           {note("paidAt", checks.date)}
         </div>
         <div className="flex flex-col gap-2">

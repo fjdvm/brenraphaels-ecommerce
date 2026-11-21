@@ -4,6 +4,7 @@ import { currentVisitor } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { createOrderStore } from "@/lib/orders/orders";
 import { processPaymentProof } from "@/lib/orders/process-payment-proof";
+import { isSameOrigin } from "@/lib/security/same-origin";
 import { gatewayTicketFiles } from "@/lib/support/ticket-files";
 import { positiveIntegerField } from "@/lib/validators/fields";
 
@@ -72,8 +73,7 @@ export async function POST(request: Request, context: RouteContext<"/api/orders/
   const visitor = await currentVisitor();
   if (visitor.state !== "customer") return Response.json({ message: "Sign in to submit your payment proof." }, { status: 401 });
 
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return Response.json({ message: "We couldn't submit your payment proof." }, { status: 403 });
+  if (!isSameOrigin(request)) return Response.json({ message: "We couldn't submit your payment proof." }, { status: 403 });
 
   let formData: FormData;
   try {
