@@ -49,10 +49,10 @@ describe("Checkout payment method availability", () => {
 });
 
 describe("Checkout offers Delivery only", () => {
-  test("has no Pickup choice, and Delivery is the one selected method", () => {
+  test("asks no fulfilment question: no Pickup or Delivery choice, delivery is automatic", () => {
     render(view());
     expect(screen.queryByLabelText(/pickup/i)).toBeNull();
-    expect((screen.getByLabelText(/^Delivery/) as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByLabelText(/^Delivery/)).toBeNull();
     expect(screen.getByLabelText(/^Cash on Delivery/).closest("label")?.textContent).toContain("when your Order is delivered");
   });
 });

@@ -4,6 +4,7 @@ import { sendOrderDeliveryConfirmedEmail } from "./order-delivery-confirmed-emai
 import { sendOrderOnlineDeliveryConfirmedEmail } from "./order-online-delivery-confirmed-email";
 import { sendOrderOnlinePickupConfirmedEmail } from "./order-online-pickup-confirmed-email";
 import { sendOrderPickupConfirmedEmail } from "./order-pickup-confirmed-email";
+import { ORDER_CANCELLED_BY_SHOP_EMAIL_KIND, sendOrderCancelledByShopEmail } from "./order-rejected-email";
 import { FULFILMENT_EMAIL_KINDS, sendFulfilmentEmail, type FulfilmentEmailKind } from "./fulfilment-emails";
 import { PAYMENT_EMAIL_KINDS, sendPaymentEmail, type PaymentEmailKind } from "./payment-emails";
 import { loadRefundedReturn, RETURN_REFUNDED_EMAIL_KIND, sendReturnRefundedEmail } from "./return-refunded-email";
@@ -14,6 +15,7 @@ const senders: Record<string, (recipient: string, order: Order, email?: { id: st
   "online-pickup-confirmed": sendOrderOnlinePickupConfirmedEmail,
   "delivery-confirmed": sendOrderDeliveryConfirmedEmail,
   "online-delivery-confirmed": sendOrderOnlineDeliveryConfirmedEmail,
+  [ORDER_CANCELLED_BY_SHOP_EMAIL_KIND]: sendOrderCancelledByShopEmail,
   ...Object.fromEntries(PAYMENT_EMAIL_KINDS.map((kind) => [kind, (recipient: string, order: Order, email?: { id: string }, occurrence?: string) => sendPaymentEmail(kind as PaymentEmailKind, recipient, order, email, occurrence)])),
   ...Object.fromEntries(FULFILMENT_EMAIL_KINDS.map((kind) => [kind, (recipient: string, order: Order, email?: { id: string }) => sendFulfilmentEmail(kind as FulfilmentEmailKind, recipient, order, email)])),
 };

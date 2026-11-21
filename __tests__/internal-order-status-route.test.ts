@@ -19,6 +19,7 @@ const {
   sendOrderDeliveryConfirmedEmail,
   sendOrderOnlinePickupConfirmedEmail,
   sendOrderOnlineDeliveryConfirmedEmail,
+  sendOrderCancelledByShopEmail,
 } = vi.hoisted(() => ({
   sendPackingAudit: vi.fn(async () => {}),
   afterTasks: [] as Array<() => Promise<void>>,
@@ -37,6 +38,7 @@ const {
   sendOrderDeliveryConfirmedEmail: vi.fn(),
   sendOrderOnlinePickupConfirmedEmail: vi.fn(),
   sendOrderOnlineDeliveryConfirmedEmail: vi.fn(),
+  sendOrderCancelledByShopEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/orders/stock-reservations", () => ({ createStockReservations: () => ({ sendPending: sendPackingAudit }) }));
@@ -51,6 +53,7 @@ vi.mock("@/lib/email/order-online-pickup-confirmed-email", () => ({ sendOrderOnl
 vi.mock("@/lib/email/outcomes", () => ({ sendOnceAndRecord }));
 vi.mock("@/lib/email/order-pickup-confirmed-email", () => ({ sendOrderPickupConfirmedEmail }));
 vi.mock("@/lib/email/payment-emails", () => ({ sendPaymentEmail }));
+vi.mock("@/lib/email/order-rejected-email", () => ({ ORDER_CANCELLED_BY_SHOP_EMAIL_KIND: "cancelled-by-shop", sendOrderCancelledByShopEmail }));
 vi.mock("@/lib/orders/live-events", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/orders/live-events")>()),
   publishCustomerOrderEvent,
@@ -93,6 +96,7 @@ beforeEach(() => {
   sendOrderDeliveryConfirmedEmail.mockReset().mockResolvedValue(undefined);
   sendOrderOnlinePickupConfirmedEmail.mockReset().mockResolvedValue(undefined);
   sendOrderOnlineDeliveryConfirmedEmail.mockReset().mockResolvedValue(undefined);
+  sendOrderCancelledByShopEmail.mockReset().mockResolvedValue(undefined);
   sendOnceAndRecord.mockClear();
   createOrderStore.mockClear();
   getDatabase.mockClear();
@@ -442,6 +446,32 @@ describe("POST /api/internal/orders/[id]/status", () => {
 
     expect((await postAndNotify(cancel, context)).status).toBe(200);
     expect(advance).toHaveBeenCalledWith(12, { status: "cancelled" });
+  });
+
+  test("a Staff rejection emails the Customer once, with the saved Order and its reason", async () => {
+    const rejected = { id: 12, status: "cancelled", fulfillmentMethod: "delivery", deliveryFeeInCentavos: null, subtotalInCentavos: 21900, cancelReason: "Out of delivery area" };
+    advance.mockResolvedValueOnce(rejected);
+    const reject = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "cancelled", reason: "Out of delivery area" }),
+      headers: { "Authorization": `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    expect((await postAndNotify(reject, context)).status).toBe(200);
+    expect(sendOnceAndRecord).toHaveBeenCalledWith(12, "cancelled-by-shop", expect.any(Function));
+    expect(sendOrderCancelledByShopEmail).toHaveBeenCalledWith("jane@example.com", rejected, undefined);
+  });
+
+  test("a failed shop cancellation email never fails the committed cancellation", async () => {
+    advance.mockResolvedValueOnce({ id: 12, status: "cancelled", fulfillmentMethod: "delivery", deliveryFeeInCentavos: null, subtotalInCentavos: 21900 });
+    sendOrderCancelledByShopEmail.mockRejectedValueOnce(new Error("Brevo down"));
+    const cancel = new Request("https://shop.example.test/api/internal/orders/12/status", {
+      body: JSON.stringify({ status: "cancelled", reason: "Customer asked by phone" }),
+      headers: { "Authorization": `Bearer ${mintCreomsCredential()}`, "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    expect((await postAndNotify(cancel, context)).status).toBe(200);
   });
 });
 

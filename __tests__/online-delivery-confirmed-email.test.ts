@@ -6,6 +6,9 @@ vi.mock("@/lib/email/brevo-transport", () => ({
   requiredEnvironment: () => "https://shop.test",
 }));
 
+const loadPaymentAccounts = vi.hoisted(() => vi.fn(async () => [] as unknown[]));
+vi.mock("@/lib/orders/payment-accounts", () => ({ loadPaymentAccounts }));
+
 import { renderOnlineDeliveryConfirmedEmail, sendOrderOnlineDeliveryConfirmedEmail } from "@/lib/email/order-online-delivery-confirmed-email";
 
 const base = {
@@ -74,5 +77,30 @@ describe("Online payment + Delivery confirmation email", () => {
     expect(sent.html).toContain(url.replace("&", "&amp;"));
     expect(sent.html).toContain(cancelUrl.replace("&", "&amp;"));
     expect(sent.attachments[0].cid).toBe("bren-raphaels-logo");
+  });
+
+  test("includes the shop's active Payment accounts read at send time, with each QR as an inline image", async () => {
+    sendMail.mockReset();
+    loadPaymentAccounts.mockResolvedValueOnce([
+      { id: "a1", method: "gcash", label: "Main GCash", accountName: "Bren Raphael's", accountNumber: "09171234567", bankName: null, qrUrl: "https://files.test/qr.png" },
+    ]);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("png", { headers: { "content-type": "image/png" } })));
+    try {
+      await sendOrderOnlineDeliveryConfirmedEmail("a@b.com", order);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    const sent = sendMail.mock.calls[0][0];
+    expect(sent.html).toContain("How to pay");
+    expect(sent.html).toContain("09171234567");
+    expect(sent.html).toContain('src="cid:payment-qr-a1"');
+    expect(sent.text).toContain("Account number: 09171234567");
+    expect(sent.attachments.map((a: { cid: string }) => a.cid)).toEqual(["bren-raphaels-logo", "payment-qr-a1"]);
+  });
+
+  test("without an active account the email shows the contact-the-shop notice", async () => {
+    sendMail.mockReset();
+    await sendOrderOnlineDeliveryConfirmedEmail("a@b.com", order);
+    expect(sendMail.mock.calls[0][0].text).toContain("Online payment isn't available right now");
   });
 });

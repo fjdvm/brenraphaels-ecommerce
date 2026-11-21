@@ -13,6 +13,7 @@ import { sendOrderPickupConfirmedEmail } from "@/lib/email/order-pickup-confirme
 import { sendOrderOnlineDeliveryConfirmedEmail } from "@/lib/email/order-online-delivery-confirmed-email";
 import { sendOrderOnlinePickupConfirmedEmail } from "@/lib/email/order-online-pickup-confirmed-email";
 import { sendPaymentEmail } from "@/lib/email/payment-emails";
+import { ORDER_CANCELLED_BY_SHOP_EMAIL_KIND, sendOrderCancelledByShopEmail } from "@/lib/email/order-rejected-email";
 import { DeliveryPhotoUnavailable, InvalidDeliveryPhoto, verifyDeliveryPhoto } from "@/lib/orders/verify-delivery-photo";
 import { verifyCreomsCredential } from "@/lib/orders/creoms-credential";
 import { parseInternalOrderStatusUpdate } from "@/lib/orders/internal-status";
@@ -136,6 +137,14 @@ export async function POST(
           if (recipient) await sendOnceAndRecord(order.id, "payment-verified", (email) => sendPaymentEmail("payment-verified", recipient, order, email));
         } catch (error) {
           console.error("Payment-verified email outcome could not be recorded", error);
+        }
+      }
+      if (update.status === "cancelled") {
+        try {
+          const recipient = await orderStore.customerEmailForOrder(order.id);
+          if (recipient) await sendOnceAndRecord(order.id, ORDER_CANCELLED_BY_SHOP_EMAIL_KIND, (email) => sendOrderCancelledByShopEmail(recipient, order, email));
+        } catch (error) {
+          console.error("Shop cancellation email outcome could not be recorded", error);
         }
       }
       if (update.status === "preparing") await sendFulfilment(orderStore, order, "preparing");
