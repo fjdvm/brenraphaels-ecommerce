@@ -19,11 +19,10 @@ const base = {
 };
 const order = base as never;
 const url = "https://shop.test/profile/orders?order=9&action=pay";
-const cancelUrl = "https://shop.test/profile/orders?order=9&action=cancel";
 
 describe("Online payment + Delivery confirmation email", () => {
-  test("shows items, discount, Delivery fee, total amount to pay, address and Pay order / Cancel order", () => {
-    const { html, text, subject } = renderOnlineDeliveryConfirmedEmail(order, url, cancelUrl);
+  test("shows items, discount, Delivery fee, total amount to pay, address and Pay order, with no Cancel order", () => {
+    const { html, text, subject } = renderOnlineDeliveryConfirmedEmail(order, url);
     expect(subject).toBe("Order #9 confirmed");
     for (const body of [html, text]) {
       expect(body).toContain("Ube Halaya — 250g × 2");
@@ -34,10 +33,9 @@ describe("Online payment + Delivery confirmation email", () => {
       expect(body).toContain("₱555");
       expect(body).toContain("12 Main St, Poblacion, Makati 1210");
       expect(body).toContain("Pay order");
-      expect(body).toContain("Cancel order");
+      expect(body).not.toContain("Cancel order");
     }
     expect(text).toContain(url);
-    expect(text).toContain(cancelUrl);
     expect(html).toContain("Pay your Order");
     expect(html).toContain(`href="${url.replace("&", "&amp;")}"`);
     expect(html).toContain(">Pay order<");
@@ -47,7 +45,7 @@ describe("Online payment + Delivery confirmation email", () => {
 
   test("shows a ₱0 Delivery fee as Free Delivery — ₱0 and omits the discount line without one", () => {
     const free = { ...base, deliveryFeeInCentavos: 0, approvedDiscountInCentavos: 0, totalInCentavos: 50000 } as never;
-    const { html, text } = renderOnlineDeliveryConfirmedEmail(free, url, cancelUrl);
+    const { html, text } = renderOnlineDeliveryConfirmedEmail(free, url);
     for (const body of [html, text]) {
       expect(body).toContain("Free Delivery — ₱0");
       expect(body).not.toContain("Senior/PWD discount");
@@ -56,13 +54,13 @@ describe("Online payment + Delivery confirmation email", () => {
   });
 
   test("escapes the address", () => {
-    const { html } = renderOnlineDeliveryConfirmedEmail({ ...base, deliveryAddress: { ...base.deliveryAddress, street: "<b>x</b>" } } as never, url, cancelUrl);
+    const { html } = renderOnlineDeliveryConfirmedEmail({ ...base, deliveryAddress: { ...base.deliveryAddress, street: "<b>x</b>" } } as never, url);
     expect(html).not.toContain("<b>x</b>");
   });
 
   test("shows the saved payment deadline, 24 hours after placing, in the shop's time zone", () => {
     const placed = { ...base, createdAt: new Date("2026-11-18T06:14:00Z") } as never;
-    const { html, text } = renderOnlineDeliveryConfirmedEmail(placed, url, cancelUrl);
+    const { html, text } = renderOnlineDeliveryConfirmedEmail(placed, url);
     for (const body of [html, text]) {
       expect(body).toContain("Pay by Nov 19, 2026 · 2:14 PM");
       expect(body).toContain("or the order will be cancelled");
@@ -75,7 +73,7 @@ describe("Online payment + Delivery confirmation email", () => {
     const sent = sendMail.mock.calls[0][0];
     expect(sent.to).toBe("a@b.com");
     expect(sent.html).toContain(url.replace("&", "&amp;"));
-    expect(sent.html).toContain(cancelUrl.replace("&", "&amp;"));
+    expect(sent.html).not.toContain("action=cancel");
     expect(sent.attachments[0].cid).toBe("bren-raphaels-logo");
   });
 

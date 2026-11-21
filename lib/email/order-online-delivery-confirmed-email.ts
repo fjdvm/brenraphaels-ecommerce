@@ -3,9 +3,9 @@ import { formatAddressLine } from "../address/format";
 import type { Order } from "../orders/orders";
 import { createBrevoTransport } from "./brevo-transport";
 import { stableMessageId } from "./stable-message-id";
-import { EMAIL_TOKENS as t, emailButton, emailHeading, emailParagraph, emailSecondaryButton, escapeHtml, logoAttachment, renderEmailLayout } from "./layout";
+import { EMAIL_TOKENS as t, emailButton, emailHeading, emailParagraph, escapeHtml, logoAttachment, renderEmailLayout } from "./layout";
 import { totalPayableUponDelivery } from "./order-delivery-confirmed-email";
-import { cancelOrderUrl, deadlineNotice, deliveryFeeText, payOrderUrl } from "./order-pickup-confirmed-email";
+import { deadlineNotice, deliveryFeeText, payOrderUrl } from "./order-pickup-confirmed-email";
 import { emailPaymentOffer, renderPaymentInstructions, type EmailPaymentOffer } from "./payment-instructions";
 import { loadPaymentAccounts } from "../orders/payment-accounts";
 
@@ -18,7 +18,7 @@ function row(label: string, value: string, strong = false) {
  * Builds the subject, HTML and plain text of the Online payment + Delivery confirmation, so tests can render it without
  * sending. `offer` is the shop's Payment accounts (number and QR) the Customer can pay into; omitted, no How to pay block.
  */
-export function renderOnlineDeliveryConfirmedEmail(order: Order, payUrl: string, cancelUrl: string, offer?: EmailPaymentOffer) {
+export function renderOnlineDeliveryConfirmedEmail(order: Order, payUrl: string, offer?: EmailPaymentOffer) {
   const discount = order.approvedDiscountInCentavos ?? 0;
   const fee = order.deliveryFeeInCentavos ?? 0;
   const feeText = deliveryFeeText(fee);
@@ -46,7 +46,7 @@ export function renderOnlineDeliveryConfirmedEmail(order: Order, payUrl: string,
       addressBlock,
       howToPay?.html ?? "",
       deadline?.html ?? "",
-      `<div style="margin:24px 0 0;">${emailSecondaryButton("Cancel order", cancelUrl)}&nbsp;&nbsp;${emailButton("Pay order", payUrl)}</div>`,
+      `<div style="margin:24px 0 0;">${emailButton("Pay order", payUrl)}</div>`,
     ].join("\n"),
   });
 
@@ -66,7 +66,6 @@ export function renderOnlineDeliveryConfirmedEmail(order: Order, payUrl: string,
     ...(deadline ? ["", deadline.text] : []),
     "",
     `Pay order: ${payUrl}`,
-    `Cancel order: ${cancelUrl}`,
   ].join("\n");
 
   return { subject: `Order #${order.id} confirmed`, html, text };
@@ -82,7 +81,7 @@ export async function sendOrderOnlineDeliveryConfirmedEmail(recipient: string, o
   // Staff chose one account when they confirmed: show only that one, if it is still active and fits the Order's method.
   const chosen = paymentAccountId ? accounts.filter((a) => a.id === paymentAccountId && a.method === order.paymentMethod) : [];
   const { offer, attachments } = await emailPaymentOffer(order.paymentMethod, chosen.length > 0 ? chosen : accounts);
-  const message = renderOnlineDeliveryConfirmedEmail(order, payOrderUrl(order.id), cancelOrderUrl(order.id), offer);
+  const message = renderOnlineDeliveryConfirmedEmail(order, payOrderUrl(order.id), offer);
   const info = await transport.sendMail({ from: sender, to: recipient, ...message, ...stableMessageId(sender, email), attachments: [await logoAttachment(), ...attachments] });
   return typeof info?.messageId === "string" ? { messageId: info.messageId } : {};
 }
