@@ -4,10 +4,11 @@ import { useState } from "react";
 
 import { PhotoViewer } from "@/components/ui/photo-viewer";
 
-/** The Customer's uploaded payment screenshot as a small preview; click it to open it large and zoom in. */
-export function ZoomableProof({ orderId }: { orderId: number }) {
+/** The Customer's latest uploaded payment screenshot as a small preview; click it to open it large and zoom in. */
+export function ZoomableProof({ orderId, version }: { orderId: number; version?: string | number }) {
   const [index, setIndex] = useState<number | null>(null);
-  const src = `/api/orders/${orderId}/payment-proof`;
+  // The address is the same for every proof, so a version makes the browser fetch the newest one instead of keeping the first.
+  const src = `/api/orders/${orderId}/payment-proof${version === undefined ? "" : `?v=${version}`}`;
   const alt = "Your payment screenshot";
   return (
     <>
