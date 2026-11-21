@@ -26,7 +26,7 @@ export function ZoomableQr({ src, label }: { src: string; label: string }) {
   const alt = `QR for ${label}`;
   return (
     <>
-      <div className="flex flex-col items-center gap-3 border-t border-line pt-4">
+      <div className="flex flex-col items-center gap-3 border-t border-line pt-4 sm:shrink-0 sm:border-t-0 sm:pt-0">
         <button aria-label={`Enlarge ${alt}`} className="cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" onClick={() => setIndex(0)} type="button">
           {/* eslint-disable-next-line @next/next/no-img-element -- a short-lived signed address, never optimised or cached */}
           <img alt={alt} className="size-64 max-w-full border border-line object-contain sm:size-72" src={src} />

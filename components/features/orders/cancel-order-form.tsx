@@ -1,7 +1,5 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
-import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { cancelOrder, type OrderCancellationState } from "@/app/(site)/(protected)/profile/orders/actions";
@@ -27,7 +25,6 @@ export function CancelOrderForm({ orderId, defaultOpen = false }: { orderId: num
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
         <p className="mr-auto text-xs tracking-[0.35px] text-muted">You can cancel this order until the shop starts preparing it.</p>
-        <MessageUsLink orderId={orderId} />
         <Button disabled={cancelled} onClick={() => setOpen(true)} size="pill-sm" type="button" variant="pill-outline">Cancel order</Button>
       </div>
       <Dialog onOpenChange={(next) => !pending && setOpen(next)} open={open && !cancelled}>
@@ -60,16 +57,5 @@ export function CancelOrderForm({ orderId, defaultOpen = false }: { orderId: num
       {cancelled ? <p className="text-sm font-medium text-primary" role="status">Order cancelled.</p> : null}
       {state.emailWarning ? <p className="text-sm text-body" role="status">{state.emailWarning}</p> : null}
     </div>
-  );
-}
-
-export function MessageUsLink({ orderId, label = "Message us about this order" }: { orderId: number; label?: string }) {
-  return (
-    <Button asChild size="link-sm" variant="link">
-      <Link href={`/support/new?order=${orderId}`}>
-        {label}
-        <ArrowRight aria-hidden className="size-4" />
-      </Link>
-    </Button>
   );
 }

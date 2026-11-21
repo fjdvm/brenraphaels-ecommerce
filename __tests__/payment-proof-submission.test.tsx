@@ -12,7 +12,6 @@ import { FakeShopStock } from "./helpers/fake-shop-stock";
 import { createTestDatabase } from "./helpers/test-database";
 
 const submit = vi.hoisted(() => vi.fn());
-vi.mock("@/app/(site)/(protected)/profile/orders/actions", () => ({ submitPaymentProof: submit }));
 vi.mock("../lib/orders/payment-details", async (original) => ({ ...(await original<typeof import("../lib/orders/payment-details")>()), paymentRecipient: async () => "09171234567" }));
 vi.mock("@/lib/orders/screenshot-reading", async (original) => ({ ...(await original<typeof import("@/lib/orders/screenshot-reading")>()), readScreenshotText: async () => "" }));
 vi.mock("next/server", () => ({ after: (work: () => Promise<void>) => work() }));
@@ -24,13 +23,32 @@ const accounts = [account(), account({ id: "a2", label: "Backup", accountNumber:
 const renderForm = () => render(<PaymentProofForm accounts={accounts} showAccounts={false} amountInCentavos={125_000} deadline="Nov 20, 9:00 AM" orderId={8} />);
 const shot = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], "gcash-receipt.png", { type: "image/png" });
 
-beforeEach(() => submit.mockReset().mockResolvedValue({}));
+// The form sends the proof with XMLHttpRequest so it can show real upload progress; this stands in for the server.
+class FakeUpload {
+  static progress: number[] = [];
+  upload: { onprogress?: (event: { lengthComputable: boolean; loaded: number; total: number }) => void } = {};
+  response: unknown;
+  responseType = "";
+  onload?: () => void;
+  onerror?: () => void;
+  onabort?: () => void;
+  open() {}
+  send(data: FormData) {
+    // Progress events arrive later, like a real upload, not while the action is still starting.
+    setTimeout(() => {
+      for (const loaded of FakeUpload.progress) this.upload.onprogress?.({ lengthComputable: true, loaded, total: 100 });
+      void Promise.resolve(submit(8, {}, data)).then((result) => { this.response = result; this.onload?.(); });
+    }, 0);
+  }
+}
+
+beforeEach(() => { submit.mockReset().mockResolvedValue({}); FakeUpload.progress = []; vi.stubGlobal("XMLHttpRequest", FakeUpload); });
 // jsdom does not count a picked file towards `required`; the browser does, and "required" is asserted on the input itself.
 const browserAcceptsRequiredFile = () => {
   vi.spyOn(HTMLFormElement.prototype, "reportValidity").mockReturnValue(true);
   vi.spyOn(HTMLFormElement.prototype, "requestSubmit").mockImplementation(function (this: HTMLFormElement) { fireEvent.submit(this); });
 };
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("the proof form", () => {
   test("asks which account was paid and marks the reference and the screenshot required", () => {
@@ -60,7 +78,39 @@ describe("the proof form", () => {
     expect(submitButton().disabled).toBe(true);
     expect(screen.getByRole("alert").textContent).toMatch(/must equal your order total/);
     fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: "1250.00" } });
+    expect(submitButton().disabled).toBe(true); // still waiting for the other required fields
+    fireEvent.click(screen.getAllByRole("radio")[0]);
+    fireEvent.change(screen.getByLabelText(/reference number/), { target: { value: "1012345678" } });
+    fireEvent.change(screen.getByLabelText(/^Payment date/), { target: { value: "2026-11-21T10:00" } });
+    await userEvent.upload(screen.getByLabelText(/Add screenshot/), shot());
     expect(submitButton().disabled).toBe(false);
+  });
+
+  test("the amount paid takes only numbers", () => {
+    renderForm();
+    const amount = screen.getByLabelText(/^Amount/) as HTMLInputElement;
+    fireEvent.change(amount, { target: { value: "9a0r.5e5-+" } });
+    expect(amount.value).toBe("90.55");
+  });
+
+  test("Submit payment shows the real upload percentage while the proof is sent", async () => {
+    browserAcceptsRequiredFile();
+    FakeUpload.progress = [40, 80];
+    let finish: (value: object) => void = () => {};
+    submit.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    renderForm();
+    fireEvent.click(screen.getAllByRole("radio")[0]);
+    fireEvent.change(screen.getByLabelText(/reference number/), { target: { value: "1012345678" } });
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: "1250" } });
+    fireEvent.change(screen.getByLabelText(/^Payment date/), { target: { value: "2026-11-21T10:00" } });
+    await userEvent.upload(screen.getByLabelText(/Add screenshot/), shot());
+    fireEvent.click(screen.getByRole("button", { name: "Submit payment" }));
+    await screen.findByText("Submit this payment?");
+    fireEvent.click(screen.getAllByRole("button", { name: "Submit payment" }).at(-1)!);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Uploading 80%" })).toBeTruthy());
+    expect(screen.getByRole("progressbar", { name: "Screenshot upload progress" }).getAttribute("aria-valuenow")).toBe("80");
+    finish({});
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Uploading/ })).toBeNull());
   });
 
   test("Submit payment opens the confirm dialog first and sends nothing until the Customer confirms", async () => {
@@ -69,6 +119,7 @@ describe("the proof form", () => {
     fireEvent.click(screen.getAllByRole("radio")[1]);
     fireEvent.change(screen.getByLabelText(/reference number/), { target: { value: "1012345678" } });
     fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: "1250" } });
+    fireEvent.change(screen.getByLabelText(/^Payment date/), { target: { value: "2026-11-21T10:00" } });
     await userEvent.upload(screen.getByLabelText(/Add screenshot/), shot());
     fireEvent.click(screen.getByRole("button", { name: "Submit payment" }));
 
@@ -95,6 +146,7 @@ describe("the proof form", () => {
     fireEvent.click(screen.getAllByRole("radio")[0]);
     fireEvent.change(screen.getByLabelText(/reference number/), { target: { value: "1012345678" } });
     fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: "1250" } });
+    fireEvent.change(screen.getByLabelText(/^Payment date/), { target: { value: "2026-11-21T10:00" } });
     await userEvent.upload(screen.getByLabelText(/Add screenshot/), shot());
     fireEvent.click(screen.getByRole("button", { name: "Submit payment" }));
     fireEvent.click(await screen.findByRole("button", { name: "Go back" }));
@@ -114,9 +166,11 @@ describe("the proof form", () => {
     fireEvent.click(screen.getAllByRole("radio")[0]);
     fireEvent.change(screen.getByLabelText(/reference number/), { target: { value: "1012345678" } });
     fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: "1250" } });
+    fireEvent.change(screen.getByLabelText(/^Payment date/), { target: { value: "2026-11-21T10:00" } });
     await userEvent.upload(screen.getByLabelText(/Add screenshot/), shot());
     fireEvent.click(screen.getByRole("button", { name: "Submit payment" }));
-    fireEvent.click((await screen.findAllByRole("button", { name: "Submit payment" })).at(-1)!);
+    await screen.findByText("Submit this payment?");
+    fireEvent.click(screen.getAllByRole("button", { name: "Submit payment" }).at(-1)!);
     expect(await screen.findByText("That file isn't a real JPEG or PNG image.")).toBeTruthy();
     expect(screen.getByText("Choose the account you paid.")).toBeTruthy();
   });

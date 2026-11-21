@@ -9,6 +9,7 @@ export default defineConfig({
   },
   test: {
     // Migrates once per run and snapshots the database for createTestDatabase().
+    setupFiles: ["./__tests__/helpers/router-setup.ts"],
     globalSetup: ["./__tests__/helpers/migrated-snapshot.ts"],
     // Booting in-memory Postgres (PGlite) can exceed 5s when files run in parallel.
     testTimeout: 30_000,

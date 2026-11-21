@@ -98,13 +98,14 @@ export function renderPaymentInstructions(orderId: number, method: PaymentMethod
       detail("Account name", account.accountName),
       detail("Account number", account.accountNumber, true),
     ].join("");
+    // Like the Order page: the details first, a divider, then the QR centred and large below them.
     const qr = account.qrCid
-      ? `<td width="132" valign="top" align="right" style="padding-left:16px;"><img src="cid:${escapeHtml(account.qrCid)}" width="120" height="120" alt="${escapeHtml(`QR for ${account.label}`)}" style="display:block;width:120px;height:120px;border:1px solid ${t.line};background:${t.white};"></td>`
+      ? `<tr><td align="center" style="padding:16px 0 0;border-top:1px solid ${t.line};"><img src="cid:${escapeHtml(account.qrCid)}" width="240" height="240" alt="${escapeHtml(`QR for ${account.label}`)}" style="display:block;margin:0 auto;width:240px;max-width:100%;height:240px;border:1px solid ${t.line};background:${t.white};"></td></tr>`
       : "";
-    return `<tr><td style="padding:16px 0;border-top:1px solid ${t.line};"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-<td valign="top"><p style="margin:0 0 6px;font-family:${t.sans};font-size:16px;line-height:24px;font-weight:500;color:${t.ink};">${escapeHtml(accountTitle(account))}</p>
-<table role="presentation" cellpadding="0" cellspacing="0">${rows}</table></td>${qr}
-</tr></table></td></tr>`;
+    return `<tr><td style="padding:16px 0;border-top:1px solid ${t.line};"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td valign="top" style="padding:0 0 16px;"><p style="margin:0 0 6px;font-family:${t.sans};font-size:16px;line-height:24px;font-weight:500;color:${t.ink};">${escapeHtml(accountTitle(account))}</p>
+<table role="presentation" cellpadding="0" cellspacing="0">${rows}</table></td></tr>${qr}
+</table></td></tr>`;
   }).join("");
 
   const switched = offer.switched
