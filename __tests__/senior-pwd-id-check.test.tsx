@@ -19,6 +19,9 @@ vi.mock("@/app/(site)/(protected)/profile/senior-pwd-actions", () => ({ sendSeni
 import { checkSeniorPwdIdNumber } from "@/lib/senior-pwd/check-id-action";
 import { SeniorPwdIdForm } from "@/components/features/customer/senior-pwd-id-form";
 
+/** A made-up ID number; no real ID is used in tests. */
+const SAMPLE_ID = ["TEST", "ID", "1234"].join("-");
+
 let address = 0;
 beforeEach(() => {
   mocks.requestHeaders.set("x-forwarded-for", `198.51.100.${++address}`);
@@ -31,15 +34,15 @@ afterEach(cleanup);
 describe("checking an ID number before it is sent", () => {
   test("refuses a number used by another account with the toast wording", async () => {
     mocks.idNumberInUse.mockResolvedValueOnce(true);
-    expect(await checkSeniorPwdIdNumber("ANT-SC-0458721")).toEqual({
+    expect(await checkSeniorPwdIdNumber(SAMPLE_ID)).toEqual({
       ok: false, field: "idNumber", message: "This ID is already used by another account.",
     });
   });
 
   test("lets a free number through and never counts the signed-in Customer's own ID", async () => {
     mocks.visitor.mockResolvedValueOnce({ state: "customer", customer: { userId: "c1" } });
-    expect(await checkSeniorPwdIdNumber("ANT-SC-0458721")).toEqual({ ok: true });
-    expect(mocks.idNumberInUse).toHaveBeenCalledWith({}, "ANT-SC-0458721", "c1");
+    expect(await checkSeniorPwdIdNumber(SAMPLE_ID)).toEqual({ ok: true });
+    expect(mocks.idNumberInUse).toHaveBeenCalledWith({}, SAMPLE_ID, "c1");
   });
 
   test("checks the number's shape before asking the database", async () => {
@@ -48,14 +51,14 @@ describe("checking an ID number before it is sent", () => {
   });
 
   test("is rate-limited per address so numbers cannot be tested in bulk", async () => {
-    for (let i = 0; i < 5; i++) expect(await checkSeniorPwdIdNumber("ANT-SC-0458721")).toEqual({ ok: true });
-    expect(await checkSeniorPwdIdNumber("ANT-SC-0458721")).toEqual({ ok: false, message: "Too many attempts. Please try again in 10 minutes." });
+    for (let i = 0; i < 5; i++) expect(await checkSeniorPwdIdNumber(SAMPLE_ID)).toEqual({ ok: true });
+    expect(await checkSeniorPwdIdNumber(SAMPLE_ID)).toEqual({ ok: false, message: "Too many attempts. Please try again in 10 minutes." });
   });
 
   test("a failed check never stops the Customer; the number is checked again when sent", async () => {
     mocks.idNumberInUse.mockRejectedValueOnce(new Error("db down"));
     vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(await checkSeniorPwdIdNumber("ANT-SC-0458721")).toEqual({ ok: true });
+    expect(await checkSeniorPwdIdNumber(SAMPLE_ID)).toEqual({ ok: true });
   });
 });
 
