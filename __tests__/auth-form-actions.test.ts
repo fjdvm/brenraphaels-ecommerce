@@ -5,11 +5,13 @@ const {
   signUpCustomer,
   requestCustomerPasswordReset,
   resendCustomerVerification,
+  idNumberInUse,
 } = vi.hoisted(() => ({
   requestHeaders: new Headers(),
   signUpCustomer: vi.fn(),
   requestCustomerPasswordReset: vi.fn(),
   resendCustomerVerification: vi.fn(),
+  idNumberInUse: vi.fn(async () => false),
 }));
 
 vi.mock("next/headers", () => ({ headers: async () => requestHeaders }));
@@ -26,6 +28,10 @@ vi.mock("@/lib/customer/password-reset", async (importOriginal) => ({
 vi.mock("@/lib/customer/email-verification", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/customer/email-verification")>()),
   resendCustomerVerification,
+}));
+vi.mock("@/lib/senior-pwd/store", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/senior-pwd/store")>()),
+  idNumberInUse,
 }));
 vi.mock("@/lib/neon-auth/server", () => ({
   neonAuth: {},
@@ -115,6 +121,20 @@ describe("customer auth form actions", () => {
   test("sign-up reports field errors without creating a login", async () => {
     const result = await submitSignUp(tokenForm());
     expect(result.fieldErrors).toBeDefined();
+    expect(signUpCustomer).not.toHaveBeenCalled();
+  });
+
+  test("sign-up refuses an ID already used by another account before any login is made", async () => {
+    idNumberInUse.mockResolvedValueOnce(true);
+    const form = validForm();
+    form.set("seniorPwd", "yes");
+    form.set("idType", "senior");
+    form.set("idNumber", "ANT-SC-0458721");
+    form.set("idFront", new File(["x"], "front.jpg", { type: "image/jpeg" }));
+    await expect(submitSignUp(form)).resolves.toEqual({
+      fieldErrors: { idNumber: ["This ID is already used by another account."] },
+      toastError: "This ID is already used by another account.",
+    });
     expect(signUpCustomer).not.toHaveBeenCalled();
   });
 

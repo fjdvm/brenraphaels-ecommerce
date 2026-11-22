@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 
 import { sendSeniorPwdId, type SeniorPwdIdState } from "@/app/(site)/(protected)/profile/senior-pwd-actions";
 import { SeniorPwdFields } from "@/components/features/auth/senior-pwd-fields";
+import { showErrorToast } from "@/components/shared/storefront-toast";
 import { Button } from "@/components/ui/button";
 
 const initialState: SeniorPwdIdState = {};
@@ -11,6 +12,9 @@ const initialState: SeniorPwdIdState = {};
 /** The ID form for a Customer with no ID on file, or whose last one was declined, revoked or expired. */
 export function SeniorPwdIdForm() {
   const [state, action, pending] = useActionState(sendSeniorPwdId, initialState);
+  useEffect(() => {
+    if (state.toastError) showErrorToast(state.toastError);
+  }, [state.toastError, state.attempt]);
   return (
     <form action={action} className="flex flex-col gap-5">
       <input name="seniorPwd" type="hidden" value="yes" />

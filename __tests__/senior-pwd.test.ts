@@ -8,7 +8,7 @@ import { createOrderStore } from "../lib/orders/orders";
 import { creomsSeniorPwdCredential, mintCreomsCredential } from "../lib/orders/creoms-credential";
 import { hashIdNumber, normalizeIdNumber } from "../lib/senior-pwd/id-number";
 import { DEFAULT_DISCOUNT_RULE, discountedLine, ruleDiscount, type DiscountRule } from "../lib/senior-pwd/discount-rule";
-import { submitVerification } from "../lib/senior-pwd/store";
+import { idNumberInUse, submitVerification } from "../lib/senior-pwd/store";
 import { POST } from "../app/api/internal/senior-pwd/[id]/[action]/route";
 import { FakeShopStock } from "./helpers/fake-shop-stock";
 import { createTestDatabase } from "./helpers/test-database";
@@ -149,8 +149,31 @@ describe("placing an Order with the Senior/PWD discount", () => {
 
   test("the same ID cannot be sent from a second account while it is in use", async () => {
     await submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, photoFileId: "f1" });
-    await expect(submitVerification(db, "c2", { idType: "senior", idNumber: "ant sc 0458721", photoFileId: "f2" })).rejects.toThrow("already used on another account");
+    await expect(submitVerification(db, "c2", { idType: "senior", idNumber: "ant sc 0458721", photoFileId: "f2" })).rejects.toThrow("already used by another account");
     expect(JSON.stringify(await db.select().from(seniorPwdVerifications))).not.toContain("0458721");
+  });
+
+  test("the pre-check finds a number pending or approved elsewhere, but never the Customer's own or a declined one", async () => {
+    expect(await idNumberInUse(db, NUMBER)).toBe(false);
+    await submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, photoFileId: "f1" });
+    expect(await idNumberInUse(db, "ant sc 0458721")).toBe(true);
+    expect(await idNumberInUse(db, NUMBER, "c2")).toBe(true);
+    expect(await idNumberInUse(db, NUMBER, "c1")).toBe(false);
+    await db.update(seniorPwdVerifications).set({ status: "approved", expiresOn: "2099-01-01" });
+    expect(await idNumberInUse(db, NUMBER, "c2")).toBe(true);
+    await db.update(seniorPwdVerifications).set({ status: "declined" });
+    expect(await idNumberInUse(db, NUMBER, "c2")).toBe(false);
+  });
+
+  test("keeps only how the number read off the photo compared, never the number", async () => {
+    await submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, idNumberRead: "ANT SC 0458721", photoFileId: "f1" });
+    await db.update(seniorPwdVerifications).set({ status: "declined" });
+    await submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, idNumberRead: "ANT-SC-0458727", photoFileId: "f2" });
+    await db.update(seniorPwdVerifications).set({ status: "declined" });
+    await submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, photoFileId: "f3" });
+    const rows = await db.select().from(seniorPwdVerifications).orderBy(seniorPwdVerifications.id);
+    expect(rows.map((row) => row.idNumberRead)).toEqual(["matched", "differs", "unread"]);
+    expect(JSON.stringify(rows)).not.toMatch(/045872[17]/);
   });
 });
 
@@ -177,6 +200,9 @@ describe("CREOMS decisions", () => {
     await drain();
     const [v] = await db.select().from(seniorPwdVerifications);
     expect(v).toMatchObject({ status: "approved", photoFileId: null, photoBackFileId: null, decidedById: "ana", decidedByName: "Ana Reyes" });
+    // The name the ID was verified under is kept beside the hash.
+    expect(v.verifiedName).toBe("c1 Test");
+    expect(v.idHash).toBe(hashIdNumber(NUMBER));
     expect(removed.sort()).toEqual(["back-1", "front-1"]);
     expect(sendMail).toHaveBeenCalledTimes(1);
     expect(sendMail.mock.calls[0][0].text).toContain("verified");
@@ -188,6 +214,7 @@ describe("CREOMS decisions", () => {
     expect((await call(id, "decline", { ...staff })).status).toBe(400);
     expect((await call(id, "decline", { reason: "The photo is blurry", ...staff })).status).toBe(200);
     await drain();
+    expect((await db.select().from(seniorPwdVerifications))[0].verifiedName).toBeNull();
     expect(sendMail.mock.calls[0][0].text).toContain("The photo is blurry");
   });
 

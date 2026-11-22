@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+
+import { StorefrontToaster } from "@/components/shared/storefront-toast";
 import { redirect } from "next/navigation";
 
 import { completeProfilePath } from "@/lib/auth/route-access";
@@ -27,6 +29,7 @@ export default function SignedOutLayout({ children }: LayoutProps<"/">) {
         <SignedOutRedirect />
       </Suspense>
       {children}
+      <StorefrontToaster />
     </AuthShell>
   );
 }

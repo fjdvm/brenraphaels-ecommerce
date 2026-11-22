@@ -484,6 +484,13 @@
       "when": 1798128000000,
       "tag": "0068_return_inspection",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1798214400000,
+      "tag": "0069_senior_pwd_id_reading",
+      "breakpoints": true
     }
   ]
 }

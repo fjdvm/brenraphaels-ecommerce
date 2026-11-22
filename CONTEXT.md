@@ -18,6 +18,10 @@ _Avoid_: Registration, enrollment
 A Customer whose email address is proven to be theirs by confirming a message sent to it. A Customer who is not Verified cannot sign in.
 _Avoid_: Confirmed, activated
 
+**Senior/PWD verified**:
+A Customer whose Senior Citizen or PWD ID a Manager approved in CREOMS, so their Orders get the discount automatically. Only the verified mark, a keyed hash of the ID number, the name it was verified under and the ID's expiry are kept; the photos are deleted after the decision. One ID number verifies one account: a number already used by another account is refused when it is entered.
+_Avoid_: Discount ID, senior account
+
 **Contact number**:
 A Philippine mobile number the shop can use to reach the Customer about an order. It is collected at sign-up, or on the complete-profile form for a login whose details were never saved, but is not itself verified.
 _Avoid_: Phone, mobile, cellphone

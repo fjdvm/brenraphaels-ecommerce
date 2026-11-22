@@ -11,6 +11,7 @@ import {
   type FieldErrors,
 } from "@/components/features/auth/customer-details-fields";
 import { SeniorPwdFields } from "@/components/features/auth/senior-pwd-fields";
+import { showErrorToast } from "@/components/shared/storefront-toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { seniorPwdFormValues, seniorPwdSchema } from "@/lib/senior-pwd/application-schema";
@@ -50,6 +51,7 @@ export function CompleteProfileForm({ email, defaults, provinces }: CompleteProf
     startTransition(async () => {
       // A successful save redirects to the profile, so only failures return.
       const outcome = await submitCompleteProfile(formData);
+      if (outcome.toastError) showErrorToast(outcome.toastError);
       setErrors(outcome.fieldErrors ?? {});
       setMessage(outcome.message);
     });

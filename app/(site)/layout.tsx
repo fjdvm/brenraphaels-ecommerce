@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 
+import { StorefrontToaster } from "@/components/shared/storefront-toast";
+
 import { FreeShippingAmount } from "@/components/shared/free-shipping-amount";
 import { LiveStorefront } from "@/components/features/storefront/live-storefront";
 import { Footer } from "@/components/shared/footer";
@@ -121,6 +123,7 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
       <Footer />
       {/* Messenger/Instagram chat buttons are hidden for now; restore <ChatLinks /> from components/shared/chat-links to show them again. */}
       <PageTransition />
+      <StorefrontToaster />
     </>
   );
 }
