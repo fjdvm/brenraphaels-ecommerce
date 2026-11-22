@@ -23,6 +23,7 @@ export function createOrderCancellations<T extends PgQueryResultHKT, S extends R
       const [order] = await tx.select().from(orders).where(and(eq(orders.id, orderId), actor.type === "customer" ? eq(orders.customerId, actor.id) : undefined)).for("update");
       if (!order || order.status !== "dispatched") throw new CancellationError("Only your dispatched Order can have a cancellation request.");
       const [existing] = await tx.select().from(orderCancellations).where(eq(orderCancellations.orderId, orderId));
+      if (!existing && actor.type === "customer") throw new CancellationError("The shop has started preparing your order, so it can't be cancelled here.");
       if (existing) return { id: orderId, requestId: existing.id, status: existing.status === "waiting-manager" ? existing.approvalStatus : existing.status, declineReason: existing.declineReason };
       const id = randomUUID();
       await tx.insert(orderCancellations).values({ id, orderId, reason: input.reason, actorType: actor.type, actorId: actor.id, actorName: actor.name });

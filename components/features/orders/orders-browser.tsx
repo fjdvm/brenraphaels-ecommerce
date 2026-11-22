@@ -398,9 +398,9 @@ function OrderDetails({
 
       {cancellable ? (
         <CancelOrderForm defaultOpen={openCancel} orderId={order.id} request={cancelRequest} />
-      ) : order.status === "dispatched" || (order.status === "cancelled" && cancellation) ? (
+      ) : cancellation ? (
         <div className="flex flex-col gap-3">
-          <RequestCancellation orderId={order.id} request={cancellation} />
+          <RequestCancellation request={cancellation} />
         </div>
       ) : null}
     </div>
