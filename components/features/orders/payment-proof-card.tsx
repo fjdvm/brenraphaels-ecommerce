@@ -15,8 +15,6 @@ function manilaLocal(date: Date) {
   return date.toLocaleString("sv-SE", { timeZone: "Asia/Manila" }).replace(" ", "T").slice(0, 16);
 }
 
-const normalise = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
-
 function Tick({ passed, children }: { passed: boolean; children: string }) {
   return (
     <li className={cn("flex items-start gap-2 text-xs", passed ? "text-ink" : "text-red-700")}>
@@ -51,12 +49,6 @@ export function PaymentProofCard({
   const [reading, setReading] = useState<Reading>({ state: "idle" });
   const src = `/api/orders/${orderId}/payment-proofs/${proof.id}`;
   const status = proof.rejection ? "Not accepted" : awaitingCheck ? "Being checked" : "Accepted";
-
-  const submittedChecks = checkReceipt(
-    { amountInCentavos: proof.confirmedAmountInCentavos ?? undefined, paidAt: proof.confirmedPaidAt ? manilaLocal(proof.confirmedPaidAt) : undefined },
-    order,
-  );
-  const recipientPassed = proof.confirmedRecipient && proof.expectedRecipient ? normalise(proof.confirmedRecipient) === normalise(proof.expectedRecipient) : undefined;
 
   async function readScreenshot() {
     onBusyChange(true);
@@ -136,28 +128,17 @@ export function PaymentProofCard({
         <dd className="text-right text-ink">{proof.confirmedRecipient ?? "—"}</dd>
       </dl>
 
-      {submittedChecks.amount || submittedChecks.date || recipientPassed !== undefined ? (
-        <div className="flex flex-col gap-1.5">
-          <p className="text-xs font-medium text-ink">Checks</p>
-          <ul className="flex flex-col gap-1">
-            {submittedChecks.amount ? <Tick passed={submittedChecks.amount.passed}>{submittedChecks.amount.note}</Tick> : null}
-            {submittedChecks.date ? <Tick passed={submittedChecks.date.passed}>{submittedChecks.date.note}</Tick> : null}
-            {recipientPassed !== undefined ? <Tick passed={recipientPassed}>{recipientPassed ? "Sent to the shop's account name" : "Name doesn't match the shop's account"}</Tick> : null}
-          </ul>
-        </div>
-      ) : null}
-
       {proof.hasScreenshot ? (
         <div className="flex flex-col gap-2 border-t border-line pt-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-medium text-ink">Read the screenshot</p>
+            <p className="text-xs font-medium text-ink">Checks</p>
             <button
               className="rounded-full border border-primary px-4 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-lavender-soft disabled:cursor-not-allowed disabled:opacity-50"
               disabled={busy || reading.state === "reading"}
               onClick={readScreenshot}
               type="button"
             >
-              {reading.state === "reading" ? `Reading… ${reading.percent}%` : reading.state === "done" || reading.state === "failed" ? "Read again" : "Read screenshot"}
+              {reading.state === "reading" ? `Reading… ${reading.percent}%` : "Analyze"}
             </button>
           </div>
           {reading.state === "failed" ? <p className="text-xs text-red-700" role="alert">We couldn&apos;t read this screenshot. The shop will still check it.</p> : null}
