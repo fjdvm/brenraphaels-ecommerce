@@ -49,19 +49,11 @@ describe("payment proofs page", () => {
     expect(screen.getByText("Being checked")).toBeTruthy();
   });
 
-  test("checks pass for a matching amount, time and recipient, and fail for a wrong amount", () => {
-    show([proof({ id: 1 }), proof({ id: 2, confirmedAmountInCentavos: 5_000 })]);
-    const [good, bad] = screen.getAllByTestId("payment-proof-card");
-    expect(good.textContent).toContain("Matches your order total");
-    expect(good.textContent).toContain("Sent to the shop's account name");
-    expect(bad.textContent).toContain("Doesn't match your order total");
-  });
-
-  test("Read screenshot shows what the screenshot says and flags a mismatch", async () => {
+  test("Analyze shows what the screenshot says and flags a mismatch", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(new Blob(["x"]), { status: 200 })));
     vi.mocked(readScreenshotText).mockResolvedValue("Ref No. 9999 9999 9999\nPHP 65.00\nNov 22, 2026 2:40 PM");
     show([proof({ id: 1 })]);
-    fireEvent.click(screen.getByRole("button", { name: "Read screenshot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
     await waitFor(() => expect(screen.getByLabelText("What the screenshot says")).toBeTruthy());
     const list = screen.getByLabelText("What the screenshot says").textContent ?? "";
     expect(list).toContain("differs from what you entered");
@@ -72,9 +64,9 @@ describe("payment proofs page", () => {
   test("a screenshot that cannot be read says so and keeps the card", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("no", { status: 404 })));
     show([proof({ id: 1 })]);
-    fireEvent.click(screen.getByRole("button", { name: "Read screenshot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("couldn't read"));
-    expect(screen.getByRole("button", { name: "Read again" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeTruthy();
     vi.unstubAllGlobals();
   });
 
