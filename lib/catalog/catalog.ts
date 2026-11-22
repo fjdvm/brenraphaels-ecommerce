@@ -4,7 +4,7 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { productImages, products, sizes } from "../db/schema";
 import { readStockLeft } from "./stock-labels";
 import { gatewayShopStock, type ShopStock } from "../orders/stock";
-import { createImsCatalog, gatewayImsCatalog, syncOnce } from "./ims-catalog";
+import { createImsCatalog, databaseCreomsContent, gatewayImsCatalog, syncOnce, withCreomsContent } from "./ims-catalog";
 import { gatewayProductImages, resolveProductImage, type ProductImageFiles } from "./product-images";
 
 export type CatalogProductSize = { id: number; label: string; priceInCentavos: number; available: boolean; /** Left to sell, from the IMS; null when it could not be read. */ left: number | null };
@@ -31,9 +31,14 @@ export type CatalogStore = {
   findProduct(slug: string): Promise<CatalogProductDetail | undefined>;
 };
 
-/** The shop takes name, Size, image and price from the IMS; without the IMS settings (tests, local) it keeps what it has. */
-function imsCatalogSync(db: PgDatabase<any, any>) {
-  return process.env.IMS_URL && process.env.IMS_SHOP_API_KEY ? createImsCatalog(db, gatewayImsCatalog()) : undefined;
+/**
+ * The shop takes its products, Sizes and whether they are still sold from the IMS, and their name, price and image from
+ * CREOMS; without the IMS settings (tests, local) it keeps what it has.
+ */
+export function imsCatalogSync(db: PgDatabase<any, any>) {
+  return process.env.IMS_URL && process.env.IMS_SHOP_API_KEY
+    ? createImsCatalog(db, withCreomsContent(gatewayImsCatalog(), databaseCreomsContent(db)), { pricesDecided: true })
+    : undefined;
 }
 
 /** Catalog reads are available to every Visitor; purchase access belongs to Cart and Order. */

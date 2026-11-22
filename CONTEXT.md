@@ -95,7 +95,7 @@ A flavor or kind the shop sells (e.g. "Ube Halaya Smooth"), with a name, descrip
 _Avoid_: Item, SKU
 
 **Size**:
-A specific purchasable weight of a Product (e.g. 250g, 500g), each with its own price and its own available/sold-out flag, set by staff with no quantity tracked.
+A specific purchasable weight of a Product (e.g. 250g, 500g), each with its own price and its own available/sold-out flag. Each Size is one IMS product: the IMS owns it, its label (Variant), its stock and whether it is still sold; CREOMS owns its shop name, price and image (`crms.product_content`), which never go back to the IMS. A new Size goes on sale once CREOMS has given it a price and an image; one already on sale keeps its own until CREOMS sets them. A CREOMS price is a Manager's decision there, so it goes live at once, with no IMS price approval.
 _Avoid_: Variant, option, SKU
 
 **Cart**:

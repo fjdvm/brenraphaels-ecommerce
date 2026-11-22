@@ -1,4 +1,5 @@
 import { createImsCatalog, gatewayImsCatalog } from "@/lib/catalog/ims-catalog";
+import { imsCatalogSync } from "@/lib/catalog/catalog";
 import { creomsPriceSyncCredential, verifyCreomsCredential } from "@/lib/orders/creoms-credential";
 import { getDatabase } from "@/lib/db";
 
@@ -10,12 +11,15 @@ function unauthorized(request: Request) {
     : Response.json({ error: "Unauthorized" }, { status: 401, headers });
 }
 
-/** The prices the IMS wants to change on Sizes already on sale, for the owner to check before they go live. */
+/**
+ * Prices still waiting from before CREOMS set the shop prices. Prices now come from CREOMS, where a Manager decides them,
+ * so a sync clears the queue rather than adding to it.
+ */
 export async function GET(request: Request) {
   const refused = unauthorized(request);
   if (refused) return refused;
   const catalog = createImsCatalog(getDatabase(), gatewayImsCatalog());
-  await catalog.sync();
+  await imsCatalogSync(getDatabase())?.sync();
   return Response.json({ changes: await catalog.pendingPriceChanges() }, { headers });
 }
 

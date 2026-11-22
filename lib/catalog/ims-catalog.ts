@@ -34,6 +34,42 @@ export function gatewayImsCatalog(fetcher: typeof fetch = fetch): ImsCatalogFeed
   };
 }
 
+/** What CREOMS set for one IMS product: the shop name, price and image live only in CREOMS (`crms.product_content`). */
+export type CreomsContent = { productId: number; name: string | null; price: number | null; imageFileId: string | null };
+export type CreomsContentReader = { read(): Promise<CreomsContent[]> };
+
+/** Reads what CREOMS set, fresh each sync. A failure fails the sync, so the shop keeps what it has rather than guessing. */
+export function databaseCreomsContent(reader: { execute: (query: ReturnType<typeof sql>) => PromiseLike<unknown> }): CreomsContentReader {
+  return {
+    async read() {
+      const result = await reader.execute(sql`select ims_product_id, name, price, image_file_id from crms.product_content`);
+      const rows = (Array.isArray(result) ? result : (result as { rows: unknown[] }).rows) as { ims_product_id: number; name: string | null; price: string | number | null; image_file_id: string | null }[];
+      return rows.map((row) => ({
+        productId: Number(row.ims_product_id), name: row.name, price: row.price === null ? null : Number(row.price), imageFileId: row.image_file_id,
+      }));
+    },
+  };
+}
+
+/**
+ * The IMS feed as the shop sells it: CREOMS owns the shop name, price and image, the IMS owns the product, its Variant and
+ * whether it is still sold. The IMS price and image are never used. A product CREOMS has not given a price and an image
+ * gets price 0 and no image, so a new one stays off the shop and one already on sale keeps what it has.
+ */
+export function withCreomsContent(feed: ImsCatalogFeed, content: CreomsContentReader): ImsCatalogFeed {
+  return {
+    async read() {
+      const [items, published] = await Promise.all([feed.read(), content.read()]);
+      const byId = new Map(published.map((entry) => [entry.productId, entry]));
+      return items.map((item) => {
+        const set = byId.get(item.productId);
+        const name = set?.name?.trim() || item.name;
+        return { ...item, name, price: set?.price ?? 0, image: set?.imageFileId ?? null };
+      });
+    },
+  };
+}
+
 export const slugFor = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 /** A product goes live by itself once it has a name, an image the shop can show, and a price. */
@@ -52,7 +88,11 @@ function legacyMapping(): Map<number, number> {
 
 export type PriceChange = { id: number; sizeId: number; productName: string; sizeLabel: string; oldPriceInCentavos: number; newPriceInCentavos: number };
 
-export function createImsCatalog<T extends PgQueryResultHKT, S extends Record<string, unknown>>(db: PgDatabase<T, S>, feed: ImsCatalogFeed) {
+export function createImsCatalog<T extends PgQueryResultHKT, S extends Record<string, unknown>>(
+  db: PgDatabase<T, S>, feed: ImsCatalogFeed,
+  /** True when the feed's prices and images come from CREOMS (`withCreomsContent`), where a Manager already decided them. */
+  options: { pricesDecided?: boolean } = {},
+) {
   async function apply(items: ImsProduct[]) {
     await db.transaction(async (tx) => {
       const existing = await tx.select().from(sizes);
@@ -87,20 +127,31 @@ export function createImsCatalog<T extends PgQueryResultHKT, S extends Record<st
         }
 
         const [pending] = await tx.select().from(imsPriceChanges).where(and(eq(imsPriceChanges.sizeId, size.id), eq(imsPriceChanges.status, "pending")));
+        // CREOMS's price is already a Manager's decision there, so it goes live at once; it never waits in the IMS price queue.
+        const decided = options.pricesDecided;
         const changes: Partial<typeof sizes.$inferInsert> = {};
         if (linkedNow) changes.imsProductId = item.productId;
         if (size.discontinued === item.active) changes.discontinued = !item.active;
         if (size.label !== label && !existing.some((other) => other.id !== size.id && other.productSlug === size.productSlug && other.label === label)) changes.label = label;
         if (centavos > 0 && centavos !== size.priceInCentavos) {
           // A price change on a Size already on sale waits for the owner when it is found while matching or while one is already waiting.
-          if (linkedNow || pending) {
+          if (!decided && (linkedNow || pending)) {
             if (pending) await tx.update(imsPriceChanges).set({ newPriceInCentavos: centavos }).where(eq(imsPriceChanges.id, pending.id));
             else await tx.insert(imsPriceChanges).values({ sizeId: size.id, oldPriceInCentavos: size.priceInCentavos, newPriceInCentavos: centavos });
-          } else changes.priceInCentavos = centavos;
+          } else {
+            changes.priceInCentavos = centavos;
+            if (decided && pending) await tx.delete(imsPriceChanges).where(eq(imsPriceChanges.id, pending.id));
+          }
         } else if (pending) {
           await tx.delete(imsPriceChanges).where(eq(imsPriceChanges.id, pending.id));
         }
         if (Object.keys(changes).length > 0) await tx.update(sizes).set(changes).where(eq(sizes.id, size.id));
+        // A new shop image from CREOMS replaces the product's first image.
+        if (decided && item.image !== null && fileIdField.safeParse(item.image).success) {
+          const [first] = await tx.select().from(productImages).where(eq(productImages.productSlug, size.productSlug)).orderBy(productImages.position).limit(1);
+          if (!first) await tx.insert(productImages).values({ productSlug: size.productSlug, fileId: item.image, alt: item.name.trim(), position: 0 });
+          else if (first.fileId !== item.image) await tx.update(productImages).set({ fileId: item.image }).where(eq(productImages.id, first.id));
+        }
         if (item.name.trim() !== "" && item.active) await tx.update(products).set({ name: item.name.trim() }).where(and(eq(products.slug, size.productSlug), sql`${products.name} <> ${item.name.trim()}`));
       }
 
