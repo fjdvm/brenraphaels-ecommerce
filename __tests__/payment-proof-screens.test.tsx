@@ -109,5 +109,8 @@ describe("payment history and deadline", () => {
     render(<OrdersBrowser orders={[{ order: rejected, feedback: null, returnInProgress: false }]} paymentAccounts={details} />);
     expect(screen.getByTestId("payment-history").textContent).toContain("Not accepted · Used on another order");
     expect(screen.getByText(/Send it by Oct 17, 2026/)).toBeTruthy();
+    const link = screen.getByRole("link", { name: "View all →" });
+    expect(link.getAttribute("href")).toBe("/profile/orders/7/payment-proofs");
+    expect(screen.getByTestId("payment-history").querySelector("img")).toBeNull();
   });
 });

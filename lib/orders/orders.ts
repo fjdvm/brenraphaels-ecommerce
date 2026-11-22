@@ -162,6 +162,20 @@ export type SubmitPaymentProofInput = {
 };
 
 /** Where an Order's payment-proof screenshot lives: file-storage, or legacy Vercel Blob. */
+/** One proof as its owning Customer may see it: Staff identity is never part of it, and the account number is masked. */
+export type CustomerPaymentProof = {
+  id: number;
+  reference: string | null;
+  submittedAt: Date;
+  confirmedAmountInCentavos: number | null;
+  confirmedPaidAt: Date | null;
+  confirmedRecipient: string | null;
+  expectedRecipient: string | null;
+  account: { method: string | null; bankName: string | null; label: string | null; name: string | null; numberEnding: string | null } | null;
+  hasScreenshot: boolean;
+  rejection: { reason: string; at: Date } | null;
+};
+
 export type StoredPaymentScreenshot = { fileId: string } | { pathname: string };
 
 /** What Staff saw when they pressed Confirm Order: the storefront checks each figure against its own. */
@@ -221,6 +235,10 @@ export type OrderStore = {
     input: SubmitPaymentProofInput,
   ): Promise<Order>;
   getPaymentProofScreenshot(customerId: string, orderId: number): Promise<StoredPaymentScreenshot | undefined>;
+  /** Every proof of the Customer's own Order, oldest first; an Order that is not theirs gives an empty list. */
+  listPaymentProofs(customerId: string, orderId: number): Promise<CustomerPaymentProof[]>;
+  /** The screenshot of one proof of the Customer's own Order. */
+  getPaymentProofScreenshotById(customerId: string, orderId: number, proofId: number): Promise<StoredPaymentScreenshot | undefined>;
   /** Staff turn down the latest proof: it is kept with the reason, and the Customer is told to upload again. */
   rejectPaymentProof(orderId: number, input: { reason: string; staffId: string; staffName: string }): Promise<{ order: Order; rejections: number; managerReview: boolean }>;
 };
@@ -997,6 +1015,43 @@ export function createOrderStore<
     return undefined;
   }
 
+  async function listPaymentProofs(customerId: string, orderId: number): Promise<CustomerPaymentProof[]> {
+    const rows = await db
+      .select({ proof: orderPaymentProofs })
+      .from(orderPaymentProofs)
+      .innerJoin(orders, eq(orders.id, orderPaymentProofs.orderId))
+      .where(and(eq(orderPaymentProofs.orderId, orderId), eq(orders.customerId, customerId)))
+      .orderBy(asc(orderPaymentProofs.submittedAt), asc(orderPaymentProofs.id));
+    return rows.map(({ proof }) => {
+      const digits = proof.accountNumber?.replace(/\D/g, "") ?? "";
+      return {
+        id: proof.id,
+        reference: proof.reference,
+        submittedAt: proof.submittedAt,
+        confirmedAmountInCentavos: proof.confirmedAmountInCentavos,
+        confirmedPaidAt: proof.confirmedPaidAt,
+        confirmedRecipient: proof.confirmedRecipient,
+        expectedRecipient: proof.expectedRecipient,
+        account: proof.accountId || proof.accountLabel
+          ? { method: proof.accountMethod, bankName: proof.accountBankName, label: proof.accountLabel, name: proof.accountName, numberEnding: digits ? digits.slice(-4) : null }
+          : null,
+        hasScreenshot: Boolean(proof.screenshotFileId || proof.screenshotPathname),
+        rejection: proof.rejectedAt ? { reason: proof.rejectionReason ?? "", at: proof.rejectedAt } : null,
+      };
+    });
+  }
+
+  async function getPaymentProofScreenshotById(customerId: string, orderId: number, proofId: number): Promise<StoredPaymentScreenshot | undefined> {
+    const [row] = await db
+      .select({ fileId: orderPaymentProofs.screenshotFileId, pathname: orderPaymentProofs.screenshotPathname })
+      .from(orderPaymentProofs)
+      .innerJoin(orders, eq(orders.id, orderPaymentProofs.orderId))
+      .where(and(eq(orderPaymentProofs.id, proofId), eq(orderPaymentProofs.orderId, orderId), eq(orders.customerId, customerId)));
+    if (row?.fileId) return { fileId: row.fileId };
+    if (row?.pathname) return { pathname: row.pathname };
+    return undefined;
+  }
+
   async function customerEmailForOrder(orderId: number): Promise<string | undefined> {
     const [customer] = await db
       .select({ email: customers.email })
@@ -1154,5 +1209,5 @@ export function createOrderStore<
     }
   }
 
-  return { place, listForCustomer, advance, updateCourier, confirm, requestCancel, withdrawCancel, declineCancel, cancelItems, customerEmailForOrder, getById, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, rejectPaymentProof };
+  return { place, listForCustomer, advance, updateCourier, confirm, requestCancel, withdrawCancel, declineCancel, cancelItems, customerEmailForOrder, getById, customerIdForOrder, submitPaymentProof, getPaymentProofScreenshot, listPaymentProofs, getPaymentProofScreenshotById, rejectPaymentProof };
 }

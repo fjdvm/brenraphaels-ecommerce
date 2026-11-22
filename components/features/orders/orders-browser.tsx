@@ -4,6 +4,7 @@ import { isCompleted, isCompletedOrReceived } from "@/lib/orders/completion";
 import { FEE_TO_FOLLOW_SHORT } from "@/lib/orders/fee-to-follow-copy";
 import { FREE_DELIVERY_CONFIRMATION_NOTICE } from "@/lib/orders/free-delivery";
 import { Calendar, Check, ChevronDown, Store, Truck, Wallet } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { CartThumbnail } from "@/components/features/orders/cart-thumbnail";
@@ -20,7 +21,6 @@ import { ReturnsList } from "@/components/features/orders/returns-list";
 import { PAYMENT_LABELS } from "@/lib/orders/payment-details";
 import type { PaymentAccountOption } from "@/lib/orders/payment-offer";
 import { isPrepaid } from "@/lib/orders/payment-methods";
-import { ZoomableProof } from "@/components/features/orders/zoomable-proof";
 import { PaymentProofForm } from "@/components/features/orders/payment-proof-form";
 import { formatPeso } from "@/lib/catalog/currency";
 import {
@@ -366,7 +366,10 @@ function OrderDetails({
       ) : null}
       {order.paymentProofHistory && order.paymentProofHistory.length > 0 ? (
         <div className="flex flex-col gap-2.5 bg-surface px-6 py-5 tracking-[0.35px]" data-testid="payment-history">
-          <p className="text-[13px] font-medium text-ink">Payment history</p>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-[13px] font-medium text-ink">Payment history</p>
+            <Link className="text-[13px] font-medium text-primary hover:underline" href={`/profile/orders/${order.id}/payment-proofs`} prefetch>View all →</Link>
+          </div>
           {order.paymentProofHistory.map((proof, index) => (
             <div className="flex items-start justify-between gap-4" key={`${proof.submittedAt.toISOString()}-${index}`}>
               <p className="text-sm text-ink">Proof {index + 1} · sent {formatPlacedAt(proof.submittedAt)}</p>
@@ -382,9 +385,6 @@ function OrderDetails({
           {payment} reference {order.paymentProof.gcashReferenceNumber} submitted.
           {order.status === "awaiting payment" ? " We'll email you once it's verified." : null}
         </p>
-      ) : null}
-      {order.paymentProof && (order.paymentProof.screenshotFileId || order.paymentProof.screenshotPathname) ? (
-        <ZoomableProof orderId={order.id} version={order.paymentProof.submittedAt.getTime()} />
       ) : null}
 
       {isCompletedOrReceived(order.status) ? <OrderFeedbackForm feedback={feedback} orderId={order.id} /> : null}
