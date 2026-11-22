@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { createCatalogStore } from "../lib/catalog/catalog";
 import { productCategory } from "../lib/catalog/browse";
-import { createImsCatalog, type ImsProduct } from "../lib/catalog/ims-catalog";
-import { productImages, products, sizes } from "../lib/db/schema";
+import { createImsCatalog, databaseCreomsContent, withCreomsContent, type CreomsContent, type ImsProduct } from "../lib/catalog/ims-catalog";
+import { imsPriceChanges, productImages, products, sizes } from "../lib/db/schema";
 import { createTestDatabase } from "./helpers/test-database";
 import { FakeShopStock } from "./helpers/fake-shop-stock";
 
@@ -102,4 +102,96 @@ describe("Storefront catalog from the IMS", () => {
     const offline = createCatalogStore(database, files, new FakeShopStock(), failing);
     expect(await offline.listProducts()).toHaveLength(1);
   });
+});
+
+describe("Storefront catalog with CREOMS's name, price, image and description", () => {
+  const set = (overrides: Partial<CreomsContent> = {}): CreomsContent => ({ productId: 11, name: null, price: 150, imageFileId: "creoms-file", description: "", ...overrides });
+  function creomsShop(feed: { items: ImsProduct[] }, content: { rows: CreomsContent[] }) {
+    const database = drizzle(client);
+    const ims = createImsCatalog(database, withCreomsContent({ read: async () => feed.items }, { read: async () => content.rows }), { pricesDecided: true });
+    const catalog = createCatalogStore(database, files, new FakeShopStock(), ims);
+    return { database, ims, catalog };
+  }
+
+  test("sells at CREOMS's price, name and image, never the IMS ones", async () => {
+    const { catalog } = creomsShop({ items: [jam({ price: 999, image: "ims-file" })] }, { rows: [set({ name: "Ube Jam Extreme" })] });
+    const [product] = await catalog.listProducts();
+    expect(product).toMatchObject({ name: "Ube Jam Extreme", image: "https://images.example/ube-jam-extreme/creoms-file" });
+    expect(product.sizes[0].priceInCentavos).toBe(15000);
+  });
+
+  test("a new product stays off the shop until CREOMS gives it a price and an image, whatever the IMS has", async () => {
+    const content = { rows: [set({ price: null }), set({ productId: 12, imageFileId: null })] };
+    const { catalog } = creomsShop({ items: [jam(), jam({ productId: 12, variant: "500g" })] }, content);
+    expect(await catalog.listProducts()).toEqual([]);
+    content.rows = [set(), set({ productId: 12 })];
+    expect((await catalog.listProducts())[0].sizes.map((size) => size.label).sort()).toEqual(["250g", "500g"]);
+  });
+
+  test("uses the IMS name when CREOMS has none", async () => {
+    const { catalog } = creomsShop({ items: [jam()] }, { rows: [set({ name: "  " })] });
+    expect((await catalog.listProducts())[0].name).toBe("Ube Jam");
+  });
+
+  test("a CREOMS price change goes live at once and clears any old IMS price waiting for approval", async () => {
+    const content = { rows: [set()] };
+    const { database, ims, catalog } = creomsShop({ items: [jam()] }, content);
+    await catalog.listProducts();
+    const [size] = await database.select().from(sizes);
+    await database.insert(imsPriceChanges).values({ sizeId: size.id, oldPriceInCentavos: 15000, newPriceInCentavos: 99900 });
+    content.rows = [set({ price: 175.5 })];
+    expect((await catalog.listProducts())[0].sizes[0].priceInCentavos).toBe(17550);
+    expect(await ims.pendingPriceChanges()).toEqual([]);
+  });
+
+  test("a Size already on sale keeps its price and image while CREOMS has none, and takes CREOMS's new image", async () => {
+    const content = { rows: [] as CreomsContent[] };
+    const { database, catalog } = creomsShop({ items: [jam()] }, content);
+    await database.insert(products).values({ slug: "ube-jam", name: "Ube Jam", description: "Smooth." });
+    await database.insert(productImages).values({ productSlug: "ube-jam", fileId: "old-file", alt: "Jam", position: 0 });
+    await database.insert(sizes).values({ productSlug: "ube-jam", label: "250g", priceInCentavos: 12000, available: true, imsProductId: 11 });
+    const [kept] = await catalog.listProducts();
+    expect(kept).toMatchObject({ image: "https://images.example/ube-jam/old-file" });
+    expect(kept.sizes[0].priceInCentavos).toBe(12000);
+    content.rows = [set({ imageFileId: "new-file" })];
+    const [changed] = await catalog.listProducts();
+    expect(changed).toMatchObject({ image: "https://images.example/ube-jam/new-file" });
+    expect(changed.sizes[0].priceInCentavos).toBe(15000);
+  });
+
+  test("shows CREOMS's description on a new product, and on one already on sale; an empty one keeps the shop's", async () => {
+    const content = { rows: [set({ description: "Thick, slow-cooked ube jam." })] };
+    const { database, catalog } = creomsShop({ items: [jam()] }, content);
+    expect((await catalog.findProduct("ube-jam"))?.description).toBe("Thick, slow-cooked ube jam.");
+    content.rows = [set({ description: "  " })];
+    await catalog.listProducts();
+    expect((await database.select().from(products))[0].description).toBe("Thick, slow-cooked ube jam.");
+    content.rows = [set({ description: "Now with tidbits." })];
+    await catalog.listProducts();
+    expect((await database.select().from(products))[0].description).toBe("Now with tidbits.");
+  });
+
+  test("two Sizes of one product page take the description of the lower IMS id", async () => {
+    const content = { rows: [set({ productId: 12, description: "From 500g" }), set({ description: "From 250g" })] };
+    const { database, catalog } = creomsShop({ items: [jam({ productId: 12, variant: "500g" }), jam()] }, content);
+    await catalog.listProducts();
+    expect((await database.select().from(products))[0].description).toBe("From 250g");
+  });
+
+  test("keeps what the shop has when CREOMS cannot be read", async () => {
+    const database = drizzle(client);
+    const ims = createImsCatalog(database, withCreomsContent({ read: async () => [jam()] }, { read: async () => { throw new Error("crms down"); } }), { pricesDecided: true });
+    expect(await ims.sync()).toBe(false);
+    expect(await database.select().from(sizes)).toEqual([]);
+  });
+});
+
+test("reads CREOMS's name, price and image from crms.product_content", async () => {
+  await client.exec(`create schema if not exists crms; create table crms.product_content (ims_product_id integer primary key, description text not null default '',
+    name text, price numeric(12,2), image_file_id text, image_url text)`);
+  await client.exec(`insert into crms.product_content (ims_product_id, name, price, image_file_id) values (11, 'Ube Jam Extreme', 150.50, 'f1'), (12, null, null, null)`);
+  expect(await databaseCreomsContent(drizzle(client)).read()).toEqual([
+    { productId: 11, name: "Ube Jam Extreme", price: 150.5, imageFileId: "f1", description: "" },
+    { productId: 12, name: null, price: null, imageFileId: null, description: "" },
+  ]);
 });
