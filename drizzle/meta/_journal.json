@@ -477,6 +477,13 @@
       "when": 1798041600000,
       "tag": "0067_order_cancel_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1798128000000,
+      "tag": "0068_return_inspection",
+      "breakpoints": true
     }
   ]
 }

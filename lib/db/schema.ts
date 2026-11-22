@@ -570,10 +570,20 @@ export const orderReturnItems = pgTable("order_return_items", {
   sizeLabel: text("size_label").notNull(),
   quantity: integer("quantity").notNull(),
   priceInCentavos: integer("price_in_centavos").notNull(),
+  /** Staff inspection of the whole line item after Goods received (CREOMS): sellable goes back to IMS stock, damaged is written off. */
+  condition: text("condition", { enum: ["sellable", "damaged"] }),
+  inspectedAt: timestamp("inspected_at", { withTimezone: true }),
+  inspectedById: text("inspected_by_id"),
+  inspectedByName: text("inspected_by_name"),
+  /** CREOMS's inspection reference: repeating it is a no-op. */
+  inspectionId: text("inspection_id"),
+  restockedAt: timestamp("restocked_at", { withTimezone: true }),
+  writtenOffAt: timestamp("written_off_at", { withTimezone: true }),
 }, (table) => [
   primaryKey({ columns: [table.returnId, table.orderLineId] }),
   check("order_return_items_quantity", sql`${table.quantity} > 0`),
   check("order_return_items_price", sql`${table.priceInCentavos} >= 0`),
+  check("order_return_items_condition", sql`${table.condition} in ('sellable', 'damaged')`),
 ]);
 
 /** Ordered references to private, permanent defect images in file storage. */
