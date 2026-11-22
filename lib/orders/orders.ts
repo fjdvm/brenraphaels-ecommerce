@@ -193,6 +193,8 @@ export type AdvanceOrderInput = {
   confirmation?: OrderConfirmation;
   deliveryFeeInCentavos?: number;
   deliveryPhotoFileId?: string;
+  /** The cash collected on a Cash on Delivery Order, saved with the move to delivered; it must equal the Order total. */
+  codCollection?: { amountInCentavos: number; staffId: string; staffName: string };
   courier?: CourierBooking;
   staffId?: string;
   staffName?: string;
@@ -496,6 +498,16 @@ export function createOrderStore<
       if (early) throw new OrderStatusUpdateError(early);
     }
     const deliveryPhotoFileId = input.status === "delivered" ? fileIdField.parse(input.deliveryPhotoFileId) : undefined;
+    const codCollection = input.codCollection;
+    if (codCollection) {
+      if (input.status !== "delivered" || persistedOrder.paymentMethod !== "cash-on-delivery") {
+        throw new OrderStatusUpdateError("Cash collected can only be recorded when a Cash on Delivery Order is delivered.");
+      }
+      const total = persistedOrder.subtotalInCentavos - (persistedOrder.approvedDiscountInCentavos ?? 0) + (persistedOrder.deliveryFeeInCentavos ?? 0);
+      if (codCollection.amountInCentavos !== total) {
+        throw new OrderStatusUpdateError("The collected amount must equal the Order total. Refresh the Order before trying again.");
+      }
+    }
     if (
       input.deliveryFeeInCentavos !== undefined
       && (input.status !== "confirmed" || persistedOrder.fulfillmentMethod !== "delivery")
@@ -573,6 +585,10 @@ export function createOrderStore<
             riderName: courier.riderName || null, riderPlate: courier.riderPlate || null, riderPhone: courier.riderPhone || null,
           } : {}),
           ...(input.status === "delivered" ? { deliveredAt: new Date(), deliveryPhotoFileId } : {}),
+          ...(codCollection ? {
+            codCollectedAmountInCentavos: codCollection.amountInCentavos, codCollectedAt: new Date(),
+            codCollectedById: codCollection.staffId, codCollectedByName: codCollection.staffName,
+          } : {}),
           ...(input.status === "collected" ? { collectedAt: new Date() } : {}),
           ...(input.status === "cancelled" && input.cancelReason ? { cancelReason: input.cancelReason } : {}),
           ...(input.deliveryFeeInCentavos === undefined

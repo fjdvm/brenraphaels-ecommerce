@@ -29,6 +29,8 @@ const statusUpdate = z.discriminatedUnion("status", [
     status: z.literal("delivered"),
     deliveryPhotoFileId: fileIdField,
     deliveryFeeInCentavos: z.number().int().nonnegative().optional(),
+    /** The cash Staff collected on a Cash on Delivery Order, saved with the move (epic-crms#601). */
+    codCollection: z.object({ amountInCentavos: z.number().int().nonnegative(), ...staffAttribution.shape }).strict().optional(),
     staffId: z.unknown().optional(),
     staffName: z.unknown().optional(),
   }).strict(),
@@ -70,6 +72,7 @@ export function parseInternalOrderStatusUpdate(payload: unknown) {
     status: update.status,
     deliveryPhotoFileId: update.deliveryPhotoFileId,
     ...(update.deliveryFeeInCentavos === undefined ? {} : { deliveryFeeInCentavos: update.deliveryFeeInCentavos }),
+    ...(update.codCollection === undefined ? {} : { codCollection: update.codCollection }),
   };
   return {
     status: update.status,

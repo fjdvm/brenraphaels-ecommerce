@@ -211,3 +211,40 @@ test("a failed Notification does not prevent a later pending Notification being 
   });
   expect(await (await retry()).json()).toEqual({ sent: 1, emailsSent: 0 });
 });
+
+const cod = (amountInCentavos: number) => ({ status: "delivered", deliveryPhotoFileId: "photo-1", codCollection: { amountInCentavos, staffId: "ana", staffName: "Ana Cruz" } });
+const collected = async () => (await db.select({
+  amount: orders.codCollectedAmountInCentavos, at: orders.codCollectedAt, byId: orders.codCollectedById, byName: orders.codCollectedByName,
+}).from(orders))[0];
+
+test("saves the cash collected with a Cash on Delivery Order's delivery (epic-crms#601)", async () => {
+  await db.update(orders).set({ deliveryFeeInCentavos: 5000, approvedDiscountInCentavos: 1000 });
+  const response = await call(cod(14000));
+  expect(response.status).toBe(200);
+  expect(await persisted()).toMatchObject({ status: "delivered", codCollected: { amountInCentavos: 14000 } });
+  expect(await collected()).toMatchObject({ amount: 14000, at: expect.any(Date), byId: "ana", byName: "Ana Cruz" });
+});
+
+test.each([
+  ["a wrong amount", "cash-on-delivery", 9999, "The collected amount must equal the Order total."],
+  ["a prepaid Order", "gcash", 10000, "Cash collected can only be recorded when a Cash on Delivery Order is delivered."],
+])("refuses cash collected for %s and keeps neither the delivery nor the collection", async (_case, paymentMethod, amount, message) => {
+  await db.update(orders).set({ paymentMethod });
+  const response = await call(cod(amount));
+  expect(response.status).toBe(409);
+  expect((await response.json()).error).toContain(message);
+  expect(await persisted()).toMatchObject({ status: "dispatched", deliveryPhotoFileId: null });
+  expect(await collected()).toEqual({ amount: null, at: null, byId: null, byName: null });
+  expect(mocks.email).not.toHaveBeenCalled();
+});
+
+test.each([
+  [{ ...cod(10000), codCollection: { amountInCentavos: 10000, staffId: "ana" } }, "Staff name"],
+  [{ ...cod(10000), codCollection: { amountInCentavos: 10000, staffId: "ana", staffName: "Ana", extra: 1 } }, "Unrecognized key"],
+  [{ status: "dispatched", codCollection: { amountInCentavos: 10000, staffId: "ana", staffName: "Ana" } }, "Unrecognized key"],
+])("refuses a malformed cash collection: %j", async (body, message) => {
+  const response = await call(body);
+  expect(response.status).toBe(400);
+  expect((await response.json()).error).toContain(message);
+  expect(await collected()).toEqual({ amount: null, at: null, byId: null, byName: null });
+});
