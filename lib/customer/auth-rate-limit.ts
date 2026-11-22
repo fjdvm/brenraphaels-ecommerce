@@ -8,7 +8,7 @@ const windowMs = 10 * 60 * 1_000;
 export const authRateLimitMessage =
   "Too many attempts. Please try again in 10 minutes.";
 
-type AuthAction = "sign-up" | "forgot-password" | "resend-verification";
+type AuthAction = "sign-up" | "forgot-password" | "resend-verification" | "senior-pwd-id";
 const attempts = new Map<string, { count: number; expiresAt: number }>();
 
 export async function allowAuthAttempt(action: AuthAction): Promise<boolean> {

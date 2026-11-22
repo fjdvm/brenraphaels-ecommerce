@@ -18,7 +18,10 @@ import {
 import { customerSignUpSchema, signUpFormValues } from "@/lib/customer/sign-up-schema";
 import { sendWelcomeEmail } from "@/lib/email/welcome-email";
 import { writeAuditEvent } from "@/lib/audit/gateway";
-import { applicationProblem, parseSeniorPwdForm, submitSeniorPwdApplication, type SeniorPwdApplication } from "@/lib/senior-pwd/application";
+import {
+  applicationProblem, idInUseMessage, parseSeniorPwdForm, submitSeniorPwdApplication, type SeniorPwdApplication,
+} from "@/lib/senior-pwd/application";
+import { idNumberInUse } from "@/lib/senior-pwd/store";
 import { gatewayTicketFiles } from "@/lib/support/ticket-files";
 import { getDatabase } from "@/lib/db";
 import { removeNeonLogin } from "@/lib/neon-auth/management";
@@ -31,6 +34,8 @@ export type SignUpResult = {
   /** A failure that belongs to no single field, such as Neon Auth being unavailable. */
   formError?: string;
   fieldErrors?: Record<string, string[] | undefined>;
+  /** Shown as a toast as well as beside its field, such as an ID already used by another account. */
+  toastError?: string;
 };
 
 export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
@@ -58,6 +63,12 @@ export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
     return { fieldErrors: seniorPwd.fieldErrors };
   }
 
+  // An ID already used by another account refuses the sign-up before the login is made. The lock in submitVerification
+  // still catches two sign-ups racing for the same number; that rare loser gets the notice instead.
+  if (seniorPwd.application && (await idNumberFree(seniorPwd.application.idNumber)) === false) {
+    return { fieldErrors: { idNumber: [idInUseMessage] }, toastError: idInUseMessage };
+  }
+
   try {
     const result = await signUpCustomer(parsed.data, {
       auth: neonAuth,
@@ -83,6 +94,16 @@ export async function submitSignUp(formData: FormData): Promise<SignUpResult> {
       redirect("/complete-profile");
     }
     throw error;
+  }
+}
+
+/** False when the number is pending or approved on another account; undefined when it could not be checked. */
+async function idNumberFree(idNumber: string): Promise<boolean | undefined> {
+  try {
+    return !(await idNumberInUse(getDatabase(), idNumber));
+  } catch (error) {
+    console.error("A sign-up Senior/PWD ID number could not be checked", error instanceof Error ? error.message : "unknown");
+    return undefined;
   }
 }
 

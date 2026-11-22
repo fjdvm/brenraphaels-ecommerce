@@ -205,9 +205,17 @@ export const seniorPwdVerifications = pgTable("senior_pwd_verifications", {
    * clash ever got past the check. CREOMS cannot read `idHash`, so this is how Staff learn the number was used before.
    */
   sameIdAsVerificationId: integer("same_id_as_verification_id"),
+  /**
+   * How the number the browser read off the photo compared with the number the Customer sent: "matched", "differs" or
+   * "unread". Neither number is kept; CREOMS flags "differs" for Staff.
+   */
+  idNumberRead: text("id_number_read"),
+  /** The account's full name when the ID was approved, kept beside the hash. */
+  verifiedName: text("verified_name"),
 }, (table) => [
   index("senior_pwd_verifications_customer").on(table.customerId),
   index("senior_pwd_verifications_hash").on(table.idHash),
+  check("senior_pwd_verifications_id_number_read", sql`${table.idNumberRead} in ('matched', 'differs', 'unread')`),
 ]);
 
 export const orders = pgTable("orders", {

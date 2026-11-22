@@ -15,6 +15,8 @@ import {
   authLinkClass,
 } from "@/components/features/auth/auth-card";
 import { SeniorPwdFields } from "@/components/features/auth/senior-pwd-fields";
+import { showErrorToast } from "@/components/shared/storefront-toast";
+import { checkSeniorPwdIdNumber } from "@/lib/senior-pwd/check-id-action";
 import { Button } from "@/components/ui/button";
 import {
   DeliveryFields,
@@ -63,7 +65,9 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState<string>();
   const [pending, startTransition] = useTransition();
+  const [checkingId, startIdCheck] = useTransition();
   const lastStep = signUpSteps.length - 1;
+  const seniorPwdStep = signUpSteps.findIndex((candidate) => candidate.fields.includes("idNumber"));
 
   function goToStep(next: number) {
     setStep(next);
@@ -94,6 +98,19 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
     if (Object.keys(stepErrors).length > 0) {
       return;
     }
+    if (step === seniorPwdStep && formData.get("seniorPwd") === "yes") {
+      // An ID already used by another account stops sign-up here, before any login is made.
+      startIdCheck(async () => {
+        const check = await checkSeniorPwdIdNumber(String(formData.get("idNumber") ?? ""));
+        if (!check.ok) {
+          showErrorToast(check.message);
+          if (check.field) setErrors({ [check.field]: [check.message] });
+          return;
+        }
+        goToStep(step + 1);
+      });
+      return;
+    }
     if (step < lastStep) {
       goToStep(step + 1);
       return;
@@ -112,6 +129,7 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
         return;
       }
 
+      if (outcome.toastError) showErrorToast(outcome.toastError);
       const fieldErrors = outcome.fieldErrors ?? {};
       setErrors(fieldErrors);
       const failedStep = signUpSteps.findIndex((candidate) =>
@@ -212,7 +230,7 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
               type="button"
               variant="pill-outline"
               size="pill-lg"
-              disabled={pending}
+              disabled={pending || checkingId}
               onClick={() => {
                 setErrors({});
                 goToStep(step - 1);
@@ -221,9 +239,9 @@ export function SignUpForm({ provinces }: { provinces: string[] }) {
               Back
             </Button>
           ) : null}
-          <Button variant="pill" size="pill-lg" className="flex-1" disabled={pending} type="submit">
-            {step < lastStep ? "Continue" : pending ? "Creating your login…" : "Sign up"}
-            {pending ? null : <ArrowRight aria-hidden className="size-5" />}
+          <Button variant="pill" size="pill-lg" className="flex-1" disabled={pending || checkingId} type="submit">
+            {checkingId ? "Checking your ID…" : step < lastStep ? "Continue" : pending ? "Creating your login…" : "Sign up"}
+            {pending || checkingId ? null : <ArrowRight aria-hidden className="size-5" />}
           </Button>
         </div>
       </form>

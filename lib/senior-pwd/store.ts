@@ -51,6 +51,31 @@ export async function activeVerification(db: Db, customerId: string, now = new D
   return latest?.status === "approved" ? latest : null;
 }
 
+/** Whether the number may be sent for review: pending or approved on another account means it is in use. */
+async function takenElsewhere(db: Db, idHash: string, customerId: string | undefined) {
+  const [taken] = await db.select({ id: seniorPwdVerifications.id }).from(seniorPwdVerifications)
+    .where(and(eq(seniorPwdVerifications.idHash, idHash), inArray(seniorPwdVerifications.status, ["pending", "approved"]),
+      customerId === undefined ? undefined : ne(seniorPwdVerifications.customerId, customerId))).limit(1);
+  return Boolean(taken);
+}
+
+/**
+ * Whether this ID number is already used by another account (pending or approved), checked before anything is uploaded or
+ * any account is made. `customerId` is the signed-in Customer, whose own ID never counts against them; undefined at sign-up.
+ * `submitVerification` checks again under a lock, so this is a courtesy, not the guard.
+ */
+export async function idNumberInUse(db: Db, idNumber: string, customerId?: string): Promise<boolean> {
+  return takenElsewhere(db, hashIdNumber(idNumber), customerId);
+}
+
+/** How the number the browser read off the photo compares with the one sent. Only this outcome is kept, never either number. */
+export type IdNumberRead = "matched" | "differs" | "unread";
+
+export function compareIdNumberRead(idHash: string, idNumberRead: string | undefined): IdNumberRead {
+  if (!idNumberRead?.trim()) return "unread";
+  return hashIdNumber(idNumberRead) === idHash ? "matched" : "differs";
+}
+
 /**
  * Records the Customer's ID for review. The number is hashed here and never kept. A number pending or approved on another
  * account is refused; one last seen declined, revoked or expired is accepted but flagged (`sameIdAsVerificationId`).
@@ -58,17 +83,14 @@ export async function activeVerification(db: Db, customerId: string, now = new D
 export async function submitVerification(
   db: Db,
   customerId: string,
-  input: { idType: IdType; idNumber: string; photoFileId: string; photoBackFileId?: string },
+  input: { idType: IdType; idNumber: string; idNumberRead?: string; photoFileId: string; photoBackFileId?: string },
   now = new Date(),
 ): Promise<number> {
   const idHash = hashIdNumber(input.idNumber);
   // One submission of this number at a time, so two accounts sending it together cannot both pass the check below.
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${idHash}))`);
-    const [taken] = await tx.select({ id: seniorPwdVerifications.id }).from(seniorPwdVerifications)
-      .where(and(eq(seniorPwdVerifications.idHash, idHash), ne(seniorPwdVerifications.customerId, customerId),
-        inArray(seniorPwdVerifications.status, ["pending", "approved"]))).limit(1);
-    if (taken) throw new SeniorPwdConflict("This ID is already used on another account.");
+    if (await takenElsewhere(tx, idHash, customerId)) throw new SeniorPwdConflict("This ID is already used by another account.");
     // A number last seen on another account (declined, revoked, expired) is accepted but flagged, so Staff can tell.
     const [before] = await tx.select({ id: seniorPwdVerifications.id }).from(seniorPwdVerifications)
       .where(and(eq(seniorPwdVerifications.idHash, idHash), ne(seniorPwdVerifications.customerId, customerId)))
@@ -76,6 +98,7 @@ export async function submitVerification(
     const [row] = await tx.insert(seniorPwdVerifications).values({
       customerId, idType: input.idType, idHash, photoFileId: input.photoFileId,
       photoBackFileId: input.photoBackFileId ?? null, submittedAt: now, sameIdAsVerificationId: before?.id ?? null,
+      idNumberRead: compareIdNumberRead(idHash, input.idNumberRead),
     }).returning({ id: seniorPwdVerifications.id });
     return row.id;
   });
@@ -122,14 +145,17 @@ export async function decideVerification(db: Db & { transaction: Db["transaction
     }
     const status = { approve: "approved", decline: "declined", revoke: "revoked" }[decision.action];
     const expiresOn = decision.action === "approve" ? decision.expiresOn! : row.expiresOn;
+    const [customer] = await tx.select({ email: customers.email, firstName: customers.firstName, fullName: customers.fullName })
+      .from(customers).where(eq(customers.id, row.customerId));
     await tx.update(seniorPwdVerifications).set({
       status, photoFileId: null, photoBackFileId: null, decidedAt: now, decidedById: decision.staffId, decidedByName: decision.staffName,
       declineReason: decision.action === "approve" ? null : reason, expiresOn,
+      // The name the ID was verified under, kept beside the hash so the record holds even if the account is renamed.
+      ...(decision.action === "approve" ? { verifiedName: customer?.fullName ?? null } : {}),
     }).where(eq(seniorPwdVerifications.id, id));
-    const [customer] = await tx.select({ email: customers.email, firstName: customers.firstName }).from(customers)
-      .where(eq(customers.id, row.customerId));
     return {
-      id, status, expiresOn, reason: decision.action === "approve" ? null : reason, customer,
+      id, status, expiresOn, reason: decision.action === "approve" ? null : reason,
+      customer: { email: customer.email, firstName: customer.firstName },
       filesToDelete: [row.photoFileId, row.photoBackFileId].filter((file): file is string => file !== null),
     };
   });

@@ -1,3 +1,4 @@
+import { scheduleStaffSignal } from "../notifications/staff-signal";
 import { cleanFileName } from "../validators/sanitize";
 import type { TicketFiles } from "../support/ticket-files";
 import type { SeniorPwdApplication } from "./application-schema";
@@ -38,7 +39,11 @@ export async function submitSeniorPwdApplication(
   try {
     const photoFileId = await store(application.front);
     const photoBackFileId = application.back ? await store(application.back) : undefined;
-    await submitVerification(db, customerId, { idType: application.idType, idNumber: application.idNumber, photoFileId, photoBackFileId });
+    await submitVerification(db, customerId, {
+      idType: application.idType, idNumber: application.idNumber, idNumberRead: application.idNumberRead, photoFileId, photoBackFileId,
+    });
+    // Tells CREOMS at once, so Staff get the alert and its ID reader starts while the photo is still there.
+    scheduleStaffSignal("Customer");
     return { status: "submitted" };
   } catch (error) {
     // Nothing was kept for review, so the photos must not linger.
@@ -49,9 +54,12 @@ export async function submitSeniorPwdApplication(
   }
 }
 
+/** Said (as a toast) whenever the ID number is pending or approved on another account. */
+export const idInUseMessage = "This ID is already used by another account.";
+
 /** The sentence to show a Customer whose ID could not be sent, or undefined when it was sent or needed no sending. */
 export function applicationProblem(outcome: SeniorPwdSubmitOutcome): string | undefined {
-  if (outcome.status === "id-in-use") return "That ID is already used on another account, so we couldn't send it for review.";
+  if (outcome.status === "id-in-use") return idInUseMessage;
   if (outcome.status === "failed") return "We couldn't send your ID for review right now.";
   return undefined;
 }

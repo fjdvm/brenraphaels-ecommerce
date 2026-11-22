@@ -53,7 +53,14 @@ export function seniorPwdFormValues(formData: FormData) {
 }
 
 /** What the Customer sent for their ID, ready to store; undefined when they said they are not a Senior Citizen or PWD. */
-export type SeniorPwdApplication = { idType: IdType; idNumber: string; front: File; back?: File };
+export type SeniorPwdApplication = {
+  idType: IdType;
+  idNumber: string;
+  /** What the browser read off the photo, if anything; only compared with `idNumber` on the server, never kept. */
+  idNumberRead?: string;
+  front: File;
+  back?: File;
+};
 
 export type ParsedApplication =
   | { ok: true; application?: SeniorPwdApplication }
@@ -70,9 +77,16 @@ export function parseSeniorPwdForm(formData: FormData, options: { required?: boo
     application: {
       idType: values.idType as IdType,
       idNumber: String(values.idNumber),
+      idNumberRead: readNumber(formData.get("idNumberRead")),
       front: values.idFront as File,
       back: present(values.idBack) ? values.idBack : undefined,
     },
   };
 }
 
+
+/** The browser's reading, kept only if it looks like an ID number at all. */
+function readNumber(value: FormDataEntryValue | null): string | undefined {
+  if (typeof value !== "string") return undefined;
+  return idNumberField.safeParse(value).success ? value : undefined;
+}
