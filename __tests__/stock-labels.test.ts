@@ -5,6 +5,7 @@ import { FakeShopStock } from "./helpers/fake-shop-stock";
 import { customers, products, productImages, sizes } from "../lib/db/schema";
 import { createCatalogStore } from "../lib/catalog/catalog";
 import { stockLabel } from "../lib/catalog/stock-label";
+import { shopStockCount } from "../lib/catalog/stock-count";
 import { createCartStore } from "../lib/orders/cart";
 
 const clients: Awaited<ReturnType<typeof createTestDatabase>>[] = [];
@@ -37,7 +38,7 @@ test("the shop and product page read what is left from the IMS and hide a Size w
   const { db, stock, jar, tub } = await fixture();
   stock.available.set(stock.productForSize(jar.id), 7);
   stock.available.set(stock.productForSize(tub.id), 0);
-  const store = createCatalogStore(db, files, stock);
+  const store = createCatalogStore(db, files, shopStockCount(stock));
   const [listed] = await store.listProducts();
   expect(listed.sizes.map(({ label, available, left }) => ({ label, available, left }))).toEqual([
     { label: "250g", available: true, left: 7 },
@@ -52,16 +53,17 @@ test("a Product with every Size sold out leaves the shop and its page is not fou
   const { db, stock, jar, tub } = await fixture();
   stock.available.set(stock.productForSize(jar.id), 0);
   stock.available.set(stock.productForSize(tub.id), 0);
-  const store = createCatalogStore(db, files, stock);
+  const store = createCatalogStore(db, files, shopStockCount(stock));
   await expect(store.listProducts()).resolves.toEqual([]);
   await expect(store.findProduct("ube")).resolves.toBeUndefined();
 });
 
-test("when the IMS cannot be read the shop claims nothing about stock", async () => {
+test("when the stock count is unknown the shop does not list the Size", async () => {
   const { db, stock } = await fixture();
   stock.unavailable = true;
-  const [listed] = await createCatalogStore(db, files, stock).listProducts();
-  expect(listed.sizes.every(({ available, left }) => available && left === null)).toBe(true);
+  const store = createCatalogStore(db, files, shopStockCount(stock));
+  await expect(store.listProducts()).resolves.toEqual([]);
+  await expect(store.findProduct("ube")).resolves.toBeUndefined();
 });
 
 test("the Cart blocks a line with none left, or more than is left, and says why", async () => {

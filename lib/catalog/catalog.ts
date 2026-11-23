@@ -2,8 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { productImages, products, sizes } from "../db/schema";
-import { readStockLeft } from "./stock-labels";
-import { gatewayShopStock, type ShopStock } from "../orders/stock";
+import { databaseStockCount, type StockCountReader } from "./stock-count";
 import { createImsCatalog, databaseCreomsContent, gatewayImsCatalog, syncOnce, withCreomsContent } from "./ims-catalog";
 import { gatewayProductImages, resolveProductImage, type ProductImageFiles } from "./product-images";
 
@@ -45,18 +44,18 @@ export function imsCatalogSync(db: PgDatabase<any, any>) {
 export function createCatalogStore<
   TQueryResult extends PgQueryResultHKT,
   TSchema extends Record<string, unknown>,
->(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages(), stock: ShopStock = gatewayShopStock(), sync: { sync(): Promise<boolean> } | undefined = imsCatalogSync(db)): CatalogStore {
+>(db: PgDatabase<TQueryResult, TSchema>, files: ProductImageFiles = gatewayProductImages(), count: StockCountReader = databaseStockCount(db), sync: { sync(): Promise<boolean> } | undefined = imsCatalogSync(db)): CatalogStore {
   /** An image with no File id has nothing to show; next/image rejects an empty src. */
   async function resolvedImages(images: { productSlug: string; fileId: string | null; url: string | null; alt: string }[]) {
     const resolved = await Promise.all(images.map(async (image) => ({ url: await resolveProductImage(image, files), alt: image.alt })));
     return resolved.filter((image): image is { url: string; alt: string } => image.url !== null);
   }
-  /** A Size with none left is sold out even if its flag says otherwise. */
+  /** A Size is for sale only while CREOMS's stock count has some left; an unknown count is not for sale. */
   function withStock<T extends { id: number; available: boolean }>(size: T, left: Map<number, number | null>) {
     const remaining = left.get(size.id) ?? null;
-    return { ...size, available: size.available && remaining !== 0, left: remaining };
+    return { ...size, available: size.available && remaining !== null && remaining > 0, left: remaining };
   }
-  /** Only the Sizes the shop can sell; an unread IMS count (null) hides nothing. */
+  /** Only the Sizes the shop can sell, exactly what CREOMS's In store tab shows with stock above zero. */
   function inStock<T extends { id: number; available: boolean }>(productSizes: T[], left: Map<number, number | null>) {
     return productSizes.map((size) => withStock(size, left)).filter((size) => size.available);
   }
@@ -79,7 +78,7 @@ export function createCatalogStore<
           .orderBy(asc(sizes.priceInCentavos)),
       ]);
 
-      const left = await readStockLeft(allSizes.map(({ id }) => id), stock);
+      const left = await count.left(allSizes.map(({ id }) => id));
       const listed = await Promise.all(allProducts.map(async (product) => {
         const image = allImages.find(({ productSlug }) => productSlug === product.slug);
         // Sold-out Sizes are not shown, and a Product with nothing left to sell leaves the shop.
@@ -125,7 +124,7 @@ export function createCatalogStore<
       // A discontinued product has left the shop.
       if (productSizes.length === 0 && (await db.select({ id: sizes.id }).from(sizes).where(eq(sizes.productSlug, slug))).length > 0) return undefined;
 
-      const left = await readStockLeft(productSizes.map(({ id }) => id), stock);
+      const left = await count.left(productSizes.map(({ id }) => id));
       // A sold-out Product is not found, like a discontinued one; a sold-out Size is not shown.
       const forSale = inStock(productSizes, left);
       if (forSale.length === 0) return undefined;

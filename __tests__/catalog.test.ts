@@ -7,6 +7,9 @@ import { createCatalogStore } from "../lib/catalog/catalog";
 import { formatPeso } from "../lib/catalog/currency";
 import { createTestDatabase } from "./helpers/test-database";
 
+/** Every Size has plenty left in CREOMS's stock count. */
+const plenty = { left: async (ids: number[]) => new Map(ids.map((id) => [id, 50] as [number, number | null])) };
+
 let client: PGlite;
 const shopFiles = { publicUrl: async (slug: string, id: string) => `https://images.example/${slug}/${id}` };
 
@@ -27,7 +30,7 @@ describe("Catalog", () => {
     });
     await database.insert(sizes).values({ productSlug: "ube-jam", label: "250g", priceInCentavos: 21900, available: true });
     const files = { publicUrl: async () => "https://images.example/jam-file/original" };
-    const product = await createCatalogStore(database, files).findProduct("ube-jam");
+    const product = await createCatalogStore(database, files, plenty).findProduct("ube-jam");
     expect(product?.images).toEqual([{ url: "https://images.example/jam-file/original", alt: "Jam" }]);
   });
 
@@ -69,7 +72,7 @@ describe("Catalog", () => {
       },
     ]);
 
-    await expect(createCatalogStore(database, shopFiles).listProducts()).resolves.toEqual([
+    await expect(createCatalogStore(database, shopFiles, plenty).listProducts()).resolves.toEqual([
       {
         slug: "ube-jam-smooth",
         name: "Ube Jam Smooth",
@@ -77,8 +80,8 @@ describe("Catalog", () => {
         lowestPriceInCentavos: 21900,
         highestPriceInCentavos: 32900,
         sizes: [
-          { id: expect.any(Number), label: "200g", priceInCentavos: 21900, available: true, left: null },
-          { id: expect.any(Number), label: "350g", priceInCentavos: 32900, available: true, left: null },
+          { id: expect.any(Number), label: "200g", priceInCentavos: 21900, available: true, left: 50 },
+          { id: expect.any(Number), label: "350g", priceInCentavos: 32900, available: true, left: 50 },
         ],
       },
     ]);
@@ -103,7 +106,7 @@ describe("Catalog", () => {
     ]);
 
     await expect(
-      createCatalogStore(database, shopFiles).findProduct("ube-powder-120-mesh"),
+      createCatalogStore(database, shopFiles, plenty).findProduct("ube-powder-120-mesh"),
     ).resolves.toEqual({
       slug: "ube-powder-120-mesh",
       name: "120 Mesh Ube Powder",
@@ -114,7 +117,7 @@ describe("Catalog", () => {
           alt: "A pouch of 120 mesh ube powder",
         },
       ],
-      sizes: [{ id: expect.any(Number), label: "100g", priceInCentavos: 21900, available: true, left: null }],
+      sizes: [{ id: expect.any(Number), label: "100g", priceInCentavos: 21900, available: true, left: 50 }],
     });
   });
 
@@ -124,7 +127,7 @@ describe("Catalog", () => {
     await database.insert(productImages).values({ productSlug: "ube-halaya", fileId: "halaya-file", alt: "Halaya", position: 0 });
     await database.insert(sizes).values({ productSlug: "ube-halaya", label: "250g", priceInCentavos: 19900, available: false });
 
-    const store = createCatalogStore(database, shopFiles);
+    const store = createCatalogStore(database, shopFiles, plenty);
     await expect(store.listProducts()).resolves.toEqual([]);
     await expect(store.findProduct("ube-halaya")).resolves.toBeUndefined();
   });
