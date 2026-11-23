@@ -1,3 +1,4 @@
+import { shopStockCount } from "../lib/catalog/stock-count";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { eq } from "drizzle-orm";
@@ -19,7 +20,7 @@ const jam = (overrides: Partial<ImsProduct> = {}): ImsProduct => ({ productId: 1
 function shop(feed: { items: ImsProduct[] }) {
   const database = drizzle(client);
   const ims = createImsCatalog(database, { read: async () => feed.items });
-  const catalog = createCatalogStore(database, files, new FakeShopStock(), ims);
+  const catalog = createCatalogStore(database, files, shopStockCount(new FakeShopStock()), ims);
   return { database, ims, catalog };
 }
 
@@ -97,9 +98,9 @@ describe("Storefront catalog from the IMS", () => {
   test("when the IMS cannot be reached the shop keeps what it has", async () => {
     const database = drizzle(client);
     const failing = createImsCatalog(database, { read: async () => { throw new Error("offline"); } });
-    const first = createCatalogStore(database, files, new FakeShopStock(), createImsCatalog(database, { read: async () => [jam()] }));
+    const first = createCatalogStore(database, files, shopStockCount(new FakeShopStock()), createImsCatalog(database, { read: async () => [jam()] }));
     await first.listProducts();
-    const offline = createCatalogStore(database, files, new FakeShopStock(), failing);
+    const offline = createCatalogStore(database, files, shopStockCount(new FakeShopStock()), failing);
     expect(await offline.listProducts()).toHaveLength(1);
   });
 });
@@ -109,7 +110,7 @@ describe("Storefront catalog with CREOMS's name, price, image and description", 
   function creomsShop(feed: { items: ImsProduct[] }, content: { rows: CreomsContent[] }) {
     const database = drizzle(client);
     const ims = createImsCatalog(database, withCreomsContent({ read: async () => feed.items }, { read: async () => content.rows }), { pricesDecided: true });
-    const catalog = createCatalogStore(database, files, new FakeShopStock(), ims);
+    const catalog = createCatalogStore(database, files, shopStockCount(new FakeShopStock()), ims);
     return { database, ims, catalog };
   }
 

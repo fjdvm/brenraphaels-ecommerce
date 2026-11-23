@@ -13,6 +13,9 @@ import { gatewayProductImages, refreshProductImages } from "../lib/catalog/produ
 import { products, productImages, sizes } from "../lib/db/schema";
 import { createTestDatabase } from "./helpers/test-database";
 
+/** Every Size has plenty left in CREOMS's stock count. */
+const plenty = { left: async (ids: number[]) => new Map(ids.map((id) => [id, 50] as [number, number | null])) };
+
 let client: PGlite;
 let cache: IncrementalCache;
 const slug = `jam-${randomUUID()}`;
@@ -70,7 +73,7 @@ test("product reads share cached public addresses across stores; refreshing one 
   let publicOrigin = "https://images.example";
   const read = () => createCatalogStore(database, gatewayProductImages({
     baseUrl: "https://gateway.example/", callerKey: "test-key", publicOrigin, fetch: send,
-  }));
+  }), plenty);
   expect((await read().findProduct(slug))?.images).toEqual([{ url: `https://images.example/${slug}/original`, alt: "Jam" }]);
   await read().findProduct(slug);
   const listed = await read().listProducts();
@@ -101,7 +104,7 @@ test("a row without a File id shows no image, never its retained Blob address, a
   ]);
   await database.insert(sizes).values({ productSlug: slug, label: "250g", priceInCentavos: 21900, available: true });
   const send = vi.fn<typeof fetch>();
-  const store = createCatalogStore(database, gatewayProductImages({ baseUrl: "", callerKey: "", publicOrigin: "", fetch: send }));
+  const store = createCatalogStore(database, gatewayProductImages({ baseUrl: "", callerKey: "", publicOrigin: "", fetch: send }), plenty);
   expect((await store.findProduct(slug))?.images).toEqual([]);
   expect(send).not.toHaveBeenCalled();
 });
@@ -117,7 +120,7 @@ test("a refused resolution is retried, and a Private address is never exposed as
     .mockResolvedValueOnce(Response.json({ status: "active", visibility: "public", retentionType: "permanent", contentType: "image/jpeg", url: "https://bucket.r2.dev/private-file/original" }));
   const store = createCatalogStore(database, gatewayProductImages({
     baseUrl: "https://gateway.example", callerKey: "test-key", publicOrigin: "https://images.example", fetch: send,
-  }));
+  }), plenty);
   await expect(store.findProduct(slug)).rejects.toThrow("503");
   await expect(store.findProduct(slug)).rejects.toThrow("Public");
   expect((await store.findProduct(slug))?.images[0].url).toBe("https://images.example/private-file/original");
