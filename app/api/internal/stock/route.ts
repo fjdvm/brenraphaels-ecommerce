@@ -19,13 +19,13 @@ export async function GET(request: Request) {
   const noStock = { quantity: null, reserved: null, available: null };
   const noCache = { "Cache-Control": "no-store" };
 
-  // By IMS product id: the Stock page lists the IMS's own items, with the numbers the IMS Finished Goods tab shows.
+  // By IMS product id: the Stock page lists the IMS's own items, with what the shop can sell of each from the shop Warehouse.
   if (params.has("productIds")) {
     if (params.has("sizeIds")) return bad("Ask for Sizes or products, not both.");
     const ids = parse("productIds");
     if (!valid(ids)) return bad("Ask for between 1 and 200 product ids.");
     const wanted = [...new Set(ids)];
-    // One read of the IMS Finished Goods figures; if it fails, every product is unknown rather than guessed.
+    // One read of the IMS figures (the same rule as checkout); if it fails, every product is unknown rather than guessed.
     const found = await readProductInventory(wanted).catch(() => new Map<number, SizeStock>());
     const products = wanted.map((productId) => ({ productId, ...(found.get(productId) ?? noStock) }));
     return Response.json({ products }, { headers: noCache });
