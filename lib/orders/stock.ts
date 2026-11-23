@@ -79,8 +79,8 @@ export async function readProductStock(productId: number, fetcher: typeof fetch 
 }
 
 /**
- * The IMS Finished Goods tab's stock per Size, for CREOMS's Stock page, in one read. A product the IMS does not
- * answer for is left out of the map. Checkout never uses this; it keeps the shop Warehouse rule in readProductStock.
+ * What the shop can sell of each Size from the shop Warehouse, for CREOMS's Stock page, in one read. The IMS answers it by
+ * the same rule as readProductStock, which checkout uses. A product the IMS does not answer for is left out of the map.
  */
 export async function readProductInventory(productIds: number[], fetcher: typeof fetch = fetch): Promise<Map<number, SizeStock>> {
   try {
