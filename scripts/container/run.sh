@@ -24,7 +24,11 @@ DATABASE_URL_UNPOOLED="postgresql://smoke:smoke@127.0.0.1:$port/storefront" npm 
 docker exec -i "$database" psql -U smoke -d storefront -v ON_ERROR_STOP=1 <<'SQL'
 INSERT INTO products (slug, name, description) VALUES ('smoke-ube', 'Container Smoke Ube', 'Disposable smoke fixture');
 INSERT INTO product_images (product_slug, file_id, alt, position) VALUES ('smoke-ube', 'smoke-ube', 'Smoke Ube', 0);
-INSERT INTO sizes (product_slug, label, price_in_centavos, available) VALUES ('smoke-ube', '250g', 15000, true);
+INSERT INTO sizes (product_slug, label, price_in_centavos, available, ims_product_id) VALUES ('smoke-ube', '250g', 15000, true, 9001);
+-- The shop lists a Size only while CREOMS's stock count has some left (CREOMS owns crms.stock_count in production).
+CREATE SCHEMA IF NOT EXISTS crms;
+CREATE TABLE IF NOT EXISTS crms.stock_count (ims_product_id integer PRIMARY KEY, quantity integer, reserved integer, available integer);
+INSERT INTO crms.stock_count VALUES (9001, 20, 0, 20);
 SQL
 docker run -d --name "$gateway" --network "$network" \
   -v "$PWD/scripts/container/gateway-fixture.mjs:/fixture.mjs:ro" \
