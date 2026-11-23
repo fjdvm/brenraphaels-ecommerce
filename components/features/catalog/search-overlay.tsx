@@ -60,8 +60,7 @@ function writeRecent(items: string[]) {
 
 export function StockLabelPill({ result }: { result: SearchResult }) {
   if (!result.stock) return null;
-  const tone = result.stock.kind === "sold-out" ? "bg-surface text-muted" : "bg-warning-soft text-warning";
-  return <span className={`rounded-full px-3 py-1 text-xs tracking-wide ${tone}`}>{result.stock.text}</span>;
+  return <span className="rounded-full bg-warning-soft px-3 py-1 text-xs tracking-wide text-warning">{result.stock.text}</span>;
 }
 
 function ResultRow({ result, active, mobile, onOpen }: { result: SearchResult; active?: boolean; mobile: boolean; onOpen: (slug: string) => void }) {
@@ -74,7 +73,7 @@ function ResultRow({ result, active, mobile, onOpen }: { result: SearchResult; a
         mobile ? "py-1" : "p-3 hover:bg-lavender-soft"
       } ${active ? "bg-lavender-soft" : ""}`}
     >
-      <Image src={result.image} alt="" width={64} height={64} className={`${photo} shrink-0 object-cover ${result.stock?.kind === "sold-out" ? "opacity-55" : ""}`} />
+      <Image src={result.image} alt="" width={64} height={64} className={`${photo} shrink-0 object-cover`} />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate font-serif text-[18px] leading-[1.35] text-ink">{result.name}</span>
         <span className="truncate text-xs tracking-wide text-muted md:block">

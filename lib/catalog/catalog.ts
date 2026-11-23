@@ -56,6 +56,10 @@ export function createCatalogStore<
     const remaining = left.get(size.id) ?? null;
     return { ...size, available: size.available && remaining !== 0, left: remaining };
   }
+  /** Only the Sizes the shop can sell; an unread IMS count (null) hides nothing. */
+  function inStock<T extends { id: number; available: boolean }>(productSizes: T[], left: Map<number, number | null>) {
+    return productSizes.map((size) => withStock(size, left)).filter((size) => size.available);
+  }
   return {
     async listProducts() {
       if (sync) await syncOnce(sync);
@@ -78,7 +82,8 @@ export function createCatalogStore<
       const left = await readStockLeft(allSizes.map(({ id }) => id), stock);
       const listed = await Promise.all(allProducts.map(async (product) => {
         const image = allImages.find(({ productSlug }) => productSlug === product.slug);
-        const productSizes = allSizes.filter(({ productSlug }) => productSlug === product.slug);
+        // Sold-out Sizes are not shown, and a Product with nothing left to sell leaves the shop.
+        const productSizes = inStock(allSizes.filter(({ productSlug }) => productSlug === product.slug), left);
         const url = image && await resolveProductImage(image, files);
         if (!url || productSizes.length === 0) return undefined;
 
@@ -89,7 +94,7 @@ export function createCatalogStore<
           image: url,
           lowestPriceInCentavos: Math.min(...prices),
           highestPriceInCentavos: Math.max(...prices),
-          sizes: productSizes.map(({ id, label, priceInCentavos, available }) => withStock({ id, label, priceInCentavos, available }, left)),
+          sizes: productSizes.map(({ id, label, priceInCentavos, available, left }) => ({ id, label, priceInCentavos, available, left })),
         };
       }));
       return listed.filter((product) => product !== undefined);
@@ -121,7 +126,10 @@ export function createCatalogStore<
       if (productSizes.length === 0 && (await db.select({ id: sizes.id }).from(sizes).where(eq(sizes.productSlug, slug))).length > 0) return undefined;
 
       const left = await readStockLeft(productSizes.map(({ id }) => id), stock);
-      return { ...product, images: await resolvedImages(images), sizes: productSizes.map((size) => withStock(size, left)) };
+      // A sold-out Product is not found, like a discontinued one; a sold-out Size is not shown.
+      const forSale = inStock(productSizes, left);
+      if (forSale.length === 0) return undefined;
+      return { ...product, images: await resolvedImages(images), sizes: forSale };
     },
   };
 }

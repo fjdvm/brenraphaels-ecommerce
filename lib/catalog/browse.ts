@@ -45,7 +45,7 @@ export function parseBrowseParams(params: Record<string, string | string[] | und
 export function browseProducts(products: CatalogProduct[], { category, sort, q }: BrowseParams): CatalogProduct[] {
   const terms = (q ?? "").toLowerCase().split(/\s+/).filter(Boolean);
   let shown = category ? products.filter(({ name }) => productCategory(name) === category) : [...products];
-  // Every word typed must appear in the name; sold-out Products stay in the results.
+  // Every word typed must appear in the name. Sold-out Products are already left out by the catalog.
   if (terms.length > 0) shown = shown.filter(({ name }) => terms.every((term) => name.toLowerCase().includes(term)));
   if (sort === "price-asc") return shown.sort((a, b) => a.lowestPriceInCentavos - b.lowestPriceInCentavos);
   if (sort === "price-desc") return shown.sort((a, b) => b.lowestPriceInCentavos - a.lowestPriceInCentavos);

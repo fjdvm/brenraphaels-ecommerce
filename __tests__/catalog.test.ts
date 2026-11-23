@@ -25,6 +25,7 @@ describe("Catalog", () => {
     await database.insert(productImages).values({
       productSlug: "ube-jam", fileId: "jam-file", url: "https://blob.example/old.jpg", alt: "Jam", position: 0,
     });
+    await database.insert(sizes).values({ productSlug: "ube-jam", label: "250g", priceInCentavos: 21900, available: true });
     const files = { publicUrl: async () => "https://images.example/jam-file/original" };
     const product = await createCatalogStore(database, files).findProduct("ube-jam");
     expect(product?.images).toEqual([{ url: "https://images.example/jam-file/original", alt: "Jam" }]);
@@ -34,7 +35,7 @@ describe("Catalog", () => {
     expect(formatPeso(21900)).toBe("₱219");
   });
 
-  test("lists every Product with its image and price range", async () => {
+  test("lists every Product with its image and the price range of the Sizes for sale", async () => {
     const database = drizzle(client);
     await database.insert(products).values({
       slug: "ube-jam-smooth",
@@ -56,6 +57,12 @@ describe("Catalog", () => {
       },
       {
         productSlug: "ube-jam-smooth",
+        label: "350g",
+        priceInCentavos: 32900,
+        available: true,
+      },
+      {
+        productSlug: "ube-jam-smooth",
         label: "500g",
         priceInCentavos: 46900,
         available: false,
@@ -68,16 +75,16 @@ describe("Catalog", () => {
         name: "Ube Jam Smooth",
         image: "https://images.example/ube-jam-smooth/jam-file",
         lowestPriceInCentavos: 21900,
-        highestPriceInCentavos: 46900,
+        highestPriceInCentavos: 32900,
         sizes: [
           { id: expect.any(Number), label: "200g", priceInCentavos: 21900, available: true, left: null },
-          { id: expect.any(Number), label: "500g", priceInCentavos: 46900, available: false, left: null },
+          { id: expect.any(Number), label: "350g", priceInCentavos: 32900, available: true, left: null },
         ],
       },
     ]);
   });
 
-  test("shows a Product's description, images, and unavailable Size", async () => {
+  test("shows a Product's description, images and Sizes for sale", async () => {
     const database = drizzle(client);
     await database.insert(products).values({
       slug: "ube-powder-120-mesh",
@@ -90,12 +97,10 @@ describe("Catalog", () => {
       alt: "A pouch of 120 mesh ube powder",
       position: 0,
     });
-    await database.insert(sizes).values({
-      productSlug: "ube-powder-120-mesh",
-      label: "100g",
-      priceInCentavos: 21900,
-      available: false,
-    });
+    await database.insert(sizes).values([
+      { productSlug: "ube-powder-120-mesh", label: "100g", priceInCentavos: 21900, available: true },
+      { productSlug: "ube-powder-120-mesh", label: "500g", priceInCentavos: 89900, available: false },
+    ]);
 
     await expect(
       createCatalogStore(database, shopFiles).findProduct("ube-powder-120-mesh"),
@@ -109,15 +114,18 @@ describe("Catalog", () => {
           alt: "A pouch of 120 mesh ube powder",
         },
       ],
-      sizes: [
-        {
-          id: expect.any(Number),
-          label: "100g",
-          priceInCentavos: 21900,
-          available: false,
-          left: null,
-        },
-      ],
+      sizes: [{ id: expect.any(Number), label: "100g", priceInCentavos: 21900, available: true, left: null }],
     });
+  });
+
+  test("a Product with no Size for sale is not listed and its page is not found", async () => {
+    const database = drizzle(client);
+    await database.insert(products).values({ slug: "ube-halaya", name: "Ube Halaya", description: "Classic." });
+    await database.insert(productImages).values({ productSlug: "ube-halaya", fileId: "halaya-file", alt: "Halaya", position: 0 });
+    await database.insert(sizes).values({ productSlug: "ube-halaya", label: "250g", priceInCentavos: 19900, available: false });
+
+    const store = createCatalogStore(database, shopFiles);
+    await expect(store.listProducts()).resolves.toEqual([]);
+    await expect(store.findProduct("ube-halaya")).resolves.toBeUndefined();
   });
 });

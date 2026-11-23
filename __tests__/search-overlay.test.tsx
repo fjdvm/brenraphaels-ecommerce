@@ -10,7 +10,7 @@ import { SearchOverlay, clearSearchCache } from "../components/features/catalog/
 
 const results = [
   { slug: "smooth", name: "Ube Halaya Smooth", image: "/a.jpg", meta: "250g · 500g", price: "₱219 – ₱399", stock: { kind: "low", text: "Only 7 left" } },
-  { slug: "classic", name: "Ube Halaya Classic", image: "/b.jpg", meta: "250g", price: "₱199", stock: { kind: "sold-out", text: "Sold out" } },
+  { slug: "classic", name: "Ube Halaya Classic", image: "/b.jpg", meta: "250g", price: "₱199", stock: null },
   { slug: "jam", name: "Ube Jam", image: "/c.jpg", meta: "250g", price: "₱219", stock: null },
 ];
 
@@ -35,12 +35,12 @@ test("while the Products load, it shows a skeleton at once and then the results"
   await waitFor(() => expect(screen.getAllByText("Ube Halaya Smooth").length).toBeGreaterThan(0));
 });
 
-test("results show stock labels and keep sold out Products", async () => {
+test("results show stock labels", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ results }) })));
   open();
   fireEvent.change(screen.getByLabelText("Search products by name"), { target: { value: "halaya" } });
   await waitFor(() => expect(screen.getAllByText("Only 7 left").length).toBeGreaterThan(0));
-  expect(screen.getAllByText("Sold out").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("Ube Halaya Classic").length).toBeGreaterThan(0);
   expect(screen.queryByText("Ube Jam")).toBeNull();
   expect(screen.getByText(/See all 2 results for “halaya”/)).toBeTruthy();
 });

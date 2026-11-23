@@ -13,9 +13,6 @@ const product = (name: string, sizes: ReturnType<typeof size>[]) => ({
 });
 
 describe("search results", () => {
-  test("says Sold out when no Size is available", () => {
-    expect(toSearchResult(product("Ube Halaya Classic", [size("250g", false, 0)])).stock).toEqual({ kind: "sold-out", text: "Sold out" });
-  });
   test("says Only N left for the tightest Size", () => {
     const result = toSearchResult(product("Ube Halaya Smooth", [size("250g", true, 7), size("500g", true, 3)]));
     expect(result.stock?.text).toBe("Only 3 left");
@@ -29,10 +26,10 @@ describe("search results", () => {
     expect(result.meta).toBe("250g · 500g");
     expect(result.price).toBe("₱219 – ₱399");
   });
-  test("matches every word, keeps sold out Products, returns nothing for an empty query", () => {
+  test("matches every word and returns nothing for an empty query", () => {
     const all = [
       toSearchResult(product("Ube Halaya Smooth", [size("250g", true, 50)])),
-      toSearchResult(product("Ube Halaya Classic", [size("250g", false, 0)])),
+      toSearchResult(product("Ube Halaya Classic", [size("250g", true, 50)])),
       toSearchResult(product("Ube Jam", [size("250g", true, 50)])),
     ];
     expect(matchResults(all, "halaya").map((r) => r.name)).toEqual(["Ube Halaya Smooth", "Ube Halaya Classic"]);

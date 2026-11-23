@@ -33,17 +33,28 @@ test("labels: plenty says nothing, under 10 says how many are left, none says so
   expect(stockLabel(null)).toBeNull();
 });
 
-test("the shop and product page read what is left from the IMS and mark a Size with none as sold out", async () => {
+test("the shop and product page read what is left from the IMS and hide a Size with none left", async () => {
   const { db, stock, jar, tub } = await fixture();
   stock.available.set(stock.productForSize(jar.id), 7);
   stock.available.set(stock.productForSize(tub.id), 0);
   const store = createCatalogStore(db, files, stock);
   const [listed] = await store.listProducts();
   expect(listed.sizes.map(({ label, available, left }) => ({ label, available, left }))).toEqual([
-    { label: "250g", available: true, left: 7 }, { label: "500g", available: false, left: 0 },
+    { label: "250g", available: true, left: 7 },
   ]);
+  // The price range drops the hidden Size's price.
+  expect([listed.lowestPriceInCentavos, listed.highestPriceInCentavos]).toEqual([10000, 10000]);
   const detail = await store.findProduct("ube");
-  expect(detail?.sizes.map(({ left }) => left)).toEqual([7, 0]);
+  expect(detail?.sizes.map(({ label, left }) => ({ label, left }))).toEqual([{ label: "250g", left: 7 }]);
+});
+
+test("a Product with every Size sold out leaves the shop and its page is not found", async () => {
+  const { db, stock, jar, tub } = await fixture();
+  stock.available.set(stock.productForSize(jar.id), 0);
+  stock.available.set(stock.productForSize(tub.id), 0);
+  const store = createCatalogStore(db, files, stock);
+  await expect(store.listProducts()).resolves.toEqual([]);
+  await expect(store.findProduct("ube")).resolves.toBeUndefined();
 });
 
 test("when the IMS cannot be read the shop claims nothing about stock", async () => {
