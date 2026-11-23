@@ -37,18 +37,22 @@ export function gatewayImsCatalog(fetcher: typeof fetch = fetch): ImsCatalogFeed
 }
 
 /** What CREOMS set for one IMS product: the shop name, price and image live only in CREOMS (`crms.product_content`). */
-export type CreomsContent = { productId: number; name: string | null; price: number | null; imageFileId: string | null; description: string };
+export type CreomsContent = {
+  productId: number; name: string | null; price: number | null; imageFileId: string | null; description: string;
+  /** Staff took it off the shop in CREOMS ("Remove from store"); publishing again there puts it back. */
+  removed: boolean;
+};
 export type CreomsContentReader = { read(): Promise<CreomsContent[]> };
 
 /** Reads what CREOMS set, fresh each sync. A failure fails the sync, so the shop keeps what it has rather than guessing. */
 export function databaseCreomsContent(reader: { execute: (query: ReturnType<typeof sql>) => PromiseLike<unknown> }): CreomsContentReader {
   return {
     async read() {
-      const result = await reader.execute(sql`select ims_product_id, name, price, image_file_id, description from crms.product_content`);
-      const rows = (Array.isArray(result) ? result : (result as { rows: unknown[] }).rows) as { ims_product_id: number; name: string | null; price: string | number | null; image_file_id: string | null; description: string | null }[];
+      const result = await reader.execute(sql`select ims_product_id, name, price, image_file_id, description, removed_at is not null as removed from crms.product_content`);
+      const rows = (Array.isArray(result) ? result : (result as { rows: unknown[] }).rows) as { ims_product_id: number; name: string | null; price: string | number | null; image_file_id: string | null; description: string | null; removed: boolean | null }[];
       return rows.map((row) => ({
         productId: Number(row.ims_product_id), name: row.name, price: row.price === null ? null : Number(row.price), imageFileId: row.image_file_id,
-        description: row.description ?? "",
+        description: row.description ?? "", removed: row.removed === true,
       }));
     },
   };
@@ -57,7 +61,8 @@ export function databaseCreomsContent(reader: { execute: (query: ReturnType<type
 /**
  * The IMS feed as the shop sells it: CREOMS owns the shop name, price, image and description, the IMS owns the product, its Variant and
  * whether it is still sold. The IMS price and image are never used. A product CREOMS has not given a price and an image
- * gets price 0 and no image, so a new one stays off the shop and one already on sale keeps what it has.
+ * gets price 0 and no image, so a new one stays off the shop and one already on sale keeps what it has. One CREOMS
+ * removed from the store is treated as not active, so the shop stops selling it until CREOMS publishes it again.
  */
 export function withCreomsContent(feed: ImsCatalogFeed, content: CreomsContentReader): ImsCatalogFeed {
   return {
@@ -68,7 +73,9 @@ export function withCreomsContent(feed: ImsCatalogFeed, content: CreomsContentRe
         const set = byId.get(item.productId);
         const name = set?.name?.trim() || item.name;
         const description = set?.description?.trim();
-        return { ...item, name, price: set?.price ?? 0, image: set?.imageFileId ?? null, ...(description ? { description } : {}) };
+        // Removed in CREOMS: sold no more, like a product the IMS deactivated. Open Orders still finish.
+        const active = item.active && !set?.removed;
+        return { ...item, active, name, price: set?.price ?? 0, image: set?.imageFileId ?? null, ...(description ? { description } : {}) };
       });
     },
   };

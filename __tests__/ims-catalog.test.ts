@@ -105,7 +105,7 @@ describe("Storefront catalog from the IMS", () => {
 });
 
 describe("Storefront catalog with CREOMS's name, price, image and description", () => {
-  const set = (overrides: Partial<CreomsContent> = {}): CreomsContent => ({ productId: 11, name: null, price: 150, imageFileId: "creoms-file", description: "", ...overrides });
+  const set = (overrides: Partial<CreomsContent> = {}): CreomsContent => ({ productId: 11, name: null, price: 150, imageFileId: "creoms-file", description: "", removed: false, ...overrides });
   function creomsShop(feed: { items: ImsProduct[] }, content: { rows: CreomsContent[] }) {
     const database = drizzle(client);
     const ims = createImsCatalog(database, withCreomsContent({ read: async () => feed.items }, { read: async () => content.rows }), { pricesDecided: true });
@@ -178,6 +178,22 @@ describe("Storefront catalog with CREOMS's name, price, image and description", 
     expect((await database.select().from(products))[0].description).toBe("From 250g");
   });
 
+  test("a product CREOMS removed from the store leaves the shop, and comes back when CREOMS publishes it again", async () => {
+    const content = { rows: [set()] };
+    const { database, catalog } = creomsShop({ items: [jam()] }, content);
+    expect(await catalog.listProducts()).toHaveLength(1);
+    content.rows = [set({ removed: true })];
+    expect(await catalog.listProducts()).toEqual([]);
+    expect((await database.select().from(sizes))[0].discontinued).toBe(true);
+    content.rows = [set()];
+    expect(await catalog.listProducts()).toHaveLength(1);
+  });
+
+  test("a new product CREOMS removed is never put on the shop", async () => {
+    const { catalog } = creomsShop({ items: [jam()] }, { rows: [set({ removed: true })] });
+    expect(await catalog.listProducts()).toEqual([]);
+  });
+
   test("keeps what the shop has when CREOMS cannot be read", async () => {
     const database = drizzle(client);
     const ims = createImsCatalog(database, withCreomsContent({ read: async () => [jam()] }, { read: async () => { throw new Error("crms down"); } }), { pricesDecided: true });
@@ -188,10 +204,10 @@ describe("Storefront catalog with CREOMS's name, price, image and description", 
 
 test("reads CREOMS's name, price and image from crms.product_content", async () => {
   await client.exec(`create schema if not exists crms; create table crms.product_content (ims_product_id integer primary key, description text not null default '',
-    name text, price numeric(12,2), image_file_id text, image_url text)`);
-  await client.exec(`insert into crms.product_content (ims_product_id, name, price, image_file_id) values (11, 'Ube Jam Extreme', 150.50, 'f1'), (12, null, null, null)`);
+    name text, price numeric(12,2), image_file_id text, image_url text, removed_at timestamptz)`);
+  await client.exec(`insert into crms.product_content (ims_product_id, name, price, image_file_id, removed_at) values (11, 'Ube Jam Extreme', 150.50, 'f1', null), (12, null, null, null, now())`);
   expect(await databaseCreomsContent(drizzle(client)).read()).toEqual([
-    { productId: 11, name: "Ube Jam Extreme", price: 150.5, imageFileId: "f1", description: "" },
-    { productId: 12, name: null, price: null, imageFileId: null, description: "" },
+    { productId: 11, name: "Ube Jam Extreme", price: 150.5, imageFileId: "f1", description: "", removed: false },
+    { productId: 12, name: null, price: null, imageFileId: null, description: "", removed: true },
   ]);
 });
