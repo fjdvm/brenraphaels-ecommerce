@@ -1,4 +1,4 @@
-import { stockLabel } from "@/lib/catalog/stock-label";
+import { stockLabel, stockLabelTone } from "@/lib/catalog/stock-label";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -35,7 +35,7 @@ export function ProductCard({
   customerHasCart: boolean;
 }) {
   // The catalog lists only Products and Sizes still for sale. The tightest Size decides the notice: "Only 3 left" beats "Only 9 left".
-  const tightest = product.sizes.filter((size) => size.available && stockLabel(size.left) !== null)
+  const tightest = product.sizes.filter((size) => size.available && stockLabel(size.left)?.kind === "low")
     .sort((a, b) => (a.left ?? 0) - (b.left ?? 0))[0];
   const notice = tightest ? stockLabel(tightest.left)?.text : undefined;
   // "In stock" only when every Size's count is known, so a failed IMS read never claims stock.
@@ -67,9 +67,17 @@ export function ProductCard({
         </div>
         <div className="flex flex-col gap-1.5">
           <h2 className="font-serif text-[22px] leading-[1.3] text-ink">{product.name}</h2>
-          <p className="text-xs tracking-wide text-muted">
-            {product.sizes.map((size) => size.label).join(" · ")}
-          </p>
+          <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs tracking-wide text-muted" aria-label="Sizes">
+            {product.sizes.map((size) => {
+              const label = stockLabel(size.left);
+              return (
+                <li key={size.id}>
+                  {size.label}
+                  {label && <span className={stockLabelTone(label)}>{" · "}{label.text}</span>}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </Link>
       <div className="mt-auto flex flex-col gap-3">

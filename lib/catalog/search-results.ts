@@ -23,7 +23,7 @@ function priceText(lowest: number, highest: number) {
 /** The overlay's view of a Product still for sale: the tightest Size's "Only N left". */
 export function toSearchResult(product: CatalogProduct): SearchResult {
   const tightest = product.sizes
-    .filter((size) => size.available && stockLabel(size.left) !== null)
+    .filter((size) => size.available && stockLabel(size.left)?.kind === "low")
     .sort((a, b) => (a.left ?? 0) - (b.left ?? 0))[0];
   return {
     slug: product.slug,

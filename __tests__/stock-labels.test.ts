@@ -26,8 +26,9 @@ async function fixture() {
   return { db, stock, jar, tub };
 }
 
-test("labels: plenty says nothing, under 10 says how many are left, none says sold out", () => {
-  expect(stockLabel(10)).toBeNull();
+test("labels: every known count says how many are left, under 10 warns, none says sold out", () => {
+  expect(stockLabel(10)).toEqual({ kind: "in-stock", text: "10 left" });
+  expect(stockLabel(25)?.text).toBe("25 left");
   expect(stockLabel(9)).toEqual({ kind: "low", text: "Only 9 left" });
   expect(stockLabel(1)?.text).toBe("Only 1 left");
   expect(stockLabel(0)).toEqual({ kind: "sold-out", text: "Sold out" });
