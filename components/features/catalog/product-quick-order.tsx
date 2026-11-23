@@ -6,11 +6,10 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { formatPeso } from "@/lib/catalog/currency";
-import { stockLabel } from "@/lib/catalog/stock-label";
+import { StockCount } from "./stock-count";
 import { addProductSizeToCart } from "@/lib/orders/add-product-size";
 
 type Size = { id: number; label: string; priceInCentavos: number; available: boolean; left?: number | null };
-const lowNotice = (left: number | null | undefined) => stockLabel(left ?? null)?.text;
 type Intent = "cart" | "buy";
 
 /**
@@ -94,7 +93,7 @@ export function ProductQuickOrder({
                     : "border-line text-ink hover:border-primary"
                 }`}
               >
-                <span>{size.label}{lowNotice(size.left) && <span className="ml-2 text-xs font-medium text-warning">{lowNotice(size.left)}</span>}</span>
+                <span>{size.label}<StockCount left={size.left} className="ml-2" /></span>
                 <span>{formatPeso(size.priceInCentavos)}</span>
               </button>
             ))}

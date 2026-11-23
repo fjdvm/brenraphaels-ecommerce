@@ -5,14 +5,12 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { stockLabel } from "@/lib/catalog/stock-label";
+import { StockCount } from "@/components/features/catalog/stock-count";
 import { formatPeso } from "@/lib/catalog/currency";
 import { addProductSizeToCart } from "@/lib/orders/add-product-size";
 import { cartLineQuantityLimit } from "@/lib/orders/quantity";
 
 type Size = { id: number; label: string; priceInCentavos: number; available: boolean; left?: number | null };
-
-const lowNotice = (left: number | null | undefined) => stockLabel(left ?? null)?.text;
 
 export function AddToCart({
   product,
@@ -92,7 +90,7 @@ export function AddToCart({
                 />
                 <span className="text-sm font-medium text-ink">{size.label}</span>
                 <span className="text-xs text-muted">{formatPeso(size.priceInCentavos)}</span>
-                {lowNotice(size.left) && <span className="text-xs font-medium text-warning">{lowNotice(size.left)}</span>}
+                <StockCount left={size.left} />
               </label>
             );
           })}
