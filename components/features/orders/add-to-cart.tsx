@@ -72,15 +72,13 @@ export function AddToCart({
       <fieldset className="flex flex-col gap-3.5">
         <legend className="mb-3.5 text-[13px] font-medium tracking-wide text-ink">Size</legend>
         <div className="grid gap-3 sm:grid-cols-2">
-          {product.sizes.map((size) => {
+          {availableSizes.map((size) => {
             const selected = size.id === sizeId;
             return (
               <label
                 key={size.id}
                 className={`flex flex-col gap-0.5 px-6 py-4 transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
-                  !size.available
-                    ? "cursor-not-allowed border border-line bg-surface-container-low opacity-60"
-                    : selected
+                  selected
                       ? "cursor-pointer border-2 border-primary bg-lavender-soft"
                       : "cursor-pointer border border-line bg-white hover:border-primary"
                 }`}
@@ -90,15 +88,11 @@ export function AddToCart({
                   name="size"
                   className="sr-only"
                   checked={selected}
-                  disabled={!size.available}
                   onChange={() => setSizeId(size.id)}
                 />
                 <span className="text-sm font-medium text-ink">{size.label}</span>
-                <span className="text-xs text-muted">
-                  {formatPeso(size.priceInCentavos)}
-                  {!size.available ? " · Sold out" : ""}
-                </span>
-                {size.available && lowNotice(size.left) && <span className="text-xs font-medium text-warning">{lowNotice(size.left)}</span>}
+                <span className="text-xs text-muted">{formatPeso(size.priceInCentavos)}</span>
+                {lowNotice(size.left) && <span className="text-xs font-medium text-warning">{lowNotice(size.left)}</span>}
               </label>
             );
           })}

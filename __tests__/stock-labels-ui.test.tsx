@@ -16,12 +16,13 @@ const sizes = [
 ];
 
 test("the shop card says how many are left of the tightest Size", () => {
-  render(<ProductCard product={{ slug: "ube", name: "Ube", image: "/x.jpg", lowestPriceInCentavos: 10000, highestPriceInCentavos: 20000, sizes }} customerHasCart={false} />);
+  render(<ProductCard product={{ slug: "ube", name: "Ube", image: "/x.jpg", lowestPriceInCentavos: 10000, highestPriceInCentavos: 10000, sizes: [sizes[0]] }} customerHasCart={false} />);
   expect(screen.getByText("Only 7 left")).toBeTruthy();
 });
 
-test("the product page shows each Size's stock: a low count and sold out", () => {
+test("the product page shows a low count and never a sold-out Size", () => {
   render(<AddToCart product={{ slug: "ube", name: "Ube", sizes }} customerHasCart={false} />);
   expect(screen.getByText("Only 7 left")).toBeTruthy();
-  expect(screen.getByText(/Sold out/)).toBeTruthy();
+  expect(screen.queryByText("500g")).toBeNull();
+  expect(screen.queryByText(/Sold out/)).toBeNull();
 });

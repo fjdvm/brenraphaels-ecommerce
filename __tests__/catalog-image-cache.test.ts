@@ -99,6 +99,7 @@ test("a row without a File id shows no image, never its retained Blob address, a
     { productSlug: slug, url: "https://blob.example/second.jpg", alt: "Back", position: 1 },
     { productSlug: slug, url: "https://blob.example/first.jpg", alt: "Front", position: 0 },
   ]);
+  await database.insert(sizes).values({ productSlug: slug, label: "250g", priceInCentavos: 21900, available: true });
   const send = vi.fn<typeof fetch>();
   const store = createCatalogStore(database, gatewayProductImages({ baseUrl: "", callerKey: "", publicOrigin: "", fetch: send }));
   expect((await store.findProduct(slug))?.images).toEqual([]);
@@ -109,6 +110,7 @@ test("a refused resolution is retried, and a Private address is never exposed as
   const database = drizzle(client);
   await database.insert(products).values({ slug, name: "Jam", description: "Jam." });
   await database.insert(productImages).values({ productSlug: slug, fileId: "private-file", alt: "Jam", position: 0 });
+  await database.insert(sizes).values({ productSlug: slug, label: "250g", priceInCentavos: 21900, available: true });
   const send = vi.fn<typeof fetch>()
     .mockResolvedValueOnce(new Response(null, { status: 503 }))
     .mockResolvedValueOnce(Response.json({ status: "active", visibility: "private", retentionType: "permanent", contentType: "image/jpeg", url: "https://signed.example/private" }))
