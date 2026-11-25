@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { Field, type FieldErrors } from "@/components/features/auth/customer-details-fields";
 import { Label } from "@/components/ui/label";
 import { idTypes, type IdType } from "@/lib/senior-pwd/id-fields";
-import { findIdNumber, readIdPhotoText } from "@/lib/senior-pwd/id-photo-reading";
+import { findIdExpiry, findIdNumber, readIdPhotoText } from "@/lib/senior-pwd/id-photo-reading";
 
 const typeLabels: Record<IdType, string> = { senior: "Senior Citizen ID", pwd: "PWD ID" };
 
@@ -54,42 +54,61 @@ function PhotoPicker({ name, label, hint, required, error, onPick }: {
  * already said yes (Account settings), which shows the ID fields straight away.
  */
 type Reading = { state: "idle" } | { state: "reading" } | { state: "read"; number: string } | { state: "unread" };
+type ExpiryReading = "idle" | "reading" | "read" | "unread";
 
 /**
- * Reads the ID number off a chosen photo in the browser and fills the ID number field when it is still empty, so the
- * Customer only checks it. The number read also goes to the server as `idNumberRead`, where it is only compared with the
- * number sent (Staff see "differs"); it is never kept.
+ * Reads the ID number and the expiry date off a chosen photo in the browser (one pass) and fills each field when it is
+ * still empty, so the Customer only checks them. The number read also goes to the server as `idNumberRead`, where it is
+ * only compared with the number sent (Staff see "differs"); it is never kept. The expiry is whatever the Customer
+ * confirms in the field; Staff still confirm it before approving.
  */
-function useIdNumberReading() {
+function useIdReading() {
   const container = useRef<HTMLDivElement>(null);
   const [reading, setReading] = useState<Reading>({ state: "idle" });
+  const [expiryReading, setExpiryReading] = useState<ExpiryReading>("idle");
   const latest = useRef(0);
+
+  function fill(name: string, value: string) {
+    const input = container.current?.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+    if (input && !input.value.trim()) input.value = value;
+  }
 
   async function read(file: File) {
     const attempt = ++latest.current;
     setReading((current) => (current.state === "read" ? current : { state: "reading" }));
+    setExpiryReading((current) => (current === "read" ? current : "reading"));
     let number: string | undefined;
+    let expiry: string | undefined;
     try {
-      number = findIdNumber(await readIdPhotoText(file));
+      const text = await readIdPhotoText(file);
+      number = findIdNumber(text);
+      expiry = findIdExpiry(text);
     } catch {
       number = undefined;
+      expiry = undefined;
     }
     if (attempt !== latest.current) return;
-    if (!number) {
+    if (number) {
+      setReading({ state: "read", number });
+      fill("idNumber", number);
+    } else {
       setReading((current) => (current.state === "read" ? current : { state: "unread" }));
-      return;
     }
-    setReading({ state: "read", number });
-    const input = container.current?.querySelector<HTMLInputElement>('input[name="idNumber"]');
-    if (input && !input.value.trim()) input.value = number;
+    if (expiry) {
+      setExpiryReading("read");
+      fill("idExpiry", expiry);
+    } else {
+      setExpiryReading((current) => (current === "read" ? current : "unread"));
+    }
   }
 
-  return { container, reading, read };
+  return { container, reading, expiryReading, read };
 }
 
 export function SeniorPwdFields({ errors, askFirst = true }: { errors: FieldErrors; askFirst?: boolean }) {
   const [yes, setYes] = useState(!askFirst);
-  const { container, reading, read } = useIdNumberReading();
+  const { container, reading, expiryReading, read } = useIdReading();
+  const [noExpiry, setNoExpiry] = useState(false);
   return (
     <>
       {askFirst ? (
@@ -115,7 +134,8 @@ export function SeniorPwdFields({ errors, askFirst = true }: { errors: FieldErro
             </div>
             {errors.idType?.[0] ? <p className="text-sm text-red-700" role="alert">{errors.idType[0]}</p> : null}
           </fieldset>
-          <div className="flex flex-col gap-2" ref={container}>
+          <div className="flex flex-col gap-4" ref={container}>
+          <div className="flex flex-col gap-2">
             <Field autoComplete="off" error={errors.idNumber?.[0]} label="ID number" maxLength={30} name="idNumber" />
             <input name="idNumberRead" type="hidden" value={reading.state === "read" ? reading.number : ""} />
             <p aria-live="polite" className="text-xs text-body">
@@ -124,6 +144,22 @@ export function SeniorPwdFields({ errors, askFirst = true }: { errors: FieldErro
                   : reading.state === "unread" ? "We couldn't read the number from the photo; please type it."
                     : "Choose a photo of your ID and we'll fill in the number for you to check."}
             </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            {noExpiry ? null : <Field error={errors.idExpiry?.[0]} label="ID valid until" maxLength={10} name="idExpiry" type="date" />}
+            <Label className="flex min-h-11 items-center gap-2 font-normal" htmlFor="senior-pwd-no-expiry">
+              <input className="size-5" id="senior-pwd-no-expiry" name="noExpiry" onChange={(event) => setNoExpiry(event.target.checked)} type="checkbox" />
+              My ID shows no expiry date
+            </Label>
+            <p aria-live="polite" className="text-xs text-body">
+              {noExpiry ? "Our team will still check your ID."
+                : expiryReading === "reading" ? "Reading the date from your ID…"
+                  : expiryReading === "read" ? "Read from your ID: check it matches the date on the card."
+                    : expiryReading === "unread" ? "We couldn't read the date from the photo; please type it."
+                      : "Choose a photo of your ID and we'll fill in the date for you to check."}
+            </p>
+            {errors.idExpiry?.[0] && noExpiry ? <p className="text-sm text-red-700" role="alert">{errors.idExpiry[0]}</p> : null}
+          </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <PhotoPicker error={errors.idFront?.[0]} hint="JPEG or PNG up to 5 MB" label="Front of ID" name="idFront" onPick={(file) => void read(file)} required />

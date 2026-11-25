@@ -40,7 +40,7 @@ export async function submitSeniorPwdApplication(
     const photoFileId = await store(application.front);
     const photoBackFileId = application.back ? await store(application.back) : undefined;
     await submitVerification(db, customerId, {
-      idType: application.idType, idNumber: application.idNumber, idNumberRead: application.idNumberRead, photoFileId, photoBackFileId,
+      idType: application.idType, idNumber: application.idNumber, idNumberRead: application.idNumberRead, expiryDeclared: application.expiryDeclared, photoFileId, photoBackFileId,
     });
     // Tells CREOMS at once, so Staff get the alert and its ID reader starts while the photo is still there.
     scheduleStaffSignal("Customer");

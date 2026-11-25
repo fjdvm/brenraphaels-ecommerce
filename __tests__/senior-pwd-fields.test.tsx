@@ -55,4 +55,24 @@ describe("the Senior/PWD fields", () => {
     await screen.findByText(/couldn't read the number from the photo; please type it/);
     expect(number.value).toBe("TYPED-123");
   });
+
+  test("fill the expiry date from the same photo, never overwrite one the Customer typed, and let them say the ID has none", async () => {
+    readIdPhotoText.mockResolvedValueOnce("OSCA ID No.: 0458721\nVALID UNTIL: 15 March 2099");
+    render(<SeniorPwdFields askFirst={false} errors={{}} />);
+    fireEvent.change(screen.getByLabelText(/Front of ID \(required\)/), { target: { files: [new File(["x"], "front.jpg", { type: "image/jpeg" })] } });
+    await waitFor(() => expect((screen.getByLabelText(/ID valid until/) as HTMLInputElement).value).toBe("2099-03-15"));
+    expect(screen.getByText(/check it matches the date on the card/)).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText(/My ID shows no expiry date/));
+    expect(screen.queryByLabelText(/ID valid until/)).toBeNull();
+  });
+
+  test("ask them to type the date when the photo shows none", async () => {
+    render(<SeniorPwdFields askFirst={false} errors={{}} />);
+    const expiry = screen.getByLabelText(/ID valid until/) as HTMLInputElement;
+    fireEvent.change(expiry, { target: { value: "2098-01-01" } });
+    fireEvent.change(screen.getByLabelText(/Front of ID \(required\)/), { target: { files: [new File(["x"], "front.jpg", { type: "image/jpeg" })] } });
+    await screen.findByText(/couldn't read the date from the photo; please type it/);
+    expect(expiry.value).toBe("2098-01-01");
+  });
 });

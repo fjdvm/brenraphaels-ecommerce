@@ -130,6 +130,7 @@ describe("customer auth form actions", () => {
     form.set("seniorPwd", "yes");
     form.set("idType", "senior");
     form.set("idNumber", "ANT-SC-0458721");
+    form.set("idExpiry", "2099-03-15");
     form.set("idFront", new File(["x"], "front.jpg", { type: "image/jpeg" }));
     await expect(submitSignUp(form)).resolves.toEqual({
       fieldErrors: { idNumber: ["This ID is already used by another account."] },
