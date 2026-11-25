@@ -19,7 +19,7 @@ export type FieldErrors = Record<string, string[] | undefined>;
 type FieldProps = {
   name: string;
   label: string;
-  type?: "email" | "password" | "tel" | "text";
+  type?: "date" | "email" | "password" | "tel" | "text";
   autoComplete?: string;
   maxLength: number;
   optional?: boolean;

@@ -83,7 +83,7 @@ export function compareIdNumberRead(idHash: string, idNumberRead: string | undef
 export async function submitVerification(
   db: Db,
   customerId: string,
-  input: { idType: IdType; idNumber: string; idNumberRead?: string; photoFileId: string; photoBackFileId?: string },
+  input: { idType: IdType; idNumber: string; idNumberRead?: string; expiryDeclared?: string | null; photoFileId: string; photoBackFileId?: string },
   now = new Date(),
 ): Promise<number> {
   const idHash = hashIdNumber(input.idNumber);
@@ -98,7 +98,7 @@ export async function submitVerification(
     const [row] = await tx.insert(seniorPwdVerifications).values({
       customerId, idType: input.idType, idHash, photoFileId: input.photoFileId,
       photoBackFileId: input.photoBackFileId ?? null, submittedAt: now, sameIdAsVerificationId: before?.id ?? null,
-      idNumberRead: compareIdNumberRead(idHash, input.idNumberRead),
+      idNumberRead: compareIdNumberRead(idHash, input.idNumberRead), expiryDeclared: input.expiryDeclared ?? null,
     }).returning({ id: seniorPwdVerifications.id });
     return row.id;
   });

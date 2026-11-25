@@ -129,6 +129,14 @@ describe("placing an Order with the Senior/PWD discount", () => {
     expect(row.seniorPwdDiscountInCentavos).toBeNull();
   });
 
+  test("keeps the expiry date the Customer confirmed, apart from the date Staff confirm", async () => {
+    const withDate = await submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, expiryDeclared: "2099-03-15", photoFileId: "f1" });
+    const noDate = await submitVerification(db, "c2", { idType: "pwd", idNumber: "PWD-9", photoFileId: "f2" });
+    const rows = await db.select().from(seniorPwdVerifications);
+    expect(rows.find((row) => row.id === withDate)).toMatchObject({ expiryDeclared: "2099-03-15", expiresOn: null });
+    expect(rows.find((row) => row.id === noDate)?.expiryDeclared).toBeNull();
+  });
+
   test("a number last seen declined on another account is accepted but flagged for Staff", async () => {
     const first = await submitVerification(db, "c1", { idType: "senior", idNumber: NUMBER, photoFileId: "f1" });
     await db.update(seniorPwdVerifications).set({ status: "declined" });

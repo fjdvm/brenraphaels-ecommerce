@@ -1,9 +1,10 @@
 import { z } from "zod";
 
 import { idNumberField, idTypes, validateIdPhoto, type IdType } from "./id-fields";
+import { philippineToday } from "./id-number";
 
 /** The form fields a Customer fills in to say they are a Senior Citizen or PWD. Photos are Files, so they are checked by hand. */
-export const seniorPwdFieldNames = ["seniorPwd", "idType", "idNumber", "idFront", "idBack"] as const;
+export const seniorPwdFieldNames = ["seniorPwd", "idType", "idNumber", "idExpiry", "noExpiry", "idFront", "idBack"] as const;
 
 const present = (value: unknown): value is File => typeof File !== "undefined" && value instanceof File && (value.size > 0 || value.name !== "");
 
@@ -19,6 +20,8 @@ export function seniorPwdSchema({ required = true } = {}) {
         : z.literal("yes").default("yes"),
       idType: z.unknown(),
       idNumber: z.unknown(),
+      idExpiry: z.unknown(),
+      noExpiry: z.unknown(),
       idFront: z.unknown(),
       idBack: z.unknown(),
     })
@@ -28,9 +31,21 @@ export function seniorPwdSchema({ required = true } = {}) {
       if (!idTypes.includes(value.idType as IdType)) add("idType", "Choose Senior Citizen ID or PWD ID");
       const number = idNumberField.safeParse(value.idNumber ?? "");
       if (!number.success) add("idNumber", number.error.issues[0]?.message ?? "Enter your ID number");
+      if (!hasNoExpiry(value.noExpiry)) {
+        const expiry = typeof value.idExpiry === "string" ? value.idExpiry.trim() : "";
+        if (!expiry) add("idExpiry", "Enter the date your ID is valid until, or tick that it has no expiry date");
+        else if (!isIsoDate(expiry)) add("idExpiry", "Enter a valid date");
+        else if (expiry <= philippineToday(new Date())) add("idExpiry", "This ID has expired. Upload an ID that is still valid.");
+      }
       checkPhoto(value.idFront, true, (message) => add("idFront", message));
       checkPhoto(value.idBack, false, (message) => add("idBack", message));
     });
+}
+
+const hasNoExpiry = (value: unknown) => value === "on" || value === "true";
+
+function isIsoDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
 }
 
 function checkPhoto(value: unknown, required: boolean, fail: (message: string) => void) {
@@ -58,6 +73,8 @@ export type SeniorPwdApplication = {
   idNumber: string;
   /** What the browser read off the photo, if anything; only compared with `idNumber` on the server, never kept. */
   idNumberRead?: string;
+  /** The date the Customer confirmed the ID is valid until (`YYYY-MM-DD`); null for an ID that shows none. Staff still confirm it. */
+  expiryDeclared: string | null;
   front: File;
   back?: File;
 };
@@ -78,6 +95,7 @@ export function parseSeniorPwdForm(formData: FormData, options: { required?: boo
       idType: values.idType as IdType,
       idNumber: String(values.idNumber),
       idNumberRead: readNumber(formData.get("idNumberRead")),
+      expiryDeclared: hasNoExpiry(values.noExpiry) ? null : String(values.idExpiry).trim(),
       front: values.idFront as File,
       back: present(values.idBack) ? values.idBack : undefined,
     },

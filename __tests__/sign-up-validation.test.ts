@@ -177,7 +177,7 @@ describe("Sign-up steps", () => {
 
     expect(signUpSteps).toHaveLength(4);
     expect(seniorPwd.title).toBe("Senior / PWD");
-    expect(fields).toEqual([...Object.keys(validSignUp), "seniorPwd", "idType", "idNumber", "idFront", "idBack"].sort());
+    expect(fields).toEqual([...Object.keys(validSignUp), "seniorPwd", "idType", "idNumber", "idExpiry", "noExpiry", "idFront", "idBack"].sort());
   });
 
   test("the account step checks the passwords match", () => {

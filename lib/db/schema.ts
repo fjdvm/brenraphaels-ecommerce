@@ -210,6 +210,11 @@ export const seniorPwdVerifications = pgTable("senior_pwd_verifications", {
    * "unread". Neither number is kept; CREOMS flags "differs" for Staff.
    */
   idNumberRead: text("id_number_read"),
+  /**
+   * The date the Customer said the ID is valid until (the browser's reading, confirmed or corrected by them); null when
+   * the ID shows none. Only a suggestion for Staff: `expiresOn` is the date Staff confirm, and the only one the discount follows.
+   */
+  expiryDeclared: date("expiry_declared"),
   /** The account's full name when the ID was approved, kept beside the hash. */
   verifiedName: text("verified_name"),
 }, (table) => [

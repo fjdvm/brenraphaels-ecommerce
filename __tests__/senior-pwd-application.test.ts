@@ -5,6 +5,7 @@ import { DEFAULT_DISCOUNT_RULE, describeRule, loadDiscountRule } from "../lib/se
 
 vi.mock("@/lib/db", () => ({ getDatabase: vi.fn() }));
 
+const FUTURE = "2099-03-15";
 const photo = (name = "id.png", type = "image/png", bytes = 4) => new File([new Uint8Array(bytes)], name, { type });
 function form(fields: Record<string, string | File>) {
   const data = new FormData();
@@ -24,17 +25,17 @@ describe("the Senior/PWD question at sign-up", () => {
   test("a yes needs the ID type, number and a front photo", () => {
     const result = parseSeniorPwdForm(form({ seniorPwd: "yes" }));
     expect(result).toMatchObject({ ok: false });
-    expect(result.ok ? {} : Object.keys(result.fieldErrors).sort()).toEqual(["idFront", "idNumber", "idType"]);
+    expect(result.ok ? {} : Object.keys(result.fieldErrors).sort()).toEqual(["idExpiry", "idFront", "idNumber", "idType"]);
   });
 
   test("a yes with everything gives the application; the back photo is optional", () => {
-    const result = parseSeniorPwdForm(form({ seniorPwd: "yes", idType: "pwd", idNumber: "PWD-123456", idFront: photo("front.png") }));
-    expect(result).toMatchObject({ ok: true, application: { idType: "pwd", idNumber: "PWD-123456" } });
+    const result = parseSeniorPwdForm(form({ seniorPwd: "yes", idType: "pwd", idNumber: "PWD-123456", idExpiry: FUTURE, idFront: photo("front.png") }));
+    expect(result).toMatchObject({ ok: true, application: { idType: "pwd", idNumber: "PWD-123456", expiryDeclared: FUTURE } });
     expect(result.ok && result.application?.back).toBeUndefined();
   });
 
   test("refuses a photo that is the wrong type or too big, and an ID number with stray characters", () => {
-    const result = parseSeniorPwdForm(form({ seniorPwd: "yes", idType: "senior", idNumber: "<b>12", idFront: photo("a.gif", "image/gif"), idBack: photo("b.png", "image/png", 5 * 1024 * 1024 + 1) }));
+    const result = parseSeniorPwdForm(form({ seniorPwd: "yes", idType: "senior", idNumber: "<b>12", idExpiry: FUTURE, idFront: photo("a.gif", "image/gif"), idBack: photo("b.png", "image/png", 5 * 1024 * 1024 + 1) }));
     expect(result.ok ? {} : result.fieldErrors).toMatchObject({
       idNumber: [expect.any(String)],
       idFront: ["Upload a JPEG or PNG photo of your ID."],
@@ -43,13 +44,30 @@ describe("the Senior/PWD question at sign-up", () => {
   });
 
   test("Account settings assumes the yes, so it asks only for the ID", () => {
-    expect(parseSeniorPwdForm(form({ idType: "senior", idNumber: "ANT-SC-1", idFront: photo() }), { required: false })).toMatchObject({ ok: true, application: { idType: "senior" } });
+    expect(parseSeniorPwdForm(form({ idType: "senior", idNumber: "ANT-SC-1", idExpiry: FUTURE, idFront: photo() }), { required: false })).toMatchObject({ ok: true, application: { idType: "senior" } });
+  });
+});
+
+describe("the ID's expiry date", () => {
+  const base = { seniorPwd: "yes", idType: "senior", idNumber: "ANT-SC-1" };
+  const parse = (extra: Record<string, string>) => parseSeniorPwdForm(form({ ...base, idFront: photo(), ...extra }));
+  const errors = (result: ReturnType<typeof parse>) => (result.ok ? {} : result.fieldErrors);
+
+  test("is required unless the ID shows none", () => {
+    expect(errors(parse({}))).toMatchObject({ idExpiry: [expect.stringContaining("valid until")] });
+    expect(parse({ noExpiry: "on" })).toMatchObject({ ok: true, application: { expiryDeclared: null } });
+  });
+
+  test("must be a real date that has not passed", () => {
+    expect(errors(parse({ idExpiry: "2020-01-01" }))).toMatchObject({ idExpiry: [expect.stringContaining("expired")] });
+    expect(errors(parse({ idExpiry: "2099-02-31" }))).toMatchObject({ idExpiry: ["Enter a valid date"] });
+    expect(errors(parse({ idExpiry: "soon" }))).toMatchObject({ idExpiry: ["Enter a valid date"] });
   });
 });
 
 describe("sending the ID for review", () => {
   const files = () => ({ upload: vi.fn(async (file: { filename: string }) => `file-${file.filename}`), remove: vi.fn(async () => {}) });
-  const application = { idType: "senior" as const, idNumber: "ANT-SC-1", front: photo("front.png"), back: photo("back.png") };
+  const application = { idType: "senior" as const, idNumber: "ANT-SC-1", expiryDeclared: FUTURE, front: photo("front.png"), back: photo("back.png") };
 
   function database(options: { latest?: object; insertError?: Error }) {
     const rows = options.latest ? [options.latest] : [];
