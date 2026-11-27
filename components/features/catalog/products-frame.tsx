@@ -1,4 +1,4 @@
-import { Heart, Star, Store } from "lucide-react";
+import { Heart, Star, Truck } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { ProductCardSkeleton } from "@/components/features/catalog/product-card";
@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const reasons = [
   { icon: Heart, title: "100% real ube", text: "Made from steamed, fresh purple yam — never artificial flavoring." },
   { icon: Star, title: "Small-batch & handmade", text: "Slow-cooked the old-fashioned way, with patience, love and care." },
-  { icon: Store, title: "Pickup or delivery", text: "Pick up at our Antipolo store or have it delivered to your door." },
+  { icon: Truck, title: "Delivery", text: "We deliver your order to your door." },
 ];
 
 /** Sized like the loaded chips row so the toolbar doesn't shift. */
