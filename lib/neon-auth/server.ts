@@ -1,5 +1,6 @@
 import { createNeonAuth } from "@neondatabase/auth/next/server";
-import { cookies } from "next/headers";
+import { createAuthServer, extractNeonAuthCookies } from "@neondatabase/auth/server";
+import { cookies, headers } from "next/headers";
 import { connection } from "next/server";
 import { cache } from "react";
 
@@ -8,9 +9,10 @@ import type { VerificationAuth } from "../customer/email-verification";
 import type { PasswordResetAuth } from "../customer/password-reset";
 import type { SignInAuth } from "../customer/sign-in";
 import type { VisitorSession } from "../customer/visitor";
+import { writeCookieIfAllowed } from "./cookie-write";
 import { verifyEmailWithNeon } from "./verify-email";
 
-function getNeonAuth() {
+function neonAuthConfig() {
   const baseUrl = process.env.NEON_AUTH_BASE_URL;
   const cookieSecret = process.env.NEON_AUTH_COOKIE_SECRET;
   if (!baseUrl || !cookieSecret) {
@@ -19,9 +21,35 @@ function getNeonAuth() {
     );
   }
 
+  return { baseUrl, cookieSecret };
+}
+
+function getNeonAuth() {
+  const { baseUrl, cookieSecret } = neonAuthConfig();
   return createNeonAuth({
     baseUrl,
     cookies: { secret: cookieSecret },
+  });
+}
+
+// Pages read the session while rendering, and `createNeonAuth` does not let us
+// replace its cookie writer, so that read gets its own server with one that
+// tolerates the render. Otherwise it matches the SDK's Next.js adapter.
+function sessionReader() {
+  return createAuthServer({
+    ...neonAuthConfig(),
+    context: async () => {
+      const cookieStore = await cookies();
+      const headerStore = await headers();
+      return {
+        getCookies: () => extractNeonAuthCookies(headerStore),
+        setCookie: (name, value, options) =>
+          writeCookieIfAllowed(() => cookieStore.set(name, value, options)),
+        getHeader: (name) => headerStore.get(name) ?? null,
+        getOrigin: () => headerStore.get("origin") || headerStore.get("referer")?.split("/").slice(0, 3).join("/") || "",
+        getFramework: () => "nextjs",
+      };
+    },
   });
 }
 
@@ -115,7 +143,7 @@ export const getVisitorSession = cache(async function getVisitorSession(): Promi
   // Neon Auth swallows Next.js's "dynamic usage" signal and reports no session,
   // so opt in to per-request rendering ourselves before it reads cookies.
   await connection();
-  const { data } = await getNeonAuth().getSession();
+  const { data } = await sessionReader().getSession();
   return data?.user
     ? {
         userId: data.user.id,
