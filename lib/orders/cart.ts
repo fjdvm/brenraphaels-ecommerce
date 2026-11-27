@@ -34,6 +34,8 @@ export type Cart = { lines: CartLine[]; subtotalInCentavos: number };
 
 export type CartStore = {
   get(customerId: string): Promise<Cart>;
+  /** Units across every line, without reading stock or photos. */
+  count(customerId: string): Promise<number>;
   addSize(customerId: string, sizeId: number, quantity: number): Promise<Cart>;
   updateLine(customerId: string, lineId: number, quantity: number): Promise<Cart>;
   removeLine(customerId: string, lineId: number): Promise<Cart>;
@@ -90,6 +92,14 @@ export function createCartStore<
         0,
       ),
     };
+  }
+
+  async function count(customerId: string): Promise<number> {
+    const [row] = await db
+      .select({ units: sql<number>`coalesce(sum(${cartLines.quantity}), 0)`.mapWith(Number) })
+      .from(cartLines)
+      .where(eq(cartLines.customerId, customerId));
+    return row.units;
   }
 
   async function addSize(customerId: string, sizeId: number, quantity: number): Promise<Cart> {
@@ -172,5 +182,5 @@ export function createCartStore<
     return get(customerId);
   }
 
-  return { get, addSize, updateLine, removeLine, clear, mergeVisitorCart };
+  return { get, count, addSize, updateLine, removeLine, clear, mergeVisitorCart };
 }

@@ -1,5 +1,7 @@
 "use server";
 
+import { refresh } from "next/cache";
+
 import { currentVisitor } from "@/lib/customer/current-visitor";
 import { getDatabase } from "@/lib/db";
 import { createCartStore } from "@/lib/orders/cart";
@@ -23,31 +25,38 @@ async function currentCustomerId() {
   return visitor.customer.userId;
 }
 
+/** Re-renders the page the Customer is on once a Cart change is saved, so the header's count follows. */
+async function thenRefresh<T>(change: Promise<T>) {
+  const result = await change;
+  refresh();
+  return result;
+}
+
 export async function getPersistedCart() {
   return createCartStore(getDatabase()).get(await currentCustomerId());
 }
 
 export async function addSizeToCart(sizeId: number, quantity: number) {
   const input = cartLineInput.parse({ sizeId, quantity });
-  return createCartStore(getDatabase()).addSize(await currentCustomerId(), input.sizeId, input.quantity);
+  return thenRefresh(createCartStore(getDatabase()).addSize(await currentCustomerId(), input.sizeId, input.quantity));
 }
 
 export async function updateCartLine(lineId: number, quantity: number) {
   const input = cartLineUpdateInput.parse({ lineId, quantity });
-  return createCartStore(getDatabase()).updateLine(await currentCustomerId(), input.lineId, input.quantity);
+  return thenRefresh(createCartStore(getDatabase()).updateLine(await currentCustomerId(), input.lineId, input.quantity));
 }
 
 export async function removeCartLine(lineId: number) {
-  return createCartStore(getDatabase()).removeLine(
+  return thenRefresh(createCartStore(getDatabase()).removeLine(
     await currentCustomerId(),
     z.number().int().positive().parse(lineId),
-  );
+  ));
 }
 
 export async function mergeVisitorCart(visitorCartId: string, lines: { sizeId: number; quantity: number }[]) {
-  return createCartStore(getDatabase()).mergeVisitorCart(
+  return thenRefresh(createCartStore(getDatabase()).mergeVisitorCart(
     await currentCustomerId(),
     z.string().min(1).max(100).parse(visitorCartId),
     z.array(cartLineInput).max(100).parse(lines),
-  );
+  ));
 }

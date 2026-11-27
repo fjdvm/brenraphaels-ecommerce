@@ -1,16 +1,17 @@
 import Link from "next/link";
-import { LogOut, ShoppingCart, User } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 
 import { signOut } from "@/app/actions";
 import { AccountMenu, MobileAccountMenu } from "@/components/shared/account-menu";
 import { SignOutButton } from "@/components/shared/sign-out-button";
+import { CartLink } from "@/components/shared/cart-link";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { initialsOf } from "@/lib/customer/initials";
 import type { Visitor } from "@/lib/customer/visitor";
 
 export function SessionNav({
-  className, visitor, showCart = true, unreadNotifications = 0,
-}: { className?: string; visitor: Visitor; showCart?: boolean; unreadNotifications?: number }) {
+  className, visitor, showCart = true, unreadNotifications = 0, cartCount,
+}: { className?: string; visitor: Visitor; showCart?: boolean; unreadNotifications?: number; cartCount?: number }) {
   const initials = visitor.state === "customer" ? initialsOf(visitor.customer.fullName) : "";
   const signOutButton = (
     <SignOutButton
@@ -26,9 +27,7 @@ export function SessionNav({
   return (
     <div className={className}>
       {showCart && (
-        <Link href="/cart" aria-label="Cart" className="hover:text-primary">
-          <ShoppingCart size={20} />
-        </Link>
+        <CartLink className="hover:text-primary" size={20} customerCount={cartCount} />
       )}
       {visitor.state === "needs-details" ? (
         <>

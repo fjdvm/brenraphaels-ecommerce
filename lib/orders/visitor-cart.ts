@@ -4,6 +4,17 @@ import { cartLineQuantityLimit } from "./quantity";
 
 export const visitorCartStorageKey = "bren-raphaels-visitor-cart";
 const visitorCartIdStorageKey = "bren-raphaels-visitor-cart-id";
+const visitorCartChanged = "visitor-cart-changed";
+
+/** Calls back when the Visitor Cart changes, in this tab or another. */
+export function subscribeToVisitorCart(onChange: () => void) {
+  window.addEventListener(visitorCartChanged, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(visitorCartChanged, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
 
 export type VisitorCartLine = {
   sizeId: number;
@@ -49,6 +60,7 @@ export function readVisitorCart(): VisitorCartLine[] {
 
 export function writeVisitorCart(lines: VisitorCartLine[]) {
   window.localStorage.setItem(visitorCartStorageKey, JSON.stringify(lines));
+  window.dispatchEvent(new Event(visitorCartChanged));
 }
 
 export function visitorCartId() {
@@ -62,6 +74,7 @@ export function visitorCartId() {
 export function clearVisitorCart() {
   window.localStorage.removeItem(visitorCartStorageKey);
   window.localStorage.removeItem(visitorCartIdStorageKey);
+  window.dispatchEvent(new Event(visitorCartChanged));
 }
 
 export function addVisitorCartLine(line: VisitorCartLine) {
