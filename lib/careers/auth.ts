@@ -2,6 +2,7 @@ import { createAuthServer } from "@neondatabase/auth/server";
 import { cookies, headers } from "next/headers";
 import { connection } from "next/server";
 
+import { writeCookieIfAllowed } from "../neon-auth/cookie-write";
 import { verifyEmailWithNeon } from "../neon-auth/verify-email";
 import type { ApplicantAuth } from "./identity";
 
@@ -41,7 +42,7 @@ function careersAuth() {
         // A separate Neon instance alone is not enough on one host: the SDK's
         // cookie names are fixed. Path scope lets both sessions coexist.
         setCookie: (name, value, options) => {
-          cookieStore.set(name, value, { ...options, path: "/careers" });
+          writeCookieIfAllowed(() => cookieStore.set(name, value, { ...options, path: "/careers" }));
         },
         getHeader: (name) => headerStore.get(name) ?? null,
         getOrigin: () => headerStore.get("origin") || headerStore.get("referer")?.split("/").slice(0, 3).join("/") || "",

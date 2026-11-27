@@ -8,6 +8,8 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL(".", import.meta.url)) },
   },
   test: {
+    // Inlined so tests can mock the next/headers import inside the Neon Auth SDK.
+    server: { deps: { inline: ["@neondatabase/auth"] } },
     // Migrates once per run and snapshots the database for createTestDatabase().
     setupFiles: ["./__tests__/helpers/router-setup.ts"],
     globalSetup: ["./__tests__/helpers/migrated-snapshot.ts"],
