@@ -56,6 +56,17 @@ async function sizeId(label: string) {
 }
 
 describe("Cart", () => {
+  test("counts every unit across a Customer's lines, and nobody else's", async () => {
+    const store = createCartStore(drizzle(client));
+    await expect(store.count("customer-1")).resolves.toBe(0);
+
+    await store.addSize("customer-1", await sizeId("250g"), 3);
+    await store.addSize("customer-1", await sizeId("500g"), 1);
+    await store.addSize("customer-2", await sizeId("250g"), 5);
+
+    await expect(store.count("customer-1")).resolves.toBe(4);
+  });
+
   test("shows the File-backed Product image in a Customer's Cart", async () => {
     const database = drizzle(client);
     await database.insert(productImages).values({ productSlug: "ube-jam", fileId: "jam-file", alt: "Jam", position: 0 });

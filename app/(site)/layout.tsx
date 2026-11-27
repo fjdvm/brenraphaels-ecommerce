@@ -11,10 +11,13 @@ import { CustomerSidebarShell } from "@/components/features/customer/customer-si
 import { CustomerSidebar } from "@/components/features/customer/customer-sidebar";
 import { Header } from "@/components/shared/header";
 import { NotificationBell } from "@/components/shared/notification-bell";
+import { CartLink } from "@/components/shared/cart-link";
 import { PageTransition } from "@/components/shared/page-transition";
 import { SessionNav } from "@/components/shared/session-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currentVisitor } from "@/lib/customer/current-visitor";
+import { getDatabase } from "@/lib/db";
+import { createCartStore } from "@/lib/orders/cart";
 import { freeShippingThreshold } from "@/lib/site/store-info";
 import { unreadInboxCount } from "@/lib/notifications/inbox";
 
@@ -40,10 +43,21 @@ async function unreadFor(customerId: string): Promise<number> {
   }
 }
 
+/** The Customer's count for the cart icon; like the bell, a failed read shows none rather than breaking the header. */
+async function cartCountFor(customerId: string): Promise<number> {
+  try {
+    return await createCartStore(getDatabase()).count(customerId);
+  } catch (error) {
+    console.error("The Cart could not be counted", error);
+    return 0;
+  }
+}
+
 async function SessionNavAsync({ className, showCart }: { className: string; showCart?: boolean }) {
   const visitor = await currentVisitor();
   const unread = visitor.state === "customer" && showCart !== false ? await unreadFor(visitor.customer.userId) : 0;
-  return <SessionNav visitor={visitor} className={className} showCart={showCart} unreadNotifications={unread} />;
+  const cartCount = visitor.state === "customer" && showCart !== false ? await cartCountFor(visitor.customer.userId) : undefined;
+  return <SessionNav visitor={visitor} className={className} showCart={showCart} unreadNotifications={unread} cartCount={cartCount} />;
 }
 
 /** Opens the Customer's live Notifications line, which refreshes the bell and the page in every open tab. */
@@ -68,6 +82,17 @@ async function MobileBellAsync() {
   return visitor.state === "customer" ? (
     <NotificationBell className="relative p-2" size={24} unread={await unreadFor(visitor.customer.userId)} />
   ) : null;
+}
+
+/** The cart in the mobile top bar; a Visitor's is counted in the browser. */
+async function MobileCartAsync() {
+  const visitor = await currentVisitor();
+  return (
+    <CartLink
+      className="p-2"
+      customerCount={visitor.state === "customer" ? await cartCountFor(visitor.customer.userId) : undefined}
+    />
+  );
 }
 
 async function CustomerSidebarGate() {
@@ -101,6 +126,11 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
         mobileBell={
           <Suspense fallback={null}>
             <MobileBellAsync />
+          </Suspense>
+        }
+        mobileCart={
+          <Suspense fallback={<CartLink className="p-2" customerCount={0} />}>
+            <MobileCartAsync />
           </Suspense>
         }
         mobileSession={

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Menu, Search, ShoppingCart, X } from "lucide-react";
+import { ChevronDown, Menu, Search, X } from "lucide-react";
 
 import { SearchOverlay, prefetchSearchResults } from "@/components/features/catalog/search-overlay";
 
@@ -158,12 +158,14 @@ export function Header({
   freeShippingAmount,
   desktopSession,
   mobileBell,
+  mobileCart,
   mobileSession,
 }: {
   /** The amount in the banner, as text, read from the shop's saved threshold. */
   freeShippingAmount: ReactNode;
   desktopSession: ReactNode;
   mobileBell?: ReactNode;
+  mobileCart: ReactNode;
   mobileSession: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -279,14 +281,9 @@ export function Header({
           >
             <Search />
           </button>
-          <Link
-            href="/cart"
-            aria-label="Cart"
-            onClick={() => setOpen(false)}
-            className="p-2"
-          >
-            <ShoppingCart />
-          </Link>
+          <div onClick={() => setOpen(false)} className="flex">
+            {mobileCart}
+          </div>
           <button
             type="button"
             className="p-2"
